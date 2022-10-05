@@ -8,8 +8,8 @@ manual_configs = [
     {},
 ]
 search_space = {
-    'learning_rate': Real(lower=5e-3, upper=0.2, default=0.05, log=True),
-    'depth': Int(lower=5, upper=10, default=6),
+    'learning_rate': Real(lower=5e-3, upper=0.1, default=0.05, log=True),
+    'depth': Int(lower=4, upper=10, default=6),
     'l2_leaf_reg': Real(lower=1, upper=5, default=3),
 }
 
