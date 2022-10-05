@@ -1,6 +1,6 @@
 # autogluon-zeroshot
 
-Requires `autogluon.common` installed (obtainable via installing `autogluon`).
+Requires `autogluon.core` installed (obtainable via installing `autogluon`).
 
 To generate configs, run `scripts/run_generate_all_configs`
 

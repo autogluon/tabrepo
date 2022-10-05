@@ -7,4 +7,7 @@ MODEL_TYPE_DICT = {
     'XGBoost': 'XGB',
     'NeuralNetFastAI': 'FASTAI',
     'NeuralNetTorch': 'NN_TORCH',
+    'KNeighbors': 'KNN',
+    'RandomForest': 'RF',
+    'ExtraTrees': 'XT',
 }

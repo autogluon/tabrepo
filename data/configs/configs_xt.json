@@ -1,0 +1,662 @@
+{
+  "ExtraTrees_c1": {
+    "hyperparameters": {
+      "ag_args": {
+        "name_suffix": "_c1"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_c1",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r1": {
+    "hyperparameters": {
+      "min_samples_leaf": 80,
+      "max_leaf_nodes": 5000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r1"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r1",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r2": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 15000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r2"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r2",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r3": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 50000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r3"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r3",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r4": {
+    "hyperparameters": {
+      "min_samples_leaf": 5,
+      "max_leaf_nodes": 50000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r4"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r4",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r5": {
+    "hyperparameters": {
+      "min_samples_leaf": 5,
+      "max_leaf_nodes": 50000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r5"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r5",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r6": {
+    "hyperparameters": {
+      "min_samples_leaf": 1,
+      "max_leaf_nodes": 15000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r6"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r6",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r7": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 15000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r7"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r7",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r8": {
+    "hyperparameters": {
+      "min_samples_leaf": 4,
+      "max_leaf_nodes": 30000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r8"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r8",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r9": {
+    "hyperparameters": {
+      "min_samples_leaf": 1,
+      "max_leaf_nodes": 5000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r9"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r9",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r10": {
+    "hyperparameters": {
+      "min_samples_leaf": 20,
+      "max_leaf_nodes": 15000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r10"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r10",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r11": {
+    "hyperparameters": {
+      "min_samples_leaf": 40,
+      "max_leaf_nodes": 50000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r11"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r11",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r12": {
+    "hyperparameters": {
+      "min_samples_leaf": 40,
+      "max_leaf_nodes": 15000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r12"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r12",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r13": {
+    "hyperparameters": {
+      "min_samples_leaf": 4,
+      "max_leaf_nodes": 15000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r13"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r13",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r14": {
+    "hyperparameters": {
+      "min_samples_leaf": 5,
+      "max_leaf_nodes": 30000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r14"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r14",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r15": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 50000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r15"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r15",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r16": {
+    "hyperparameters": {
+      "min_samples_leaf": 4,
+      "max_leaf_nodes": 50000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r16"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r16",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r17": {
+    "hyperparameters": {
+      "min_samples_leaf": 4,
+      "max_leaf_nodes": 5000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r17"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r17",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r18": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 15000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r18"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r18",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r19": {
+    "hyperparameters": {
+      "min_samples_leaf": 1,
+      "max_leaf_nodes": 15000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r19"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r19",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r20": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 5000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r20"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r20",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r21": {
+    "hyperparameters": {
+      "min_samples_leaf": 40,
+      "max_leaf_nodes": 30000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r21"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r21",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r22": {
+    "hyperparameters": {
+      "min_samples_leaf": 10,
+      "max_leaf_nodes": 5000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r22"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r22",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r23": {
+    "hyperparameters": {
+      "min_samples_leaf": 1,
+      "max_leaf_nodes": 5000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r23"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r23",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r24": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 30000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r24"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r24",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r25": {
+    "hyperparameters": {
+      "min_samples_leaf": 80,
+      "max_leaf_nodes": 5000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r25"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r25",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r26": {
+    "hyperparameters": {
+      "min_samples_leaf": 20,
+      "max_leaf_nodes": 50000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r26"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r26",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r27": {
+    "hyperparameters": {
+      "min_samples_leaf": 40,
+      "max_leaf_nodes": 5000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r27"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r27",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r28": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 15000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r28"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r28",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r29": {
+    "hyperparameters": {
+      "min_samples_leaf": 1,
+      "max_leaf_nodes": 50000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r29"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r29",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r30": {
+    "hyperparameters": {
+      "min_samples_leaf": 5,
+      "max_leaf_nodes": 15000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r30"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r30",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r31": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 50000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r31"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r31",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r32": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 30000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r32"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r32",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r33": {
+    "hyperparameters": {
+      "min_samples_leaf": 10,
+      "max_leaf_nodes": 15000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r33"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r33",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r34": {
+    "hyperparameters": {
+      "min_samples_leaf": 10,
+      "max_leaf_nodes": 50000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r34"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r34",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r35": {
+    "hyperparameters": {
+      "min_samples_leaf": 4,
+      "max_leaf_nodes": 30000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r35"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r35",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r36": {
+    "hyperparameters": {
+      "min_samples_leaf": 5,
+      "max_leaf_nodes": 50000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r36"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r36",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r37": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 5000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r37"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r37",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r38": {
+    "hyperparameters": {
+      "min_samples_leaf": 10,
+      "max_leaf_nodes": 30000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r38"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r38",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r39": {
+    "hyperparameters": {
+      "min_samples_leaf": 80,
+      "max_leaf_nodes": 50000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r39"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r39",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r40": {
+    "hyperparameters": {
+      "min_samples_leaf": 4,
+      "max_leaf_nodes": 5000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r40"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r40",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r41": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 30000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r41"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r41",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r42": {
+    "hyperparameters": {
+      "min_samples_leaf": 2,
+      "max_leaf_nodes": 50000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r42"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r42",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r43": {
+    "hyperparameters": {
+      "min_samples_leaf": 40,
+      "max_leaf_nodes": 50000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r43"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r43",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r44": {
+    "hyperparameters": {
+      "min_samples_leaf": 80,
+      "max_leaf_nodes": 15000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r44"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r44",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r45": {
+    "hyperparameters": {
+      "min_samples_leaf": 10,
+      "max_leaf_nodes": 5000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r45"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r45",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r46": {
+    "hyperparameters": {
+      "min_samples_leaf": 3,
+      "max_leaf_nodes": 5000,
+      "max_features": "log2",
+      "ag_args": {
+        "name_suffix": "_r46"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r46",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r47": {
+    "hyperparameters": {
+      "min_samples_leaf": 10,
+      "max_leaf_nodes": 50000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r47"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r47",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r48": {
+    "hyperparameters": {
+      "min_samples_leaf": 80,
+      "max_leaf_nodes": 15000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r48"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r48",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r49": {
+    "hyperparameters": {
+      "min_samples_leaf": 5,
+      "max_leaf_nodes": 5000,
+      "max_features": "sqrt",
+      "ag_args": {
+        "name_suffix": "_r49"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r49",
+    "model_type": "XT"
+  },
+  "ExtraTrees_r50": {
+    "hyperparameters": {
+      "min_samples_leaf": 20,
+      "max_leaf_nodes": 50000,
+      "max_features": 0.5,
+      "ag_args": {
+        "name_suffix": "_r50"
+      }
+    },
+    "name_prefix": "ExtraTrees",
+    "name_suffix": "_r50",
+    "model_type": "XT"
+  }
+}
