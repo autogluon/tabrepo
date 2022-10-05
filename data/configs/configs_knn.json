@@ -23,9 +23,9 @@
   },
   "KNeighbors_r1": {
     "hyperparameters": {
-      "weights": "uniform",
-      "p": 1,
-      "n_neighbors": 15,
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 20,
       "ag_args": {
         "name_suffix": "_r1"
       }
@@ -38,7 +38,7 @@
     "hyperparameters": {
       "weights": "distance",
       "p": 1,
-      "n_neighbors": 13,
+      "n_neighbors": 8,
       "ag_args": {
         "name_suffix": "_r2"
       }
@@ -49,9 +49,9 @@
   },
   "KNeighbors_r3": {
     "hyperparameters": {
-      "weights": "distance",
+      "weights": "uniform",
       "p": 2,
-      "n_neighbors": 15,
+      "n_neighbors": 11,
       "ag_args": {
         "name_suffix": "_r3"
       }
@@ -62,9 +62,9 @@
   },
   "KNeighbors_r4": {
     "hyperparameters": {
-      "weights": "distance",
+      "weights": "uniform",
       "p": 1,
-      "n_neighbors": 4,
+      "n_neighbors": 11,
       "ag_args": {
         "name_suffix": "_r4"
       }
@@ -75,9 +75,9 @@
   },
   "KNeighbors_r5": {
     "hyperparameters": {
-      "weights": "distance",
-      "p": 1,
-      "n_neighbors": 20,
+      "weights": "uniform",
+      "p": 2,
+      "n_neighbors": 9,
       "ag_args": {
         "name_suffix": "_r5"
       }
@@ -90,7 +90,7 @@
     "hyperparameters": {
       "weights": "uniform",
       "p": 1,
-      "n_neighbors": 9,
+      "n_neighbors": 13,
       "ag_args": {
         "name_suffix": "_r6"
       }
@@ -103,7 +103,7 @@
     "hyperparameters": {
       "weights": "uniform",
       "p": 1,
-      "n_neighbors": 50,
+      "n_neighbors": 4,
       "ag_args": {
         "name_suffix": "_r7"
       }
@@ -114,9 +114,9 @@
   },
   "KNeighbors_r8": {
     "hyperparameters": {
-      "weights": "distance",
+      "weights": "uniform",
       "p": 1,
-      "n_neighbors": 11,
+      "n_neighbors": 10,
       "ag_args": {
         "name_suffix": "_r8"
       }
@@ -127,9 +127,9 @@
   },
   "KNeighbors_r9": {
     "hyperparameters": {
-      "weights": "uniform",
-      "p": 1,
-      "n_neighbors": 7,
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 6,
       "ag_args": {
         "name_suffix": "_r9"
       }
@@ -140,9 +140,9 @@
   },
   "KNeighbors_r10": {
     "hyperparameters": {
-      "weights": "uniform",
+      "weights": "distance",
       "p": 2,
-      "n_neighbors": 20,
+      "n_neighbors": 11,
       "ag_args": {
         "name_suffix": "_r10"
       }
@@ -154,8 +154,8 @@
   "KNeighbors_r11": {
     "hyperparameters": {
       "weights": "uniform",
-      "p": 1,
-      "n_neighbors": 11,
+      "p": 2,
+      "n_neighbors": 20,
       "ag_args": {
         "name_suffix": "_r11"
       }
@@ -168,7 +168,7 @@
     "hyperparameters": {
       "weights": "distance",
       "p": 1,
-      "n_neighbors": 7,
+      "n_neighbors": 6,
       "ag_args": {
         "name_suffix": "_r12"
       }
@@ -179,9 +179,9 @@
   },
   "KNeighbors_r13": {
     "hyperparameters": {
-      "weights": "distance",
-      "p": 1,
-      "n_neighbors": 5,
+      "weights": "uniform",
+      "p": 2,
+      "n_neighbors": 50,
       "ag_args": {
         "name_suffix": "_r13"
       }
@@ -194,7 +194,7 @@
     "hyperparameters": {
       "weights": "distance",
       "p": 1,
-      "n_neighbors": 50,
+      "n_neighbors": 4,
       "ag_args": {
         "name_suffix": "_r14"
       }
@@ -206,8 +206,8 @@
   "KNeighbors_r15": {
     "hyperparameters": {
       "weights": "uniform",
-      "p": 2,
-      "n_neighbors": 30,
+      "p": 1,
+      "n_neighbors": 3,
       "ag_args": {
         "name_suffix": "_r15"
       }
@@ -218,9 +218,9 @@
   },
   "KNeighbors_r16": {
     "hyperparameters": {
-      "weights": "distance",
-      "p": 1,
-      "n_neighbors": 3,
+      "weights": "uniform",
+      "p": 2,
+      "n_neighbors": 8,
       "ag_args": {
         "name_suffix": "_r16"
       }
@@ -231,9 +231,9 @@
   },
   "KNeighbors_r17": {
     "hyperparameters": {
-      "weights": "uniform",
-      "p": 1,
-      "n_neighbors": 13,
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 50,
       "ag_args": {
         "name_suffix": "_r17"
       }
@@ -244,8 +244,8 @@
   },
   "KNeighbors_r18": {
     "hyperparameters": {
-      "weights": "distance",
-      "p": 2,
+      "weights": "uniform",
+      "p": 1,
       "n_neighbors": 7,
       "ag_args": {
         "name_suffix": "_r18"
@@ -259,7 +259,7 @@
     "hyperparameters": {
       "weights": "distance",
       "p": 2,
-      "n_neighbors": 4,
+      "n_neighbors": 8,
       "ag_args": {
         "name_suffix": "_r19"
       }
@@ -270,7 +270,7 @@
   },
   "KNeighbors_r20": {
     "hyperparameters": {
-      "weights": "uniform",
+      "weights": "distance",
       "p": 2,
       "n_neighbors": 5,
       "ag_args": {
@@ -283,9 +283,9 @@
   },
   "KNeighbors_r21": {
     "hyperparameters": {
-      "weights": "uniform",
+      "weights": "distance",
       "p": 1,
-      "n_neighbors": 4,
+      "n_neighbors": 50,
       "ag_args": {
         "name_suffix": "_r21"
       }
@@ -298,7 +298,7 @@
     "hyperparameters": {
       "weights": "uniform",
       "p": 2,
-      "n_neighbors": 9,
+      "n_neighbors": 6,
       "ag_args": {
         "name_suffix": "_r22"
       }
@@ -309,9 +309,9 @@
   },
   "KNeighbors_r23": {
     "hyperparameters": {
-      "weights": "distance",
-      "p": 2,
-      "n_neighbors": 9,
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 8,
       "ag_args": {
         "name_suffix": "_r23"
       }
@@ -322,9 +322,9 @@
   },
   "KNeighbors_r24": {
     "hyperparameters": {
-      "weights": "uniform",
-      "p": 2,
-      "n_neighbors": 7,
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 30,
       "ag_args": {
         "name_suffix": "_r24"
       }
@@ -336,7 +336,7 @@
   "KNeighbors_r25": {
     "hyperparameters": {
       "weights": "distance",
-      "p": 1,
+      "p": 2,
       "n_neighbors": 9,
       "ag_args": {
         "name_suffix": "_r25"
@@ -349,8 +349,8 @@
   "KNeighbors_r26": {
     "hyperparameters": {
       "weights": "distance",
-      "p": 2,
-      "n_neighbors": 50,
+      "p": 1,
+      "n_neighbors": 15,
       "ag_args": {
         "name_suffix": "_r26"
       }
@@ -361,9 +361,9 @@
   },
   "KNeighbors_r27": {
     "hyperparameters": {
-      "weights": "distance",
-      "p": 2,
-      "n_neighbors": 5,
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 9,
       "ag_args": {
         "name_suffix": "_r27"
       }
@@ -375,8 +375,8 @@
   "KNeighbors_r28": {
     "hyperparameters": {
       "weights": "uniform",
-      "p": 1,
-      "n_neighbors": 20,
+      "p": 2,
+      "n_neighbors": 13,
       "ag_args": {
         "name_suffix": "_r28"
       }
@@ -388,8 +388,8 @@
   "KNeighbors_r29": {
     "hyperparameters": {
       "weights": "uniform",
-      "p": 2,
-      "n_neighbors": 15,
+      "p": 1,
+      "n_neighbors": 30,
       "ag_args": {
         "name_suffix": "_r29"
       }
@@ -400,15 +400,275 @@
   },
   "KNeighbors_r30": {
     "hyperparameters": {
-      "weights": "uniform",
-      "p": 2,
-      "n_neighbors": 50,
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 20,
       "ag_args": {
         "name_suffix": "_r30"
       }
     },
     "name_prefix": "KNeighbors",
     "name_suffix": "_r30",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r31": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 2,
+      "n_neighbors": 15,
+      "ag_args": {
+        "name_suffix": "_r31"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r31",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r32": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 3,
+      "ag_args": {
+        "name_suffix": "_r32"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r32",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r33": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 15,
+      "ag_args": {
+        "name_suffix": "_r33"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r33",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r34": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 3,
+      "ag_args": {
+        "name_suffix": "_r34"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r34",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r35": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 7,
+      "ag_args": {
+        "name_suffix": "_r35"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r35",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r36": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 5,
+      "ag_args": {
+        "name_suffix": "_r36"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r36",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r37": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 11,
+      "ag_args": {
+        "name_suffix": "_r37"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r37",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r38": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 50,
+      "ag_args": {
+        "name_suffix": "_r38"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r38",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r39": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 7,
+      "ag_args": {
+        "name_suffix": "_r39"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r39",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r40": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 20,
+      "ag_args": {
+        "name_suffix": "_r40"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r40",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r41": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 9,
+      "ag_args": {
+        "name_suffix": "_r41"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r41",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r42": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 2,
+      "n_neighbors": 4,
+      "ag_args": {
+        "name_suffix": "_r42"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r42",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r43": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 13,
+      "ag_args": {
+        "name_suffix": "_r43"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r43",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r44": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 1,
+      "n_neighbors": 6,
+      "ag_args": {
+        "name_suffix": "_r44"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r44",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r45": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 4,
+      "ag_args": {
+        "name_suffix": "_r45"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r45",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r46": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 1,
+      "n_neighbors": 13,
+      "ag_args": {
+        "name_suffix": "_r46"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r46",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r47": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 30,
+      "ag_args": {
+        "name_suffix": "_r47"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r47",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r48": {
+    "hyperparameters": {
+      "weights": "uniform",
+      "p": 2,
+      "n_neighbors": 5,
+      "ag_args": {
+        "name_suffix": "_r48"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r48",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r49": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 10,
+      "ag_args": {
+        "name_suffix": "_r49"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r49",
+    "model_type": "KNN"
+  },
+  "KNeighbors_r50": {
+    "hyperparameters": {
+      "weights": "distance",
+      "p": 2,
+      "n_neighbors": 15,
+      "ag_args": {
+        "name_suffix": "_r50"
+      }
+    },
+    "name_prefix": "KNeighbors",
+    "name_suffix": "_r50",
     "model_type": "KNN"
   }
 }
