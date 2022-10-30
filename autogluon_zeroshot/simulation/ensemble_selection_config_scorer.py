@@ -14,6 +14,8 @@ class EnsembleSelectionConfigScorer:
                  zeroshot_gt: dict,
                  zeroshot_pred_proba: dict,
                  ranker: RankScorer,
+                 dataset_name_to_tid_dict: dict,
+                 dataset_name_to_fold_dict: dict,
                  ensemble_size=100,
                  ensemble_selection_kwargs=None):
         self.datasets = datasets
@@ -21,12 +23,17 @@ class EnsembleSelectionConfigScorer:
         self.zeroshot_gt = zeroshot_gt
         self.zeroshot_pred_proba = zeroshot_pred_proba
         self.ranker = ranker
+        self.dataset_name_to_tid_dict = dataset_name_to_tid_dict
+        self.dataset_name_to_fold_dict = dataset_name_to_fold_dict
         self.ensemble_size = ensemble_size
         if ensemble_selection_kwargs is None:
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
 
     def run_dataset(self, dataset, fold, models):
+        fold = self.dataset_name_to_fold_dict[dataset]
+        dataset = self.dataset_name_to_tid_dict[dataset]
+
         problem_type = self.zeroshot_gt[dataset][fold]['problem_type']
         metric_name = self.zeroshot_gt[dataset][fold]['eval_metric']
         eval_metric = get_metric(metric_name)
@@ -35,21 +42,21 @@ class EnsembleSelectionConfigScorer:
 
         pred_proba_dict_val = self.zeroshot_pred_proba[dataset][fold]['pred_proba_dict_val']
         pred_proba_dict_test = self.zeroshot_pred_proba[dataset][fold]['pred_proba_dict_test']
-        weighed_ensemble = EnsembleSelection(
+        weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
             metric=eval_metric,
-            **self.ensemble_selection_kwargs
+            **self.ensemble_selection_kwargs,
         )
 
         a = []
         for m in models:
             a.append(pred_proba_dict_val[m])
-        weighed_ensemble.fit(predictions=a, labels=y_val)
+        weighted_ensemble.fit(predictions=a, labels=y_val)
         b = []
         for m in models:
             b.append(pred_proba_dict_test[m])
-        y_test_pred = weighed_ensemble.predict_proba(b)
+        y_test_pred = weighted_ensemble.predict_proba(b)
         y_test = y_test.fillna(-1)
         err = eval_metric._optimum - eval_metric(y_test, y_test_pred)  # FIXME: proba or pred, figure out
 
@@ -95,6 +102,8 @@ class EnsembleSelectionConfigScorer:
             zeroshot_gt=self.zeroshot_gt,
             zeroshot_pred_proba=self.zeroshot_pred_proba,
             ranker=self.ranker,
+            dataset_name_to_tid_dict=self.dataset_name_to_tid_dict,
+            dataset_name_to_fold_dict=self.dataset_name_to_fold_dict,
             ensemble_size=self.ensemble_size,
             ensemble_selection_kwargs=self.ensemble_selection_kwargs,
         )

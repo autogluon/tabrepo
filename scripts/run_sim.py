@@ -44,7 +44,6 @@ unique_dataset_folds = set(list(df_results_by_dataset_automl['dataset'].unique()
 df_results_by_dataset, df_raw = filter_datasets(df_results_by_dataset=df_results_by_dataset,
                                                 df_raw=df_raw,
                                                 datasets=unique_dataset_folds)
-# FIXME: Fold 0
 
 folds_to_use = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 a = df_results_by_dataset[['tid', 'fold']].drop_duplicates()
@@ -53,9 +52,7 @@ b = a['tid'].value_counts()
 b = b[b == len(folds_to_use)]
 unique_datasets = list(b.index)
 
-# unique_datasets = np.array(list(df_results_by_dataset['tid'].unique()))
-# unique_datasets = np.array(list(df_results_by_dataset[df_results_by_dataset['fold'] == 0]['tid'].unique()))
-# unique_dataset_folds_list = list(unique_dataset_folds)
+dataset_name_to_fold_dict = df_results_by_dataset[['dataset', 'fold']].drop_duplicates().set_index('dataset')['fold'].to_dict()
 
 dataset_name_to_tid_dict = get_dataset_name_to_tid_dict(df_raw=df_raw)
 unique_dataset_folds_list = []
@@ -82,12 +79,6 @@ df_results_by_dataset_vs_automl = df_results_by_dataset.copy()
 df_results_by_dataset_vs_automl['rank'] = [rank_scorer_vs_automl.rank(r[1], r[0]) for r in zip(df_results_by_dataset_vs_automl['metric_error'], df_results_by_dataset_vs_automl['dataset'])]
 
 
-
-
-zeroshot_gt = load_pkl.load(f'{path_prefix}/zeroshot_gt_2022_10_13_zs.pkl')
-# NOTE: This file is BIG (1.7 GB)
-zeroshot_pred_proba = load_pkl.load(f'{path_prefix}/zeroshot_pred_proba_2022_10_13_zs.pkl')
-
 ##########
 # PART TWO
 df_metadata_tmp = df_metadata[df_metadata['tid'].isin(unique_datasets)][['tid', 'name']]
@@ -98,40 +89,26 @@ dataset_list = list(df_metadata_tmp['name'])
 banned_datasets = [
     'numerai28.6',
     'Buzzinsocialmedia_Twitter',
-    # 'yeast',  # FIXME: IDK Some bug
-    # 'KDDCup09_appetency',  # FIXME: IDK Some bug
 ]
 
 datasets_clean = [d for d in dataset_list if d not in banned_datasets]
 datasets_clean = [dataset_to_tid_dict[d] for d in datasets_clean]
-# datasets_clean = unique_dataset_folds_list
+datasets_clean = unique_dataset_folds_list
 # datasets_clean = [d for d in datasets_clean if '_0' in d]
 print(datasets_clean)
 print(len(datasets_clean))
 
+print('Loading zeroshot...')
+zeroshot_gt = load_pkl.load(f'{path_prefix}/zeroshot_gt_2022_10_13_zs.pkl')
+# NOTE: This file is BIG (17 GB)
+zeroshot_pred_proba = load_pkl.load(f'{path_prefix}/zeroshot_pred_proba_2022_10_13_zs.pkl')
+print('Loading successful!')
+
 zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in dataset_to_tid_dict}
-zeroshot_gt = {dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
+zeroshot_gt = {dataset_name_to_tid_dict[dataset_to_tid_dict[k]]: v for k, v in zeroshot_gt.items()}
 
 zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in dataset_to_tid_dict}
-zeroshot_pred_proba = {dataset_to_tid_dict[k]: v for k, v in zeroshot_pred_proba.items()}
-
-
-# df_results_by_dataset_vs_automl2 = df_results_by_dataset_vs_automl[df_results_by_dataset_vs_automl['dataset'].isin(datasets_clean)]
-
-config_scorer_single_best = SingleBestConfigScorer(
-    df_results_by_dataset_with_score_val=df_results_by_dataset_vs_automl,
-    datasets=datasets_clean,
-)
-
-config_scorer_ensemble = EnsembleSelectionConfigScorer(
-    datasets=datasets_clean,
-    folds=[0],
-    zeroshot_gt=zeroshot_gt,
-    zeroshot_pred_proba=zeroshot_pred_proba,
-    ranker=rank_scorer_vs_automl,
-    ensemble_size=5,
-)
-
+zeroshot_pred_proba = {dataset_name_to_tid_dict[dataset_to_tid_dict[k]]: v for k, v in zeroshot_pred_proba.items()}
 
 autogluon_configs = [
     'CatBoost_c1',
@@ -151,27 +128,67 @@ for m in [
     'ExtraTrees',
     'NeuralNetFastAI',
 ]:
-    for i in range(1, 6):
+    for i in range(1, 12):
         small_extra_configs.append(m + f'_r{i}')
 
 
 small_configs = autogluon_configs + small_extra_configs
 
+# small_configs = autogluon_configs
+
+small_configs_set = set(small_configs)
+
+
+# import sys
+# import pickle
+# size_bytes = sys.getsizeof(pickle.dumps(zeroshot_pred_proba, protocol=4))
+# print(f'OLD Size: {round(size_bytes / 1e6, 3)} MB')
+# task_names = list(zeroshot_pred_proba.keys())
+# for t in task_names:
+#     model_keys = list(zeroshot_pred_proba[t][0]['pred_proba_dict_val'].keys())
+#     for k in model_keys:
+#         if k not in small_configs_set:
+#             zeroshot_pred_proba[t][0]['pred_proba_dict_val'].pop(k)
+#             zeroshot_pred_proba[t][0]['pred_proba_dict_test'].pop(k)
+# print('shrunk zeroshot_pred_proba')
+#
+# size_bytes = sys.getsizeof(pickle.dumps(zeroshot_pred_proba, protocol=4))
+# print(f'NEW Size: {round(size_bytes / 1e6, 3)} MB')
+
+config_scorer_single_best = SingleBestConfigScorer(
+    df_results_by_dataset_with_score_val=df_results_by_dataset_vs_automl,
+    datasets=datasets_clean,
+)
+
+# FIXME: Remove folds logic from this class, handled in CV class
+config_scorer_ensemble = EnsembleSelectionConfigScorer(
+    datasets=datasets_clean,
+    folds=[0],
+    zeroshot_gt=zeroshot_gt,
+    zeroshot_pred_proba=zeroshot_pred_proba,
+    ranker=rank_scorer_vs_automl,
+    ensemble_size=100,
+    dataset_name_to_tid_dict=dataset_name_to_tid_dict,
+    dataset_name_to_fold_dict=dataset_name_to_fold_dict,
+)
+
 b = config_scorer_single_best.score(configs=autogluon_configs)
 print(b)
-a = config_scorer_ensemble.score(configs=autogluon_configs)
-print(a)
+# a = config_scorer_ensemble.score(configs=autogluon_configs)
+# print(a)
 
 b = config_scorer_single_best.score(configs=small_configs)
 print(b)
-a = config_scorer_ensemble.score(configs=small_configs)
-print(a)
+# a = config_scorer_ensemble.score(configs=small_configs)
+# print(a)
 
+# TODO: Add simulation results for CV
 zs_single_best_config_cv = ZeroshotEnsembleConfigCV(
     n_splits=2,
     df_results_by_dataset=df_results_by_dataset_vs_automl,
-    zeroshot_sim_name='ZS_FULL20_CV_5_VS',
+    zeroshot_sim_name='ZS_SingleBest_CV2',
     config_scorer=config_scorer_single_best,
+    unique_datasets_map=dataset_name_to_tid_dict,
     configs=small_configs,
 )
 
@@ -179,22 +196,17 @@ zs_single_best_config_cv = ZeroshotEnsembleConfigCV(
 zs_ensemble_config_cv = ZeroshotEnsembleConfigCV(
     n_splits=2,
     df_results_by_dataset=df_results_by_dataset_vs_automl,
-    zeroshot_sim_name='ZS_FULL20_CV_5_VS',
+    zeroshot_sim_name='ZS_Ensemble_CV2',
     config_scorer=config_scorer_ensemble,
+    unique_datasets_map=dataset_name_to_tid_dict,
     configs=small_configs,
 )
 
-# df_raw_zeroshots_single_best = zs_single_best_config_cv.run()
-# print(np.mean(df_raw_zeroshots_single_best))
+df_raw_zeroshots_single_best = zs_single_best_config_cv.run()
+print(f'Final Score: {np.mean(df_raw_zeroshots_single_best)}')
 df_raw_zeroshots_ensemble = zs_ensemble_config_cv.run()
-print(np.mean(df_raw_zeroshots_ensemble))
-
-##########
+print(f'Final Score: {np.mean(df_raw_zeroshots_ensemble)}')
 
 
-
-# 2.666 rank -> 4.5 rank with all
-# 4.5 rank -> 4.16 rank with AG configs
 if __name__ == '__main__':
-    print('yo')
     pass
