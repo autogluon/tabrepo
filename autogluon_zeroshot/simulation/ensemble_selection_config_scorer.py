@@ -10,7 +10,6 @@ from autogluon_zeroshot.utils.rank_utils import RankScorer
 class EnsembleSelectionConfigScorer:
     def __init__(self,
                  datasets: list,
-                 folds: list,
                  zeroshot_gt: dict,
                  zeroshot_pred_proba: dict,
                  ranker: RankScorer,
@@ -19,7 +18,6 @@ class EnsembleSelectionConfigScorer:
                  ensemble_size=100,
                  ensemble_selection_kwargs=None):
         self.datasets = datasets
-        self.folds = folds
         self.zeroshot_gt = zeroshot_gt
         self.zeroshot_pred_proba = zeroshot_pred_proba
         self.ranker = ranker
@@ -30,7 +28,7 @@ class EnsembleSelectionConfigScorer:
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
 
-    def run_dataset(self, dataset, fold, models):
+    def run_dataset(self, dataset, models):
         fold = self.dataset_name_to_fold_dict[dataset]
         dataset = self.dataset_name_to_tid_dict[dataset]
 
@@ -68,14 +66,9 @@ class EnsembleSelectionConfigScorer:
         return err
 
     def compute_errors(self, configs: list):
-        # FIXME: Use Fold
-        if len(self.folds) != 1:
-            raise AssertionError('self.folds not implemented for multifold yet!')
         errors = {}
         for dataset in self.datasets:
-            for fold in self.folds:
-                err = self.run_dataset(dataset, fold, configs)
-                errors[dataset] = err
+            errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
         return errors
 
     def compute_ranks(self, errors: dict):
@@ -98,7 +91,6 @@ class EnsembleSelectionConfigScorer:
     def subset(self, datasets):
         return self.__class__(
             datasets=datasets,
-            folds=self.folds,
             zeroshot_gt=self.zeroshot_gt,
             zeroshot_pred_proba=self.zeroshot_pred_proba,
             ranker=self.ranker,

@@ -3,7 +3,7 @@ import pandas as pd
 
 class SingleBestConfigScorer:
     def __init__(self,
-                 df_results_by_dataset_with_score_val: pd.DataFrame,
+                 df_results_by_dataset: pd.DataFrame,
                  datasets: list = None,
                  score_col: str = 'rank',
                  score_val_col: str = 'score_val',
@@ -14,15 +14,15 @@ class SingleBestConfigScorer:
         self.model_col = model_col
         self.dataset_col = dataset_col
         if datasets is not None:
-            df_results_by_dataset_with_score_val = df_results_by_dataset_with_score_val[
-                df_results_by_dataset_with_score_val[dataset_col].isin(datasets)]
-        self.df_results_by_dataset_with_score_val = df_results_by_dataset_with_score_val
-        self.datasets = list(self.df_results_by_dataset_with_score_val[dataset_col].unique())
-        self.df_pivot_val = self.df_results_by_dataset_with_score_val.pivot_table(index=self.model_col, columns=self.dataset_col, values=self.score_val_col)
+            df_results_by_dataset = df_results_by_dataset[
+                df_results_by_dataset[dataset_col].isin(datasets)]
+        self.df_results_by_dataset = df_results_by_dataset
+        self.datasets = list(self.df_results_by_dataset[dataset_col].unique())
+        self.df_pivot_val = self.df_results_by_dataset.pivot_table(index=self.model_col, columns=self.dataset_col, values=self.score_val_col)
 
     def get_configs_df(self, configs: list) -> pd.DataFrame:
         best_val_model_series = self.df_pivot_val.loc[configs].idxmax(axis=0).to_frame(name=self.model_col)
-        best_val_model_by_dataset_df = self.df_results_by_dataset_with_score_val.merge(best_val_model_series, on=[self.dataset_col, self.model_col])
+        best_val_model_by_dataset_df = self.df_results_by_dataset.merge(best_val_model_series, on=[self.dataset_col, self.model_col])
         return best_val_model_by_dataset_df
 
     def score(self, configs: list) -> float:
@@ -34,7 +34,7 @@ class SingleBestConfigScorer:
 
     def subset(self, datasets):
         return self.__class__(
-            df_results_by_dataset_with_score_val=self.df_results_by_dataset_with_score_val,
+            df_results_by_dataset=self.df_results_by_dataset,
             datasets=datasets,
             score_col=self.score_col,
             score_val_col=self.score_val_col,

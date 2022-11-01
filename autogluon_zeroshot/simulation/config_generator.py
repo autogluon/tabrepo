@@ -121,14 +121,18 @@ class ZeroshotConfigGenerator:
         return zeroshot_configs
 
 
-class ZeroshotEnsembleConfigCV:
-    def __init__(self, n_splits, df_results_by_dataset, zeroshot_sim_name, config_scorer, unique_datasets_map, configs: list = None):
+class ZeroshotConfigGeneratorCV:
+    def __init__(self,
+                 n_splits,
+                 df_results_by_dataset,
+                 zeroshot_sim_name,
+                 config_scorer,
+                 unique_datasets_map,
+                 configs: list = None):
 
         self.n_splits = n_splits
         self.zeroshot_sim_name = zeroshot_sim_name
         self.config_scorer = config_scorer
-
-        # df_results_by_dataset_with_score_val = combine_results_with_score_val(self.df_raw, self.df_results_by_dataset)
         self.unique_datasets_fold = np.array(config_scorer.datasets)
         self.unique_datasets_map = unique_datasets_map
         self.unique_datasets = set()
@@ -140,7 +144,9 @@ class ZeroshotEnsembleConfigCV:
                 self.dataset_parent_to_fold_map[dataset_parent].append(d)
             else:
                 self.dataset_parent_to_fold_map[dataset_parent] = [d]
-        self.unique_datasets = np.array(list(self.unique_datasets))
+        for d in self.dataset_parent_to_fold_map:
+            self.dataset_parent_to_fold_map[d] = sorted(self.dataset_parent_to_fold_map[d])
+        self.unique_datasets = np.array((sorted(list(self.unique_datasets))))
 
         if configs is None:
             configs = list(df_results_by_dataset['framework'].unique())
@@ -150,7 +156,6 @@ class ZeroshotEnsembleConfigCV:
 
     def run(self):
         df_raw_zeroshots = []
-        print(f'datasets: {self.unique_datasets}')
         for i, (train_index, test_index) in enumerate(self.kf.split(self.unique_datasets)):
             print(f'Fitting Fold {i+1}...')
             # print("TRAIN:", train_index, "TEST:", test_index)
@@ -161,8 +166,8 @@ class ZeroshotEnsembleConfigCV:
                 X_train_fold += self.dataset_parent_to_fold_map[d]
             for d in X_test:
                 X_test_fold += self.dataset_parent_to_fold_map[d]
-            print(X_train_fold)
-            print(X_test_fold)
+            # print(X_train_fold)
+            # print(X_test_fold)
             df_raw_zeroshots.append(self.run_fold(X_train_fold, X_test_fold))
         # df_raw_zeroshots = pd.concat(df_raw_zeroshots)
         return df_raw_zeroshots
