@@ -8,8 +8,8 @@ from ..utils.rank_utils import RankScorer
 
 
 class ZeroshotSimulatorContext:
-    def __init__(self, df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds_to_use):
-        self.folds_to_use = folds_to_use
+    def __init__(self, df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
+        self.folds = folds
 
         self.df_results_by_dataset_vs_automl, \
         self.dataset_name_to_tid_dict, \
@@ -21,12 +21,12 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
-            folds_to_use=folds_to_use,
+            folds=folds,
         )
 
     @staticmethod
-    def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds_to_use):
-        df_results_by_dataset = df_results_by_dataset[df_results_by_dataset['fold'].isin(folds_to_use)]
+    def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
+        df_results_by_dataset = df_results_by_dataset[df_results_by_dataset['fold'].isin(folds)]
         unique_dataset_folds_set = set(list(df_results_by_dataset['dataset'].unique()))
         df_results_by_dataset_automl = df_results_by_dataset_automl[
             df_results_by_dataset_automl['dataset'].isin(unique_dataset_folds_set)]
@@ -37,9 +37,9 @@ class ZeroshotSimulatorContext:
                                                         datasets=unique_dataset_folds_set)
 
         a = df_results_by_dataset[['tid', 'fold']].drop_duplicates()
-        a = a[a['fold'].isin(folds_to_use)]
+        a = a[a['fold'].isin(folds)]
         b = a['tid'].value_counts()
-        b = b[b == len(folds_to_use)]
+        b = b[b == len(folds)]
         unique_datasets = list(b.index)
 
         dataset_name_to_fold_dict = df_results_by_dataset[['dataset', 'fold']].drop_duplicates().set_index('dataset')[
@@ -83,6 +83,16 @@ class ZeroshotSimulatorContext:
             rank_scorer_vs_automl,
         )
 
+    def print_info(self):
+        out = '====== Zeroshot Simulator Context Info ======\n'
+        out += f'# Configs: {len(self.get_configs())}\n'
+        out += f'# Datasets: {len(self.unique_datasets)}\n'
+        out += f'# Folds: {len(self.folds)}\n'
+        out += f'Folds: {self.folds}\n'
+        out += f'# Folds*Datasets: {len(self.unique_dataset_folds)}\n'
+        out += '=============================================\n'
+        print(out)
+
     def get_configs(self) -> list:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())
@@ -110,10 +120,10 @@ class ZeroshotSimulatorContext:
             if d not in task_names_set:
                 raise AssertionError(f'Missing expected dataset {d} in zeroshot_pred_proba!')
             folds_in_zs = list(zeroshot_pred_proba[d].keys())
-            for f in self.folds_to_use:
+            for f in self.folds:
                 if f not in folds_in_zs:
                     raise AssertionError(f'Missing expected fold {f} in dataset {d} in zeroshot_pred_proba! '
-                                         f'Expected: {self.folds_to_use}, Actual: {folds_in_zs}')
+                                         f'Expected: {self.folds}, Actual: {folds_in_zs}')
 
         for d in task_names:
             if d not in self.unique_datasets:
@@ -122,7 +132,7 @@ class ZeroshotSimulatorContext:
             else:
                 folds_in_zs = list(zeroshot_pred_proba[d].keys())
                 for f in folds_in_zs:
-                    if f not in self.folds_to_use:
+                    if f not in self.folds:
                         zeroshot_pred_proba[d].pop(f)
                         zeroshot_gt[d].pop(f)
         return zeroshot_pred_proba, zeroshot_gt

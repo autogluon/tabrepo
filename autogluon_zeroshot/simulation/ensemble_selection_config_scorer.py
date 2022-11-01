@@ -3,7 +3,8 @@ import numpy as np
 from autogluon.core.metrics import get_metric
 from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSelection
 
-from autogluon_zeroshot.utils.rank_utils import RankScorer
+from .simulation_context import ZeroshotSimulatorContext
+from ..utils.rank_utils import RankScorer
 
 
 # FIXME: Add temperature scaling!!
@@ -27,6 +28,15 @@ class EnsembleSelectionConfigScorer:
         if ensemble_selection_kwargs is None:
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
+
+    @classmethod
+    def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
+        return cls(
+            ranker=zeroshot_simulator_context.rank_scorer_vs_automl,
+            dataset_name_to_tid_dict=zeroshot_simulator_context.dataset_name_to_tid_dict,
+            dataset_name_to_fold_dict=zeroshot_simulator_context.dataset_name_to_fold_dict,
+            **kwargs,
+        )
 
     def run_dataset(self, dataset, models):
         fold = self.dataset_name_to_fold_dict[dataset]

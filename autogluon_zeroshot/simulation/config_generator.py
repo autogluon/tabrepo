@@ -1,9 +1,12 @@
 import copy
 import time
+from typing import List
 
 import numpy as np
 import ray
 from sklearn.model_selection import KFold
+
+from .simulation_context import ZeroshotSimulatorContext
 
 
 @ray.remote
@@ -14,18 +17,18 @@ def score_config_ray(config_scorer, existing_configs, new_config) -> float:
 
 
 class ZeroshotConfigGenerator:
-    def __init__(self, config_scorer, configs: list, backend='ray'):
+    def __init__(self, config_scorer, configs: List[str], backend='ray'):
         self.config_scorer = config_scorer
         self.all_configs = configs
         self.backend = backend
 
     def select_zeroshot_configs(self,
                                 num_zeroshot: int,
-                                zeroshot_configs: list = None,
+                                zeroshot_configs: List[str] = None,
                                 removal_stage=True,
                                 removal_threshold=0,
                                 config_scorer_test=None,
-                                ) -> list:
+                                ) -> List[str]:
         if zeroshot_configs is None:
             zeroshot_configs = []
         else:
@@ -95,7 +98,7 @@ class ZeroshotConfigGenerator:
         best_score = result[result_idx_min]
         return best_next_config, best_score
 
-    def prune_zeroshot_configs(self, zeroshot_configs: list, removal_threshold=0) -> list:
+    def prune_zeroshot_configs(self, zeroshot_configs: List[str], removal_threshold=0) -> List[str]:
         zeroshot_configs = copy.deepcopy(zeroshot_configs)
         best_score = self.config_scorer.score(zeroshot_configs)
         finished_removal = False
@@ -124,17 +127,16 @@ class ZeroshotConfigGenerator:
 class ZeroshotConfigGeneratorCV:
     def __init__(self,
                  n_splits,
-                 df_results_by_dataset,
+                 zeroshot_simulator_context: ZeroshotSimulatorContext,
                  zeroshot_sim_name,
                  config_scorer,
-                 unique_datasets_map,
-                 configs: list = None):
+                 configs: List[str] = None):
 
         self.n_splits = n_splits
         self.zeroshot_sim_name = zeroshot_sim_name
         self.config_scorer = config_scorer
         self.unique_datasets_fold = np.array(config_scorer.datasets)
-        self.unique_datasets_map = unique_datasets_map
+        self.unique_datasets_map = zeroshot_simulator_context.dataset_name_to_tid_dict
         self.unique_datasets = set()
         self.dataset_parent_to_fold_map = dict()
         for d in self.unique_datasets_fold:
@@ -149,7 +151,7 @@ class ZeroshotConfigGeneratorCV:
         self.unique_datasets = np.array((sorted(list(self.unique_datasets))))
 
         if configs is None:
-            configs = list(df_results_by_dataset['framework'].unique())
+            configs = zeroshot_simulator_context.get_configs()
         self.configs = configs
 
         self.kf = KFold(n_splits=self.n_splits, random_state=0, shuffle=True)
