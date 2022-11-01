@@ -1,5 +1,7 @@
 import pandas as pd
 
+from .simulation_context import ZeroshotSimulatorContext
+
 
 class SingleBestConfigScorer:
     def __init__(self,
@@ -19,6 +21,13 @@ class SingleBestConfigScorer:
         self.df_results_by_dataset = df_results_by_dataset
         self.datasets = list(self.df_results_by_dataset[dataset_col].unique())
         self.df_pivot_val = self.df_results_by_dataset.pivot_table(index=self.model_col, columns=self.dataset_col, values=self.score_val_col)
+
+    @classmethod
+    def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
+        return cls(
+            df_results_by_dataset=zeroshot_simulator_context.df_results_by_dataset_vs_automl,
+            **kwargs,
+        )
 
     def get_configs_df(self, configs: list) -> pd.DataFrame:
         best_val_model_series = self.df_pivot_val.loc[configs].idxmax(axis=0).to_frame(name=self.model_col)

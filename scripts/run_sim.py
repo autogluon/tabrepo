@@ -8,10 +8,7 @@ from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_
 zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=True)
 zsc.print_info()
 
-df_results_by_dataset_vs_automl = zsc.df_results_by_dataset_vs_automl
-unique_dataset_folds = zsc.unique_dataset_folds
-
-datasets = unique_dataset_folds
+datasets = zsc.unique_dataset_folds
 
 autogluon_configs = [
     'CatBoost_c1',
@@ -37,8 +34,8 @@ small_configs = autogluon_configs + small_extra_configs
 
 configs_all = zsc.get_configs()
 
-config_scorer_single_best = SingleBestConfigScorer(
-    df_results_by_dataset=df_results_by_dataset_vs_automl,
+config_scorer_single_best = SingleBestConfigScorer.from_zsc(
+    zeroshot_simulator_context=zsc,
     datasets=datasets,
 )
 # TODO: Add simulation results for CV
@@ -74,9 +71,9 @@ score = config_scorer_single_best.score(configs=small_configs)
 print(score)
 
 df_raw_zeroshots_single_best = zs_single_best_config_cv.run()
-print(f'Final Score: {np.mean(df_raw_zeroshots_single_best)}')
+print(f'Final Test Score (Single Best): {np.mean(df_raw_zeroshots_single_best)}')
 df_raw_zeroshots_ensemble = zs_ensemble_config_cv.run()
-print(f'Final Score: {np.mean(df_raw_zeroshots_ensemble)}')
+print(f'Final Test Score (Ensemble): {np.mean(df_raw_zeroshots_ensemble)}')
 
 
 if __name__ == '__main__':
