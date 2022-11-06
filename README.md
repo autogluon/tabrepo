@@ -45,7 +45,9 @@ Now that we have results for every config on every dataset, we can simulate conf
 Two simulation strategies are implemented:
 
 1. SingleBest - Create a portfolio that scores by choosing the model with the best validation score as the final solution (no ensembling)
+    - Run via `scripts/run_simulate_zs_single_best.py`
 2. Ensemble - Create a portfolio that scores by creating a GreedyWeightedEnsemble via the validation data as the final solution.
+    - Run via `scripts/run_simulate_zs_ensemble.py` (Requires zeroshot_pred_proba file downloaded)
 
 ### Scoring function
 
