@@ -1,4 +1,10 @@
-# autogluon-zeroshot
+# AutoGluon-Zeroshot
+
+This repo is made to faciliate the discovery of stronger AutoML system defaults via extensive analysis of large-scale benchmarking results and simulation-based zeroshot portfolio construction.
+
+This repo is WIP and is an actively on-going research effort.
+
+## Installation
 
 Requires the latest `autogluon` installed (obtainable via `pip install autogluon` or installing from source).
 
