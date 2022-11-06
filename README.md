@@ -16,6 +16,10 @@ If running on MacOS, edit the script to use `native` backend instead of `ray` ba
 
 Note: You will need to be in the working directory of `scripts/` to load the files correctly. This will likely change in future.
 
+## Related Repositories
+
+https://github.com/ISG-Siegen/assembled - Focused on finding strong ensemble algorithms given a fixed set of models using similar simulation-based approaches. Could be useful to combine the zeroshot simulation logic of this repo with the ensemble simulation logic of `assembled`.
+
 # In-Depth
 
 ## Config Generation
