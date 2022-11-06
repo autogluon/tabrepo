@@ -50,4 +50,4 @@ if __name__ == '__main__':
     score_total = score_total / len_datasets_total
     print(f'Final Score: {score_total}')
 
-    save_pkl.save(path='./ensemble_result.pkl', object=results_total)
+    save_pkl.save(path='./sim_results/ensemble_result.pkl', object=results_total)

@@ -104,6 +104,7 @@ if __name__ == '__main__':
 
     from autogluon.common.savers import save_pd
     # Use this file to compare theoretical performance to AutoGluon in separate analysis repo
+    save_pd.save(path=f'zeroshot_results/zeroshot_{out_name}.csv', df=df_raw_all)
     s3_prefix = 's3://autogluon-zeroshot/config_results'
     save_pd.save(path=f'{s3_prefix}/zeroshot_{out_name}.csv', df=df_raw_all)
 
