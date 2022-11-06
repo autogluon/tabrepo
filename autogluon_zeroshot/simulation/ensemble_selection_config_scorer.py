@@ -18,6 +18,10 @@ class EnsembleSelectionConfigScorer:
                  dataset_name_to_fold_dict: dict,
                  ensemble_size=100,
                  ensemble_selection_kwargs=None):
+        if zeroshot_gt is None:
+            raise ValueError(f'zeroshot_gt cannot be None!')
+        if zeroshot_pred_proba is None:
+            raise ValueError(f'zeroshot_pred_proba cannot be None!')
         self.datasets = datasets
         self.zeroshot_gt = zeroshot_gt
         self.zeroshot_pred_proba = zeroshot_pred_proba

@@ -12,6 +12,7 @@ class ZeroshotSimulatorContext:
         self.folds = folds
 
         self.df_results_by_dataset_vs_automl, \
+        self.df_raw, \
         self.dataset_name_to_tid_dict, \
         self.dataset_to_tid_dict, \
         self.dataset_name_to_fold_dict, \
@@ -23,6 +24,10 @@ class ZeroshotSimulatorContext:
             df_raw=df_raw,
             folds=folds,
         )
+
+        tmp = self.df_results_by_dataset_vs_automl[['dataset', 'tid', 'problem_type']]
+        self.dataset_to_problem_type_dict = tmp[['dataset', 'problem_type']].drop_duplicates().set_index('dataset').squeeze().to_dict()
+        self.tid_to_problem_type_dict = tmp[['tid', 'problem_type']].drop_duplicates().set_index('tid').squeeze().to_dict()
 
     @staticmethod
     def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
@@ -75,6 +80,7 @@ class ZeroshotSimulatorContext:
 
         return (
             df_results_by_dataset_vs_automl,
+            df_raw,
             dataset_name_to_tid_dict,
             dataset_to_tid_dict,
             dataset_name_to_fold_dict,
@@ -92,6 +98,18 @@ class ZeroshotSimulatorContext:
         out += f'# Folds*Datasets: {len(self.unique_dataset_folds)}\n'
         out += '=============================================\n'
         print(out)
+
+    def get_datasets(self, problem_type=None):
+        datasets = self.unique_datasets
+        if problem_type is not None:
+            datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]
+        return datasets
+
+    def get_dataset_folds(self, problem_type=None):
+        datasets = self.unique_dataset_folds
+        if problem_type is not None:
+            datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
+        return datasets
 
     def get_configs(self) -> list:
         """Return all valid configs"""

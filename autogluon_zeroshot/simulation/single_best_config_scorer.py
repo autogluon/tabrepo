@@ -34,6 +34,12 @@ class SingleBestConfigScorer:
         best_val_model_by_dataset_df = self.df_results_by_dataset.merge(best_val_model_series, on=[self.dataset_col, self.model_col])
         return best_val_model_by_dataset_df
 
+    def score_per_dataset(self, configs: list, score_col=None) -> dict:
+        if score_col is None:
+            score_col = self.score_col
+        best_val_model_by_dataset_df = self.get_configs_df(configs=configs)
+        return best_val_model_by_dataset_df[[self.dataset_col, score_col]].set_index(self.dataset_col).squeeze().to_dict()
+
     def score(self, configs: list) -> float:
         best_val_model_by_dataset_df = self.get_configs_df(configs=configs)
         avg_error_real = best_val_model_by_dataset_df[self.score_col].mean()

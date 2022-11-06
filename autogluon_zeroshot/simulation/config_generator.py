@@ -130,9 +130,11 @@ class ZeroshotConfigGeneratorCV:
                  zeroshot_simulator_context: ZeroshotSimulatorContext,
                  zeroshot_sim_name,
                  config_scorer,
-                 configs: List[str] = None):
+                 configs: List[str] = None,
+                 backend='ray'):
 
         self.n_splits = n_splits
+        self.backend = backend
         self.zeroshot_sim_name = zeroshot_sim_name
         self.config_scorer = config_scorer
         self.unique_datasets_fold = np.array(config_scorer.datasets)
@@ -157,10 +159,9 @@ class ZeroshotConfigGeneratorCV:
         self.kf = KFold(n_splits=self.n_splits, random_state=0, shuffle=True)
 
     def run(self):
-        df_raw_zeroshots = []
+        fold_results = []
         for i, (train_index, test_index) in enumerate(self.kf.split(self.unique_datasets)):
             print(f'Fitting Fold {i+1}...')
-            # print("TRAIN:", train_index, "TEST:", test_index)
             X_train, X_test = list(self.unique_datasets[train_index]), list(self.unique_datasets[test_index])
             X_train_fold = []
             X_test_fold = []
@@ -168,17 +169,26 @@ class ZeroshotConfigGeneratorCV:
                 X_train_fold += self.dataset_parent_to_fold_map[d]
             for d in X_test:
                 X_test_fold += self.dataset_parent_to_fold_map[d]
-            # print(X_train_fold)
-            # print(X_test_fold)
-            df_raw_zeroshots.append(self.run_fold(X_train_fold, X_test_fold))
-        # df_raw_zeroshots = pd.concat(df_raw_zeroshots)
-        return df_raw_zeroshots
+            zeroshot_configs_fold, score_fold = self.run_fold(X_train_fold, X_test_fold)
+            results_fold = {
+                'fold': i+1,
+                'X_train': X_train,
+                'X_test': X_test,
+                'X_train_fold': X_train_fold,
+                'X_test_fold': X_test_fold,
+                'score': score_fold,
+                'selected_configs': zeroshot_configs_fold,
+            }
+            fold_results.append(results_fold)
+        return fold_results
 
     def run_fold(self, X_train, X_test):
         config_scorer_train = self.config_scorer.subset(datasets=X_train)
         config_scorer_test = self.config_scorer.subset(datasets=X_test)
 
-        zs_config_generator = ZeroshotConfigGenerator(config_scorer=config_scorer_train, configs=self.configs)
+        zs_config_generator = ZeroshotConfigGenerator(config_scorer=config_scorer_train,
+                                                      configs=self.configs,
+                                                      backend=self.backend)
 
         zeroshot_configs = zs_config_generator.select_zeroshot_configs(10,
                                                                        removal_stage=False,
@@ -188,9 +198,8 @@ class ZeroshotConfigGeneratorCV:
         # FIXME: SPEEDUP WITH RAY
         # zeroshot_configs = zs_config_generator.prune_zeroshot_configs(zeroshot_configs, removal_threshold=0)
 
+        # Consider making test scoring optional here
         score = config_scorer_test.score(zeroshot_configs)
         print(f'score: {score}')
 
-        return score
-        # df_raw_zeroshot = get_zeroshot_config_simulation(zeroshot_configs=zeroshot_configs, config_scorer=config_scorer_test, df_raw=df_raw_test, zeroshot_sim_name=self.zeroshot_sim_name)
-        # return df_raw_zeroshot
+        return zeroshot_configs, score

@@ -51,3 +51,31 @@ def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False) -> (Zero
                                                                         path_gt=path_zs_gt)
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+
+
+def get_configs_default():
+    autogluon_configs = [
+        'CatBoost_c1',
+        'LightGBM_c1',
+        'LightGBM_c2',
+        'LightGBM_c3',
+        'NeuralNetFastAI_c1',
+        'RandomForest_c1',
+        'ExtraTrees_c1',
+    ]
+    return autogluon_configs
+
+
+def get_configs_small():
+    small_extra_configs = []
+    for m in [
+        'LightGBM',
+        'CatBoost',
+        'RandomForest',
+        'ExtraTrees',
+        'NeuralNetFastAI',
+    ]:
+        for i in range(1, 12):
+            small_extra_configs.append(m + f'_r{i}')
+    small_configs = get_configs_default() + small_extra_configs
+    return small_configs
