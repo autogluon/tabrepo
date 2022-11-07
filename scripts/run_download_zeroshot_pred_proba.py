@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
 
@@ -12,7 +14,7 @@ if __name__ == '__main__':
     zeroshot_gt = load_pkl.load(path_gt)
     zeroshot_pred_proba = load_pkl.load(path_pred_proba)
 
-    save_path = '../data/results/all_v3/'
+    save_path = Path(__file__).parent.parent / 'data' / 'results' / 'all_v3'
 
-    save_pkl.save(path=save_path + path_gt_name, object=zeroshot_gt)
-    save_pkl.save(path=save_path + path_pred_proba_name, object=zeroshot_pred_proba)
+    save_pkl.save(path=str(save_path / path_gt_name), object=zeroshot_gt)
+    save_pkl.save(path=str(save_path / path_pred_proba_name), object=zeroshot_pred_proba)

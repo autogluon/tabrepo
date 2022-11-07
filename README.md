@@ -6,15 +6,12 @@ This repo is WIP and is an actively on-going research effort.
 
 ## Installation
 
-Requires the latest `autogluon` installed (obtainable via `pip install autogluon` or installing from source).
+Requires the latest `autogluon` installed (can be installed from source).
 
 ## Quick-start
 
 You can try the code out to generate a zeroshot portfolio immediately by running `scripts/run_simulate_zs_single_best.py`.
-Note: You will need `ray` installed (included in `autogluon` unless running in MacOS) to run without edits.
-If running on MacOS, edit the script to use `native` backend instead of `ray` backend.
-
-Note: You will need to be in the working directory of `scripts/` to load the files correctly. This will likely change in future.
+Note: You will need `ray` installed to run without edits.
 
 ## Related Repositories
 
