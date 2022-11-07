@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from autogluon.common.savers import save_pkl
@@ -52,4 +54,5 @@ if __name__ == '__main__':
     score_total = score_total / len_datasets_total
     print(f'Final Score: {score_total}')
 
-    save_pkl.save(path='./sim_results/single_best_result.pkl', object=results_total)
+    save_pkl.save(path=str(Path(__file__).parent / 'sim_results' / 'single_best_result.pkl'), object=results_total)
+

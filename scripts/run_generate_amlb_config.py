@@ -1,8 +1,12 @@
+from pathlib import Path
+
 from autogluon.common.loaders import load_json
 
 
 if __name__ == '__main__':
-    configs_zs = load_json.load(path='../data/configs/zeroshot/configs_zs_20221004.json')
+    json_root = Path(__file__).parent.parent / 'data' / 'configs' / 'zeroshot'
+
+    configs_zs = load_json.load(path=json_root / 'configs_zs_20221004.json')
 
     hyperparameters_dict = {}
 
