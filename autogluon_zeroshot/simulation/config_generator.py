@@ -6,6 +6,7 @@ import numpy as np
 import ray
 from sklearn.model_selection import KFold
 
+from .configuration_list_scorer import ConfigurationListScorer
 from .simulation_context import ZeroshotSimulatorContext
 
 
@@ -73,6 +74,7 @@ class ZeroshotConfigGenerator:
     @staticmethod
     def _select_sequential(configs: list, prior_configs: list, config_scorer):
         best_next_config = None
+        # todo could use np.inf but would need unit-test (also to check that ray/sequential returns the same selection)
         best_score = 999999999
         for config in configs:
             config_selected = prior_configs + [config]
@@ -126,16 +128,24 @@ class ZeroshotConfigGenerator:
 
 class ZeroshotConfigGeneratorCV:
     def __init__(self,
-                 n_splits,
+                 n_splits: int,
                  zeroshot_simulator_context: ZeroshotSimulatorContext,
-                 zeroshot_sim_name,
-                 config_scorer,
+                 config_scorer: ConfigurationListScorer,
                  configs: List[str] = None,
                  backend='ray'):
-
+        """
+        Runs zero-shot selection on `n_splits` ("train", "test") folds of datasets.
+        For each split, zero-shot configurations are selected using the datasets belonging on the "train" split and the
+        performance of the zero-shot configuration is evaluated using the datasets in the "test" split.
+        :param n_splits: number of split to consider
+        :param zeroshot_simulator_context:
+        :param config_scorer:
+        :param configs:
+        :param backend:
+        """
+        assert n_splits >= 2
         self.n_splits = n_splits
         self.backend = backend
-        self.zeroshot_sim_name = zeroshot_sim_name
         self.config_scorer = config_scorer
         self.unique_datasets_fold = np.array(config_scorer.datasets)
         self.unique_datasets_map = zeroshot_simulator_context.dataset_name_to_tid_dict

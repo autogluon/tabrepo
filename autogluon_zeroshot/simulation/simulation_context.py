@@ -1,6 +1,8 @@
 import pickle
 import sys
+from typing import Optional, List
 
+import pandas as pd
 from autogluon.common.loaders import load_pkl
 
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
@@ -8,7 +10,20 @@ from ..utils.rank_utils import RankScorer
 
 
 class ZeroshotSimulatorContext:
-    def __init__(self, df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
+    def __init__(
+            self, 
+            df_results_by_dataset: pd.DataFrame,
+            df_results_by_dataset_automl: pd.DataFrame,
+            df_raw: pd.DataFrame, 
+            folds: List[int]
+    ):
+        """
+        Encapsulates results evaluated on multiple base models/datasets/folds.
+        :param df_results_by_dataset: results of base models on multiple datasets/folds
+        :param df_results_by_dataset_automl: results of automl systems by multiple datasets/folds
+        :param df_raw: 
+        :param folds: List of folds to be considered in a list of integers
+        """
         self.folds = folds
 
         self.df_results_by_dataset_vs_automl, \
@@ -26,8 +41,10 @@ class ZeroshotSimulatorContext:
         )
 
         tmp = self.df_results_by_dataset_vs_automl[['dataset', 'tid', 'problem_type']]
-        self.dataset_to_problem_type_dict = tmp[['dataset', 'problem_type']].drop_duplicates().set_index('dataset').squeeze().to_dict()
-        self.tid_to_problem_type_dict = tmp[['tid', 'problem_type']].drop_duplicates().set_index('tid').squeeze().to_dict()
+        self.dataset_to_problem_type_dict = tmp[['dataset', 'problem_type']].drop_duplicates().set_index(
+            'dataset').squeeze().to_dict()
+        self.tid_to_problem_type_dict = tmp[['tid', 'problem_type']].drop_duplicates().set_index(
+            'tid').squeeze().to_dict()
 
     @staticmethod
     def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
@@ -105,7 +122,14 @@ class ZeroshotSimulatorContext:
             datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]
         return datasets
 
-    def get_dataset_folds(self, problem_type=None):
+    def get_dataset_folds(self, problem_type: Optional[str] = None) -> List[str]:
+        """
+        :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ...
+        :return: List of datasets-folds formatted as `['359987_8', '359933_3', ...]` where the dataset is encoded before
+        the "_" and the fold after.
+        # Todo/Note it might be clearer to add a column fold in the dataframe and return List[Tuple[str, int]] with
+        tuples of dataset/fold.
+        """
         datasets = self.unique_dataset_folds
         if problem_type is not None:
             datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]

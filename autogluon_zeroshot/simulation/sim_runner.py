@@ -7,7 +7,6 @@ def run_zs_simulation(zsc: ZeroshotSimulatorContext, config_scorer, n_splits=10,
     zs_config_generator_cv = ZeroshotConfigGeneratorCV(
         n_splits=n_splits,
         zeroshot_simulator_context=zsc,
-        zeroshot_sim_name='',
         config_scorer=config_scorer,
         configs=configs,
         backend=backend,
