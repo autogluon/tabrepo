@@ -51,13 +51,13 @@ class SingleBestConfigScorer(ConfigurationListScorer):
         best_val_model_by_dataset_df = self.df_results_by_dataset.merge(best_val_model_series, on=[self.dataset_col, self.model_col])
         return best_val_model_by_dataset_df
 
-    def score_per_dataset(self, configs: list, score_col=None) -> dict:
+    def score_per_dataset(self, configs: List[str], score_col=None) -> dict:
         if score_col is None:
             score_col = self.score_col
         best_val_model_by_dataset_df = self.get_best_validation_configs_df(configs=configs)
         return best_val_model_by_dataset_df[[self.dataset_col, score_col]].set_index(self.dataset_col).squeeze().to_dict()
 
-    def score(self, configs: list) -> float:
+    def score(self, configs: List[str]) -> float:
         """
         :param configs: list of configuration to select from. The test score of the configuration with the best
         validation score is returned.
