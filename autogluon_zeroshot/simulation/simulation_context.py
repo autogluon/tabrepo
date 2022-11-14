@@ -6,6 +6,7 @@ import pandas as pd
 from autogluon.common.loaders import load_pkl
 
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
+from .tabular_predictions import TabularPicklePredictions, TabularPicklePerTaskPredictions
 from ..utils.rank_utils import RankScorer
 
 
@@ -95,6 +96,7 @@ class ZeroshotSimulatorContext:
         for dataset in unique_dataset_folds_set:
             if dataset_name_to_tid_dict[dataset] in unique_datasets_set:
                 unique_dataset_folds.append(dataset)
+        unique_dataset_folds = sorted(unique_dataset_folds)
         unique_dataset_folds_set = set(unique_dataset_folds)
 
         df_results_by_dataset, df_raw = filter_datasets(df_results_by_dataset=df_results_by_dataset,
@@ -177,15 +179,23 @@ class ZeroshotSimulatorContext:
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
         return zeroshot_gt
 
-    def load_zeroshot_pred_proba(self, path_pred_proba: str) -> dict:
+    def load_pred(self, path_pred_proba: str, lazy_format: bool = False) -> dict:
         print('Loading zeroshot...')
         # NOTE: This file is BIG (17 GB)
-        zeroshot_pred_proba = load_pkl.load(path_pred_proba)
-        print('Loading zeroshot successful!')
-
-        zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in self.dataset_to_tid_dict}
-        zeroshot_pred_proba = {self.dataset_to_tid_dict[k]: v for k, v in
-                               zeroshot_pred_proba.items()}
+        cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
+        zeroshot_pred_proba = cls.load(path_pred_proba)
+        # print('Loading zeroshot successful!')
+        #
+        # zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in self.dataset_to_tid_dict}
+        # zeroshot_pred_proba = {self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]: v for k, v in
+        #                        zeroshot_pred_proba.items()}
+        for k in zeroshot_pred_proba.datasets:
+            if k not in self.dataset_to_tid_dict:
+                zeroshot_pred_proba.remove_dataset(k)
+        zeroshot_pred_proba.rename_datasets({
+            k: self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]
+            for k in zeroshot_pred_proba.datasets
+        })
         return zeroshot_pred_proba
 
     @staticmethod

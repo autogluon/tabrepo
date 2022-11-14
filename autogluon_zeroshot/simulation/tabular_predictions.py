@@ -111,6 +111,14 @@ class TabularPicklePredictions(TabularModelPredictions):
     def datasets(self) -> List[str]:
         return list(self.pred_dict.keys())
 
+    def remove_dataset(self, dataset: str):
+        self.pred_dict.pop(dataset)
+
+    def rename_datasets(self, rename_dict: dict):
+        for key in rename_dict:
+            assert key in self.datasets
+        self.pred_dict = {rename_dict.get(k, k): v for k, v in self.pred_dict.items()}
+
     @property
     def folds(self) -> List[int]:
         # todo we could assert that the same number of folds exists in all cases
@@ -128,9 +136,11 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         """
         self.dataset_to_models = dataset_to_models
         self.output_dir = Path(output_dir)
+        self.rename_dict_inv = {}
         assert self.output_dir.is_dir()
 
     def _score(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+        dataset = self.rename_dict_inv.get(dataset, dataset)
         pred_dict = self._load_dataset(dataset)
         if models is None:
             models = self.models_available_per_dataset(dataset, fold)
@@ -184,11 +194,26 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         )
 
     def models_available_per_dataset(self, dataset: str, fold: int) -> List[str]:
-        return self.dataset_to_models[dataset]
+        return self.dataset_to_models[self.rename_dict_inv.get(dataset, dataset)]
+
+    @property
+    def folds(self) -> List[int]:
+        # TODO
+        return list(range(10))
 
     @property
     def datasets(self):
-        return list(self.dataset_to_models.keys())
+        rename_dict_inv = {v: k for k, v in self.rename_dict_inv.items()}
+        return [rename_dict_inv.get(d, d) for d in self.dataset_to_models.keys()]
+
+    def remove_dataset(self, dataset: str):
+        if dataset in self.datasets:
+            self.dataset_to_models.pop(self.rename_dict_inv.get(dataset, dataset))
+
+    def rename_datasets(self, rename_dict: dict):
+        for key in rename_dict:
+            assert key in self.datasets
+        self.rename_dict_inv = {v: k for k, v in rename_dict.items()}
 
     @staticmethod
     def _save_metadata(output_dir, dataset_to_models):

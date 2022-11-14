@@ -60,8 +60,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         y_val = self.zeroshot_gt[dataset][fold]['y_val']
         y_test = self.zeroshot_gt[dataset][fold]['y_test']
 
-        pred_proba_dict_val = self.zeroshot_pred_proba[dataset][fold]['pred_proba_dict_val']
-        pred_proba_dict_test = self.zeroshot_pred_proba[dataset][fold]['pred_proba_dict_test']
+        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.score(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
         weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
@@ -69,14 +68,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **self.ensemble_selection_kwargs,
         )
 
-        a = []
-        for m in models:
-            a.append(pred_proba_dict_val[m])
-        weighted_ensemble.fit(predictions=a, labels=y_val)
-        b = []
-        for m in models:
-            b.append(pred_proba_dict_test[m])
-        y_test_pred = weighted_ensemble.predict_proba(b)
+        weighted_ensemble.fit(predictions=pred_proba_dict_val, labels=y_val)
+        y_test_pred = weighted_ensemble.predict_proba(pred_proba_dict_test)
         y_test = y_test.fillna(-1)
         err = eval_metric._optimum - eval_metric(y_test, y_test_pred)  # FIXME: proba or pred, figure out
 
