@@ -171,45 +171,22 @@ class ZeroshotSimulatorContext:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())
 
-    def load_zeroshot_pred_proba(self, path_pred_proba, path_gt):
-        """
-        Loads zeroshot_pred_proba and zeroshot_gt. Minimizes memory usage by popping folds not in self.folds_to_use
-        """
-        print('Loading zeroshot...')
+    def load_groundtruth(self, path_gt: str) -> dict:
         zeroshot_gt = load_pkl.load(path_gt)
+        zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
+        zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
+        return zeroshot_gt
+
+    def load_zeroshot_pred_proba(self, path_pred_proba: str) -> dict:
+        print('Loading zeroshot...')
         # NOTE: This file is BIG (17 GB)
         zeroshot_pred_proba = load_pkl.load(path_pred_proba)
         print('Loading zeroshot successful!')
 
-        zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
-        zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
-
         zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in self.dataset_to_tid_dict}
         zeroshot_pred_proba = {self.dataset_to_tid_dict[k]: v for k, v in
                                zeroshot_pred_proba.items()}
-
-        task_names = list(zeroshot_pred_proba.keys())
-        task_names_set = set(task_names)
-        for d in self.unique_datasets:
-            if d not in task_names_set:
-                raise AssertionError(f'Missing expected dataset {d} in zeroshot_pred_proba!')
-            folds_in_zs = list(zeroshot_pred_proba[d].keys())
-            for f in self.folds:
-                if f not in folds_in_zs:
-                    raise AssertionError(f'Missing expected fold {f} in dataset {d} in zeroshot_pred_proba! '
-                                         f'Expected: {self.folds}, Actual: {folds_in_zs}')
-
-        for d in task_names:
-            if d not in self.unique_datasets:
-                zeroshot_pred_proba.pop(d)
-                zeroshot_gt.pop(d)
-            else:
-                folds_in_zs = list(zeroshot_pred_proba[d].keys())
-                for f in folds_in_zs:
-                    if f not in self.folds:
-                        zeroshot_pred_proba[d].pop(f)
-                        zeroshot_gt[d].pop(f)
-        return zeroshot_pred_proba, zeroshot_gt
+        return zeroshot_pred_proba
 
     @staticmethod
     def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):

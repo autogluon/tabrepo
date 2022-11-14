@@ -120,6 +120,12 @@ class TabularPicklePredictions(TabularModelPredictions):
 
 class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def __init__(self, dataset_to_models: Dict[str, List[str]], output_dir: str):
+        """
+        Stores on pickle per task and load data in a lazy fashion which allows to reduce significantly the memory
+        footprint.
+        :param dataset_to_models:
+        :param output_dir:
+        """
         self.dataset_to_models = dataset_to_models
         self.output_dir = Path(output_dir)
         assert self.output_dir.is_dir()
