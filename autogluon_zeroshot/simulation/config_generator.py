@@ -8,6 +8,7 @@ from sklearn.model_selection import KFold
 
 from .configuration_list_scorer import ConfigurationListScorer
 from .simulation_context import ZeroshotSimulatorContext
+from ..utils import catchtime
 
 
 @ray.remote
@@ -53,13 +54,12 @@ class ZeroshotConfigGenerator:
             if not valid_configs:
                 break
 
-
             time_start = time.time()
             best_next_config, best_score = selector(valid_configs, zeroshot_configs, config_scorer)
             time_end = time.time()
 
             zeroshot_configs.append(best_next_config)
-            msg = f'{iteration}\t: {round(best_score, 2)} | {round(time_end-time_start, 2)}s | {self.backend}'
+            msg = f'{iteration}\t: {round(best_score, 2)} | {round(time_end - time_start, 2)}s | {self.backend}'
             if config_scorer_test:
                 score_test = config_scorer_test.score(zeroshot_configs)
                 msg += f'\tTest: {round(score_test, 2)}'
@@ -175,7 +175,7 @@ class ZeroshotConfigGeneratorCV:
     def run(self):
         fold_results = []
         for i, (train_index, test_index) in enumerate(self.kf.split(self.unique_datasets)):
-            print(f'Fitting Fold {i+1}...')
+            print(f'Fitting Fold {i + 1}...')
             X_train, X_test = list(self.unique_datasets[train_index]), list(self.unique_datasets[test_index])
             X_train_fold = []
             X_test_fold = []
@@ -185,7 +185,7 @@ class ZeroshotConfigGeneratorCV:
                 X_test_fold += self.dataset_parent_to_fold_map[d]
             zeroshot_configs_fold, score_fold = self.run_fold(X_train_fold, X_test_fold)
             results_fold = {
-                'fold': i+1,
+                'fold': i + 1,
                 'X_train': X_train,
                 'X_test': X_test,
                 'X_train_fold': X_train_fold,
@@ -220,3 +220,93 @@ class ZeroshotConfigGeneratorCV:
         print(f'score: {score}')
 
         return zeroshot_configs, score
+
+
+class RandomGeneratorCV:
+    def __init__(
+        self,
+        n_splits: int,
+        zeroshot_simulator_context: ZeroshotSimulatorContext,
+        config_scorer: ConfigurationListScorer,
+        configs: List[str] = None,
+        backend='ray'
+    ):
+        assert n_splits >= 2
+        self.n_splits = n_splits
+        self.backend = backend
+        self.config_scorer = config_scorer
+        self.unique_datasets_fold = np.array(config_scorer.datasets)
+        self.unique_datasets_map = zeroshot_simulator_context.dataset_name_to_tid_dict
+        self.unique_datasets = set()
+        self.dataset_parent_to_fold_map = dict()
+        for d in self.unique_datasets_fold:
+            dataset_parent = self.unique_datasets_map[d]
+            self.unique_datasets.add(dataset_parent)
+            if dataset_parent in self.dataset_parent_to_fold_map:
+                self.dataset_parent_to_fold_map[dataset_parent].append(d)
+            else:
+                self.dataset_parent_to_fold_map[dataset_parent] = [d]
+        for d in self.dataset_parent_to_fold_map:
+            self.dataset_parent_to_fold_map[d] = sorted(self.dataset_parent_to_fold_map[d])
+        self.unique_datasets = np.array((sorted(list(self.unique_datasets))))
+
+        if configs is None:
+            configs = zeroshot_simulator_context.get_configs()
+        self.configs = configs
+
+        self.kf = KFold(n_splits=self.n_splits, random_state=0, shuffle=True)
+
+    def run(self):
+        fold_results = []
+        for i, (train_index, test_index) in enumerate(self.kf.split(self.unique_datasets)):
+            print(f'Fitting Fold {i + 1}...')
+            X_train, X_test = list(self.unique_datasets[train_index]), list(self.unique_datasets[test_index])
+            X_train_fold = []
+            X_test_fold = []
+            for d in X_train:
+                X_train_fold += self.dataset_parent_to_fold_map[d]
+            for d in X_test:
+                X_test_fold += self.dataset_parent_to_fold_map[d]
+            zeroshot_configs_fold, score_fold = self.run_fold(X_train_fold, X_test_fold)
+            results_fold = {
+                'fold': i + 1,
+                'X_train': X_train,
+                'X_test': X_test,
+                'X_train_fold': X_train_fold,
+                'X_test_fold': X_test_fold,
+                'score': score_fold,
+                'selected_configs': zeroshot_configs_fold,
+            }
+            fold_results.append(results_fold)
+        return fold_results
+
+    def random_config(self, ensemble_size: int):
+        return [
+            np.random.choice(self.configs)
+            for _ in range(ensemble_size)
+        ]
+
+    def run_fold(self, X_train, X_test):
+        num_iterations = 20
+        ensemble_size = 10
+
+        config_scorer_train = self.config_scorer.subset(datasets=X_train)
+        config_scorer_test = self.config_scorer.subset(datasets=X_test)
+
+        # draw 20 configs, pick best
+        best_config = None
+        best_score = np.inf
+        for _ in range(num_iterations):
+            random_config = self.random_config(ensemble_size)
+            with catchtime("eval ensemble"):
+                new_score = config_scorer_train.score(random_config)
+            print(new_score, random_config)
+            if new_score < best_score:
+                best_score = new_score
+                best_config = best_config
+
+        # Consider making test scoring optional here
+        score = config_scorer_test.score(best_config)
+        print(f'score: {score}')
+
+        return best_config, score

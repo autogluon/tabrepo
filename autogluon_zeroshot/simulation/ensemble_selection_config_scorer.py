@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import ray
 
@@ -25,7 +27,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  dataset_name_to_tid_dict: dict,
                  dataset_name_to_fold_dict: dict,
                  ensemble_size=100,
-                 ensemble_selection_kwargs=None):
+                 ensemble_selection_kwargs=None,
+                 max_fold: Optional[float] = None
+                 ):
         super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
         if zeroshot_gt is None:
             raise ValueError(f'zeroshot_gt cannot be None!')
@@ -40,6 +44,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         if ensemble_selection_kwargs is None:
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
+        self.max_fold = max_fold
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -83,6 +88,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def compute_errors(self, configs: list):
         errors = {}
         for dataset in self.datasets:
+            fold = self.dataset_name_to_fold_dict[dataset]
+            if self.max_fold and fold >= self.max_fold:
+                continue
             errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
         return errors
 
@@ -133,4 +141,5 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             dataset_name_to_fold_dict=self.dataset_name_to_fold_dict,
             ensemble_size=self.ensemble_size,
             ensemble_selection_kwargs=self.ensemble_selection_kwargs,
+            max_fold=self.max_fold,
         )
