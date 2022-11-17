@@ -8,26 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from autogluon_zeroshot.loaders import Paths
-from autogluon_zeroshot.utils import catchtime
 from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredictions, TabularPredictionsDict, \
-    TabularNpyPredictions, TabularPicklePerTaskPredictions
-
-
-def test_real_data():
-    with catchtime("load"):
-        preds = TabularPicklePredictions.load(str(Paths.all_v3_results_root / "zeroshot_pred_proba_small.pkl"))
-
-    dataset = next(iter(preds.pred_dict.keys()))
-    models = preds.models_available_per_dataset(dataset=dataset, fold=2)
-    for model in ['CatBoost_c1', 'ExtraTrees_c1', 'ExtraTrees_r1', 'KNeighbors_c1', 'LightGBM_c2', 'LightGBM_r23',
-                  'NeuralNetFastAI_c1', 'RandomForest_r9']:
-        assert model in models
-    assert len(models) == 660
-    scores = preds.score(dataset=dataset, fold=2, splits=["test"])[0]
-    num_points = 51
-    assert scores.shape == (len(models), num_points)
-    assert np.isclose(scores.mean(), 21.437994)
+    TabularPicklePerTaskPredictions
 
 
 def generate_dummy(shape, models):
@@ -61,7 +43,7 @@ def generate_artificial_dict(
 
 
 # def check_synthetic_data_pickle(cls=TabularPicklePredictions):
-@pytest.mark.parametrize("cls", [TabularPicklePredictions, TabularNpyPredictions, TabularPicklePerTaskPredictions])
+@pytest.mark.parametrize("cls", [TabularPicklePredictions, TabularPicklePerTaskPredictions])
 def test_synthetic_data(cls):
     num_models = 13
     num_folds = 3

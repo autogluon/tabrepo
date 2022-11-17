@@ -184,14 +184,10 @@ class ZeroshotSimulatorContext:
         # NOTE: This file is BIG (17 GB)
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         zeroshot_pred_proba = cls.load(path_pred_proba)
-        # print('Loading zeroshot successful!')
-        #
-        # zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in self.dataset_to_tid_dict}
-        # zeroshot_pred_proba = {self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]: v for k, v in
-        #                        zeroshot_pred_proba.items()}
         for k in zeroshot_pred_proba.datasets:
             if k not in self.dataset_to_tid_dict:
                 zeroshot_pred_proba.remove_dataset(k)
+        # rename dataset to dataset-ids
         zeroshot_pred_proba.rename_datasets({
             k: self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]
             for k in zeroshot_pred_proba.datasets

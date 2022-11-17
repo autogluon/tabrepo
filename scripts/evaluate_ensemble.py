@@ -1,0 +1,84 @@
+"""
+Main script to evaluate an ensemble configuration, used to run tuning with syne tune and as util to get
+train/test scores for ensemble configurations.
+"""
+import json
+import logging
+from argparse import ArgumentParser
+from pathlib import Path
+from typing import List
+
+from syne_tune import Reporter
+
+from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
+from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from autogluon_zeroshot.utils import catchtime
+
+
+def evaluate_ensemble(
+        configs: List[dict],
+        train_datasets: List[str],
+        test_datasets: List[str],
+        num_folds: int,
+        ensemble_size: int,
+):
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(
+        load_zeroshot_pred_proba=True, lazy_format=True,
+    )
+    datasets = zsc.get_dataset_folds()
+
+    config_scorer = EnsembleSelectionConfigScorer.from_zsc(
+        datasets=datasets,
+        zeroshot_simulator_context=zsc,
+        zeroshot_gt=zeroshot_gt,
+        zeroshot_pred_proba=zeroshot_pred_proba,
+        ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
+        max_fold=num_folds,
+
+    )
+    train_datasets_ids = [zsc.dataset_to_tid_dict[k] for k in train_datasets]
+    train_error = config_scorer.subset(train_datasets_ids).score(configs)
+    if len(test_datasets) > 0:
+        test_datasets_ids = [zsc.dataset_to_tid_dict[k] for k in test_datasets]
+        test_error = config_scorer.subset(test_datasets_ids).score(configs)
+    else:
+        test_error = None
+    return train_error, test_error
+
+
+if __name__ == "__main__":
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    parser = ArgumentParser()
+    parser.add_argument(f"--st_checkpoint_dir", type=str, default="./")
+    args, _ = parser.parse_known_args()
+
+    # gets hyperparameters that are written into {trial_path}/config.json
+    # note: only works with LocalBackend for now.
+    trial_path = Path(args.st_checkpoint_dir).parent
+    with open(trial_path / "config.json", "r") as f:
+        config = json.load(f)
+    print(args.__dict__)
+    print(config)
+    configs = config['configs']
+    train_datasets = config['train_datasets']
+    test_datasets = config['test_datasets']
+    num_folds = config['num_folds']
+    ensemble_size = config['ensemble_size']
+
+    reporter = Reporter()
+    with catchtime("evaluate ensemble"):
+        train_error, test_error = evaluate_ensemble(
+            configs=configs,
+            train_datasets=train_datasets,
+            test_datasets=test_datasets,
+            num_folds=num_folds,
+            ensemble_size=ensemble_size,
+        )
+        metrics = {
+            "train_error": train_error
+        }
+        if len(test_datasets) > 0:
+            metrics["test_error"] = test_error
+        reporter(**metrics)
