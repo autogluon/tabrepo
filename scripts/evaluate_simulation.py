@@ -1,15 +1,13 @@
 import numpy as np
 import pandas as pd
 
-from autogluon_zeroshot.simulation.config_generator import ZeroshotConfigGeneratorCV
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
 
 
 def get_zeroshot_config_simulation(zeroshot_configs, config_scorer, df_raw, zeroshot_sim_name):
     df_pivot_time_train_s = config_scorer.df_results_by_dataset_with_score_val.pivot_table(index='framework', columns='dataset', values=['time_train_s'])
-    zeroshot_raw_df = config_scorer.get_configs_df(zeroshot_configs)
+    zeroshot_raw_df = config_scorer.get_best_validation_configs_df(zeroshot_configs)
     zeroshot_raw_df['tid_new'] = zeroshot_raw_df['dataset']
     zeroshot_raw_df['model'] = zeroshot_raw_df['framework']
     df_raw_zeroshot = df_raw.merge(zeroshot_raw_df[['tid_new', 'model']], on=['tid_new', 'model'])

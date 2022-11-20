@@ -2,13 +2,14 @@ import numpy as np
 
 from autogluon.core.metrics import get_metric
 from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSelection
+from .configuration_list_scorer import ConfigurationListScorer
 
 from .simulation_context import ZeroshotSimulatorContext
 from ..utils.rank_utils import RankScorer
 
 
 # FIXME: Add temperature scaling!!
-class EnsembleSelectionConfigScorer:
+class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def __init__(self,
                  datasets: list,
                  zeroshot_gt: dict,
@@ -18,11 +19,11 @@ class EnsembleSelectionConfigScorer:
                  dataset_name_to_fold_dict: dict,
                  ensemble_size=100,
                  ensemble_selection_kwargs=None):
+        super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
         if zeroshot_gt is None:
             raise ValueError(f'zeroshot_gt cannot be None!')
         if zeroshot_pred_proba is None:
             raise ValueError(f'zeroshot_pred_proba cannot be None!')
-        self.datasets = datasets
         self.zeroshot_gt = zeroshot_gt
         self.zeroshot_pred_proba = zeroshot_pred_proba
         self.ranker = ranker
