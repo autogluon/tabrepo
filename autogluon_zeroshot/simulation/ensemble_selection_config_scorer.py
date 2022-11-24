@@ -1,4 +1,5 @@
 import numpy as np
+import ray
 
 from autogluon.core.metrics import get_metric
 from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSelection
@@ -6,6 +7,12 @@ from .configuration_list_scorer import ConfigurationListScorer
 
 from .simulation_context import ZeroshotSimulatorContext
 from ..utils.rank_utils import RankScorer
+
+
+@ray.remote
+def compute_error_ray(config_scorer, configs, dataset) -> float:
+    error = config_scorer.run_dataset(dataset=dataset, models=configs)
+    return error
 
 
 # FIXME: Add temperature scaling!!
@@ -86,6 +93,23 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
         return errors
 
+    # TODO: Massively speedup by only sending minimum zeroshot pred proba info for each task
+    def compute_errors_ray(self, configs: list):
+        # Create and execute all tasks in parallel
+        if not ray.is_initialized():
+            ray.init()
+        config_scorer = ray.put(self)
+        results = []
+        for i in range(len(self.datasets)):
+            results.append(compute_error_ray.remote(
+                config_scorer,
+                configs,
+                self.datasets[i],
+            ))
+        errors_list = ray.get(results)
+        errors = {self.datasets[i]: errors_list[i] for i in range(len(self.datasets))}
+        return errors
+
     def compute_ranks(self, errors: dict):
         ranks = {}
         for dataset, error in errors.items():
@@ -98,8 +122,11 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         average_rank = np.mean(list(ranks.values()))
         return average_rank
 
-    def score(self, configs: list):
-        errors = self.compute_errors(configs=configs)
+    def score(self, configs: list, backend='native'):
+        if backend == 'ray':
+            errors = self.compute_errors_ray(configs=configs)
+        else:
+            errors = self.compute_errors(configs=configs)
         rank = self.compute_rank_mean(errors)
         return rank
 

@@ -3,10 +3,9 @@ import pandas as pd
 
 # FIXME: Doesn't work for multi-fold
 def get_dataset_to_tid_dict(df_raw: pd.DataFrame) -> dict:
-    df_tid_to_dataset_map = df_raw[['tid_new', 'dataset', 'fold']].drop_duplicates(['tid_new', 'dataset'])
+    df_tid_to_dataset_map = df_raw[['tid', 'dataset']].drop_duplicates(['tid', 'dataset'])
     dataset_to_tid_dict = df_tid_to_dataset_map.set_index('dataset')
-    dataset_to_tid_dict = dataset_to_tid_dict[dataset_to_tid_dict['fold'] == 0]
-    dataset_to_tid_dict = dataset_to_tid_dict['tid_new'].to_dict()
+    dataset_to_tid_dict = dataset_to_tid_dict['tid'].to_dict()
     return dataset_to_tid_dict
 
 

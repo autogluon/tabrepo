@@ -39,12 +39,34 @@ class ZeroshotSimulatorContext:
             df_raw=df_raw,
             folds=folds,
         )
+        self.dataset_parent_to_fold_map = self._compute_dataset_parent_to_fold_map()
 
         tmp = self.df_results_by_dataset_vs_automl[['dataset', 'tid', 'problem_type']]
         self.dataset_to_problem_type_dict = tmp[['dataset', 'problem_type']].drop_duplicates().set_index(
             'dataset').squeeze().to_dict()
         self.tid_to_problem_type_dict = tmp[['tid', 'problem_type']].drop_duplicates().set_index(
             'tid').squeeze().to_dict()
+
+    def _compute_dataset_parent_to_fold_map(self) -> dict:
+        """
+        Returns the mapping of dataset parent to dataset fold names.
+        For example:
+        {
+            'DATASET_NAME': ['DATASET_NAME_1', 'DATASET_NAME_2', ..., 'DATASET_NAME_10'],
+            ...,
+        }
+
+        """
+        dataset_parent_to_fold_map = dict()
+        for d in self.unique_dataset_folds:
+            dataset_parent = self.dataset_name_to_tid_dict[d]
+            if dataset_parent in dataset_parent_to_fold_map:
+                dataset_parent_to_fold_map[dataset_parent].append(d)
+            else:
+                dataset_parent_to_fold_map[dataset_parent] = [d]
+        for d in dataset_parent_to_fold_map:
+            dataset_parent_to_fold_map[d] = sorted(dataset_parent_to_fold_map[d])
+        return dataset_parent_to_fold_map
 
     @staticmethod
     def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
@@ -122,18 +144,28 @@ class ZeroshotSimulatorContext:
             datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]
         return datasets
 
-    def get_dataset_folds(self, problem_type: Optional[str] = None) -> List[str]:
+    def get_dataset_folds(self, datasets: Optional[List[str]] = None, problem_type: Optional[str] = None) -> List[str]:
         """
+        :param datasets: a list of dataset parent names, only return folds that have a parent in this list
         :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ...
         :return: List of datasets-folds formatted as `['359987_8', '359933_3', ...]` where the dataset is encoded before
         the "_" and the fold after.
         # Todo/Note it might be clearer to add a column fold in the dataframe and return List[Tuple[str, int]] with
         tuples of dataset/fold.
         """
-        datasets = self.unique_dataset_folds
+        if datasets is not None:
+            dataset_folds = self._get_dataset_folds_from_datasets(datasets=datasets)
+        else:
+            dataset_folds = self.unique_dataset_folds
         if problem_type is not None:
-            datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
-        return datasets
+            dataset_folds = [dataset for dataset in dataset_folds if self.dataset_to_problem_type_dict[dataset] == problem_type]
+        return dataset_folds
+
+    def _get_dataset_folds_from_datasets(self, datasets: List[str]):
+        dataset_folds = []
+        for d in datasets:
+            dataset_folds += self.dataset_parent_to_fold_map[d]
+        return dataset_folds
 
     def get_configs(self) -> list:
         """Return all valid configs"""
@@ -150,10 +182,10 @@ class ZeroshotSimulatorContext:
         print('Loading zeroshot successful!')
 
         zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
-        zeroshot_gt = {self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]: v for k, v in zeroshot_gt.items()}
+        zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
 
         zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in self.dataset_to_tid_dict}
-        zeroshot_pred_proba = {self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]: v for k, v in
+        zeroshot_pred_proba = {self.dataset_to_tid_dict[k]: v for k, v in
                                zeroshot_pred_proba.items()}
 
         task_names = list(zeroshot_pred_proba.keys())

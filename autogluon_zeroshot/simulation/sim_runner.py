@@ -3,11 +3,12 @@ from .config_generator import ZeroshotConfigGeneratorCV
 from .simulation_context import ZeroshotSimulatorContext
 
 
-def run_zs_simulation(zsc: ZeroshotSimulatorContext, config_scorer, n_splits=10, configs=None, backend='ray') -> list:
+def run_zs_simulation(zsc: ZeroshotSimulatorContext, config_scorer, n_splits=10, config_generator_kwargs=None, configs=None, backend='ray') -> list:
     zs_config_generator_cv = ZeroshotConfigGeneratorCV(
         n_splits=n_splits,
         zeroshot_simulator_context=zsc,
         config_scorer=config_scorer,
+        config_generator_kwargs=config_generator_kwargs,
         configs=configs,
         backend=backend,
     )

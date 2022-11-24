@@ -131,6 +131,7 @@ class ZeroshotConfigGeneratorCV:
                  n_splits: int,
                  zeroshot_simulator_context: ZeroshotSimulatorContext,
                  config_scorer: ConfigurationListScorer,
+                 config_generator_kwargs=None,
                  configs: List[str] = None,
                  backend='ray'):
         """
@@ -145,6 +146,9 @@ class ZeroshotConfigGeneratorCV:
         """
         assert n_splits >= 2
         self.n_splits = n_splits
+        if config_generator_kwargs is None:
+            config_generator_kwargs = {}
+        self.config_generator_kwargs = config_generator_kwargs
         self.backend = backend
         self.config_scorer = config_scorer
         self.unique_datasets_fold = np.array(config_scorer.datasets)
@@ -200,8 +204,11 @@ class ZeroshotConfigGeneratorCV:
                                                       configs=self.configs,
                                                       backend=self.backend)
 
-        zeroshot_configs = zs_config_generator.select_zeroshot_configs(10,
-                                                                       removal_stage=False,
+        num_zeroshot = self.config_generator_kwargs.get('num_zeroshot', 10)
+        removal_stage = self.config_generator_kwargs.get('removal_stage', False)
+
+        zeroshot_configs = zs_config_generator.select_zeroshot_configs(num_zeroshot=num_zeroshot,
+                                                                       removal_stage=removal_stage,
                                                                        # config_scorer_test=config_scorer_test
                                                                        )
         # deleting
