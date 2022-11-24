@@ -187,9 +187,9 @@ class ZeroshotSimulatorContext:
         for k in zeroshot_pred_proba.datasets:
             if k not in self.dataset_to_tid_dict:
                 zeroshot_pred_proba.remove_dataset(k)
-        # rename dataset to dataset-ids
+        # rename dataset to dataset-ids, eg. 'abalone' is mapped to 359944.0
         zeroshot_pred_proba.rename_datasets({
-            k: self.dataset_name_to_tid_dict[self.dataset_to_tid_dict[k]]
+            k: self.dataset_to_tid_dict[k]
             for k in zeroshot_pred_proba.datasets
         })
         return zeroshot_pred_proba

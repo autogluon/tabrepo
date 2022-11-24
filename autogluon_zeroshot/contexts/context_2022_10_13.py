@@ -1,12 +1,12 @@
-from pathlib import Path
-
+from typing import Tuple
 from autogluon.common.loaders import load_pd
 
 from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
 from ..simulation.simulation_context import ZeroshotSimulatorContext
+from ..simulation.tabular_predictions import TabularModelPredictions
 
 
-def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False, lazy_format=True,) -> (ZeroshotSimulatorContext, dict, dict, dict):
+def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False, lazy_format=False) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
     if folds is None:
         folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 

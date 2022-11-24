@@ -14,8 +14,10 @@ if __name__ == '__main__':
     # Evaluate when using all configs
     configs = zsc.get_configs()
     if configs is not None:
-        zeroshot_pred_proba = zsc.minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba=zeroshot_pred_proba,
-                                                                      configs=configs)
+        zeroshot_pred_proba.pred_dict = zsc.minimize_memory_zeroshot_pred_proba(
+            zeroshot_pred_proba=zeroshot_pred_proba.pred_dict,
+            configs=configs
+        )
     datasets = zsc.get_dataset_folds()
 
     config_scorer = EnsembleSelectionConfigScorer.from_zsc(
