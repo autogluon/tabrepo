@@ -149,7 +149,6 @@ def learn_ensemble_configuration(
 @dataclass
 class Arguments:
     n_workers: int
-    n_splits: int
     num_folds: int
     ensemble_size: int
     max_wallclock_time: float
@@ -166,7 +165,6 @@ def random_string(length: int) -> str:
 def get_setting(setting):
     if setting == "fast":
         return Arguments(
-            n_splits=1,
             num_folds=1,
             ensemble_size=20,
             max_wallclock_time=600,
@@ -177,7 +175,6 @@ def get_setting(setting):
         )
     elif setting == "medium":
         return Arguments(
-            n_splits=2,
             num_folds=5,
             ensemble_size=20,
             max_wallclock_time=600,
@@ -188,7 +185,6 @@ def get_setting(setting):
         )
     elif setting == "slow":
         return Arguments(
-            n_splits=5,
             num_folds=10,
             ensemble_size=20,
             max_wallclock_time=1200,
@@ -209,6 +205,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--setting", type=str, default="fast")
     parser.add_argument("--n_workers", type=int, default=8)
+    parser.add_argument("--n_splits", type=int, default=2)
     parser.add_argument("--expname", type=str)
     input_args, _ = parser.parse_known_args()
 
@@ -218,7 +215,6 @@ if __name__ == "__main__":
         expname = input_args.expname
 
     args = get_setting(setting=input_args.setting)
-    print(f"Running experiment {expname} with {input_args.setting} settings: {args}")
     # TODO, for now we are using datanames rather than id, we may want to use dataset-id to have the same splits
     #  as the other zeroshot simulation script
     all_datasets = [
@@ -236,13 +232,17 @@ if __name__ == "__main__":
     all_datasets = np.array(all_datasets)
     np.random.shuffle(all_datasets)
     models = get_configs_small()
-    if args.n_splits == 1:
+    n_splits = input_args.n_splits
+    if n_splits == 1:
         indices = np.arange(len(all_datasets))
         splits = [(indices[:len(indices) // 2], indices[len(indices) // 2:])]
     else:
-        kf = KFold(n_splits=args.n_splits, random_state=0, shuffle=True)
+        kf = KFold(n_splits=n_splits, random_state=0, shuffle=True)
         splits = kf.split(all_datasets)
         fold_results = []
+
+    print(f"Running experiment {expname} with {input_args.setting} settings: {args}")
+
     results = []
     for i, (train_index, test_index) in enumerate(splits):
         for searcher in args.searchers:
