@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
 
+import numpy as np
 from syne_tune import Reporter
 
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
@@ -19,28 +20,24 @@ def evaluate_ensemble(
         configs: List[dict],
         train_datasets: List[str],
         test_datasets: List[str],
-        num_folds: int,
         ensemble_size: int,
+        num_folds: int = 10,
 ):
+    backend = "ray"
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(
         load_zeroshot_pred_proba=True, lazy_format=True,
     )
-    datasets = zsc.get_dataset_folds()
-
     config_scorer = EnsembleSelectionConfigScorer.from_zsc(
-        datasets=datasets,
+        datasets=train_datasets + test_datasets,
         zeroshot_simulator_context=zsc,
         zeroshot_gt=zeroshot_gt,
         zeroshot_pred_proba=zeroshot_pred_proba,
         ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
         max_fold=num_folds,
-
     )
-    train_datasets_ids = [zsc.dataset_to_tid_dict[k] for k in train_datasets]
-    train_error = config_scorer.subset(train_datasets_ids).score(configs)
+    train_error = config_scorer.subset(train_datasets).score(configs, backend)
     if len(test_datasets) > 0:
-        test_datasets_ids = [zsc.dataset_to_tid_dict[k] for k in test_datasets]
-        test_error = config_scorer.subset(test_datasets_ids).score(configs)
+        test_error = config_scorer.subset(test_datasets).score(configs, backend)
     else:
         test_error = None
     return train_error, test_error

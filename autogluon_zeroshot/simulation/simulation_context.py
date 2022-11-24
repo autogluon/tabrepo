@@ -5,6 +5,8 @@ from typing import Optional, List
 import pandas as pd
 from autogluon.common.loaders import load_pkl
 
+from ..loaders import Paths
+
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
 from .tabular_predictions import TabularPicklePredictions, TabularPicklePerTaskPredictions
 from ..utils.rank_utils import RankScorer
@@ -183,6 +185,9 @@ class ZeroshotSimulatorContext:
         print('Loading zeroshot...')
         # NOTE: This file is BIG (17 GB)
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
+        if lazy_format:
+            # convert to lazy format if format not already available
+            self.convert_lazy_format()
         zeroshot_pred_proba = cls.load(path_pred_proba)
         for k in zeroshot_pred_proba.datasets:
             if k not in self.dataset_to_tid_dict:
@@ -193,6 +198,18 @@ class ZeroshotSimulatorContext:
             for k in zeroshot_pred_proba.datasets
         })
         return zeroshot_pred_proba
+
+    @staticmethod
+    def convert_lazy_format(override_if_already_exists: bool = False):
+        new_filename = Paths.all_v3_results_root / "zeroshot_pred_per_task"
+        if not new_filename.exists() or override_if_already_exists:
+            print(f"lazy format folder {new_filename} not found or override option set to True, "
+                  f"converting to lazy format.")
+            with catchtime("load"):
+                preds = TabularPicklePredictions.load(str(Paths.all_v3_results_root / filename))
+
+            with catchtime("convert"):
+                preds_npy = TabularPicklePerTaskPredictions.from_dict(preds.pred_dict, output_dir=str(new_filename))
 
     @staticmethod
     def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):
