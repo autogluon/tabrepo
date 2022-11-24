@@ -7,6 +7,13 @@ from ..simulation.tabular_predictions import TabularModelPredictions
 
 
 def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False, lazy_format=False) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
+    """
+    :param folds:
+    :param load_zeroshot_pred_proba:
+    :param lazy_format: whether to load with a format where all data is in memory (`TabularPicklePredictions`) or a
+    format where data is loaded on the fly (`TabularPicklePerTaskPredictions`). Both formats have the same interface.
+    :return:
+    """
     if folds is None:
         folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 

@@ -42,14 +42,13 @@ from scripts.evaluate_ensemble import evaluate_ensemble
 logging.getLogger().setLevel(logging.INFO)
 
 
-def compute_zeroshot(models: List[str], datasets: List[str], ensemble_score: bool = False) -> List[str]:
+def compute_zeroshot(models: List[str], datasets_folds: List[str], ensemble_score: bool = False) -> List[str]:
     """evaluate the performance of a list of configurations with Caruana ensembles on the provided datasets"""
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=ensemble_score)
-    dataset_ids = [zsc.dataset_to_tid_dict[k] for k in datasets]
     if ensemble_score:
         config_scorer = EnsembleSelectionConfigScorer.from_zsc(
             zeroshot_simulator_context=zsc,
-            datasets=dataset_ids,
+            datasets=datasets_folds,
             zeroshot_gt=zeroshot_gt,
             zeroshot_pred_proba=zeroshot_pred_proba,
             ensemble_size=10,
@@ -57,7 +56,7 @@ def compute_zeroshot(models: List[str], datasets: List[str], ensemble_score: boo
     else:
         config_scorer = SingleBestConfigScorer.from_zsc(
             zeroshot_simulator_context=zsc,
-            datasets=dataset_ids,
+            datasets=datasets_folds,
         )
     zs_config_generator = ZeroshotConfigGenerator(
         config_scorer=config_scorer,
@@ -69,9 +68,9 @@ def compute_zeroshot(models: List[str], datasets: List[str], ensemble_score: boo
 
 
 def learn_ensemble_configuration(
-        train_datasets,
-        test_datasets,
-        models,
+        train_datasets_folds,
+        test_datasets_folds,
+        configs,
         num_folds,
         ensemble_size,
         num_base_models,
@@ -89,17 +88,17 @@ def learn_ensemble_configuration(
         synetune_logger.setLevel(logging.WARNING)
 
         with catchtime("Compute zeroshot config to initialize local search"):
-            zs_config = compute_zeroshot(models=models, datasets=train_datasets, ensemble_score=False)
+            zs_config = compute_zeroshot(models=configs, datasets_folds=train_datasets_folds, ensemble_score=False)
         searcher_cls = LocalSearch if searcher == "localsearch" else RandomSearch
 
         scheduler = searcher_cls(
-            models=models,
+            models=configs,
             metric='train_error',
             num_base_models=num_base_models,
-            train_datasets=train_datasets,
+            train_datasets=train_datasets_folds,
             # Important note, we pass the test datasets for benchmarking purposes though but they are not used by the
             # searcher alternatively, an empty list can be passed but then test errors cannot be analyzed over time
-            test_datasets=test_datasets,
+            test_datasets=test_datasets_folds,
             num_folds=num_folds,
             ensemble_size=ensemble_size,
             initial_suggestions=[zs_config[:num_base_models]],
@@ -128,17 +127,17 @@ def learn_ensemble_configuration(
 
     elif searcher == "zeroshot":
         with catchtime("Compute zeroshot config to initialize local search"):
-            best_config_dict = compute_zeroshot(models=models, datasets=train_datasets, ensemble_score=False)
+            best_config_dict = compute_zeroshot(models=configs, datasets_folds=train_datasets_folds, ensemble_score=False)
     elif searcher == "zeroshot-ensemble":
         with catchtime("Compute zeroshot config to initialize local search"):
-            best_config_dict = compute_zeroshot(models=models, datasets=train_datasets, ensemble_score=True)
+            best_config_dict = compute_zeroshot(models=configs, datasets_folds=train_datasets_folds, ensemble_score=True)
     elif searcher == "all":
-        best_config_dict = models
+        best_config_dict = configs
 
     train_error, test_error = evaluate_ensemble(
         configs=best_config_dict,
-        train_datasets=train_datasets,
-        test_datasets=test_datasets,
+        train_datasets=train_datasets_folds,
+        test_datasets=test_datasets_folds,
         num_folds=10,
         ensemble_size=ensemble_size,
     )
@@ -148,13 +147,13 @@ def learn_ensemble_configuration(
 
 @dataclass
 class Arguments:
-    n_workers: int
-    num_folds: int
-    ensemble_size: int
-    max_wallclock_time: float
-    num_base_models: int
-    searchers: List[str]
-    max_num_trials_completed: int = 10000
+    n_workers: int  # number of workers used when tuning with syne tune
+    num_folds: int  # number of folds to consider, can be lowered to reduce runtime
+    ensemble_size: int  # number of ensemble to use for caruana ensemble computation
+    num_base_models: int  # number of models that should be returned by search strategies
+    searchers: List[str]  # list of searcher to run
+    max_wallclock_time: float  # maximum wallclock time allowed for syne tune searchers
+    max_num_trials_completed: int = 10000  # maximum number of choices that can be evaluated by syne tune searchers
 
 
 def random_string(length: int) -> str:
@@ -215,24 +214,15 @@ if __name__ == "__main__":
         expname = input_args.expname
 
     args = get_setting(setting=input_args.setting)
-    # TODO, for now we are using datanames rather than id, we may want to use dataset-id to have the same splits
-    #  as the other zeroshot simulation script
-    all_datasets = [
-        'abalone', 'ada', 'adult', 'Amazon_employee_access', 'arcene', 'Australian', 'Bioresponse', 'black_friday',
-        'blood-transfusion-service-center', 'boston', 'Brazilian_houses', 'car', 'christine', 'churn',
-        'Click_prediction_small', 'cmc', 'cnae-9', 'colleges', 'credit-g', 'diamonds', 'dna', 'elevators', 'eucalyptus',
-        'first-order-theorem-proving', 'GesturePhaseSegmentationProcessed', 'gina', 'house_prices_nominal',
-        'house_sales',
-        'Internet-Advertisements', 'jannis', 'jasmine', 'jungle_chess_2pcs_raw_endgame_complete', 'kc1', 'kick',
-        'madeline',
-        'Mercedes_Benz_Greener_Manufacturing', 'MIP-2016-regression', 'Moneyball', 'numerai28_6', 'ozone-level-8hr',
-        'PhishingWebsites', 'phoneme', 'pol', 'QSAR-TID-10980', 'QSAR-TID-11', 'quake', 'SAT11-HAND-runtime-regression',
-        'Satellite', 'segment', 'sensory', 'shuttle', 'socmob', 'space_ga', 'steel-plates-fault', 'sylvine', 'tecator',
-        'us_crime', 'vehicle', 'wilt', 'wine_quality', 'yprop_4_1']
-    all_datasets = np.array(all_datasets)
+
+    with catchtime("load"):
+        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=False)
+    configs = zsc.get_configs()
+    datasets = zsc.get_datasets()
+    all_datasets = np.array(datasets)
     np.random.shuffle(all_datasets)
-    models = get_configs_small()
     n_splits = input_args.n_splits
+
     if n_splits == 1:
         indices = np.arange(len(all_datasets))
         splits = [(indices[:len(indices) // 2], indices[len(indices) // 2:])]
@@ -242,18 +232,19 @@ if __name__ == "__main__":
         fold_results = []
 
     print(f"Running experiment {expname} with {input_args.setting} settings: {args}")
-
+    # Evaluate all search strategies on `n_splits` of the datasets. Results are logged in a csv and can be
+    # analysed with plot_results_comparison.py.
     results = []
     for i, (train_index, test_index) in enumerate(splits):
         for searcher in args.searchers:
             with catchtime(f'****Fitting method {searcher} on fold {i + 1}****'):
                 train_datasets = list(all_datasets[train_index])
                 test_datasets = list(all_datasets[test_index])
-
+                zsc.get_dataset_folds(train_datasets)
                 best_config, train_error, test_error = learn_ensemble_configuration(
-                    train_datasets=train_datasets,
-                    test_datasets=test_datasets,
-                    models=models,
+                    train_datasets_folds=zsc.get_dataset_folds(train_datasets),
+                    test_datasets_folds=zsc.get_dataset_folds(test_datasets),
+                    configs=configs,
                     num_folds=args.num_folds,
                     ensemble_size=args.ensemble_size,
                     num_base_models=args.num_base_models,
