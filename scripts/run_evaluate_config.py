@@ -28,7 +28,7 @@ if __name__ == '__main__':
             ensemble_size=100,  # 100 is better, but 10 allows to simulate 10x faster
         )
 
-        score = config_scorer.score(configs, backend=backend)
+        score = config_scorer.predict(configs, backend=backend)
 
         # With ensemble_size=100 610 datasets, 608 configs, I get
         #  Final Score: 3.8278688524590163

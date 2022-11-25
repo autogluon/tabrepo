@@ -22,23 +22,32 @@ def evaluate_ensemble(
         test_datasets: List[str],
         ensemble_size: int,
         num_folds: int = 10,
+        backend: str = "native",
 ):
-    backend = "ray"
+    print(f"Evaluating on {backend}")
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(
         load_zeroshot_pred_proba=True, lazy_format=True,
     )
-    config_scorer = EnsembleSelectionConfigScorer.from_zsc(
-        datasets=train_datasets + test_datasets,
+    train_scorer = EnsembleSelectionConfigScorer.from_zsc(
+        datasets=train_datasets,
         zeroshot_simulator_context=zsc,
         zeroshot_gt=zeroshot_gt,
         zeroshot_pred_proba=zeroshot_pred_proba,
-        ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
+        ensemble_size=ensemble_size,
         max_fold=num_folds,
         backend=backend,
     )
-    train_error = config_scorer.subset(train_datasets).score(configs)
+    train_error = train_scorer.predict(configs)
     if len(test_datasets) > 0:
-        test_error = config_scorer.subset(test_datasets).score(configs)
+        test_scorer = EnsembleSelectionConfigScorer.from_zsc(
+            datasets=test_datasets,
+            zeroshot_simulator_context=zsc,
+            zeroshot_gt=zeroshot_gt,
+            zeroshot_pred_proba=zeroshot_pred_proba,
+            ensemble_size=ensemble_size,
+            max_fold=num_folds,
+        )
+        test_error = test_scorer.predict(configs)
     else:
         test_error = None
     return train_error, test_error
@@ -64,6 +73,7 @@ if __name__ == "__main__":
     test_datasets = config['test_datasets']
     num_folds = config['num_folds']
     ensemble_size = config['ensemble_size']
+    backend = config["backend"]
 
     reporter = Reporter()
     with catchtime("evaluate ensemble"):
@@ -73,6 +83,7 @@ if __name__ == "__main__":
             test_datasets=test_datasets,
             num_folds=num_folds,
             ensemble_size=ensemble_size,
+            backend=backend,
         )
         metrics = {
             "train_error": train_error

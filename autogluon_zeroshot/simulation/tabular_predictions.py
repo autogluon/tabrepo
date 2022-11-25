@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 
 from autogluon.common.loaders import load_pkl
-from autogluon.common.savers.save_pkl import save
+from autogluon.common.savers.save_pkl import save as save_pkl
 
 # dictionary mapping dataset to fold to split to config name to predictions
 TabularPredictionsDict = Dict[str, Dict[int, Dict[str, Dict[str, np.array]]]]
@@ -17,23 +17,23 @@ class TabularModelPredictions:
     Class that allows to query offline predictions.
     """
 
-    def score(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+    def predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
         """
         :param dataset:
         :param fold:
         :param splits: split to consider values must be in 'val' or 'test'
         :param models: list of models to be evaluated, by default uses all models available
         :return: for each split, a tensor with shape (num_models, num_points) for regression and
-        (num_models, num_points, num_classes) for classification.
+        (num_models, num_points, num_classes) for classification corresponding the predictions of the model.
         """
         if splits is None:
             splits = ['val', 'test']
         for split in splits:
             assert split in ['val', 'test']
         assert models is None or len(models) > 0
-        return self._score(dataset, fold, splits, models)
+        return self._predict(dataset, fold, splits, models)
 
-    def models_available_per_dataset(self, dataset: str, fold: int) -> List[str]:
+    def models_available_in_dataset(self, dataset: str, fold: int) -> List[str]:
         """:returns the models available on both validation and test splits"""
         raise NotImplementedError()
 
@@ -64,7 +64,7 @@ class TabularModelPredictions:
     def save(self, filename: str):
         raise NotImplementedError()
 
-    def _score(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+    def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
         raise NotImplementedError()
 
 
@@ -81,9 +81,9 @@ class TabularPicklePredictions(TabularModelPredictions):
         return cls(pred_dict=pred_dict)
 
     def save(self, filename: str):
-        save(filename, self.pred_dict)
+        save_pkl(filename, self.pred_dict)
 
-    def _score(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+    def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
             model_results = self.pred_dict[dataset][fold][split_key]
@@ -93,7 +93,7 @@ class TabularPicklePredictions(TabularModelPredictions):
 
         return [get_split(split, models) for split in splits]
 
-    def models_available_per_dataset(self, dataset: str, fold: int = 0) -> List[str]:
+    def models_available_in_dataset(self, dataset: str) -> List[str]:
         models = []
         for fold in self.folds:
             for split in ["pred_proba_dict_val", "pred_proba_dict_test"]:
@@ -143,11 +143,11 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         self.rename_dict_inv = {}
         assert self.output_dir.is_dir()
 
-    def _score(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+    def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
         dataset = self.rename_dict_inv.get(dataset, dataset)
         pred_dict = self._load_dataset(dataset)
         if models is None:
-            models = self.models_available_per_dataset(dataset, fold)
+            models = self.models_available_in_dataset(dataset)
 
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
@@ -166,14 +166,14 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         pred_proba = TabularPicklePredictions.from_dict(pred_dict=pred_dict)
         datasets = pred_proba.datasets
         dataset_to_models = {
-            dataset: pred_proba.models_available_per_dataset(dataset)
+            dataset: pred_proba.models_available_in_dataset(dataset)
             for dataset in datasets
         }
         print(f"saving .pkl files in folder {output_dir}")
         for dataset in datasets:
             filename = str(output_dir / f'{dataset}.pkl')
             print(filename)
-            save(filename, pred_dict[dataset])
+            save_pkl(filename, pred_dict[dataset])
         cls._save_metadata(output_dir=output_dir, dataset_to_models=dataset_to_models)
         return cls(dataset_to_models=dataset_to_models, output_dir=output_dir)
 
@@ -197,7 +197,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
             output_dir=filename,
         )
 
-    def models_available_per_dataset(self, dataset: str, fold: int) -> List[str]:
+    def models_available_in_dataset(self, dataset: str) -> List[str]:
         return self.dataset_to_models[self.rename_dict_inv.get(dataset, dataset)]
 
     @property

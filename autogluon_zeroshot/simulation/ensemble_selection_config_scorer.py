@@ -99,7 +99,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
         return errors
 
-    # TODO: Massively speedup by only sending minimum zeroshot pred proba info for each task
+    # speedup can be obtained by only sending minimum zeroshot pred proba info for each task by using lazy format
     def compute_errors_ray(self, configs: list):
         # Create and execute all tasks in parallel
         if not ray.is_initialized():
