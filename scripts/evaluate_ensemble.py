@@ -34,10 +34,11 @@ def evaluate_ensemble(
         zeroshot_pred_proba=zeroshot_pred_proba,
         ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
         max_fold=num_folds,
+        backend=backend,
     )
-    train_error = config_scorer.subset(train_datasets).score(configs, backend)
+    train_error = config_scorer.subset(train_datasets).score(configs)
     if len(test_datasets) > 0:
-        test_error = config_scorer.subset(test_datasets).score(configs, backend)
+        test_error = config_scorer.subset(test_datasets).score(configs)
     else:
         test_error = None
     return train_error, test_error

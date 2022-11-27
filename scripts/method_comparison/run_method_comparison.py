@@ -105,7 +105,7 @@ def learn_ensemble_configuration(
         )
 
         tuner = Tuner(
-            trial_backend=LocalBackend(entry_point=Path(__file__).parent / 'evaluate_ensemble.py'),
+            trial_backend=LocalBackend(entry_point=Path(__file__).parent.parent / 'evaluate_ensemble.py'),
             scheduler=scheduler,
             stop_criterion=StoppingCriterion(
                 max_wallclock_time=max_wallclock_time,
