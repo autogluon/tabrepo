@@ -24,6 +24,9 @@ def metric_error_to_score(metric_error: float, metric: str):
 # FIXME: accurate score_val
 class SimulationOutputGenerator:
     """
+    Generate an output pandas DataFrame that is compatible with the AutoMLBenchmark results format.
+    Useful to compare directly with AutoML frameworks and baselines.
+
     Given a portfolio, create an output DataFrame with the following columns:
 
     dataset:
