@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import ray
 
@@ -25,7 +27,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  dataset_name_to_tid_dict: dict,
                  dataset_name_to_fold_dict: dict,
                  ensemble_size=100,
-                 ensemble_selection_kwargs=None):
+                 ensemble_selection_kwargs=None,
+                 max_fold: Optional[float] = None
+                 ):
         super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
         if zeroshot_gt is None:
             raise ValueError(f'zeroshot_gt cannot be None!')
@@ -40,6 +44,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         if ensemble_selection_kwargs is None:
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
+        self.max_fold = max_fold
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -60,8 +65,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         y_val = self.zeroshot_gt[dataset][fold]['y_val']
         y_test = self.zeroshot_gt[dataset][fold]['y_test']
 
-        pred_proba_dict_val = self.zeroshot_pred_proba[dataset][fold]['pred_proba_dict_val']
-        pred_proba_dict_test = self.zeroshot_pred_proba[dataset][fold]['pred_proba_dict_test']
+        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.score(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
         weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
@@ -69,14 +73,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **self.ensemble_selection_kwargs,
         )
 
-        a = []
-        for m in models:
-            a.append(pred_proba_dict_val[m])
-        weighted_ensemble.fit(predictions=a, labels=y_val)
-        b = []
-        for m in models:
-            b.append(pred_proba_dict_test[m])
-        y_test_pred = weighted_ensemble.predict_proba(b)
+        weighted_ensemble.fit(predictions=pred_proba_dict_val, labels=y_val)
+        y_test_pred = weighted_ensemble.predict_proba(pred_proba_dict_test)
         y_test = y_test.fillna(-1)
         err = eval_metric._optimum - eval_metric(y_test, y_test_pred)  # FIXME: proba or pred, figure out
 
@@ -90,6 +88,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def compute_errors(self, configs: list):
         errors = {}
         for dataset in self.datasets:
+            fold = self.dataset_name_to_fold_dict[dataset]
+            if self.max_fold and fold >= self.max_fold:
+                continue
             errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
         return errors
 
@@ -140,4 +141,5 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             dataset_name_to_fold_dict=self.dataset_name_to_fold_dict,
             ensemble_size=self.ensemble_size,
             ensemble_selection_kwargs=self.ensemble_selection_kwargs,
+            max_fold=self.max_fold,
         )

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
-
+from autogluon_zeroshot.loaders import Paths
 
 if __name__ == '__main__':
     path_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2022_10_13_zs/'
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     zeroshot_gt = load_pkl.load(path_gt)
     zeroshot_pred_proba = load_pkl.load(path_pred_proba)
 
-    save_path = Path(__file__).parent.parent / 'data' / 'results' / 'all_v3'
+    save_path = Paths.all_v3_results_root
 
     save_pkl.save(path=str(save_path / path_gt_name), object=zeroshot_gt)
     save_pkl.save(path=str(save_path / path_pred_proba_name), object=zeroshot_pred_proba)

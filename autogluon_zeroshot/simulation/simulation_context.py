@@ -5,7 +5,10 @@ from typing import Optional, List
 import pandas as pd
 from autogluon.common.loaders import load_pkl
 
+from ..loaders import Paths
+
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
+from .tabular_predictions import TabularPicklePredictions, TabularPicklePerTaskPredictions
 from ..utils.rank_utils import RankScorer
 
 
@@ -95,6 +98,7 @@ class ZeroshotSimulatorContext:
         for dataset in unique_dataset_folds_set:
             if dataset_name_to_tid_dict[dataset] in unique_datasets_set:
                 unique_dataset_folds.append(dataset)
+        unique_dataset_folds = sorted(unique_dataset_folds)
         unique_dataset_folds_set = set(unique_dataset_folds)
 
         df_results_by_dataset, df_raw = filter_datasets(df_results_by_dataset=df_results_by_dataset,
@@ -171,45 +175,38 @@ class ZeroshotSimulatorContext:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())
 
-    def load_zeroshot_pred_proba(self, path_pred_proba, path_gt):
-        """
-        Loads zeroshot_pred_proba and zeroshot_gt. Minimizes memory usage by popping folds not in self.folds_to_use
-        """
-        print('Loading zeroshot...')
+    def load_groundtruth(self, path_gt: str) -> dict:
         zeroshot_gt = load_pkl.load(path_gt)
-        # NOTE: This file is BIG (17 GB)
-        zeroshot_pred_proba = load_pkl.load(path_pred_proba)
-        print('Loading zeroshot successful!')
-
         zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
+        return zeroshot_gt
 
-        zeroshot_pred_proba = {k: v for k, v in zeroshot_pred_proba.items() if k in self.dataset_to_tid_dict}
-        zeroshot_pred_proba = {self.dataset_to_tid_dict[k]: v for k, v in
-                               zeroshot_pred_proba.items()}
+    def load_pred(self, path_pred_proba: str, lazy_format: bool = False) -> dict:
+        print('Loading zeroshot...')
+        # NOTE: This file is BIG (17 GB)
+        cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
+        if lazy_format:
+            # convert to lazy format if format not already available
+            self.convert_lazy_format()
+        zeroshot_pred_proba = cls.load(path_pred_proba)
+        for k in zeroshot_pred_proba.datasets:
+            if k not in self.dataset_to_tid_dict:
+                zeroshot_pred_proba.remove_dataset(k)
+        # rename dataset to dataset-ids, eg. 'abalone' is mapped to 359944.0
+        zeroshot_pred_proba.rename_datasets({
+            k: self.dataset_to_tid_dict[k]
+            for k in zeroshot_pred_proba.datasets
+        })
+        return zeroshot_pred_proba
 
-        task_names = list(zeroshot_pred_proba.keys())
-        task_names_set = set(task_names)
-        for d in self.unique_datasets:
-            if d not in task_names_set:
-                raise AssertionError(f'Missing expected dataset {d} in zeroshot_pred_proba!')
-            folds_in_zs = list(zeroshot_pred_proba[d].keys())
-            for f in self.folds:
-                if f not in folds_in_zs:
-                    raise AssertionError(f'Missing expected fold {f} in dataset {d} in zeroshot_pred_proba! '
-                                         f'Expected: {self.folds}, Actual: {folds_in_zs}')
-
-        for d in task_names:
-            if d not in self.unique_datasets:
-                zeroshot_pred_proba.pop(d)
-                zeroshot_gt.pop(d)
-            else:
-                folds_in_zs = list(zeroshot_pred_proba[d].keys())
-                for f in folds_in_zs:
-                    if f not in self.folds:
-                        zeroshot_pred_proba[d].pop(f)
-                        zeroshot_gt[d].pop(f)
-        return zeroshot_pred_proba, zeroshot_gt
+    @staticmethod
+    def convert_lazy_format(override_if_already_exists: bool = False):
+        new_filename = Paths.all_v3_results_root / "zeroshot_pred_per_task"
+        if not new_filename.exists() or override_if_already_exists:
+            print(f"lazy format folder {new_filename} not found or override option set to True, "
+                  f"converting to lazy format. It should take less than 3 min.")
+            preds = TabularPicklePredictions.load(str(Paths.all_v3_results_root / "zeroshot_pred_proba_2022_10_13_zs.pkl"))
+            preds_npy = TabularPicklePerTaskPredictions.from_dict(preds.pred_dict, output_dir=str(new_filename))
 
     @staticmethod
     def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):

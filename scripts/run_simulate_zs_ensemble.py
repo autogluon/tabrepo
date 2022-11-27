@@ -1,3 +1,5 @@
+import pickle
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -5,12 +7,15 @@ import numpy as np
 from autogluon.common.savers import save_pkl
 
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13, get_configs_default, get_configs_small
+from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13, get_configs_default, \
+    get_configs_small
 from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation
 
-
 if __name__ == '__main__':
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=True)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(
+        load_zeroshot_pred_proba=True,
+        lazy_format=False,
+    )
     zsc.print_info()
 
     # NOTE: For speed of simulation, it is recommended backend='ray'
@@ -19,8 +24,11 @@ if __name__ == '__main__':
 
     configs = get_configs_small()
     if configs is not None:
-        zeroshot_pred_proba = zsc.minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba=zeroshot_pred_proba,
-                                                                      configs=configs)
+        zeroshot_pred_proba.pred_dict = zsc.minimize_memory_zeroshot_pred_proba(
+            zeroshot_pred_proba=zeroshot_pred_proba.pred_dict,
+            configs=configs
+        )
+
     score_total = 0
     len_datasets_total = 0
     results_total = []
@@ -47,7 +55,7 @@ if __name__ == '__main__':
         )
         score = np.mean([r['score'] for r in results])
         print(f'{problem_type}: {score} | {len_datasets}')
-        score_total += score*len_datasets
+        score_total += score * len_datasets
         results_total += results
     score_total = score_total / len_datasets_total
     print(f'Final Score: {score_total}')

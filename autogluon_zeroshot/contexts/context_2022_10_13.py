@@ -1,28 +1,32 @@
-from pathlib import Path
-
+from typing import Tuple
 from autogluon.common.loaders import load_pd
 
-from ..loaders import load_configs, load_results, combine_results_with_score_val
+from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
 from ..simulation.simulation_context import ZeroshotSimulatorContext
+from ..simulation.tabular_predictions import TabularModelPredictions
 
 
-def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False) -> (ZeroshotSimulatorContext, dict, dict, dict):
+def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False, lazy_format=False) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
+    """
+    :param folds:
+    :param load_zeroshot_pred_proba:
+    :param lazy_format: whether to load with a format where all data is in memory (`TabularPicklePredictions`) or a
+    format where data is loaded on the fly (`TabularPicklePerTaskPredictions`). Both formats have the same interface.
+    :return:
+    """
     if folds is None:
         folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-    data_root = Path(__file__).parent.parent.parent / 'data'
-    results_root = data_root / 'results'
-    all_v3_results_root = results_root / "all_v3"
     df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
-        results=str(all_v3_results_root / "results_ranked_valid.csv"),
-        results_by_dataset=str(all_v3_results_root / "results_ranked_by_dataset_valid.parquet"),
-        raw=str(all_v3_results_root / "openml_ag_2022_10_13_zs_models.parquet"),
-        metadata=str(data_root / "metadata" / "task_metadata.csv"),
+        results=str(Paths.all_v3_results_root / "results_ranked_valid.csv"),
+        results_by_dataset=str(Paths.all_v3_results_root / "results_ranked_by_dataset_valid.parquet"),
+        raw=str(Paths.all_v3_results_root / "openml_ag_2022_10_13_zs_models.parquet"),
+        metadata=str(Paths.data_root / "metadata" / "task_metadata.csv"),
     )
     df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
 
     # Load in real framework results to score against
-    path_prefix_automl = results_root / 'automl'
+    path_prefix_automl = Paths.results_root / 'automl'
     df_results_by_dataset_automl = load_pd.load(f'{path_prefix_automl}/results_ranked_by_dataset_valid.csv')
 
     zsc = ZeroshotSimulatorContext(
@@ -32,8 +36,8 @@ def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False) -> (Zero
         folds=folds,
     )
 
-    configs_prefix_1 = str(data_root / 'configs/configs_20221004')
-    configs_prefix_2 = str(data_root / 'configs')
+    configs_prefix_1 = str(Paths.data_root / 'configs/configs_20221004')
+    configs_prefix_2 = str(Paths.data_root / 'configs')
     config_files_to_load = [
         f'{configs_prefix_1}/configs_catboost.json',
         f'{configs_prefix_1}/configs_fastai.json',
@@ -49,12 +53,43 @@ def load_context_2022_10_13(folds=None, load_zeroshot_pred_proba=False) -> (Zero
     zeroshot_pred_proba = None
     zeroshot_gt = None
     if load_zeroshot_pred_proba:
-        path_zs_pred_proba = str(all_v3_results_root / 'zeroshot_pred_proba_2022_10_13_zs.pkl')
-        path_zs_gt = str(all_v3_results_root / 'zeroshot_gt_2022_10_13_zs.pkl')
-        zeroshot_pred_proba, zeroshot_gt = zsc.load_zeroshot_pred_proba(path_pred_proba=path_zs_pred_proba,
-                                                                        path_gt=path_zs_gt)
+        path_zs_gt = str(Paths.all_v3_results_root / 'zeroshot_gt_2022_10_13_zs.pkl')
+        zeroshot_gt = zsc.load_groundtruth(path_gt=path_zs_gt)
+        if lazy_format:
+            path_zs_pred_proba = str(Paths.all_v3_results_root / 'zeroshot_pred_per_task')
+        else:
+            path_zs_pred_proba = str(Paths.all_v3_results_root / 'zeroshot_pred_proba_2022_10_13_zs.pkl')
+        zeroshot_pred_proba = zsc.load_pred(path_pred_proba=path_zs_pred_proba, lazy_format=lazy_format)
+
+        # keep only dataset whose folds are all present
+        intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+
+
+def intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt):
+    dataset_names = zeroshot_pred_proba.datasets
+    dataset_names_set = set(dataset_names)
+    # for d in zsc.unique_datasets:
+    #     if d not in dataset_names_set:
+    #         raise AssertionError(f'Missing expected dataset {d} in zeroshot_pred_proba!')
+    #     folds_in_zs = list(zeroshot_pred_proba[d].keys())
+    #     for f in zsc.folds:
+    #         if f not in folds_in_zs:
+    #             raise AssertionError(f'Missing expected fold {f} in dataset {d} in zeroshot_pred_proba! '
+    #                                  f'Expected: {zsc.folds}, Actual: {folds_in_zs}')
+
+    for d in dataset_names:
+        if d not in zsc.unique_datasets:
+            zeroshot_pred_proba.remove_dataset(d)
+            if d in zeroshot_gt:
+                zeroshot_gt.pop(d)
+        else:
+            # folds_in_zs = list(zeroshot_pred_proba[d].keys())
+            for f in zeroshot_pred_proba.folds:
+                if f not in zsc.folds:
+                    zeroshot_pred_proba[d].pop(f)
+                    zeroshot_gt[d].pop(f)
 
 
 def get_configs_default():
