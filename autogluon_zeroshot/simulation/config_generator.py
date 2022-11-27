@@ -8,6 +8,7 @@ from sklearn.model_selection import KFold
 
 from .configuration_list_scorer import ConfigurationListScorer
 from .simulation_context import ZeroshotSimulatorContext
+from ..portfolio import Portfolio, PortfolioCV
 
 
 @ray.remote
@@ -172,8 +173,8 @@ class ZeroshotConfigGeneratorCV:
 
         self.kf = KFold(n_splits=self.n_splits, random_state=0, shuffle=True)
 
-    def run(self):
-        fold_results = []
+    def run(self) -> PortfolioCV:
+        results_list = []
         for i, (train_index, test_index) in enumerate(self.kf.split(self.unique_datasets)):
             print(f'Fitting Fold {i+1}...')
             X_train, X_test = list(self.unique_datasets[train_index]), list(self.unique_datasets[test_index])
@@ -184,17 +185,19 @@ class ZeroshotConfigGeneratorCV:
             for d in X_test:
                 X_test_fold += self.dataset_parent_to_fold_map[d]
             zeroshot_configs_fold, score_fold = self.run_fold(X_train_fold, X_test_fold)
-            results_fold = {
-                'fold': i+1,
-                'X_train': X_train,
-                'X_test': X_test,
-                'X_train_fold': X_train_fold,
-                'X_test_fold': X_test_fold,
-                'score': score_fold,
-                'selected_configs': zeroshot_configs_fold,
-            }
-            fold_results.append(results_fold)
-        return fold_results
+            results_fold = Portfolio(
+                configs=zeroshot_configs_fold,
+                train_score=None,
+                test_score=score_fold,
+                train_datasets=X_train,
+                test_datasets=X_test,
+                train_datasets_fold=X_train_fold,
+                test_datasets_fold=X_test_fold,
+                fold=i+1,
+            )
+            results_list.append(results_fold)
+        results = PortfolioCV(portfolios=results_list)
+        return results
 
     def run_fold(self, X_train, X_test):
         config_scorer_train = self.config_scorer.subset(datasets=X_train)

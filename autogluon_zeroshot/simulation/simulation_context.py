@@ -215,6 +215,8 @@ class ZeroshotSimulatorContext:
 
         Note: Performs inplace edits.
         """
+        if configs is None:
+            return zeroshot_pred_proba
         size_bytes = sys.getsizeof(pickle.dumps(zeroshot_pred_proba, protocol=4))
         print(f'OLD zeroshot_pred_proba Size: {round(size_bytes / 1e6, 3)} MB')
         task_names = list(zeroshot_pred_proba.keys())

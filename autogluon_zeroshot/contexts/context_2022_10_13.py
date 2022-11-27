@@ -105,7 +105,7 @@ def get_configs_default():
     return autogluon_configs
 
 
-def get_configs_small():
+def get_configs_small(num_per_type=12):
     small_extra_configs = []
     for m in [
         'LightGBM',
@@ -114,7 +114,7 @@ def get_configs_small():
         'ExtraTrees',
         'NeuralNetFastAI',
     ]:
-        for i in range(1, 12):
+        for i in range(1, num_per_type):
             small_extra_configs.append(m + f'_r{i}')
     small_configs = get_configs_default() + small_extra_configs
     return small_configs

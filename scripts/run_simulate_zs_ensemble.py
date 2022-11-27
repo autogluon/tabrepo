@@ -10,6 +10,8 @@ from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import Ensem
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13, get_configs_default, \
     get_configs_small
 from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation
+from autogluon_zeroshot.portfolio import PortfolioCV
+
 
 if __name__ == '__main__':
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(
@@ -29,9 +31,7 @@ if __name__ == '__main__':
             configs=configs
         )
 
-    score_total = 0
-    len_datasets_total = 0
-    results_total = []
+    results_cv_list = []
     # for problem_type in ['binary', 'multiclass', 'regression']:
     for problem_type in [None]:
         datasets = zsc.get_dataset_folds(problem_type=problem_type)
@@ -45,19 +45,16 @@ if __name__ == '__main__':
         )
 
         len_datasets = len(datasets)
-        len_datasets_total += len_datasets
-        results = run_zs_simulation(
+        results_cv: PortfolioCV = run_zs_simulation(
             zsc=zsc,
             config_scorer=config_scorer,
             n_splits=5,
             configs=configs,
             backend=backend,
         )
-        score = np.mean([r['score'] for r in results])
-        print(f'{problem_type}: {score} | {len_datasets}')
-        score_total += score * len_datasets
-        results_total += results
-    score_total = score_total / len_datasets_total
-    print(f'Final Score: {score_total}')
+        print(f'{problem_type}: {results_cv.get_test_score_overall()} | {len_datasets}')
+        results_cv_list.append(results_cv)
+    results_cv = PortfolioCV.combine(results_cv_list)
+    print(f'Final Score: {results_cv.get_test_score_overall()}')
 
-    save_pkl.save(path=str(Path(__file__).parent / 'sim_results' / 'ensemble_result.pkl'), object=results_total)
+    save_pkl.save(path=str(Path(__file__).parent / 'sim_results' / 'ensemble_result.pkl'), object=results_cv)

@@ -28,7 +28,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  dataset_name_to_fold_dict: dict,
                  ensemble_size=100,
                  ensemble_selection_kwargs=None,
-                 max_fold: Optional[float] = None
+                 max_fold: Optional[float] = None,
+                 backend: str = 'native',
                  ):
         super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
         if zeroshot_gt is None:
@@ -45,6 +46,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
         self.max_fold = max_fold
+        assert backend in ['native', 'ray']
+        self.backend = backend
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -86,6 +89,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         return err
 
     def compute_errors(self, configs: list):
+        if self.backend == 'ray':
+            return self.compute_errors_ray(configs=configs)
         errors = {}
         for dataset in self.datasets:
             fold = self.dataset_name_to_fold_dict[dataset]
@@ -123,11 +128,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         average_rank = np.mean(list(ranks.values()))
         return average_rank
 
-    def score(self, configs: list, backend='native'):
-        if backend == 'ray':
-            errors = self.compute_errors_ray(configs=configs)
-        else:
-            errors = self.compute_errors(configs=configs)
+    def score(self, configs: list):
+        errors = self.compute_errors(configs=configs)
         rank = self.compute_rank_mean(errors)
         return rank
 
