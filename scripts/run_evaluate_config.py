@@ -25,10 +25,11 @@ if __name__ == '__main__':
             zeroshot_simulator_context=zsc,
             zeroshot_gt=zeroshot_gt,
             zeroshot_pred_proba=zeroshot_pred_proba,
+            backend=backend,
             ensemble_size=100,  # 100 is better, but 10 allows to simulate 10x faster
         )
 
-        score = config_scorer.predict(configs, backend=backend)
+        score = config_scorer.score(configs)
 
         # With ensemble_size=100 610 datasets, 608 configs, I get
         #  Final Score: 3.8278688524590163

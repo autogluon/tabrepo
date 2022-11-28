@@ -14,7 +14,7 @@ from ..portfolio import Portfolio, PortfolioCV
 @ray.remote
 def score_config_ray(config_scorer, existing_configs, new_config) -> float:
     configs = existing_configs + [new_config]
-    score = config_scorer.predict(configs, backend="local")
+    score = config_scorer.score(configs)
     return score
 
 
@@ -62,7 +62,7 @@ class ZeroshotConfigGenerator:
             zeroshot_configs.append(best_next_config)
             msg = f'{iteration}\t: {round(best_score, 2)} | {round(time_end-time_start, 2)}s | {self.backend}'
             if config_scorer_test:
-                score_test = config_scorer_test.predict(zeroshot_configs)
+                score_test = config_scorer_test.score(zeroshot_configs)
                 msg += f'\tTest: {round(score_test, 2)}'
             msg += f'\t{best_next_config}'
             print(msg)
@@ -79,7 +79,7 @@ class ZeroshotConfigGenerator:
         best_score = 999999999
         for config in configs:
             config_selected = prior_configs + [config]
-            config_score = config_scorer.predict(config_selected)
+            config_score = config_scorer.score(config_selected)
             if config_score < best_score:
                 best_score = config_score
                 best_next_config = config
@@ -103,13 +103,13 @@ class ZeroshotConfigGenerator:
 
     def prune_zeroshot_configs(self, zeroshot_configs: List[str], removal_threshold=0) -> List[str]:
         zeroshot_configs = copy.deepcopy(zeroshot_configs)
-        best_score = self.config_scorer.predict(zeroshot_configs)
+        best_score = self.config_scorer.score(zeroshot_configs)
         finished_removal = False
         while not finished_removal:
             best_remove_config = None
             for config in zeroshot_configs:
                 config_selected = [c for c in zeroshot_configs if c != config]
-                config_score = self.config_scorer.predict(config_selected)
+                config_score = self.config_scorer.score(config_selected)
 
                 if best_remove_config is None:
                     if config_score <= (best_score + removal_threshold):
@@ -219,7 +219,7 @@ class ZeroshotConfigGeneratorCV:
         # zeroshot_configs = zs_config_generator.prune_zeroshot_configs(zeroshot_configs, removal_threshold=0)
 
         # Consider making test scoring optional here
-        score = config_scorer_test.score(zeroshot_configs, backend=self.backend)
+        score = config_scorer_test.score(zeroshot_configs)
         print(f'score: {score}')
 
         return zeroshot_configs, score

@@ -37,7 +37,7 @@ def evaluate_ensemble(
         max_fold=num_folds,
         backend=backend,
     )
-    train_error = train_scorer.predict(configs)
+    train_error = train_scorer.score(configs)
     if len(test_datasets) > 0:
         test_scorer = EnsembleSelectionConfigScorer.from_zsc(
             datasets=test_datasets,
@@ -47,7 +47,7 @@ def evaluate_ensemble(
             ensemble_size=ensemble_size,
             max_fold=num_folds,
         )
-        test_error = test_scorer.predict(configs)
+        test_error = test_scorer.score(configs)
     else:
         test_error = None
     return train_error, test_error

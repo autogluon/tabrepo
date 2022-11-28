@@ -68,7 +68,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         y_val = self.zeroshot_gt[dataset][fold]['y_val']
         y_test = self.zeroshot_gt[dataset][fold]['y_test']
 
-        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.score(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
+        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.predict(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
         weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
