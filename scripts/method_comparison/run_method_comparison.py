@@ -120,11 +120,10 @@ def learn_ensemble_configuration(
             num_folds=num_folds,
             ensemble_size=ensemble_size,
             initial_suggestions=[zs_config[:num_base_models]],
-            backend="ray",
+            backend="native",
         )
-
         tuner = Tuner(
-            trial_backend=LocalBackend(entry_point=Path(__file__).parent.parent / 'evaluate_ensemble.py'),
+            trial_backend=LocalBackend(entry_point=Path(__file__).parent / 'evaluate_ensemble.py'),
             scheduler=scheduler,
             stop_criterion=StoppingCriterion(
                 max_wallclock_time=max_wallclock_time,
@@ -215,16 +214,16 @@ def get_setting(setting):
         return Arguments(
             num_folds=3,
             ensemble_size=10,
-            max_wallclock_time=7200,
+            max_wallclock_time=3600,
             max_num_trials_completed=100000,
             num_base_models=10,
             n_workers=input_args.n_workers,
             searchers=[
+                "randomsearch",
+                "localsearch",
                 "zeroshot",
                 "zeroshot-ensemble",
                 "all",
-                "randomsearch",
-                "localsearch",
             ],
         )
 
@@ -234,6 +233,7 @@ if __name__ == "__main__":
     parser.add_argument("--setting", type=str, default="fast")
     parser.add_argument("--n_workers", type=int, default=1)
     parser.add_argument("--n_splits", type=int, default=2)
+
     parser.add_argument("--expname", type=str)
     input_args, _ = parser.parse_known_args()
     
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         expname = input_args.expname
 
     args = get_setting(setting=input_args.setting)
-    print(f"Running experiment {expname} with {input_args.setting} settings: {args}")
+    print(f"Running experiment {expname} with {input_args.setting} settings: {args}/{input_args}")
 
     with catchtime("load"):
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=False)
@@ -253,14 +253,8 @@ if __name__ == "__main__":
     all_datasets = np.array(datasets)
     np.random.shuffle(all_datasets)
     n_splits = input_args.n_splits
-
-    if n_splits == 1:
-        indices = np.arange(len(all_datasets))
-        splits = [(indices[:len(indices) // 2], indices[len(indices) // 2:])]
-    else:
-        kf = KFold(n_splits=n_splits, random_state=0, shuffle=True)
-        splits = kf.split(all_datasets)
-        fold_results = []
+    kf = KFold(n_splits=n_splits, random_state=0, shuffle=True)
+    splits = kf.split(all_datasets)
 
     # Evaluate all search strategies on `n_splits` of the datasets. Results are logged in a csv and can be
     # analysed with plot_results_comparison.py.
@@ -270,7 +264,6 @@ if __name__ == "__main__":
             with catchtime(f'****Fitting method {searcher} on fold {i + 1}****'):
                 train_datasets = list(all_datasets[train_index])
                 test_datasets = list(all_datasets[test_index])
-                zsc.get_dataset_folds(train_datasets)
                 best_config, train_error, test_error = learn_ensemble_configuration(
                     train_datasets_folds=zsc.get_dataset_folds(train_datasets),
                     test_datasets_folds=zsc.get_dataset_folds(test_datasets),
