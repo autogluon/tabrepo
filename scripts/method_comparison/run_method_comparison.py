@@ -37,21 +37,32 @@ from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import Ensem
 from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
 from autogluon_zeroshot.simulation.synetune_wrapper.synetune_search import RandomSearch, LocalSearch
 from autogluon_zeroshot.utils import catchtime
-from scripts.evaluate_ensemble import evaluate_ensemble
+from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
 
 logging.getLogger().setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 
 
-def compute_zeroshot(models: List[str], datasets_folds: List[str], ensemble_score: bool = False) -> List[str]:
+
+def compute_zeroshot(
+        models: List[str],
+        datasets_folds: List[str],
+        ensemble_size: int,
+        num_models: int,
+        num_folds: int,
+        ensemble_score: bool = False,
+) -> List[str]:
     """evaluate the performance of a list of configurations with Caruana ensembles on the provided datasets"""
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=ensemble_score)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=ensemble_score, lazy_format=True)
     if ensemble_score:
         config_scorer = EnsembleSelectionConfigScorer.from_zsc(
             zeroshot_simulator_context=zsc,
             datasets=datasets_folds,
             zeroshot_gt=zeroshot_gt,
             zeroshot_pred_proba=zeroshot_pred_proba,
-            ensemble_size=10,
+            ensemble_size=ensemble_size,
+            max_fold=num_folds,
         )
     else:
         config_scorer = SingleBestConfigScorer.from_zsc(
@@ -63,7 +74,7 @@ def compute_zeroshot(models: List[str], datasets_folds: List[str], ensemble_scor
         configs=models,
         backend="ray",
     )
-    zeroshot_configs = zs_config_generator.select_zeroshot_configs(10, removal_stage=False)
+    zeroshot_configs = zs_config_generator.select_zeroshot_configs(num_models, removal_stage=False)
     return zeroshot_configs
 
 
@@ -88,7 +99,14 @@ def learn_ensemble_configuration(
         synetune_logger.setLevel(logging.WARNING)
 
         with catchtime("Compute zeroshot config to initialize local search"):
-            zs_config = compute_zeroshot(models=configs, datasets_folds=train_datasets_folds, ensemble_score=False)
+            zs_config = compute_zeroshot(
+                models=configs,
+                datasets_folds=train_datasets_folds,
+                ensemble_score=False,
+                ensemble_size=ensemble_size,
+                num_models=num_base_models,
+                num_folds=num_folds,
+            )
         searcher_cls = LocalSearch if searcher == "localsearch" else RandomSearch
 
         scheduler = searcher_cls(
@@ -102,10 +120,10 @@ def learn_ensemble_configuration(
             num_folds=num_folds,
             ensemble_size=ensemble_size,
             initial_suggestions=[zs_config[:num_base_models]],
+            backend="native",
         )
-
         tuner = Tuner(
-            trial_backend=LocalBackend(entry_point=Path(__file__).parent.parent / 'evaluate_ensemble.py'),
+            trial_backend=LocalBackend(entry_point=Path(__file__).parent / 'evaluate_ensemble.py'),
             scheduler=scheduler,
             stop_criterion=StoppingCriterion(
                 max_wallclock_time=max_wallclock_time,
@@ -126,21 +144,37 @@ def learn_ensemble_configuration(
         best_config_dict = eval(tuning_experiment.best_config()['config_configs'])
 
     elif searcher == "zeroshot":
-        with catchtime("Compute zeroshot config to initialize local search"):
-            best_config_dict = compute_zeroshot(models=configs, datasets_folds=train_datasets_folds, ensemble_score=False)
+        with catchtime("Compute zeroshot without ensemble"):
+            best_config_dict = compute_zeroshot(
+                models=configs,
+                datasets_folds=train_datasets_folds,
+                ensemble_score=False,
+                ensemble_size=ensemble_size,
+                num_models=num_base_models,
+                num_folds=num_folds,
+            )
     elif searcher == "zeroshot-ensemble":
-        with catchtime("Compute zeroshot config to initialize local search"):
-            best_config_dict = compute_zeroshot(models=configs, datasets_folds=train_datasets_folds, ensemble_score=True)
+        with catchtime("Compute zeroshot with ensemble"):
+            best_config_dict = compute_zeroshot(
+                models=configs,
+                datasets_folds=train_datasets_folds,
+                ensemble_score=True,
+                ensemble_size=ensemble_size,
+                num_models=num_base_models,
+                num_folds=num_folds,
+            )
     elif searcher == "all":
         best_config_dict = configs
 
-    train_error, test_error = evaluate_ensemble(
-        configs=best_config_dict,
-        train_datasets=train_datasets_folds,
-        test_datasets=test_datasets_folds,
-        num_folds=10,
-        ensemble_size=ensemble_size,
-    )
+    with catchtime("eval performance of best config found"):
+        train_error, test_error = evaluate_ensemble(
+            configs=best_config_dict,
+            train_datasets=train_datasets_folds,
+            test_datasets=test_datasets_folds,
+            num_folds=10,
+            ensemble_size=ensemble_size,
+            backend="ray",
+        )
 
     return best_config_dict, train_error, test_error
 
@@ -148,7 +182,7 @@ def learn_ensemble_configuration(
 @dataclass
 class Arguments:
     n_workers: int  # number of workers used when tuning with syne tune
-    num_folds: int  # number of folds to consider, can be lowered to reduce runtime
+    num_folds: int  # number of folds to consider when fitting, can be lowered to reduce runtime
     ensemble_size: int  # number of ensemble to use for caruana ensemble computation
     num_base_models: int  # number of models that should be returned by search strategies
     searchers: List[str]  # list of searcher to run
@@ -169,33 +203,27 @@ def get_setting(setting):
             max_wallclock_time=600,
             max_num_trials_completed=4,
             num_base_models=4,
-            n_workers=input_args.n_workers,
-            searchers=['localsearch'],
-        )
-    elif setting == "medium":
-        return Arguments(
-            num_folds=5,
-            ensemble_size=20,
-            max_wallclock_time=600,
-            # max_num_trials_completed=100,
-            num_base_models=10,
-            n_workers=input_args.n_workers,
-            searchers=['randomsearch', 'localsearch'],
+            n_workers=1,
+            searchers=[
+                "zeroshot",
+                "all",
+                "randomsearch",
+            ],
         )
     elif setting == "slow":
         return Arguments(
-            num_folds=10,
-            ensemble_size=20,
-            max_wallclock_time=1200,
+            num_folds=3,
+            ensemble_size=10,
+            max_wallclock_time=3600,
             max_num_trials_completed=100000,
             num_base_models=10,
             n_workers=input_args.n_workers,
             searchers=[
+                "randomsearch",
+                "localsearch",
                 "zeroshot",
                 "zeroshot-ensemble",
                 "all",
-                "randomsearch",
-                "localsearch",
             ],
         )
 
@@ -203,35 +231,31 @@ def get_setting(setting):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--setting", type=str, default="fast")
-    parser.add_argument("--n_workers", type=int, default=8)
+    parser.add_argument("--n_workers", type=int, default=1)
     parser.add_argument("--n_splits", type=int, default=2)
+
     parser.add_argument("--expname", type=str)
     input_args, _ = parser.parse_known_args()
-
+    
     if input_args.expname is None:
         expname = random_string(5)
     else:
         expname = input_args.expname
 
     args = get_setting(setting=input_args.setting)
+    print(f"Running experiment {expname} with {input_args.setting} settings: {args}/{input_args}")
 
     with catchtime("load"):
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=False)
     configs = zsc.get_configs()
+    # configs = get_configs_small()
     datasets = zsc.get_datasets()
     all_datasets = np.array(datasets)
     np.random.shuffle(all_datasets)
     n_splits = input_args.n_splits
+    kf = KFold(n_splits=n_splits, random_state=0, shuffle=True)
+    splits = kf.split(all_datasets)
 
-    if n_splits == 1:
-        indices = np.arange(len(all_datasets))
-        splits = [(indices[:len(indices) // 2], indices[len(indices) // 2:])]
-    else:
-        kf = KFold(n_splits=n_splits, random_state=0, shuffle=True)
-        splits = kf.split(all_datasets)
-        fold_results = []
-
-    print(f"Running experiment {expname} with {input_args.setting} settings: {args}")
     # Evaluate all search strategies on `n_splits` of the datasets. Results are logged in a csv and can be
     # analysed with plot_results_comparison.py.
     results = []
@@ -240,7 +264,6 @@ if __name__ == "__main__":
             with catchtime(f'****Fitting method {searcher} on fold {i + 1}****'):
                 train_datasets = list(all_datasets[train_index])
                 test_datasets = list(all_datasets[test_index])
-                zsc.get_dataset_folds(train_datasets)
                 best_config, train_error, test_error = learn_ensemble_configuration(
                     train_datasets_folds=zsc.get_dataset_folds(train_datasets),
                     test_datasets_folds=zsc.get_dataset_folds(test_datasets),

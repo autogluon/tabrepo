@@ -10,6 +10,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument(
         "--expname", type=str,
+        required=True,
         help="The name that you set or that was generated when you evaluated \"run_method_comparison.py\""
     )
     input_args, _ = parser.parse_known_args()

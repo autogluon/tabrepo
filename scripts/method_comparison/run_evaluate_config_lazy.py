@@ -1,7 +1,7 @@
 # File to check that we get the same error as run_evaluate_config.py. It can be removed.
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
 from autogluon_zeroshot.utils import catchtime
-from scripts.evaluate_ensemble import evaluate_ensemble
+from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
 
 if __name__ == '__main__':
     with catchtime("eval"):
@@ -15,6 +15,7 @@ if __name__ == '__main__':
             train_datasets=datasets,
             test_datasets=[],
             ensemble_size=100,
+            backend="ray",
         )
 
         # With ensemble_size=100 610 datasets, 608 configs, I get

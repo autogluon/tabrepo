@@ -68,7 +68,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         y_val = self.zeroshot_gt[dataset][fold]['y_val']
         y_test = self.zeroshot_gt[dataset][fold]['y_test']
 
-        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.score(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
+        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.predict(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
         weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
@@ -99,7 +99,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
         return errors
 
-    # TODO: Massively speedup by only sending minimum zeroshot pred proba info for each task
+    # speedup can be obtained by only sending minimum zeroshot pred proba info for each task by using lazy format
     def compute_errors_ray(self, configs: list):
         # Create and execute all tasks in parallel
         if not ray.is_initialized():

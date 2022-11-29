@@ -60,7 +60,7 @@ def test_synthetic_data(cls):
 
         # 1) construct pred proba from dictionary
         pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
-        assert set(pred_proba.models_available_per_dataset(dataset="d1", fold=0)) == set(models)
+        assert set(pred_proba.models_available_in_dataset(dataset="d1")) == set(models)
         filename = str(Path(tmpdirname) / "dummy")
 
         # 2) save it and reload it
@@ -71,7 +71,7 @@ def test_synthetic_data(cls):
         assert pred_proba.datasets == list(dataset_shapes.keys())
         for dataset, (val_shape, test_shape) in dataset_shapes.items():
             print(dataset, val_shape, test_shape)
-            val_score, test_score = pred_proba.score(dataset=dataset, fold=2, models=models, splits=["val", "test"])
+            val_score, test_score = pred_proba.predict(dataset=dataset, fold=2, models=models, splits=["val", "test"])
             assert val_score.shape == tuple([num_models] + list(val_shape))
             assert test_score.shape == tuple([num_models] + list(test_shape))
             for i, model in enumerate(models):
