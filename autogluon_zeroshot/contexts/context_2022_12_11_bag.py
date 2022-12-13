@@ -104,6 +104,7 @@ def get_configs_default():
         'RandomForest_c1',
         'ExtraTrees_c1',
     ]
+    autogluon_configs = [a + '_BAG_L1' for a in autogluon_configs]
     return autogluon_configs
 
 
@@ -117,6 +118,6 @@ def get_configs_small(num_per_type=12):
         'NeuralNetFastAI',
     ]:
         for i in range(1, num_per_type):
-            small_extra_configs.append(m + f'_r{i}')
+            small_extra_configs.append(m + f'_r{i}_BAG_L1')
     small_configs = get_configs_default() + small_extra_configs
     return small_configs
