@@ -8,3 +8,4 @@ class Paths:
     data_root: Path = Path(__file__).parent.parent.parent / 'data'
     results_root: Path = data_root / 'results'
     all_v3_results_root: Path = results_root / "all_v3"
+    bagged_results_root: Path = results_root / "bagged"
