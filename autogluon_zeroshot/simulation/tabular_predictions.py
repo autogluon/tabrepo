@@ -231,3 +231,159 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def _load_metadata(output_dir):
         with open(output_dir / "metadata.json", "r") as f:
             return json.load(f)
+
+
+class TabularNpyPerTaskPredictions(TabularModelPredictions):
+    def __init__(self, output_dir: str, dataset_shapes: Dict[str, Tuple[int, int, int]], models, folds):
+        self._output_dir = output_dir
+        self._dataset_shapes = dataset_shapes
+        self._models = models
+        self._folds = folds
+
+    def _predict_from_dataset(self, dataset: str) -> np.array:
+        evals = np.load(Path(self._output_dir) / f"{dataset}.npy")
+        num_val, num_test, output_dim = self._dataset_shapes[dataset]
+        assert evals.shape[0] == num_val + num_test
+        assert evals.shape[-1] == output_dim
+        # (num_train/num_test, n_folds, n_models, output_dim)
+        return evals[:num_val], evals[num_val:]
+
+    def search_index(self, l, x):
+        for i, y in enumerate(l):
+            if y == x:
+                return i
+
+    def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+        """
+        :return: for each split, a tensor with shape (num_models, num_points) for regression and
+        (num_models, num_points, num_classes) for classification corresponding the predictions of the model.
+        """
+        model_indices = {model: i for i, model in enumerate(self.models)}
+        res = []
+        # (num_train/num_test, n_folds, n_models, output_dim)
+        val_evals, test_evals = self._predict_from_dataset(dataset)
+        for split in splits:
+            tensor = val_evals if split == "val" else test_evals
+            if models is None:
+                res.append(tensor[:, fold, :])
+            else:
+                res.append(tensor[:, fold, [model_indices[m] for m in models]])
+
+        res = [np.swapaxes(x, 0, 1) for x in res]
+        # squeeze last dim to be uniform with other part of the code
+        res = [
+            np.squeeze(x, axis=-1) if x.shape[-1] == 1 else x
+            for x in res
+        ]
+        return res
+
+    @classmethod
+    def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        pred_proba = TabularPicklePredictions.from_dict(pred_dict=pred_dict)
+        datasets = pred_proba.datasets
+        models = pred_proba.models
+        print(f"saving .pkl files in folder {output_dir}")
+        dataset_shapes = {}
+        for dataset in datasets:
+            # (num_samples, n_folds, n_models, output_dim)
+            val_evals, test_evals = cls._stack_pred(pred_dict[dataset], models)
+            dataset_shapes[dataset] = (len(val_evals), len(test_evals), val_evals.shape[-1])
+            evals = np.concatenate([val_evals, test_evals], axis=0)
+            np.save(output_dir / f"{dataset}.npy", evals)
+        cls._save_metadata(
+            output_dir=output_dir,
+            dataset_shapes=dataset_shapes,
+            models=models,
+            folds=pred_proba.folds,
+        )
+
+        return cls(
+            dataset_shapes=dataset_shapes,
+            output_dir=output_dir,
+            models=models,
+            folds=pred_proba.folds,
+        )
+
+    @staticmethod
+    def _stack_pred(fold_dict: Dict[int, Dict[str, Dict[str, np.array]]], models):
+        """
+        :param fold_dict: dictionary mapping fold to split to config name to predictions
+        :return:
+        """
+        # split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
+        num_samples_val = min(len(config_evals) for config_evals in fold_dict[0]["pred_proba_dict_val"].values())
+        num_samples_test = min(len(config_evals) for config_evals in fold_dict[0]["pred_proba_dict_test"].values())
+        output_dims = set(
+            config_evals.shape[1] if config_evals.ndim > 1 else 1
+            for fold in fold_dict.values()
+            for split in fold.values()
+            for config_evals in split.values()
+        )
+        assert len(output_dims) == 1
+        output_dim = next(iter(output_dims))
+        n_folds = len(fold_dict)
+        n_models = len(fold_dict[0]["pred_proba_dict_val"])
+        val_res = np.zeros((num_samples_val, n_folds, n_models, output_dim))
+        test_res = np.zeros((num_samples_test, n_folds, n_models, output_dim))
+        def expand_if_scalar(x):
+            return x if output_dim > 1 else np.expand_dims(x, axis=-1)
+
+        for n_fold in range(n_folds):
+            for n_model, model in enumerate(models):
+                val_res[:, n_fold, n_model, :] = expand_if_scalar(
+                    fold_dict[n_fold]["pred_proba_dict_val"][model][:num_samples_val]
+                )
+                test_res[:, n_fold, n_model, :] = expand_if_scalar(
+                    fold_dict[n_fold]["pred_proba_dict_test"][model][:num_samples_test]
+                )
+        return val_res, test_res
+
+    @staticmethod
+    def _save_metadata(output_dir, dataset_shapes, models, folds):
+        with open(output_dir / "metadata.json", "w") as f:
+            metadata = {
+                "dataset_shapes": dataset_shapes,
+                "models": models,
+                "folds": folds,
+            }
+            json.dump(metadata, f)
+
+    @staticmethod
+    def _load_metadata(output_dir):
+        with open(output_dir / "metadata.json", "r") as f:
+            return json.load(f)
+
+    @property
+    def datasets(self) -> List[str]:
+        return list(self._dataset_shapes.keys())
+
+    def models_available_in_dataset(self, dataset: str) -> List[str]:
+        return self._models
+
+    @property
+    def folds(self) -> List[int]:
+        return self._folds
+
+    @property
+    def models(self) -> List[int]:
+        return self._models
+
+    def save(self, output_dir: str):
+        print(f"saving into {output_dir}")
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self._save_metadata(output_dir, dataset_shapes=self._dataset_shapes, models=self._models, folds=self._folds)
+        print(f"copy .npy files from {self._output_dir} to {output_dir}")
+        for file in self._output_dir.glob("*.npy"):
+            shutil.copyfile(file, output_dir / file.name)
+
+    @classmethod
+    def load(cls, filename: str):
+        filename = Path(filename)
+        metadata = cls._load_metadata(filename)
+        return cls(
+            output_dir=filename,
+            **metadata
+        )

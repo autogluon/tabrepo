@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredictions, TabularPredictionsDict, \
-    TabularPicklePerTaskPredictions
+    TabularPicklePerTaskPredictions, TabularNpyPerTaskPredictions
 
 
 def generate_dummy(shape, models):
@@ -43,7 +43,7 @@ def generate_artificial_dict(
 
 
 # def check_synthetic_data_pickle(cls=TabularPicklePredictions):
-@pytest.mark.parametrize("cls", [TabularPicklePredictions, TabularPicklePerTaskPredictions])
+@pytest.mark.parametrize("cls", [TabularPicklePredictions, TabularPicklePerTaskPredictions, TabularNpyPerTaskPredictions])
 def test_synthetic_data(cls):
     num_models = 13
     num_folds = 3
