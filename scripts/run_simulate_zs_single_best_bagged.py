@@ -6,12 +6,12 @@ from autogluon.common.savers import save_pkl
 
 from autogluon_zeroshot.portfolio import PortfolioCV
 from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
-from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13, get_configs_default, get_configs_small
+from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag, get_configs_small
 from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation
 
 
 if __name__ == '__main__':
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13()
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_12_11_bag()
     zsc.print_info()
 
     # NOTE: For speed of simulation, it is recommended backend='ray'
@@ -25,7 +25,8 @@ if __name__ == '__main__':
     #  For LOO with 20 rounds on ray: 1.49s * 20 * 60 = 1788s
     backend = 'ray'
 
-    configs = get_configs_small()
+    # configs = get_configs_small()
+    configs = None
 
     results_cv_list = []
     # for problem_type in ['binary', 'multiclass', 'regression']:
@@ -48,7 +49,8 @@ if __name__ == '__main__':
         print(f'{problem_type}: {results_cv.get_test_score_overall()} | {len_datasets}')
         results_cv_list.append(results_cv)
     results_cv = PortfolioCV.combine(results_cv_list)
-    # Final Score: 4.8197 | 61 datasets, n_splits=5, 608 configs
+    # Final Score: 3.548 with the toy version (30 random configs per model, 57 datasets, n_splits=5, 158 total configs)
     print(f'Final Score: {results_cv.get_test_score_overall()}')
 
     save_pkl.save(path=str(Path(__file__).parent / 'sim_results' / 'single_best_result.pkl'), object=results_cv)
+
