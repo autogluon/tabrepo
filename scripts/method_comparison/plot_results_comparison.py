@@ -26,5 +26,12 @@ if __name__ == '__main__':
     df_results.groupby("fold").mean()
 
     print(df_results.groupby("searcher").agg(['mean', 'std'])[['train-score', 'test-score']].to_string(float_format="%.2f"))
-
-
+    
+    import seaborn
+    import matplotlib.pyplot as plt
+    errors = df_results.loc[:, ['train-score', 'test-score']]
+    fig = seaborn.regplot(errors, x='train-score', y='test-score').figure
+    # fig.suptitle(f"Correlation between train and test error ({n_splits} splits and {num_folds_fit} folds used to fit)")
+    fig.suptitle(f"Correlation between train and test error")
+    plt.tight_layout()
+    plt.show()
