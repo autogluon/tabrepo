@@ -18,6 +18,7 @@ if __name__ == '__main__':
         load_zeroshot_pred_proba=True,
         lazy_format=False,
     )
+    zsc.subset_models(zeroshot_pred_proba.models)
     zsc.print_info()
 
     # NOTE: For speed of simulation, it is recommended backend='ray'
