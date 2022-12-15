@@ -232,3 +232,36 @@ class ZeroshotSimulatorContext:
         size_bytes = sys.getsizeof(pickle.dumps(zeroshot_pred_proba, protocol=4))
         print(f'NEW zeroshot_pred_proba Size: {round(size_bytes / 1e6, 3)} MB')
         return zeroshot_pred_proba
+
+    def subset_datasets(self, datasets):
+        """
+        Only keep the provided datasets, drop all others
+        """
+        unique_datasets_subset = []
+        for d in self.unique_datasets:
+            if d in datasets:
+                unique_datasets_subset.append(d)
+        for d in datasets:
+            if d not in self.unique_datasets:
+                raise ValueError(f'Missing expected dataset {d} in ZeroshotSimulatorContext!')
+        self._update_unique_datasets(unique_datasets_subset)
+
+    def subset_models(self, models):
+        """
+        Only keep the provided models, drop all others
+        """
+        self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[
+            self.df_results_by_dataset_vs_automl['framework'].isin(models)
+        ]
+
+    def _update_unique_datasets(self, unique_datasets):
+        for d in unique_datasets:
+            assert d in self.unique_datasets
+        unique_dataset_folds = []
+        dataset_parent_to_fold_map = dict()
+        for d in unique_datasets:
+            dataset_parent_to_fold_map[d] = self.dataset_parent_to_fold_map[d]
+            unique_dataset_folds += dataset_parent_to_fold_map[d]
+        self.unique_datasets = unique_datasets
+        self.unique_dataset_folds = unique_dataset_folds
+        self.dataset_parent_to_fold_map = dataset_parent_to_fold_map

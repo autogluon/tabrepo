@@ -55,12 +55,12 @@ def load_context_2022_12_11_bag(folds=None, load_zeroshot_pred_proba=False, lazy
     zeroshot_pred_proba = None
     zeroshot_gt = None
     if load_zeroshot_pred_proba:
-        path_zs_gt = str(Paths.bagged_results_root / 'zeroshot_gt_2022_12_11_zs.pkl')
+        path_zs_gt = str(Paths.bagged_results_root / 'all' / 'zeroshot_gt_2022_12_11_zs.pkl')
         zeroshot_gt = zsc.load_groundtruth(path_gt=path_zs_gt)
         if lazy_format:
-            path_zs_pred_proba = str(Paths.bagged_results_root / 'zeroshot_pred_per_task')
+            path_zs_pred_proba = str(Paths.bagged_results_root / 'all' / 'zeroshot_pred_per_task')
         else:
-            path_zs_pred_proba = str(Paths.bagged_results_root / 'zeroshot_pred_proba_2022_12_11_zs.pkl')
+            path_zs_pred_proba = str(Paths.bagged_results_root / 'all' / 'zeroshot_pred_proba_2022_12_11_zs.pkl')
         zeroshot_pred_proba = zsc.load_pred(path_pred_proba=path_zs_pred_proba, lazy_format=lazy_format)
 
         # keep only dataset whose folds are all present
@@ -92,6 +92,8 @@ def intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt):
                 if f not in zsc.folds:
                     zeroshot_pred_proba[d].pop(f)
                     zeroshot_gt[d].pop(f)
+    datasets_in_zs = list(zeroshot_pred_proba.pred_dict.keys())
+    zsc.subset_datasets(datasets_in_zs)
 
 
 def get_configs_default():
