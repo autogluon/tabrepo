@@ -6,18 +6,23 @@ from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.tabular_predictions import TabularModelPredictions
 
 
-def load_context_2022_12_11_bag(folds=None, load_zeroshot_pred_proba=False, lazy_format=False) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
+def load_context_2022_12_11_bag(
+        folds=None,
+        load_zeroshot_pred_proba=False,
+        lazy_format=False,
+        subset='small_30') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
     """
     :param folds:
     :param load_zeroshot_pred_proba:
     :param lazy_format: whether to load with a format where all data is in memory (`TabularPicklePredictions`) or a
     format where data is loaded on the fly (`TabularPicklePerTaskPredictions`). Both formats have the same interface.
+    :param subset: The version of the data used.
+        'small_30': Contains 158 configs, 30 random each from 5 model types.
+        'all': Contains 608 configs, all ran configs from 5 model types. Much slower to simulate than 'small_30'.
     :return:
     """
     if folds is None:
         folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-
-    subset = 'small_30'
 
     df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
         results=str(Paths.bagged_results_root / subset / "results_ranked_valid.csv"),
@@ -65,6 +70,7 @@ def load_context_2022_12_11_bag(folds=None, load_zeroshot_pred_proba=False, lazy
 
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
+        zsc.subset_models(zeroshot_pred_proba.models)
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
