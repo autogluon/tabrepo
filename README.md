@@ -10,7 +10,7 @@ Requires the latest `autogluon` installed (can be installed from source).
 
 ## Quick-start
 
-You can try the code out to generate a zeroshot portfolio immediately by running `scripts/run_simulate_zs_single_best.py`.
+You can try the code out to generate a zeroshot portfolio immediately by running `scripts/simulate/bagged/run_simulate_zs_single_best_bagged.py`.
 Note: You will need `ray` installed to run without edits.
 
 ## Related Repositories
@@ -41,7 +41,7 @@ For size related reasons, the following files are not included in this repo and 
 - zeroshot_gt_2022_10_13_zs.pkl : 200 MB, contains ground truth labels for 610 dataset folds on test and validation, plus metadata information.
 - zeroshot_pred_proba_2022_10_13_zs.pkl : 17 GB, contains prediction probabilities of 608 model configs for 610 dataset folds.
 
-Access to downloading these files is currently WIP. The code to do so if you have permissions is in `scripts/run_download_zeroshot_pred_proba.py`.
+Access to downloading these files is currently WIP. The code to do so if you have permissions is in `scripts/simulate/*/run_download_metadata*.py`.
 You can run SingleBest simulations without these files, but Ensemble simulations require these files.
 
 Note: zeroshot_pred_proba is actually 260 GB, but has been shrunk to 17 GB by removing datasets that use a lot of space to store prediction probabilities.
@@ -54,9 +54,9 @@ Now that we have results for every config on every dataset, we can simulate conf
 Two simulation strategies are implemented:
 
 1. SingleBest - Create a portfolio that scores by choosing the model with the best validation score as the final solution (no ensembling)
-    - Run via `scripts/run_simulate_zs_single_best.py`
+    - Run via `scripts/simulate/all_v3/run_simulate_zs_single_best.py`
 2. Ensemble - Create a portfolio that scores by creating a GreedyWeightedEnsemble via the validation data as the final solution.
-    - Run via `scripts/run_simulate_zs_ensemble.py` (Requires zeroshot_pred_proba file downloaded)
+    - Run via `scripts/simulate/all_v3/run_simulate_zs_ensemble.py` (Requires zeroshot_pred_proba file downloaded)
 
 ### Scoring function
 
