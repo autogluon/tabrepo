@@ -31,6 +31,7 @@ from syne_tune.backend import LocalBackend
 from syne_tune.experiments import load_experiment
 
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13, get_configs_small
+from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag
 from autogluon_zeroshot.loaders import Paths
 from autogluon_zeroshot.simulation.config_generator import ZeroshotConfigGenerator
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
@@ -51,10 +52,12 @@ def compute_zeroshot(
         ensemble_size: int,
         num_models: int,
         num_folds: int,
+        bag: bool,
         ensemble_score: bool = False,
 ) -> List[str]:
     """evaluate the performance of a list of configurations with Caruana ensembles on the provided datasets"""
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=ensemble_score, lazy_format=True)
+    load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=ensemble_score, lazy_format=True)
     if ensemble_score:
         config_scorer = EnsembleSelectionConfigScorer.from_zsc(
             zeroshot_simulator_context=zsc,
@@ -90,6 +93,7 @@ def learn_ensemble_configuration(
         max_num_trials_completed,
         name,
         searcher,
+        bag,
 ):
     assert searcher in ["randomsearch", "localsearch", "all", "zeroshot", "zeroshot-ensemble"]
 
@@ -106,6 +110,7 @@ def learn_ensemble_configuration(
                 ensemble_size=ensemble_size,
                 num_models=num_base_models,
                 num_folds=num_folds,
+                bag=bag,
             )
         searcher_cls = LocalSearch if searcher == "localsearch" else RandomSearch
 
@@ -121,6 +126,7 @@ def learn_ensemble_configuration(
             ensemble_size=ensemble_size,
             initial_suggestions=[zs_config[:num_base_models]],
             backend="native",
+            bag=bag,
         )
         tuner = Tuner(
             trial_backend=LocalBackend(entry_point=Path(__file__).parent / 'evaluate_ensemble.py'),
@@ -152,6 +158,7 @@ def learn_ensemble_configuration(
                 ensemble_size=ensemble_size,
                 num_models=num_base_models,
                 num_folds=num_folds,
+                bag=bag,
             )
     elif searcher == "zeroshot-ensemble":
         with catchtime("Compute zeroshot with ensemble"):
@@ -162,6 +169,7 @@ def learn_ensemble_configuration(
                 ensemble_size=ensemble_size,
                 num_models=num_base_models,
                 num_folds=num_folds,
+                bag=bag,
             )
     elif searcher == "all":
         best_config_dict = configs
@@ -174,6 +182,7 @@ def learn_ensemble_configuration(
             num_folds=10,
             ensemble_size=ensemble_size,
             backend="ray",
+            bag=bag,
         )
 
     return best_config_dict, train_error, test_error
@@ -236,7 +245,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--expname", type=str)
     input_args, _ = parser.parse_known_args()
-    
     if input_args.expname is None:
         expname = random_string(5)
     else:
@@ -245,8 +253,10 @@ if __name__ == "__main__":
     args = get_setting(setting=input_args.setting)
     print(f"Running experiment {expname} with {input_args.setting} settings: {args}/{input_args}")
 
+    bag = False
     with catchtime("load"):
-        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=False)
+        load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
+        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=False)
     configs = zsc.get_configs()
     # configs = get_configs_small()
     datasets = zsc.get_datasets()
@@ -275,7 +285,8 @@ if __name__ == "__main__":
                     n_workers=args.n_workers,
                     max_num_trials_completed=args.max_num_trials_completed,
                     searcher=searcher,
-                    name=f"{expname}-fold-{i}-{searcher}"
+                    name=f"{expname}-fold-{i}-{searcher}",
+                    bag=bag,
                 )
                 print(f"best config found: {best_config}")
                 print(f"train/test error of best config found: {train_error}/{test_error}")

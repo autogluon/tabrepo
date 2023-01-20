@@ -26,7 +26,7 @@ def evaluate_ensemble(
         backend: str = "native",
         bag: bool = False,
 ):
-    print(f"Evaluating on {backend}")
+    print(f"Evaluating backend/bag/ensemble_size/num_folds:{backend}/{bag}/{ensemble_size}/{num_folds}")
     load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
 
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(
@@ -78,6 +78,7 @@ if __name__ == "__main__":
     num_folds = config['num_folds']
     ensemble_size = config['ensemble_size']
     backend = config["backend"]
+    bag = bool(config["bag"])
 
     reporter = Reporter()
     with catchtime("evaluate ensemble"):
@@ -88,6 +89,7 @@ if __name__ == "__main__":
             num_folds=num_folds,
             ensemble_size=ensemble_size,
             backend=backend,
+            bag=bag,
         )
         metrics = {
             "train_error": train_error

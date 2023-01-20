@@ -7,7 +7,7 @@ from syne_tune.optimizer.scheduler import TrialSuggestion, TrialScheduler
 
 class RandomSearch(TrialScheduler):
     def __init__(self, models: List[dict], metric: str, num_base_models: int, train_datasets, test_datasets,
-                 num_folds: int, ensemble_size: int, backend: str, initial_suggestions=None):
+                 num_folds: int, ensemble_size: int, backend: str, bag: bool, initial_suggestions=None):
         """Search configurations by random sampling."""
         super(RandomSearch, self).__init__(config_space={
             "configs": None,
@@ -16,8 +16,10 @@ class RandomSearch(TrialScheduler):
             "num_folds": None,
             "ensemble_size": None,
             "backend": None,
+            "bag": None,
         })
         self.backend = backend
+        self.bag = bag
         self.metric = metric
         self.models = models
         self.num_base_models = num_base_models
@@ -49,7 +51,7 @@ class RandomSearch(TrialScheduler):
 
 class LocalSearch(TrialScheduler):
     def __init__(self, models: List[dict], metric: str, num_base_models: int, train_datasets, test_datasets,
-                 num_folds: int, ensemble_size: int, backend: str, initial_suggestions=None):
+                 num_folds: int, ensemble_size: int, backend: str, bag: bool, initial_suggestions=None):
         """Search ensemble configurations by mutating the top configuration."""
         super(LocalSearch, self).__init__(config_space={
             "configs": None,
@@ -57,9 +59,11 @@ class LocalSearch(TrialScheduler):
             "test_datasets": None,
             "num_folds": None,
             "ensemble_size": None,
-            "backend": None
+            "backend": None,
+            "bag": None,
         })
         self.backend = backend
+        self.bag = bag
         self.metric = metric
         self.models = models
         self.num_base_models = num_base_models
@@ -86,6 +90,7 @@ class LocalSearch(TrialScheduler):
             "num_folds": self.num_folds,
             "ensemble_size": self.ensemble_size,
             "backend": self.backend,
+            "bag": self.bag,
         }
         self.config_scores[tuple(configs)] = None
         return TrialSuggestion.start_suggestion(config)

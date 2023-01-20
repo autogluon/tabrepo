@@ -13,6 +13,7 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
+from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag
 from autogluon_zeroshot.loaders import Paths
 from autogluon_zeroshot.utils import catchtime
 from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
@@ -80,9 +81,10 @@ if __name__ == "__main__":
     num_base_models = 10
     n_splits = [2, 5]
     num_folds_fits = [5, 10]
-
+    bag = True
     with catchtime("load"):
-        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=False)
+        load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
+        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=False)
     configs = zsc.get_configs()
     datasets = np.array(zsc.get_datasets())
 
