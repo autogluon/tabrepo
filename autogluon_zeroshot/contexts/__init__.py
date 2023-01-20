@@ -21,6 +21,6 @@ def intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt):
                 if f not in zsc.folds:
                     zeroshot_pred_proba[d].pop(f)
                     zeroshot_gt[d].pop(f)
-    # datasets_in_zs = list(zeroshot_pred_proba.pred_dict.keys())
-    # zsc.subset_datasets(datasets_in_zs)
+    datasets_in_zs = list(zeroshot_pred_proba.datasets)
+    zsc.subset_datasets(datasets_in_zs)
 
