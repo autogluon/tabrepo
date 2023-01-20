@@ -1,5 +1,6 @@
 import pickle
 import sys
+from pathlib import Path
 from typing import Optional, List
 
 import pandas as pd
@@ -181,14 +182,15 @@ class ZeroshotSimulatorContext:
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
         return zeroshot_gt
 
-    def load_pred(self, path_pred_proba: str, lazy_format: bool = False) -> dict:
+    def load_pred(self, pred_pkl_path: Path, lazy_format: bool = False) -> dict:
+        assert pred_pkl_path.exists()
         print('Loading zeroshot...')
-        # NOTE: This file is BIG (17 GB)
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         if lazy_format:
             # convert to lazy format if format not already available
-            self.convert_lazy_format()
-        zeroshot_pred_proba = cls.load(path_pred_proba)
+            self.convert_lazy_format(pred_pkl_path=pred_pkl_path)
+        pred_path = str(pred_pkl_path.parent  / 'zeroshot_pred_per_task') if lazy_format else str(pred_pkl_path)
+        zeroshot_pred_proba = cls.load(pred_path)
         for k in zeroshot_pred_proba.datasets:
             if k not in self.dataset_to_tid_dict:
                 zeroshot_pred_proba.remove_dataset(k)
@@ -200,12 +202,12 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     @staticmethod
-    def convert_lazy_format(override_if_already_exists: bool = False):
-        new_filename = Paths.all_v3_results_root / "zeroshot_pred_per_task"
+    def convert_lazy_format(pred_pkl_path, override_if_already_exists: bool = False):
+        new_filename = pred_pkl_path.parent / "zeroshot_pred_per_task"
         if not new_filename.exists() or override_if_already_exists:
             print(f"lazy format folder {new_filename} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
-            preds = TabularPicklePredictions.load(str(Paths.all_v3_results_root / "zeroshot_pred_proba_2022_10_13_zs.pkl"))
+            preds = TabularPicklePredictions.load(str(pred_pkl_path))
             preds_npy = TabularPicklePerTaskPredictions.from_dict(preds.pred_dict, output_dir=str(new_filename))
 
     @staticmethod

@@ -1,12 +1,15 @@
 # File to check that we get the same error as run_evaluate_config.py. It can be removed.
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
+from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag
 from autogluon_zeroshot.utils import catchtime
 from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
 
 if __name__ == '__main__':
+    bag = True
     with catchtime("eval"):
         with catchtime("load"):
-            zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=False)
+            load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
+            zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=False)
         configs = zsc.get_configs()
         datasets = zsc.get_dataset_folds()
 
@@ -14,8 +17,9 @@ if __name__ == '__main__':
             configs=configs,
             train_datasets=datasets,
             test_datasets=[],
-            ensemble_size=100,
-            backend="ray",
+            ensemble_size=1,
+            bag=bag,
+            backend="native",
         )
 
         # With ensemble_size=100 610 datasets, 608 configs, I get

@@ -12,6 +12,7 @@ import numpy as np
 from syne_tune import Reporter
 
 from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
+from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
 from autogluon_zeroshot.utils import catchtime
 
@@ -23,9 +24,12 @@ def evaluate_ensemble(
         ensemble_size: int,
         num_folds: int = 10,
         backend: str = "native",
+        bag: bool = False,
 ):
     print(f"Evaluating on {backend}")
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(
+    load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
+
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(
         load_zeroshot_pred_proba=True, lazy_format=True,
     )
     train_scorer = EnsembleSelectionConfigScorer.from_zsc(

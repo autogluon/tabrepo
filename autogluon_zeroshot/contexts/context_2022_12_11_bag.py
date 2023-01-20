@@ -1,6 +1,7 @@
 from typing import Tuple
 from autogluon.common.loaders import load_pd
 
+from . import intersect_folds_and_datasets
 from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.tabular_predictions import TabularModelPredictions
@@ -62,44 +63,17 @@ def load_context_2022_12_11_bag(
     if load_zeroshot_pred_proba:
         path_zs_gt = str(Paths.bagged_results_root / 'all' / 'zeroshot_gt_2022_12_11_zs.pkl')
         zeroshot_gt = zsc.load_groundtruth(path_gt=path_zs_gt)
-        if lazy_format:
-            path_zs_pred_proba = str(Paths.bagged_results_root / 'all' / 'zeroshot_pred_per_task')
-        else:
-            path_zs_pred_proba = str(Paths.bagged_results_root / 'all' / 'zeroshot_pred_proba_2022_12_11_zs.pkl')
-        zeroshot_pred_proba = zsc.load_pred(path_pred_proba=path_zs_pred_proba, lazy_format=lazy_format)
+        pred_pkl_path = Paths.bagged_results_root / 'all' / 'zeroshot_pred_proba_2022_12_11_zs.pkl'
+        zeroshot_pred_proba = zsc.load_pred(
+            pred_pkl_path=pred_pkl_path,
+            lazy_format=lazy_format,
+        )
 
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
         zsc.subset_models(zeroshot_pred_proba.models)
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
-
-
-def intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt):
-    dataset_names = zeroshot_pred_proba.datasets
-    dataset_names_set = set(dataset_names)
-    # for d in zsc.unique_datasets:
-    #     if d not in dataset_names_set:
-    #         raise AssertionError(f'Missing expected dataset {d} in zeroshot_pred_proba!')
-    #     folds_in_zs = list(zeroshot_pred_proba[d].keys())
-    #     for f in zsc.folds:
-    #         if f not in folds_in_zs:
-    #             raise AssertionError(f'Missing expected fold {f} in dataset {d} in zeroshot_pred_proba! '
-    #                                  f'Expected: {zsc.folds}, Actual: {folds_in_zs}')
-
-    for d in dataset_names:
-        if d not in zsc.unique_datasets:
-            zeroshot_pred_proba.remove_dataset(d)
-            if d in zeroshot_gt:
-                zeroshot_gt.pop(d)
-        else:
-            # folds_in_zs = list(zeroshot_pred_proba[d].keys())
-            for f in zeroshot_pred_proba.folds:
-                if f not in zsc.folds:
-                    zeroshot_pred_proba[d].pop(f)
-                    zeroshot_gt[d].pop(f)
-    datasets_in_zs = list(zeroshot_pred_proba.pred_dict.keys())
-    zsc.subset_datasets(datasets_in_zs)
 
 
 def get_configs_default():

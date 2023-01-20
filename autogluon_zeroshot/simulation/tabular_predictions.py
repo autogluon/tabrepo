@@ -1,7 +1,7 @@
 import json
 import shutil
 from typing import List, Dict, Tuple
-
+from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 
@@ -170,9 +170,8 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
             for dataset in datasets
         }
         print(f"saving .pkl files in folder {output_dir}")
-        for dataset in datasets:
+        for dataset in tqdm(datasets):
             filename = str(output_dir / f'{dataset}.pkl')
-            print(filename)
             save_pkl(filename, pred_dict[dataset])
         cls._save_metadata(output_dir=output_dir, dataset_to_models=dataset_to_models)
         return cls(dataset_to_models=dataset_to_models, output_dir=output_dir)
@@ -232,6 +231,13 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         with open(output_dir / "metadata.json", "r") as f:
             return json.load(f)
 
+    @property
+    def models(self) -> List[str]:
+        res = set()
+        for models in self.dataset_to_models.values():
+            for model in models:
+                res.add(model)
+        return list(res)
 
 class TabularNpyPerTaskPredictions(TabularModelPredictions):
     def __init__(self, output_dir: str, dataset_shapes: Dict[str, Tuple[int, int, int]], models, folds):
