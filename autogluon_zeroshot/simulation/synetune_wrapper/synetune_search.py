@@ -42,6 +42,7 @@ class RandomSearch(TrialScheduler):
             "num_folds": self.num_folds,
             "ensemble_size": self.ensemble_size,
             "backend": self.backend,
+            "bag": self.bag,
         }
         return TrialSuggestion.start_suggestion(config)
 
