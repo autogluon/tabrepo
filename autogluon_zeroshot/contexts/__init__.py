@@ -23,4 +23,3 @@ def intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt):
                     zeroshot_gt[d].pop(f)
     datasets_in_zs = list(zeroshot_pred_proba.datasets)
     zsc.subset_datasets(datasets_in_zs)
-

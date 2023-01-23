@@ -57,7 +57,7 @@ def compute_zeroshot(
 ) -> List[str]:
     """evaluate the performance of a list of configurations with Caruana ensembles on the provided datasets"""
     load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=ensemble_score, lazy_format=True)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=True, lazy_format=True)
     if ensemble_score:
         config_scorer = EnsembleSelectionConfigScorer.from_zsc(
             zeroshot_simulator_context=zsc,
@@ -253,11 +253,12 @@ if __name__ == "__main__":
     args = get_setting(setting=input_args.setting)
     print(f"Running experiment {expname} with {input_args.setting} settings: {args}/{input_args}")
 
-    bag = False
+    bag = True
     with catchtime("load"):
         load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
-        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=False)
+        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(load_zeroshot_pred_proba=True, lazy_format=True)
     configs = zsc.get_configs()
+
     # configs = get_configs_small()
     datasets = zsc.get_datasets()
     all_datasets = np.array(datasets)
