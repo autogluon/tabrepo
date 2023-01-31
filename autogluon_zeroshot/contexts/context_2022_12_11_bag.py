@@ -18,7 +18,7 @@ def load_context_2022_12_11_bag(
     :param lazy_format: whether to load with a format where all data is in memory (`TabularPicklePredictions`) or a
     format where data is loaded on the fly (`TabularPicklePerTaskPredictions`). Both formats have the same interface.
     :param subset: The version of the data used.
-        'small_30': Contains 158 configs, 30 random each from 5 model types.
+        'small_30': Contains 158 configs, 30 random each from 5 model types plus the default of AG for 8 models.
         'all': Contains 608 configs, all ran configs from 5 model types. Much slower to simulate than 'small_30'.
     :return:
     """
