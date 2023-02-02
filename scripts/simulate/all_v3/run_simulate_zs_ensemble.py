@@ -27,10 +27,7 @@ if __name__ == '__main__':
 
     configs = get_configs_small()
     if configs is not None:
-        zeroshot_pred_proba.pred_dict = zsc.minimize_memory_zeroshot_pred_proba(
-            zeroshot_pred_proba=zeroshot_pred_proba.pred_dict,
-            configs=configs
-        )
+        zeroshot_pred_proba.restrict_models(configs)
 
     results_cv_list = []
     # for problem_type in ['binary', 'multiclass', 'regression']:

@@ -71,10 +71,8 @@ class SimulationOutputGenerator:
         Create from a single portfolio (Not cross-validated)
         """
         zeroshot_pred_proba = copy.deepcopy(self.zeroshot_pred_proba)
-        zeroshot_pred_proba.pred_dict = self.zsc.minimize_memory_zeroshot_pred_proba(
-            zeroshot_pred_proba=zeroshot_pred_proba.pred_dict,
-            configs=portfolio
-        )
+
+        zeroshot_pred_proba.restrict_models(portfolio)
 
         config_scorer_test = EnsembleSelectionConfigScorer.from_zsc(
             datasets=datasets,
