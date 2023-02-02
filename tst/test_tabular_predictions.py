@@ -14,7 +14,7 @@ from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredi
 
 def generate_dummy(shape, models):
     return {
-        model: np.arange(prod(shape)).reshape(shape)
+        model: np.arange(prod(shape)).reshape(shape) + int(model)
         for model in models
     }
 
@@ -52,7 +52,7 @@ def test_synthetic_data(cls):
         "d2": ((10,), (5,)),
         "d3": ((4, 3), (8, 3)),
     }
-    models = [f"m_{i}" for i in range(num_models)]
+    models = [f"{i}" for i in range(num_models)]
 
     pred_dict = generate_artificial_dict(num_folds, models, dataset_shapes)
 
@@ -77,3 +77,39 @@ def test_synthetic_data(cls):
             for i, model in enumerate(models):
                 assert np.allclose(val_score[i], generate_dummy(val_shape, models)[model])
                 assert np.allclose(test_score[i], generate_dummy(test_shape, models)[model])
+
+
+@pytest.mark.parametrize("cls", [
+    TabularPicklePredictions,
+    TabularPicklePerTaskPredictions,
+    # TabularNpyPerTaskPredictions
+    # TODO restricting models with this format does not work which is ok as this
+    #  format is not  currently used in experiments.
+])
+def test_restrict_models(cls):
+
+    num_models = 13
+    num_folds = 3
+    dataset_shapes = {
+        "d1": ((20,), (50,)),
+        "d2": ((10,), (5,)),
+        "d3": ((4, 3), (8, 3)),
+    }
+    models = [f"{i}" for i in range(num_models)]
+    num_sub_models = num_models // 2
+    sub_models = models[:num_sub_models]
+    pred_dict = generate_artificial_dict(num_folds, models, dataset_shapes)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
+        pred_proba.restrict_models(sub_models)
+        assert sorted(pred_proba.models) == sorted(sub_models)
+
+        # make sure shapes matches what is expected
+        for dataset, (val_shape, test_shape) in dataset_shapes.items():
+            print(dataset, val_shape, test_shape)
+            val_score, test_score = pred_proba.predict(dataset=dataset, fold=2, models=sub_models, splits=["val", "test"])
+            assert val_score.shape == tuple([num_sub_models] + list(val_shape))
+            assert test_score.shape == tuple([num_sub_models] + list(test_shape))
+            for i, model in enumerate(sub_models):
+                assert np.allclose(val_score[i], generate_dummy(val_shape, sub_models)[model])
+                assert np.allclose(test_score[i], generate_dummy(test_shape, sub_models)[model])

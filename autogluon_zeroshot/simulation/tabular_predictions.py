@@ -1,5 +1,7 @@
 import json
+import pickle
 import shutil
+import sys
 from typing import List, Dict, Tuple
 from tqdm import tqdm
 import numpy as np
@@ -39,6 +41,20 @@ class TabularModelPredictions:
 
     @property
     def models(self) -> List[str]:
+        raise NotImplementedError()
+
+    def restrict_models(self, models: List[str]):
+        """
+        :param models: restricts the predictions to contain only the list of models given in arguments, useful to
+        reduce memory footprint. The behavior depends on the data structure used. For pickle/full data structure,
+        the data is immediately sliced. For lazy representation, the data is sliced on the fly when querying predictions.
+        """
+        models_present = self.models
+        for m in models:
+            assert m in models_present, f"cannot restrict {m} which is not in available models {models_present}."
+        self._restrict_models(models)
+
+    def _restrict_models(self, models: List[str]):
         raise NotImplementedError()
 
     @property
@@ -111,6 +127,22 @@ class TabularPicklePredictions(TabularModelPredictions):
         # returns models that appears in all lists, eg that are available for all datasets, folds and splits
         return list(set.intersection(*map(set, models)))
 
+    def _restrict_models(self, models: List[str]):
+        size_bytes = sys.getsizeof(pickle.dumps(self.pred_dict, protocol=4))
+        print(f'OLD zeroshot_pred_proba Size: {round(size_bytes / 1e6, 3)} MB')
+        task_names = list(self.pred_dict.keys())
+        configs = set(models)
+        for t in task_names:
+            available_folds = list(self.pred_dict[t].keys())
+            for f in available_folds:
+                model_keys = list(self.pred_dict[t][f]['pred_proba_dict_val'].keys())
+                for k in model_keys:
+                    if k not in configs:
+                        self.pred_dict[t][f]['pred_proba_dict_val'].pop(k)
+                        self.pred_dict[t][f]['pred_proba_dict_test'].pop(k)
+        size_bytes = sys.getsizeof(pickle.dumps(self.pred_dict, protocol=4))
+        print(f'NEW zeroshot_pred_proba Size: {round(size_bytes / 1e6, 3)} MB')
+
     @property
     def datasets(self) -> List[str]:
         return list(self.pred_dict.keys())
@@ -139,6 +171,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         :param output_dir:
         """
         self.dataset_to_models = dataset_to_models
+        self.models_removed = set()
         self.output_dir = Path(output_dir)
         self.rename_dict_inv = {}
         assert self.output_dir.is_dir()
@@ -153,7 +186,9 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
             model_results = pred_dict[fold][split_key]
             return np.array([model_results[model] for model in models])
-        return [get_split(split, models) for split in splits]
+
+        available_model_mask = np.array([i for i, model in enumerate(models) if model not in self.models_removed])
+        return [get_split(split, models)[available_model_mask] for split in splits]
 
     def _load_dataset(self, dataset: str) -> Dict:
         filename = str(self.output_dir / f'{dataset}.pkl')
@@ -197,6 +232,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         )
 
     def models_available_in_dataset(self, dataset: str) -> List[str]:
+        # todo handle slice
         return self.dataset_to_models[self.rename_dict_inv.get(dataset, dataset)]
 
     @property
@@ -208,6 +244,11 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def datasets(self):
         rename_dict_inv = {v: k for k, v in self.rename_dict_inv.items()}
         return [rename_dict_inv.get(d, d) for d in self.dataset_to_models.keys()]
+
+    def _restrict_models(self, models: List[str]):
+        for model in self.models:
+            if model not in models:
+                self.models_removed.add(model)
 
     def remove_dataset(self, dataset: str):
         if dataset in self.datasets:
@@ -236,8 +277,10 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         res = set()
         for models in self.dataset_to_models.values():
             for model in models:
-                res.add(model)
+                if model not in self.models_removed:
+                    res.add(model)
         return list(res)
+
 
 class TabularNpyPerTaskPredictions(TabularModelPredictions):
     def __init__(self, output_dir: str, dataset_shapes: Dict[str, Tuple[int, int, int]], models, folds):
@@ -245,6 +288,7 @@ class TabularNpyPerTaskPredictions(TabularModelPredictions):
         self._dataset_shapes = dataset_shapes
         self._models = models
         self._folds = folds
+        self.models_removed = set()
 
     def _predict_from_dataset(self, dataset: str) -> np.array:
         evals = np.load(Path(self._output_dir) / f"{dataset}.npy")
@@ -366,7 +410,7 @@ class TabularNpyPerTaskPredictions(TabularModelPredictions):
         return list(self._dataset_shapes.keys())
 
     def models_available_in_dataset(self, dataset: str) -> List[str]:
-        return self._models
+        return [m for m in self._models if m not in self.models_removed]
 
     @property
     def folds(self) -> List[int]:
@@ -374,7 +418,12 @@ class TabularNpyPerTaskPredictions(TabularModelPredictions):
 
     @property
     def models(self) -> List[int]:
-        return self._models
+        return [m for m in self._models if m not in self.models_removed]
+
+    def _restrict_models(self, models: List[str]):
+        for model in self.models:
+            if model not in models:
+                self.models_removed.add(model)
 
     def save(self, output_dir: str):
         print(f"saving into {output_dir}")
