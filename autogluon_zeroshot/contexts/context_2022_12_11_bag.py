@@ -72,6 +72,7 @@ def load_context_2022_12_11_bag(
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
         zsc.subset_models(zeroshot_pred_proba.models)
+        zeroshot_pred_proba.restrict_models(zsc.get_configs())
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 

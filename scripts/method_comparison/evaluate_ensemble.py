@@ -50,6 +50,7 @@ def evaluate_ensemble(
             zeroshot_pred_proba=zeroshot_pred_proba,
             ensemble_size=ensemble_size,
             max_fold=num_folds,
+            backend=backend,
         )
         test_error = test_scorer.score(configs)
     else:
