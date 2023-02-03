@@ -14,6 +14,20 @@ For random/local search, the search is done asynchronously with multiple workers
 Example:
 PYTHONPATH=. python scripts/run_method_comparison.py --setting slow --n_workers 64
 """
+import logging
+from pathlib import Path
+
+logging.getLogger().setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    level=logging.INFO,
+    filename="log.txt"
+)
+
+print(f"log can be found at {Path(__file__).parent}/log.txt")
+
+
 import string
 from argparse import ArgumentParser
 from dataclasses import dataclass
@@ -21,8 +35,6 @@ import random
 from typing import List
 
 import numpy as np
-import logging
-from pathlib import Path
 
 import pandas as pd
 from sklearn.model_selection import KFold
@@ -39,10 +51,6 @@ from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestCo
 from autogluon_zeroshot.simulation.synetune_wrapper.synetune_search import RandomSearch, LocalSearch
 from autogluon_zeroshot.utils import catchtime
 from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
-
-logging.getLogger().setLevel(logging.INFO)
-logger = logging.getLogger(__name__)
-logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 
 
 
@@ -97,7 +105,6 @@ def learn_ensemble_configuration(
 ):
     assert searcher in ["randomsearch", "localsearch", "all", "zeroshot", "zeroshot-ensemble"]
 
-    print(searcher)
     if searcher in ["randomsearch", "localsearch"]:
         synetune_logger = logging.getLogger("syne_tune")
         synetune_logger.setLevel(logging.WARNING)
@@ -144,9 +151,7 @@ def learn_ensemble_configuration(
         tuning_experiment = load_experiment(tuner.name)
         # tuning_experiment.plot()
 
-        print(tuning_experiment)
-
-        print(f"best result found: {tuning_experiment.best_config()}")
+        logger.info(f"best result found: {tuning_experiment.best_config()}")
         best_config_dict = eval(tuning_experiment.best_config()['config_configs'])
 
     elif searcher == "zeroshot":
@@ -251,7 +256,7 @@ if __name__ == "__main__":
         expname = input_args.expname
 
     args = get_setting(setting=input_args.setting)
-    print(f"Running experiment {expname} with {input_args.setting} settings: {args}/{input_args}")
+    logger.info(f"Running experiment {expname} with {input_args.setting} settings: {args}/{input_args}")
 
     bag = True
     with catchtime("load"):
@@ -272,33 +277,33 @@ if __name__ == "__main__":
     results = []
     for i, (train_index, test_index) in enumerate(splits):
         for searcher in args.searchers:
-            with catchtime(f'****Fitting method {searcher} on fold {i + 1}****'):
-                train_datasets = list(all_datasets[train_index])
-                test_datasets = list(all_datasets[test_index])
-                best_config, train_error, test_error = learn_ensemble_configuration(
-                    train_datasets_folds=zsc.get_dataset_folds(train_datasets),
-                    test_datasets_folds=zsc.get_dataset_folds(test_datasets),
-                    configs=configs,
-                    num_folds=args.num_folds,
-                    ensemble_size=args.ensemble_size,
-                    num_base_models=args.num_base_models,
-                    max_wallclock_time=args.max_wallclock_time,
-                    n_workers=args.n_workers,
-                    max_num_trials_completed=args.max_num_trials_completed,
-                    searcher=searcher,
-                    name=f"{expname}-fold-{i}-{searcher}",
-                    bag=bag,
-                )
-                print(f"best config found: {best_config}")
-                print(f"train/test error of best config found: {train_error}/{test_error}")
-                results.append({
-                    'fold': i + 1,
-                    'train-score': train_error,
-                    'test-score': test_error,
-                    'selected_configs': best_config,
-                    'searcher': searcher,
-                })
-                csv_filename = Paths.results_root / f"{expname}.csv"
-                print(f"update results in {csv_filename}")
-                pd.DataFrame(results).to_csv(csv_filename, index=False)
-    print(results)
+            logger.info(f'****Fitting method {searcher} on fold {i + 1}****')
+            train_datasets = list(all_datasets[train_index])
+            test_datasets = list(all_datasets[test_index])
+            best_config, train_error, test_error = learn_ensemble_configuration(
+                train_datasets_folds=zsc.get_dataset_folds(train_datasets),
+                test_datasets_folds=zsc.get_dataset_folds(test_datasets),
+                configs=configs,
+                num_folds=args.num_folds,
+                ensemble_size=args.ensemble_size,
+                num_base_models=args.num_base_models,
+                max_wallclock_time=args.max_wallclock_time,
+                n_workers=args.n_workers,
+                max_num_trials_completed=args.max_num_trials_completed,
+                searcher=searcher,
+                name=f"{expname}-fold-{i}-{searcher}",
+                bag=bag,
+            )
+            logger.info(f"best config found: {best_config}")
+            logger.info(f"train/test error of best config found: {train_error}/{test_error}")
+            results.append({
+                'fold': i + 1,
+                'train-score': train_error,
+                'test-score': test_error,
+                'selected_configs': best_config,
+                'searcher': searcher,
+            })
+            csv_filename = Paths.results_root / f"{expname}.csv"
+            logger.info(f"update results in {csv_filename}")
+            pd.DataFrame(results).to_csv(csv_filename, index=False)
+    logger.info(results)
