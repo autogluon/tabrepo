@@ -20,9 +20,12 @@ from pathlib import Path
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(message)s",
     level=logging.INFO,
-    filename="log.txt"
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(f"{Path(__file__).parent}/log.txt"),
+        logging.StreamHandler()
+    ]
 )
 
 print(f"log can be found at {Path(__file__).parent}/log.txt")
@@ -226,7 +229,7 @@ def get_setting(setting):
         )
     elif setting == "slow":
         return Arguments(
-            num_folds=10,
+            num_folds=5,
             ensemble_size=10,
             max_wallclock_time=1800,
             max_num_trials_completed=100000,
@@ -236,7 +239,7 @@ def get_setting(setting):
                 "randomsearch",
                 "localsearch",
                 "zeroshot",
-                "zeroshot-ensemble",
+                # "zeroshot-ensemble",
                 "all",
             ],
         )
@@ -246,7 +249,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--setting", type=str, default="fast")
     parser.add_argument("--n_workers", type=int, default=1)
-    parser.add_argument("--n_splits", type=int, default=2)
+    parser.add_argument("--n_splits", type=int, default=5)
 
     parser.add_argument("--expname", type=str)
     input_args, _ = parser.parse_known_args()
@@ -270,11 +273,12 @@ if __name__ == "__main__":
     np.random.shuffle(all_datasets)
     n_splits = input_args.n_splits
     kf = KFold(n_splits=n_splits, random_state=0, shuffle=True)
-    splits = kf.split(all_datasets)
+    splits = list(kf.split(all_datasets))
 
     # Evaluate all search strategies on `n_splits` of the datasets. Results are logged in a csv and can be
     # analysed with plot_results_comparison.py.
     results = []
+    logger.info(f"Fitting {len(splits)} folds.")
     for i, (train_index, test_index) in enumerate(splits):
         for searcher in args.searchers:
             logger.info(f'****Fitting method {searcher} on fold {i + 1}****')
