@@ -19,7 +19,9 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset: pd.DataFrame,
             df_results_by_dataset_automl: pd.DataFrame,
             df_raw: pd.DataFrame, 
-            folds: List[int]
+            folds: List[int],
+            pct: bool = False,
+            score_against_only_automl: bool = True,
     ):
         """
         Encapsulates results evaluated on multiple base models/datasets/folds.
@@ -27,9 +29,14 @@ class ZeroshotSimulatorContext:
         :param df_results_by_dataset_automl: results of automl systems by multiple datasets/folds
         :param df_raw: 
         :param folds: List of folds to be considered in a list of integers
+        :param pct: whether to use percentage rather than rank numbers
+        :param score_against_only_automl: if `True`, the scores are ranks (or percentage if `pct` is True) over automl
+        baselines. If False, the scores are computed against both automl baselines and random model configurations
+        for all base models (random-forest, knns etc).
         """
         self.folds = folds
-
+        self.score_against_only_automl = score_against_only_automl
+        self.pct = pct
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.dataset_name_to_tid_dict, \
@@ -42,6 +49,8 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
             folds=folds,
+            score_against_only_automl=self.score_against_only_automl,
+            pct=self.pct,
         )
         self.dataset_parent_to_fold_map = self._compute_dataset_parent_to_fold_map()
 
@@ -73,7 +82,7 @@ class ZeroshotSimulatorContext:
         return dataset_parent_to_fold_map
 
     @staticmethod
-    def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds):
+    def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds, score_against_only_automl, pct):
         df_results_by_dataset = df_results_by_dataset[df_results_by_dataset['fold'].isin(folds)]
         unique_dataset_folds_set = set(list(df_results_by_dataset['dataset'].unique()))
         df_results_by_dataset_automl = df_results_by_dataset_automl[
@@ -109,18 +118,19 @@ class ZeroshotSimulatorContext:
         dataset_name_to_tid_dict = get_dataset_name_to_tid_dict(df_raw=df_raw)
         dataset_to_tid_dict = get_dataset_to_tid_dict(df_raw=df_raw)
 
-        automl_error_dict = {}
-        for i, dataset in enumerate(unique_dataset_folds):
-            automl_error_list = sorted(
-                list(df_results_by_dataset_automl[df_results_by_dataset_automl['dataset'] == dataset]['metric_error']))
-            automl_error_dict[dataset] = automl_error_list
-
-        rank_scorer_vs_automl = RankScorer(df_results_by_dataset=df_results_by_dataset_automl,
-                                           datasets=unique_dataset_folds)
+        if score_against_only_automl:
+            df_results_baselines = df_results_by_dataset_automl
+        else:
+            df_results_baselines = pd.concat([df_results_by_dataset, df_results_by_dataset_automl], ignore_index=True)
+        rank_scorer_vs_automl = RankScorer(
+            df_results_by_dataset=df_results_baselines,
+            datasets=unique_dataset_folds,
+            pct=pct,
+        )
         df_results_by_dataset_vs_automl = df_results_by_dataset.copy()
-        df_results_by_dataset_vs_automl['rank'] = [rank_scorer_vs_automl.rank(r[1], r[0]) for r in
-                                                   zip(df_results_by_dataset_vs_automl['metric_error'],
-                                                       df_results_by_dataset_vs_automl['dataset'])]
+        df_results_by_dataset_vs_automl['rank'] = df_results_by_dataset_vs_automl.apply(
+            lambda row: rank_scorer_vs_automl.rank(row["dataset"], row["metric_error"]), axis=1
+        )
 
         return (
             df_results_by_dataset_vs_automl,

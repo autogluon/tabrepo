@@ -231,7 +231,7 @@ def get_setting(setting):
         return Arguments(
             num_folds=5,
             ensemble_size=10,
-            max_wallclock_time=3600 * 4,
+            max_wallclock_time=3600 * 2,
             max_num_trials_completed=100000,
             num_base_models=10,
             n_workers=input_args.n_workers,

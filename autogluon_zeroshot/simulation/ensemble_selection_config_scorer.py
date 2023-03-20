@@ -133,6 +133,10 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         rank = self.compute_rank_mean(errors)
         return rank
 
+    def score_per_dataset(self, configs: list):
+        errors = self.compute_errors(configs=configs)
+        return self.compute_ranks(errors=errors)
+
     def subset(self, datasets):
         return self.__class__(
             datasets=datasets,
