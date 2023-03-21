@@ -25,6 +25,8 @@ def test_rank_scorer():
         metric_error_col=metric_col,
         dataset_col=dataset_col,
         framework_col=framework_col,
+        pct=False,
+        ties_win=False,
     )
     query_expected = [
         (0.8, 1.0),
@@ -45,6 +47,7 @@ def test_rank_scorer_pct():
         dataset_col=dataset_col,
         framework_col=framework_col,
         pct=True,
+        ties_win=False,
     )
     query_expected = [
         (0.8, 0.0),

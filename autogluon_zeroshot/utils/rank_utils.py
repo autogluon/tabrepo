@@ -1,9 +1,10 @@
 from typing import List
 
+import numpy as np
 import pandas as pd
 
 
-def get_rank(error: float, error_lst: List[float], higher_is_better: bool = False, ties_win=False, pct=False) -> float:
+def get_rank(error: float, error_lst: List[float], higher_is_better: bool = False, ties_win: bool = False, pct: bool = False) -> float:
     """
     If ties_win=True, rank will equal a win if tied with an error in error_lst. (ex: rank 1.0)
     If ties_win=False, rank will equal a tie if tied with an error in error_lst. (ex: rank 1.5)
@@ -63,4 +64,11 @@ class RankScorer:
         """
         Get the rank of a result on a dataset given an error.
         """
-        return get_rank(error=error, error_lst=self.error_dict[dataset], ties_win=self.ties_win, pct=self.pct)
+        if self.ties_win:
+            rank = np.searchsorted(self.error_dict[dataset], error)
+            if self.pct:
+                return rank / len(self.error_dict[dataset])
+            else:
+                return rank + 1
+        else:
+            return get_rank(error=error, error_lst=self.error_dict[dataset], ties_win=self.ties_win, pct=self.pct)
