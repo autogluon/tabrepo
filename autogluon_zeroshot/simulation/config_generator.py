@@ -47,12 +47,16 @@ class ZeroshotConfigGenerator:
         else:
             config_scorer = self.config_scorer
             selector = self._select_sequential
+
+        metadata_out = None
         while len(zeroshot_configs) < num_zeroshot:
             # greedily search the config that would yield the lowest average rank if we were to evaluate it in combination
             # with previously chosen configs.
 
             valid_configs = [c for c in self.all_configs if c not in zeroshot_configs]
             if not valid_configs:
+                if not return_all_metadata:
+                    metadata_list = [metadata_out]
                 break
             iteration += 1
 
