@@ -11,3 +11,4 @@ class Paths:
     all_v3_results_root: Path = results_root / "all_v3"
     bagged_results_root: Path = results_root / "bagged"
     bagged_208_results_root: Path = results_root / "bagged_208"
+    bagged_289_results_root: Path = results_root / "bagged_289"
