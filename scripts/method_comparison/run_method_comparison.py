@@ -88,7 +88,8 @@ def compute_zeroshot(
         configs=models,
         backend="ray",
     )
-    zeroshot_configs = zs_config_generator.select_zeroshot_configs(num_models, removal_stage=False)
+    metadata_list = zs_config_generator.select_zeroshot_configs(num_models, removal_stage=False)
+    zeroshot_configs = metadata_list[-1]['configs']
     return zeroshot_configs
 
 

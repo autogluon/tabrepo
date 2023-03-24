@@ -11,7 +11,11 @@ class Portfolio:
                  test_datasets: List[str] = None,
                  train_datasets_fold: List[str] = None,
                  test_datasets_fold: List[str] = None,
-                 fold: int = None):
+                 fold: int = None,
+                 split: int = None,
+                 repeat: int = None,
+                 step: int = None,
+                 n_configs_avail: int = None):
         self.configs = configs
         self.train_score = train_score
         self.test_score = test_score
@@ -20,6 +24,14 @@ class Portfolio:
         self.train_datasets_fold = train_datasets_fold
         self.test_datasets_fold = test_datasets_fold
         self.fold = fold
+        self.split = split
+        self.repeat = repeat
+
+        # Optional, the step in which this portfolio was generated
+        # (relevant when portfolio is generated through iterative steps)
+        self.step = step
+
+        self.n_configs_avail = n_configs_avail  # Number of configs to choose from at fit time
 
 
 class PortfolioCV:
@@ -39,6 +51,17 @@ class PortfolioCV:
             total_test_score += test_score*num_datasets
         test_score = total_test_score / total_num_datasets
         return test_score
+
+    def get_train_score_overall(self):
+        total_num_datasets = 0
+        total_train_score = 0
+        for portfolio in self.portfolios:
+            train_score = portfolio.train_score
+            num_datasets = len(portfolio.train_datasets_fold)
+            total_num_datasets += num_datasets
+            total_train_score += train_score*num_datasets
+        train_score = total_train_score / total_num_datasets
+        return train_score
 
     def are_test_folds_unique(self) -> bool:
         """
@@ -63,3 +86,11 @@ class PortfolioCV:
         for p in portfolio_cv_list:
             portfolios += p.portfolios
         return PortfolioCV(portfolios=portfolios)
+
+    def get_test_train_rank_diff(self) -> float:
+        """
+        Returns the amount of overfitting that has occurred.
+        AKA: How overoptimistic the portfolio is on training compared to test
+        Lower = Better
+        """
+        return self.get_test_score_overall() - self.get_train_score_overall()
