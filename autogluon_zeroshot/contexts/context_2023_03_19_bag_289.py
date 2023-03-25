@@ -48,7 +48,8 @@ def load_context_2023_03_19_bag_289(
 
     # Load in real framework results to score against
     path_prefix_automl = Paths.results_root / 'automl_289'
-    df_results_by_dataset_automl = load_pd.load(f'{path_prefix_automl}/results_ranked_by_dataset_valid.csv')
+    path_automl_root_s3_zs_input = f'{path_bagged_root_s3}zs_input/automl_289'
+    df_results_by_dataset_automl = load_pd.load(f'{path_automl_root_s3_zs_input}/results_ranked_by_dataset_valid.csv')
 
     zsc = ZeroshotSimulatorContext(
         df_results_by_dataset=df_results_by_dataset,
