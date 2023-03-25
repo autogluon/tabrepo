@@ -30,12 +30,12 @@ def load_context_2023_03_19_bag_289(
     path_bagged_root_s3_zs_input = f'{path_bagged_root_s3}zs_input/bagged_289/'
 
     if load_from_local:
-        results_path = str(path_bagged_root / "results_ranked_valid.csv")
-        results_by_dataset_path = str(path_bagged_root / "results_ranked_by_dataset_valid.csv")
+        results_path = str(path_bagged_root / "608/results_ranked_valid.csv")
+        results_by_dataset_path = str(path_bagged_root / "608/results_ranked_by_dataset_valid.csv")
         raw_path = str(path_bagged_root / "openml_ag_2023_03_19_zs_models.csv")
     else:
-        results_path = f"{path_bagged_root_s3_zs_input}results_ranked_valid.csv"
-        results_by_dataset_path = f"{path_bagged_root_s3_zs_input}results_ranked_by_dataset_valid.csv"
+        results_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_valid.csv"
+        results_by_dataset_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_by_dataset_valid.csv"
         raw_path = f"{path_bagged_root_s3_zs_input}openml_ag_2023_03_19_zs_models.csv"
 
     df_results, df_results_by_dataset, df_raw, df_metadata = load_results(

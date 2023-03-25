@@ -3,14 +3,22 @@ import math
 import os
 from typing import Dict, List
 
+import boto3
 import matplotlib.pyplot as plt
+
+from autogluon.common.savers import save_pkl
 
 from .config_generator import ZeroshotConfigGeneratorCV
 from .simulation_context import ZeroshotSimulatorContext
 from ..portfolio import PortfolioCV
 
 
-def run_zs_simulation(zsc: ZeroshotSimulatorContext, config_scorer, n_splits=10, config_generator_kwargs=None, configs=None, backend='ray') -> PortfolioCV:
+def run_zs_simulation(zsc: ZeroshotSimulatorContext,
+                      config_scorer,
+                      n_splits=10,
+                      config_generator_kwargs=None,
+                      configs=None,
+                      backend='ray') -> PortfolioCV:
     zs_config_generator_cv = ZeroshotConfigGeneratorCV(
         n_splits=n_splits,
         zeroshot_simulator_context=zsc,
@@ -42,6 +50,7 @@ def plot_results_multi(portfolio_cv_lists: List[List[PortfolioCV]],
                        title: str = None,
                        footnote: str = None,
                        save_prefix: str = None,
+                       save_to_s3: bool = True,
                        x_axis_col: str = 'step'):
     if title is None:
         title = f"Overfitting Delta"
@@ -83,7 +92,7 @@ def plot_results_multi(portfolio_cv_lists: List[List[PortfolioCV]],
 
         # ax.set_xlabel('num_configs')  # Add an x-label to the axes.
         # ax.set_ylabel('rank (lower is better)')  # Add a y-label to the axes.
-        ax.set_title(f'train_tasks={num_train_tasks}, n_configs={n_configs_avail}')  # Add a title to the axes.
+        ax.set_title(f'tr_tasks={num_train_tasks}, n_conf={n_configs_avail}')  # Add a title to the axes.
         ax.grid()
     axes.flat[0].legend()
     # axes[0].set_xlabel('num_configs')  # Add an x-label to the axes.
@@ -98,6 +107,16 @@ def plot_results_multi(portfolio_cv_lists: List[List[PortfolioCV]],
         mkdir_path(save_path)
         plt.savefig(save_path)
     plt.show()
+
+    if save_prefix is not None and save_to_s3:
+        s3 = boto3.resource('s3')
+
+        # FIXME: Won't work nicely if save_prefix is absolute path
+        s3_bucket = 'autogluon-zeroshot'
+        s3_prefix = f'{save_prefix}'
+
+        for f in ['overfit_delta_comparison.png', 'train_test_comparison.png']:
+            s3.Bucket(s3_bucket).upload_file(f"{save_prefix}{f}", f"{s3_prefix}{f}")
 
 
 def get_test_train_rank_diff_df(portfolio_cv_list: List[PortfolioCV]):
@@ -136,6 +155,7 @@ def get_test_train_rank_diff_df(portfolio_cv_list: List[PortfolioCV]):
     return df, num_train_tasks, num_test_tasks, n_configs_avail
 
 
+# TODO: Save list of list of porfolioCV, can then plot graphs separately from computing
 def run_zs_simulation_debug(zsc: ZeroshotSimulatorContext,
                             config_scorer,
                             n_splits=10,
@@ -143,12 +163,15 @@ def run_zs_simulation_debug(zsc: ZeroshotSimulatorContext,
                             config_generator_kwargs=None,
                             configs=None,
                             backend='ray',
+                            save_prefix=None,
                             num_halving=5) -> List[List[PortfolioCV]]:
     """
     num_halving:
         The number of times the training data is halved to measure increase in overfitting / decrease in test score
 
     """
+    utcnow = datetime.utcnow()
+    timestamp = utcnow.strftime("%Y%m%d_%H%M%S")
     zs_config_generator_cv = ZeroshotConfigGeneratorCV(
         n_splits=n_splits,
         n_repeats=n_repeats,
@@ -179,6 +202,7 @@ def run_zs_simulation_debug(zsc: ZeroshotSimulatorContext,
                 dict(
                     sample_train_folds=cur_train_folds,
                     sample_train_ratio=cur_train_ratio,
+                    # sample_configs_ratio=cur_train_ratio,
                 )
             )
 
@@ -187,15 +211,33 @@ def run_zs_simulation_debug(zsc: ZeroshotSimulatorContext,
         portfolio_cv_list = zs_config_generator_cv.run_and_return_all_steps(**setting)
         portfolio_cv_lists.append(portfolio_cv_list)
 
-    utcnow = datetime.utcnow()
-    timestamp = utcnow.strftime("%Y%m%d_%H%M%S")
+    # from autogluon.common.loaders import load_pkl
+    # portfolio_cv_lists = load_pkl.load('s3://autogluon-zeroshot/output/unnamed/20230324_224848/pf_cv_lists.pkl')
+
+    if save_prefix is None:
+        save_prefix = 'unnamed'
+    save_prefix = f'output/{save_prefix}/{timestamp}/'
+
+    # TODO: Avoid hardcoding s3 bucket
+    # TODO: Avoid forcing s3 save
+    s3_bucket = 'autogluon-zeroshot'
+    s3_save_path = f's3://{s3_bucket}/{save_prefix}'
+
+    print(f'Saving output artifacts to local: {save_prefix}')
+    print(f'Saving output artifacts to s3:    {s3_save_path}')
+
+    # TODO: Instead of saving each file individually to s3, just copy the entire output dir to s3
+
+    save_pkl.save(path=f'{save_prefix}pf_cv_lists.pkl', object=portfolio_cv_lists)
+    save_pkl.save(path=f'{s3_save_path}pf_cv_lists.pkl', object=portfolio_cv_lists)
+
     plot_results_multi(portfolio_cv_lists,
                        title=f'Overfit Delta: n_configs={zs_config_generator_cv.get_n_configs()}, '
                              f'n_tasks={zs_config_generator_cv.get_n_tasks()}, '
                              f'n_splits={zs_config_generator_cv.n_splits}, '
                              f'n_repeats={zs_config_generator_cv.n_repeats}',
                        footnote=f'scorer={zs_config_generator_cv.config_scorer.__class__.__name__}',
-                       save_prefix=f'plots/{timestamp}/')
+                       save_prefix=f'{save_prefix}plots/')
 
     # plot_results(portfolio_cv_dict)
 

@@ -36,10 +36,10 @@ if __name__ == '__main__':
         zsc=zsc,
         config_scorer=config_scorer,
         n_splits=5,
-        n_repeats=10,
+        n_repeats=2,
         configs=configs,
         config_generator_kwargs={
-            'num_zeroshot': 20,
+            'num_zeroshot': 40,
             # 'removal_stage': True,
         },
         backend=backend,
