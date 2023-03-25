@@ -29,11 +29,11 @@ def test_rank_scorer():
         ties_win=False,
     )
     query_expected = [
-        (0.8, 1.0),
-        (1.0, 1.5),
-        (1.5, 2),
-        (2.0, 2.5),
-        (4.0, 4),
+        (0.8, 0.0),
+        (1.0, 0.5),
+        (1.5, 1),
+        (2.0, 1.5),
+        (4.0, 3),
     ]
     for query, expected in query_expected:
         assert rank_scorer.rank("dataset1", query) == expected
@@ -73,11 +73,11 @@ def test_rank_scorer_ties_win():
         pct=False,
     )
     query_expected = [
-        (0.8, 1),
-        (1.0, 1),
-        (1.5, 2),
-        (2.0, 2),
-        (4.0, 4),
+        (0.8, 0),
+        (1.0, 0),
+        (1.5, 1),
+        (2.0, 1),
+        (4.0, 3),
     ]
     for query, expected in query_expected:
         assert rank_scorer.rank("dataset1", query) == expected

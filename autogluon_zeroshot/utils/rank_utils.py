@@ -28,8 +28,6 @@ def get_rank(error: float, error_lst: List[float], higher_is_better: bool = Fals
 
     if pct:
         rank /= len(error_lst)
-    else:
-        rank += 1
     return rank
 
 
@@ -69,6 +67,6 @@ class RankScorer:
             if self.pct:
                 return rank / len(self.error_dict[dataset])
             else:
-                return rank + 1
+                return rank
         else:
             return get_rank(error=error, error_lst=self.error_dict[dataset], ties_win=self.ties_win, pct=self.pct)
