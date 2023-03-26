@@ -41,7 +41,13 @@ class PortfolioCV:
     def __init__(self, portfolios: List[Portfolio]):
         self.portfolios = portfolios
 
-    def get_test_score_overall(self):
+    def has_test_score(self) -> bool:
+        for portfolio in self.portfolios:
+            if portfolio.test_score is None:
+                return False
+        return True
+
+    def get_test_score_overall(self) -> float:
         total_num_datasets = 0
         total_test_score = 0
         for portfolio in self.portfolios:

@@ -1,3 +1,4 @@
+import time
 from typing import Tuple
 from autogluon.common.loaders import load_pd
 
@@ -12,7 +13,7 @@ def load_context_2023_03_19_bag_289(
         folds=None,
         load_zeroshot_pred_proba=False,
         lazy_format=False,
-        max_size_mb: int = 100,
+        max_size_mb: int = 10,
         load_from_local=False) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
     """
     :param folds:
@@ -24,19 +25,20 @@ def load_context_2023_03_19_bag_289(
     if folds is None:
         folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+    time_start = time.time()
     path_bagged_root = Paths.bagged_289_results_root
     path_bagged_root_s3 = 's3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/'
 
     path_bagged_root_s3_zs_input = f'{path_bagged_root_s3}zs_input/bagged_289/'
 
     if load_from_local:
-        results_path = str(path_bagged_root / "608/results_ranked_valid.csv")
-        results_by_dataset_path = str(path_bagged_root / "608/results_ranked_by_dataset_valid.csv")
-        raw_path = str(path_bagged_root / "openml_ag_2023_03_19_zs_models.csv")
+        results_path = str(path_bagged_root / "608/results_ranked_valid.parquet")
+        results_by_dataset_path = str(path_bagged_root / "608/results_ranked_by_dataset_valid.parquet")
+        raw_path = str(path_bagged_root / "openml_ag_2023_03_19_zs_models.parquet")
     else:
-        results_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_valid.csv"
-        results_by_dataset_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_by_dataset_valid.csv"
-        raw_path = f"{path_bagged_root_s3_zs_input}openml_ag_2023_03_19_zs_models.csv"
+        results_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_valid.parquet"
+        results_by_dataset_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_by_dataset_valid.parquet"
+        raw_path = f"{path_bagged_root_s3_zs_input}openml_ag_2023_03_19_zs_models.parquet"
 
     df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
         results=results_path,
@@ -84,6 +86,9 @@ def load_context_2023_03_19_bag_289(
             zsc=zsc,
             lazy_format=lazy_format,
         )
+
+    time_end = time.time()
+    print(f'Loaded ZS Context in {time_end-time_start:.2f}s')
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 

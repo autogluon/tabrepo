@@ -146,7 +146,10 @@ def get_test_train_rank_diff_df(portfolio_cv_list: List[PortfolioCV]):
 
         df_dict['n_configs'].append(n_configs)
         df_dict['step'].append(step)
-        df_dict['test_score'].append(portfolio_cv.get_test_score_overall())
+        if portfolio_cv.has_test_score():
+            df_dict['test_score'].append(portfolio_cv.get_test_score_overall())
+        else:
+            df_dict['test_score'].append(None)
         df_dict['train_score'].append(portfolio_cv.get_train_score_overall())
 
     import pandas as pd
@@ -162,6 +165,7 @@ def run_zs_simulation_debug(zsc: ZeroshotSimulatorContext,
                             n_repeats=1,
                             config_generator_kwargs=None,
                             configs=None,
+                            score_all=True,
                             backend='ray',
                             save_prefix=None,
                             num_halving=5) -> List[List[PortfolioCV]]:
@@ -208,7 +212,7 @@ def run_zs_simulation_debug(zsc: ZeroshotSimulatorContext,
 
     portfolio_cv_lists = []
     for setting in settings:
-        portfolio_cv_list = zs_config_generator_cv.run_and_return_all_steps(**setting)
+        portfolio_cv_list = zs_config_generator_cv.run_and_return_all_steps(score_all=score_all, **setting)
         portfolio_cv_lists.append(portfolio_cv_list)
 
     # from autogluon.common.loaders import load_pkl
