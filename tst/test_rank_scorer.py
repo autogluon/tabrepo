@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from autogluon_zeroshot.utils.rank_utils import RankScorer
@@ -26,17 +27,20 @@ def test_rank_scorer():
         dataset_col=dataset_col,
         framework_col=framework_col,
         pct=False,
+        include_partial=True,
         ties_win=False,
     )
     query_expected = [
-        (0.8, 0.0),
+        (0.0, 0.0),
+        (0.8, 0.4),
         (1.0, 0.5),
-        (1.5, 1),
+        (1.5, 1.25),
         (2.0, 1.5),
-        (4.0, 3),
+        (4.0, 3.16666666),
+        (8.0, 3.5),
     ]
     for query, expected in query_expected:
-        assert rank_scorer.rank("dataset1", query) == expected
+        assert np.isclose(rank_scorer.rank("dataset1", query), expected)
 
 
 def test_rank_scorer_pct():
@@ -47,19 +51,22 @@ def test_rank_scorer_pct():
         dataset_col=dataset_col,
         framework_col=framework_col,
         pct=True,
+        include_partial=True,
         ties_win=False,
     )
     query_expected = [
-        (0.8, 0.0),
-        (1.0, 1/6),
-        (1.5, 1/3),
-        (2.0, 1/2),
-        (2.5, 2/3),
-        (3.0, 5/6),
-        (4.0, 1.0),
+        (0.0, 0.0),
+        (0.8, 0.1142857142857143),
+        (1.0, 0.14285714285714285),
+        (1.5, 0.35714285714285715),
+        (2.0, 0.42857142857142855),
+        (2.5, 0.6428571428571429),
+        (3.0, 0.7142857142857143),
+        (4.0, 0.9047619047619048),
+        (8.0, 1.0),
     ]
     for query, expected in query_expected:
-        assert rank_scorer.rank("dataset1", query) == expected
+        assert np.isclose(rank_scorer.rank("dataset1", query), expected)
 
 
 def test_rank_scorer_ties_win():
@@ -70,14 +77,17 @@ def test_rank_scorer_ties_win():
         dataset_col=dataset_col,
         framework_col=framework_col,
         ties_win=True,
+        include_partial=False,
         pct=False,
     )
     query_expected = [
+        (0.0, 0),
         (0.8, 0),
         (1.0, 0),
         (1.5, 1),
         (2.0, 1),
         (4.0, 3),
+        (8.0, 3),
     ]
     for query, expected in query_expected:
         assert rank_scorer.rank("dataset1", query) == expected
@@ -91,15 +101,68 @@ def test_rank_scorer_pct_ties_win():
         dataset_col=dataset_col,
         framework_col=framework_col,
         ties_win=True,
+        include_partial=False,
         pct=True,
     )
     query_expected = [
+        (0.0, 0.0),
         (0.8, 0.0),
         (1.0, 0.0),
         (1.5, 1/3),
         (2.0, 1/3),
         (3.0, 2/3),
         (4.0, 1.0),
+        (8.0, 1.0),
+    ]
+    for query, expected in query_expected:
+        assert rank_scorer.rank("dataset1", query) == expected
+
+
+def test_rank_scorer_not_partial():
+    rank_scorer = RankScorer(
+        df_results_by_dataset=df_results_by_dataset,
+        datasets=["dataset1", "dataset2"],
+        metric_error_col=metric_col,
+        dataset_col=dataset_col,
+        framework_col=framework_col,
+        pct=False,
+        include_partial=False,
+        ties_win=False,
+    )
+    query_expected = [
+        (0.0, 0.0),
+        (0.8, 0.0),
+        (1.0, 0.5),
+        (1.5, 1),
+        (2.0, 1.5),
+        (4.0, 3),
+        (8.0, 3),
+    ]
+    for query, expected in query_expected:
+        assert rank_scorer.rank("dataset1", query) == expected
+
+
+def test_rank_scorer_pct_not_partial():
+    rank_scorer = RankScorer(
+        df_results_by_dataset=df_results_by_dataset,
+        datasets=["dataset1", "dataset2"],
+        metric_error_col=metric_col,
+        dataset_col=dataset_col,
+        framework_col=framework_col,
+        pct=True,
+        include_partial=False,
+        ties_win=False,
+    )
+    query_expected = [
+        (0.0, 0.0),
+        (0.8, 0.0),
+        (1.0, 1/6),
+        (1.5, 1/3),
+        (2.0, 1/2),
+        (2.5, 2/3),
+        (3.0, 5/6),
+        (4.0, 1.0),
+        (8.0, 1.0),
     ]
     for query, expected in query_expected:
         assert rank_scorer.rank("dataset1", query) == expected
