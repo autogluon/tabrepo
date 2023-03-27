@@ -44,7 +44,8 @@ def load_context_2023_03_19_bag_289(
         results=results_path,
         results_by_dataset=results_by_dataset_path,
         raw=raw_path,
-        metadata=str(Paths.data_root / "metadata" / "task_metadata.csv"),
+        metadata=str(Paths.data_root / "metadata" / "task_metadata_289.csv"),
+        require_tid_in_metadata=True,
     )
     df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
 
