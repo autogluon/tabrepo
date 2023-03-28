@@ -81,11 +81,18 @@ def plot_results_multi(portfolio_cv_lists: List[List[PortfolioCV]],
         num_y -= 1
     num_y += 1
     fig, axes = plt.subplots(num_y, num_x, sharex=True, sharey=True)
+
+    try:
+        axes_flat = axes.flat
+    except AttributeError:
+        # When only 1 subplot, returns an axes
+        axes_flat = [axes]
+
     fig.set_size_inches(8, 8)
     fig.set_dpi(300)
     # ax.scatter(df['num_configs'], df['test_score'], alpha=0.5, label='test')
     # ax.scatter(df['num_configs'], df['train_score'], alpha=0.5, label='train')
-    for ax, portfolio_cv_list in zip(axes.flat[:num_lists], portfolio_cv_lists):
+    for ax, portfolio_cv_list in zip(axes_flat[:num_lists], portfolio_cv_lists):
         df, num_train_tasks, num_test_tasks, n_configs_avail = get_test_train_rank_diff_df(portfolio_cv_list=portfolio_cv_list)
         ax.scatter(df[x_axis_col], df['test_score'], alpha=0.5, label=f'test')
         ax.scatter(df[x_axis_col], df['train_score'], alpha=0.5, label=f'train')
@@ -94,7 +101,7 @@ def plot_results_multi(portfolio_cv_lists: List[List[PortfolioCV]],
         # ax.set_ylabel('rank (lower is better)')  # Add a y-label to the axes.
         ax.set_title(f'tr_tasks={num_train_tasks}, n_conf={n_configs_avail}')  # Add a title to the axes.
         ax.grid()
-    axes.flat[0].legend()
+    axes_flat[0].legend()
     # axes[0].set_xlabel('num_configs')  # Add an x-label to the axes.
     # axes.flat[0].set_ylabel('rank (lower is better)')  # Add a y-label to the axes.
     if footnote is not None:
