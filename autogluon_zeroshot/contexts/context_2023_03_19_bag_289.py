@@ -50,9 +50,8 @@ def load_context_2023_03_19_bag_289(
     df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
 
     # Load in real framework results to score against
-    path_prefix_automl = Paths.results_root / 'automl_289'
-    path_automl_root_s3_zs_input = f'{path_bagged_root_s3}zs_input/automl_289'
-    df_results_by_dataset_automl = load_pd.load(f'{path_automl_root_s3_zs_input}/results_ranked_by_dataset_valid.csv')
+    path_prefix_automl = Paths.results_root / 'automl_289' if load_from_local else f'{path_bagged_root_s3}zs_input/automl_289'
+    df_results_by_dataset_automl = load_pd.load(f'{path_prefix_automl}/results_ranked_by_dataset_valid.csv')
 
     zsc = ZeroshotSimulatorContext(
         df_results_by_dataset=df_results_by_dataset,
