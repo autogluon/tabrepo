@@ -42,7 +42,14 @@ def get_rank(error: float,
         if win:
             if include_partial and error != 0:
                 # Add up to 0.5 rank based on distance between closest loss and closest win.
-                partial_rank = ((error - prior_err) / (e - prior_err)) / 2
+                divisor = e - prior_err
+                if divisor == 0:
+                    partial_rank = 0.5
+                else:
+                    partial_rank = ((error - prior_err) / divisor) / 2
+                if partial_rank > 0.5:
+                    # Safeguard against divide by 0 edge-cases
+                    partial_rank = 0.5
                 rank += partial_rank
             # error_lst is assumed to be sorted, so we know that all future elements will be wins
             # once we find our first win, allowing us to break early
