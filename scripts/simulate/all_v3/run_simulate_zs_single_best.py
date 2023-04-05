@@ -11,7 +11,6 @@ from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation
 
 if __name__ == '__main__':
     context_name = 'D104_F10_C608_FULL'
-    available_names = list_contexts()
     benchmark_context = get_context(context_name)
     benchmark_context.download()
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load()
