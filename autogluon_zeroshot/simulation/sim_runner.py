@@ -6,6 +6,7 @@ from typing import Dict, List
 import boto3
 import matplotlib.pyplot as plt
 
+from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
 
 from .config_generator import ZeroshotConfigGeneratorCV
@@ -94,8 +95,8 @@ def plot_results_multi(portfolio_cv_lists: List[List[PortfolioCV]],
     # ax.scatter(df['num_configs'], df['train_score'], alpha=0.5, label='train')
     for ax, portfolio_cv_list in zip(axes_flat[:num_lists], portfolio_cv_lists):
         df, num_train_tasks, num_test_tasks, n_configs_avail = get_test_train_rank_diff_df(portfolio_cv_list=portfolio_cv_list)
-        ax.scatter(df[x_axis_col], df['test_score'], alpha=0.5, label=f'test')
-        ax.scatter(df[x_axis_col], df['train_score'], alpha=0.5, label=f'train')
+        ax.errorbar(df[x_axis_col], df['test_error'], alpha=0.5, label=f'test', yerr=df['test_error_std'], fmt='o')
+        ax.errorbar(df[x_axis_col], df['train_error'], alpha=0.5, label=f'train', yerr=df['train_error_std'], fmt='o')
 
         # ax.set_xlabel('num_configs')  # Add an x-label to the axes.
         # ax.set_ylabel('rank (lower is better)')  # Add a y-label to the axes.
@@ -154,14 +155,18 @@ def get_test_train_rank_diff_df(portfolio_cv_list: List[PortfolioCV]):
         df_dict['n_configs'].append(n_configs)
         df_dict['step'].append(step)
         if portfolio_cv.has_test_score():
-            df_dict['test_score'].append(portfolio_cv.get_test_score_overall())
+            df_dict['test_error'].append(portfolio_cv.get_test_score_overall())
+            df_dict['test_error_std'].append(portfolio_cv.get_test_score_stddev())
         else:
-            df_dict['test_score'].append(None)
-        df_dict['train_score'].append(portfolio_cv.get_train_score_overall())
+            df_dict['test_error'].append(None)
+            df_dict['test_error_std'].append(None)
+        df_dict['train_error'].append(portfolio_cv.get_train_score_overall())
+        df_dict['train_error_std'].append(portfolio_cv.get_train_score_stddev())
+
 
     import pandas as pd
     df = pd.DataFrame(df_dict)
-    df['overfit_delta'] = df['test_score'] - df['train_score']
+    df['overfit_delta'] = df['test_error'] - df['train_error']
     return df, num_train_tasks, num_test_tasks, n_configs_avail
 
 

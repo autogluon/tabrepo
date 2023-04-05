@@ -1,5 +1,7 @@
 from typing import List
 
+import numpy as np
+
 
 # TODO: Consider including more, such as metric, metric_error, so that we don't need to calculate that later
 class Portfolio:
@@ -46,6 +48,18 @@ class PortfolioCV:
             if portfolio.test_score is None:
                 return False
         return True
+
+    def get_test_scores(self) -> List[float]:
+        return [portfolio.test_score for portfolio in self.portfolios]
+
+    def get_train_scores(self) -> List[float]:
+        return [portfolio.train_score for portfolio in self.portfolios]
+
+    def get_test_score_stddev(self) -> float:
+        return np.std(self.get_test_scores())
+
+    def get_train_score_stddev(self) -> float:
+        return np.std(self.get_train_scores())
 
     def get_test_score_overall(self) -> float:
         total_num_datasets = 0
