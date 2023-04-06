@@ -136,6 +136,8 @@ def get_test_train_rank_diff_df(portfolio_cv_list: List[PortfolioCV]):
     n_configs_avail = None
 
     for portfolio_cv in portfolio_cv_list:
+        portfolio_cv.print_summary()
+        assert portfolio_cv.is_dense(), f'PortfolioCV is not dense!'
         portfolios = portfolio_cv.portfolios
         if num_train_tasks is None:
             num_train_tasks = len(portfolios[0].train_datasets_fold)
