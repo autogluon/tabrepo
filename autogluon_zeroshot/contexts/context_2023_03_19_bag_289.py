@@ -1,6 +1,7 @@
 import time
 from typing import Tuple
 from autogluon.common.loaders import load_pd
+from pathlib import Path
 
 from .utils import load_zeroshot_input
 from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
@@ -14,7 +15,7 @@ def load_context_2023_03_19_bag_289(
         load_zeroshot_pred_proba=False,
         lazy_format=False,
         max_size_mb: int = 10,
-        load_from_local=False) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
+) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
     """
     :param folds:
     :param load_zeroshot_pred_proba:
@@ -31,14 +32,18 @@ def load_context_2023_03_19_bag_289(
 
     path_bagged_root_s3_zs_input = f'{path_bagged_root_s3}zs_input/bagged_289/'
 
-    if load_from_local:
-        results_path = str(path_bagged_root / "608/results_ranked_valid.parquet")
-        results_by_dataset_path = str(path_bagged_root / "608/results_ranked_by_dataset_valid.parquet")
-        raw_path = str(path_bagged_root / "openml_ag_2023_03_19_zs_models.parquet")
-    else:
+    results_path = str(path_bagged_root / "608/results_ranked_valid.parquet")
+    results_by_dataset_path = str(path_bagged_root / "608/results_ranked_by_dataset_valid.parquet")
+    raw_path = str(path_bagged_root / "openml_ag_2023_03_19_zs_models.parquet")
+    path_automl = str(Paths.automl_289_results_root / "results_ranked_by_dataset_valid.csv")
+    local_files_exist = all(Path(f).exists() for f in [results_path, results_by_dataset_path, raw_path, path_automl])
+    if not local_files_exist:
+        # TODO option to automatically download files in this case
+        print(f"Could not find local files, using s3 files from {path_bagged_root_s3_zs_input}.")
         results_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_valid.parquet"
         results_by_dataset_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_by_dataset_valid.parquet"
         raw_path = f"{path_bagged_root_s3_zs_input}openml_ag_2023_03_19_zs_models.parquet"
+        path_automl = f'{path_bagged_root_s3}zs_input/automl_289/results_ranked_by_dataset_valid.csv'
 
     df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
         results=results_path,
@@ -50,8 +55,8 @@ def load_context_2023_03_19_bag_289(
     df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
 
     # Load in real framework results to score against
-    path_prefix_automl = Paths.results_root / 'automl_289' if load_from_local else f'{path_bagged_root_s3}zs_input/automl_289'
-    df_results_by_dataset_automl = load_pd.load(f'{path_prefix_automl}/results_ranked_by_dataset_valid.csv')
+    print(f'Loading comparison_frameworks: {path_automl}')
+    df_results_by_dataset_automl = load_pd.load(path_automl)
 
     zsc = ZeroshotSimulatorContext(
         df_results_by_dataset=df_results_by_dataset,

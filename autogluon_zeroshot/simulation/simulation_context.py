@@ -117,6 +117,7 @@ class ZeroshotSimulatorContext:
 
         dataset_name_to_tid_dict = get_dataset_name_to_tid_dict(df_raw=df_raw)
         dataset_to_tid_dict = get_dataset_to_tid_dict(df_raw=df_raw)
+        assert len(unique_datasets) == len(dataset_to_tid_dict.keys())
 
         if score_against_only_automl:
             df_results_baselines = df_results_by_dataset_automl
@@ -159,10 +160,12 @@ class ZeroshotSimulatorContext:
             datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]
         return datasets
 
-    def get_dataset_folds(self, datasets: Optional[List[str]] = None, problem_type: Optional[str] = None) -> List[str]:
+    def get_dataset_folds(self,
+                          datasets: Optional[List[str]] = None,
+                          problem_type: Optional[List[str]] = None) -> List[str]:
         """
         :param datasets: a list of dataset parent names, only return folds that have a parent in this list
-        :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ...
+        :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ... or list of problem types
         :return: List of datasets-folds formatted as `['359987_8', '359933_3', ...]` where the dataset is encoded before
         the "_" and the fold after.
         # Todo/Note it might be clearer to add a column fold in the dataframe and return List[Tuple[str, int]] with
@@ -173,7 +176,9 @@ class ZeroshotSimulatorContext:
         else:
             dataset_folds = self.unique_dataset_folds
         if problem_type is not None:
-            dataset_folds = [dataset for dataset in dataset_folds if self.dataset_to_problem_type_dict[dataset] == problem_type]
+            if not isinstance(problem_type, list):
+                problem_type = [problem_type]
+            dataset_folds = [dataset for dataset in dataset_folds if self.dataset_to_problem_type_dict[dataset] in problem_type]
         return dataset_folds
 
     def _get_dataset_folds_from_datasets(self, datasets: List[str]):
@@ -193,17 +198,19 @@ class ZeroshotSimulatorContext:
         return zeroshot_gt
 
     def load_pred(self, pred_pkl_path: Path, lazy_format: bool = False) -> dict:
+        pred_pkl_path = Path(pred_pkl_path)
         assert pred_pkl_path.exists()
         print('Loading zeroshot...')
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         if lazy_format:
             # convert to lazy format if format not already available
             self.convert_lazy_format(pred_pkl_path=pred_pkl_path)
-        pred_path = str(pred_pkl_path.parent  / 'zeroshot_pred_per_task') if lazy_format else str(pred_pkl_path)
+        lazy_filename = str(pred_pkl_path).rsplit('.pkl', 1)[0]
+        pred_path = str(lazy_filename) if lazy_format else str(pred_pkl_path)
         zeroshot_pred_proba = cls.load(pred_path)
-        for k in zeroshot_pred_proba.datasets:
-            if k not in self.dataset_to_tid_dict:
-                zeroshot_pred_proba.remove_dataset(k)
+
+        valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
+        zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
         # rename dataset to dataset-ids, eg. 'abalone' is mapped to 359944.0
         zeroshot_pred_proba.rename_datasets({
             k: self.dataset_to_tid_dict[k]
@@ -212,8 +219,8 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     @staticmethod
-    def convert_lazy_format(pred_pkl_path, override_if_already_exists: bool = False):
-        new_filename = pred_pkl_path.parent / "zeroshot_pred_per_task"
+    def convert_lazy_format(pred_pkl_path: Path, override_if_already_exists: bool = False):
+        new_filename = Path(pred_pkl_path).parent / Path(pred_pkl_path).stem
         if not new_filename.exists() or override_if_already_exists:
             print(f"lazy format folder {new_filename} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
