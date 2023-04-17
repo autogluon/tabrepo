@@ -24,6 +24,15 @@ DatasetPredictionsDict = Dict[int, TaskPredictionsDict]
 TabularPredictionsDict = Dict[str, DatasetPredictionsDict]
 
 
+def filter_empty(dataset_dict: TabularPredictionsDict):
+    # remove all possibly empty collections from the nested dictionary
+    for dataset, folds in dataset_dict.items():
+        for fold, splits in folds.items():
+            dataset_dict[dataset][fold] = {split: models for split, models in splits.items() if models}
+        dataset_dict[dataset] = {fold: splits for fold, splits in folds.items() if splits}
+    return {dataset: folds for dataset, folds in dataset_dict.items() if folds}
+
+
 class TabularModelPredictions:
     """
     Class that allows to query offline predictions.
@@ -39,228 +48,83 @@ class TabularModelPredictions:
         (num_models, num_points, num_classes) for classification corresponding the predictions of the model.
         """
         if splits is None:
-            splits = ['val', 'test']
+            splits = self.splits
         for split in splits:
-            assert split in ['val', 'test']
+            assert split in self.splits
         assert models is None or len(models) > 0
-        return self._predict(dataset, fold, splits, models)
+        return self._predict(dataset=dataset, fold=fold, splits=splits, models=models)
 
-    def print_summary(self):
-        folds = self.folds
-        datasets = self.datasets
-        tasks = self.tasks
-        models = self.models
+    def predict_dataset(self, dataset: str) -> DatasetPredictionsDict:
+        """
+        :return: all the predictions associated to a dataset
+        """
+        raise NotImplementedError()
 
-        num_folds = len(folds)
-        num_datasets = len(datasets)
-        num_tasks = len(tasks)
-        num_models = len(models)
-
-        folds_dense = self.get_folds_dense()
-        models_dense = self.get_models_dense()
-
-        num_folds_dense = len(folds_dense)
-        num_models_dense = len(models_dense)
-
-        is_dense = self.is_dense()
-        is_dense_folds = self.is_dense_folds()
-        is_dense_models = self.is_dense_models()
-
-        print(f'Summary of {self.__class__.__name__}:\n'
-              f'\tdatasets={num_datasets}\t| folds={num_folds} (dense={num_folds_dense})\t| tasks={num_tasks}\t'
-              f'| models={num_models} (dense={num_models_dense})\n'
-              f'\tis_dense={is_dense} | is_dense_folds={is_dense_folds} | is_dense_models={is_dense_models}')
+    def predict_task(self, dataset: str, fold: int) -> TaskPredictionsDict:
+        """
+        :return: all the predictions associated to a task
+        """
+        return self.predict_dataset(dataset=dataset)[fold]
 
     @property
-    def models(self) -> List[str]:
-        """
-        :return: list of models present in at least one dataset.
-        """
-        raise NotImplementedError()
-
-    def get_models(self, present_in_all=False) -> List[str]:
-        """
-        Gets all valid models
-        :param present_in_all:
-            If True, only returns models present in every dataset (dense)
-            If False, returns every model that appears in at least 1 dataset (sparse)
-        """
-        if not present_in_all:
-            return self.models
-        else:
-            return self.get_models_dense()
-
-    def get_models_dense(self) -> List[str]:
-        """
-        Returns models that appears in all lists, eg that are available for all tasks and splits
-        """
-        models = []
-        for dataset in self.datasets:
-            models_in_dataset = set(self.models_available_in_dataset(dataset=dataset, present_in_all=True))
-            models.append(models_in_dataset)
-        if models:
-            return sorted(list(set.intersection(*map(set, models))))
-        else:
-            return []
-
-    def is_dense_models(self) -> bool:
-        """
-        Return True if all tasks have all models
-        """
-        models_dense = self.get_models(present_in_all=True)
-        models_sparse = self.get_models(present_in_all=False)
-        return set(models_dense) == set(models_sparse)
-
-    def is_dense_folds(self) -> bool:
-        """
-        Return True if all datasets have all folds
-        """
-        return set(self.folds) == set(self.get_folds_dense())
-
-    def is_dense(self) -> bool:
-        """
-        Return True if all datasets have all folds, and all tasks have all models
-        """
-        return self.is_dense_folds() and self.is_dense_models()
-
-    def is_empty(self) -> bool:
-        """
-        Return True if no models or datasets exist
-        """
-        return len(self.datasets) == 0 or len(self.get_models(present_in_all=False)) == 0
-
-    def get_dataset(self, dataset: str) -> DatasetPredictionsDict:
-        raise NotImplementedError()
-
-    def get_task(self, dataset: str, fold: int) -> TaskPredictionsDict:
-        return self.get_dataset(dataset=dataset)[fold]
-
-    def _check_dataset_exists(self, dataset: str) -> bool:
-        """
-        Simple implementation to check if a dataset exists.
-        Consider implementing optimized version in inheriting classes if this is time-consuming.
-        """
-        return dataset in self.datasets
-
-    def _check_task_exists(self, dataset: str, fold: int) -> bool:
-        """
-        Simple implementation to check if a task exists.
-        Consider implementing optimized version in inheriting classes if this is time-consuming.
-        """
-        try:
-            self.get_task(dataset=dataset, fold=fold)
-            return True
-        except:
-            return False
-
-    def models_available_in_task(self,
-                                 *,
-                                 task: Optional[TaskPredictionsDict] = None,
-                                 dataset: Optional[str] = None,
-                                 fold: Optional[int] = None,
-                                 split: Optional[str] = None) -> List[str]:
-        """
-        Get list of valid models for a given task
-
-        Either task must be specified or dataset & fold must be specified.
-
-        If 'split' is not None, will only check for the given split.
-        If 'split' is None, will return models that are present in every split (dense).
-        """
-        if task is not None and isinstance(task, tuple):
-            dataset = task[0]
-            fold = task[1]
-            task = None
-        if task is None:
-            assert dataset is not None
-            assert fold is not None
-            if self._check_task_exists(dataset=dataset, fold=fold):
-                task = self.get_task(dataset=dataset, fold=fold)
-            else:
-                return []
-        else:
-            assert dataset is None
-            assert fold is None
-        if split is not None:
-            models = list(task[split].keys())
-        else:
-            splits = task.keys()
-            models = [set(task[split]) for split in splits]
-            models = list(set.intersection(*map(set, models)))
-        return models
-
-    def models_available_in_task_dict(self) -> Dict[str, Dict[int, List[str]]]:
-        """Get dict of valid models per task"""
-        datasets = self.datasets
-
-        model_fold_dataset_dict = dict()
-        for d in datasets:
-            dataset_predictions = self.get_dataset(dataset=d)
-            model_fold_dataset_dict[d] = dict()
-            for f in dataset_predictions:
-                model_fold_dataset_dict[d][f] = self.models_available_in_task(task=dataset_predictions[f])
-        return model_fold_dataset_dict
-
-    def models_available_in_dataset(self, dataset: str, present_in_all: bool = True) -> List[str]:
-        """Returns the models available on both validation and test splits on all tasks in a dataset"""
-        models = []
-        dataset_predictions = self.get_dataset(dataset=dataset)
-        for fold in dataset_predictions:
-            task_predictions = dataset_predictions[fold]
-            models.append(set(self.models_available_in_task(task=task_predictions)))
-        # returns models that appears in all lists, eg that are available for all folds and splits
-        if present_in_all:
-            return sorted(list(set.intersection(*map(set, models))))
-        else:
-            all_models = set()
-            for model_set in models:
-                all_models = all_models.union(model_set)
-            return sorted(list(all_models))
-
-    def folds_available_in_dataset(self, dataset: str) -> List[int]:
-        """Returns the folds available in a dataset"""
-        dataset_predictions = self.get_dataset(dataset=dataset)
-        return sorted(list(dataset_predictions.keys()))
+    def splits(self) -> List[str]:
+        return ['val', 'test']
 
     @property
     def folds(self) -> List[int]:
         """
         Returns all folds that appear at least once in any dataset (sparse)
         """
-        folds = set()
-        for dataset in self.datasets:
-            for f in self.folds_available_in_dataset(dataset=dataset):
-                folds.add(f)
-        return sorted(list(folds))
+        return self.list_folds_available(present_in_all=False)
 
-    def get_datasets_with_folds(self, folds: List[int]) -> List[str]:
-        """
-        Get list of datasets that have results for all input folds
-        """
-        datasets = self.datasets
-        valid_datasets = []
-        for dataset in datasets:
-            folds_in_dataset = self.folds_available_in_dataset(dataset=dataset)
-            if all(f in folds_in_dataset for f in folds):
-                valid_datasets.append(dataset)
-        return valid_datasets
+    @property
+    def datasets(self) -> List[str]:
+        raise NotImplementedError()
 
-    def get_datasets_with_models(self, models: List[str]) -> List[str]:
+    @property
+    def models(self) -> List[str]:
+        return self.list_models_available(present_in_all=False)
+
+    def list_folds_available(self, datasets: List[str] = None, present_in_all: bool = True) -> List[int]:
         """
-        Get list of datasets that have results for all input models
+        :return: the list of folds available in the datasets provided, if no dataset is given consider the list of
+        all available datasets. Return the folds present in all datasets if `present_in_all` and otherwise the ones
+        present in any dataset.
         """
-        datasets = self.datasets
-        configs = set(models)
-        valid_datasets = []
-        for d in datasets:
-            models_in_dataset = set(self.models_available_in_dataset(dataset=d, present_in_all=True))
-            is_valid = True
-            for m in configs:
-                if m not in models_in_dataset:
-                    is_valid = False
-            if is_valid:
-                valid_datasets.append(d)
-        return valid_datasets
+        raise NotImplementedError()
+
+    def list_models_available(
+            self,
+            datasets: Optional[List[str]] = None,
+            folds: Optional[List[int]] = None,
+            splits: Optional[List[str]] = None,
+            present_in_all: bool = False,
+    ) -> List[str]:
+        """
+        :return: the list of models available on the datasets/folds/splits specified. If a field is not specified
+        then the list is computed over all elements of the collection. If `present_in_all` is set to True, then
+        only models appearing in all datasets/folds/splits combinations are returned and else models appearing in any
+        combination are returned.
+        """
+        res = []
+        for dataset in datasets if datasets else self.datasets:
+            for fold in folds if folds else self.list_folds_available(datasets=[dataset], present_in_all=False):
+                for split in splits if splits else self.splits:
+                    res.append(self.models_available_for_dataset_fold_split(dataset, fold, split))
+        agg_fun = set.intersection if present_in_all else set.union
+        return sorted(list(agg_fun(*map(set, res)))) if res else []
+
+    def models_available_for_dataset_fold_split(self, dataset, fold, split) -> List[str]:
+        """
+        :return: the list of models available for a given dataset/fold/split 
+        """
+        raise NotImplementedError()
+
+    def is_empty(self) -> bool:
+        """
+        Return True if no models exists
+        """
+        return len(self.models) == 0
 
     def restrict_models(self, models: List[str]):
         """
@@ -295,102 +159,8 @@ class TabularModelPredictions:
     def _restrict_folds(self, folds: List[int]):
         raise NotImplementedError()
 
-    def force_to_dense(self,
-                       first_prune_method: str = 'task',
-                       second_prune_method: str = 'dataset',
-                       assert_not_empty: bool = True):
-        """
-        Force to be dense in all dimensions.
-        This means all models will be present in all tasks, and all folds will be present in all datasets.
-        # TODO: Not guaranteed to be dense if first_prune_method = 'dataset'
-        """
-        if first_prune_method in ['dataset', 'fold']:
-            first_method = self.force_to_dense_folds
-            second_method = self.force_to_dense_models
-        else:
-            first_method = self.force_to_dense_models
-            second_method = self.force_to_dense_folds
-        print(
-            f'Forcing {self.__class__.__name__} to dense representation via two-stage filtering using '
-            f'`first_prune_method="{first_prune_method}"`, `second_prune_method="{second_prune_method}"`...')
-        first_method(prune_method=first_prune_method, assert_not_empty=assert_not_empty)
-        second_method(prune_method=second_prune_method, assert_not_empty=assert_not_empty)
-
-        print(f'The {self.__class__.__name__} object is now guaranteed to be dense.')
-        assert self.is_dense()
-
-    def force_to_dense_folds(self, prune_method: str = 'dataset', assert_not_empty: bool = True):
-        """
-        Force the pred dict to contain only dense fold results (no missing folds for any dataset)
-        :param prune_method:
-            If 'dataset', prunes any dataset that doesn't contain results for all folds
-            If 'fold', prunes any fold that doesn't exist for all datasets
-        """
-        print(f'Forcing {self.__class__.__name__} to dense fold representation using `prune_method="{prune_method}"`...')
-        valid_prune_methods = ['dataset', 'fold']
-        if prune_method not in valid_prune_methods:
-            raise ValueError(f'`prune_method={prune_method}` is invalid. Valid values: {valid_prune_methods}')
-        pre_num_models = len(self.models)
-        pre_num_datasets = len(self.datasets)
-        pre_num_folds = len(self.folds)
-        if prune_method == 'dataset':
-            datasets_dense = self.get_datasets_with_folds(folds=self.folds)
-            self.restrict_datasets(datasets=datasets_dense)
-        elif prune_method == 'fold':
-            folds_dense = self.get_folds_dense()
-            self.restrict_folds(folds=folds_dense)
-        else:
-            raise ValueError(f'`prune_method={prune_method}` is invalid. Valid values: {valid_prune_methods}')
-        post_num_models = len(self.models)
-        post_num_datasets = len(self.datasets)
-        post_num_folds = len(self.folds)
-
-        print(f'\tPre : datasets={pre_num_datasets} | models={pre_num_models} | folds={pre_num_folds}')
-        print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
-        assert self.is_dense_folds()
-        if assert_not_empty:
-            assert not self.is_empty()
-
-    def force_to_dense_models(self, prune_method: str = 'task', assert_not_empty: bool = True):
-        """
-        Force the pred dict to contain only dense results (no missing result for any task/model)
-        :param prune_method:
-            If 'task', prunes any task that doesn't contain results for all models
-            If 'model', prunes any model that doesn't have results for all tasks
-        """
-        print(f'Forcing {self.__class__.__name__} to dense model representation using `prune_method="{prune_method}"`...')
-        valid_prune_methods = ['task', 'model']
-        if prune_method not in valid_prune_methods:
-            raise ValueError(f'`prune_method={prune_method}` is invalid. Valid values: {valid_prune_methods}')
-        datasets = self.datasets
-        valid_models = self.get_models(present_in_all=False)
-        pre_num_models = len(valid_models)
-        pre_num_datasets = len(datasets)
-        pre_num_folds = len(self.folds)
-        if prune_method == 'task':
-            valid_tasks = []
-            for task in self.tasks:
-                dataset = task[0]
-                fold = task[1]
-                models_in_task = self.models_available_in_task(dataset=dataset, fold=fold)
-                models_in_task_set = set(models_in_task)
-                if all(m in models_in_task_set for m in valid_models):
-                    valid_tasks.append(task)
-            self.restrict_tasks(tasks=valid_tasks)
-        elif prune_method == 'model':
-            valid_models = self.get_models(present_in_all=True)
-            self.restrict_models(models=valid_models)
-        else:
-            raise ValueError(f'`prune_method={prune_method}` is invalid. Valid values: {valid_prune_methods}')
-        post_num_models = len(self.models)
-        post_num_datasets = len(self.datasets)
-        post_num_folds = len(self.folds)
-
-        print(f'\tPre : datasets={pre_num_datasets} | models={pre_num_models} | folds={pre_num_folds}')
-        print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
-        assert self.is_dense_models()
-        if assert_not_empty:
-            assert not self.is_empty()
+    def remove_dataset(self, dataset: str):
+        raise NotImplementedError()
 
     def restrict_tasks(self, tasks: List[Tuple[str, int]]):
         """
@@ -399,37 +169,13 @@ class TabularModelPredictions:
         tasks is a list of (dataset, fold) pairs, where (dataset, fold) represents a particular task.
         """
         valid_task_dict = defaultdict(set)
-        for task in tasks:
-            dataset = task[0]
-            fold = task[1]
+        for (dataset, fold) in tasks:
             valid_task_dict[dataset].add(fold)
-        for task in self.tasks:
-            dataset = task[0]
-            fold = task[1]
+        for (dataset, fold) in self.tasks:
             if fold not in valid_task_dict[dataset]:
                 self.remove_task(dataset=dataset, fold=fold)
 
-    def get_folds_dense(self) -> List[int]:
-        """
-        Returns folds that appear in all datasets
-        """
-        folds = []
-        for dataset in self.datasets:
-            folds_in_dataset = set(self.folds_available_in_dataset(dataset=dataset))
-            folds.append(folds_in_dataset)
-        if folds:
-            return sorted(list(set.intersection(*map(set, folds))))
-        else:
-            return []
-
-    def remove_dataset(self, dataset: str):
-        raise NotImplementedError()
-
     def remove_task(self, dataset: str, fold: int, error_if_missing=True):
-        raise NotImplementedError()
-
-    @property
-    def datasets(self) -> List[str]:
         raise NotImplementedError()
 
     @property
@@ -439,14 +185,10 @@ class TabularModelPredictions:
         """
         tasks = []
         for dataset in self.datasets:
-            folds = self.folds_available_in_dataset(dataset)
+            folds = self.list_folds_available(datasets=[dataset])
             for fold in folds:
                 tasks.append((dataset, fold))
         return tasks
-
-    @staticmethod
-    def _get_task_from_dataset(dataset_predictions: DatasetPredictionsDict, fold: int) -> TaskPredictionsDict:
-        return dataset_predictions[fold]
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
@@ -486,10 +228,10 @@ class TabularPicklePredictions(TabularModelPredictions):
         return model_pred_probas[model]
 
     def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
-        task = self.get_task(dataset=dataset, fold=fold)
+        task = self.predict_task(dataset=dataset, fold=fold)
 
         if models is None:
-            models = self.models_available_in_task(task=task)
+            models = self.models
 
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
@@ -498,31 +240,38 @@ class TabularPicklePredictions(TabularModelPredictions):
 
         return [get_split(split, models) for split in splits]
 
-    def get_dataset(self, dataset: str) -> DatasetPredictionsDict:
+    def predict_dataset(self, dataset: str) -> DatasetPredictionsDict:
         return self.pred_dict[dataset]
 
-    @property
-    def models(self) -> List[str]:
-        """
-        Returns models that appear at least once
-        """
-        models = set()
-        for dataset in self.datasets:
-            models = models.union(set(self.models_available_in_dataset(dataset, present_in_all=False)))
-        return sorted(list(models))
+    def models_available_for_dataset_fold_split(self, dataset, fold, split) -> List[str]:
+        split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
+        try:
+            return self.pred_dict[dataset][fold][split_key].keys()
+        except KeyError:
+            return []
+
+    def list_folds_available(self, datasets: List[str] = None, present_in_all: bool = True) -> List[int]:
+        datasets = datasets if datasets else self.datasets
+        all_folds = []
+        for dataset in datasets:
+            if dataset in self.pred_dict:
+                if dataset in self.pred_dict:
+                    all_folds.append(self.pred_dict[dataset].keys())
+
+        agg_fun = set.intersection if present_in_all else set.union
+        return sorted(list(agg_fun(*map(set, all_folds)))) if all_folds else []
+
 
     def _restrict_models(self, models: List[str]):
-        configs = set(models)
-        tasks = self.tasks
-        for task_tuple in tasks:
-            task = self.get_task(dataset=task_tuple[0], fold=task_tuple[1])
-            models_in_task = self.models_available_in_task(task=task)
-            for m in models_in_task:
-                if m not in configs:
-                    for split in task:
-                        task[split].pop(m, None)
-            if not self.models_available_in_task(task=task):
-                self.remove_task(dataset=task_tuple[0], fold=task_tuple[1])
+        models_to_keep = set(models)
+        for (dataset, folds) in self.pred_dict.items():
+            for (fold, splits) in folds.items():
+                for (split, models) in splits.items():
+                    self.pred_dict[dataset][fold][split] = {k: v for k, v in models.items() if k in models_to_keep}
+
+        # remove collections that may now be empty
+        self.pred_dict = filter_empty(self.pred_dict)
+
 
     def _restrict_folds(self, folds: List[int]):
         folds_cur = self.folds
@@ -552,7 +301,7 @@ class TabularPicklePredictions(TabularModelPredictions):
             self.pred_dict[dataset].pop(fold)
         else:
             self.pred_dict[dataset].pop(fold, None)
-        if len(self.folds_available_in_dataset(dataset=dataset)) == 0:
+        if len(self.list_folds_available(datasets=[dataset])) == 0:
             self.remove_dataset(dataset=dataset)
 
     def rename_datasets(self, rename_dict: dict):
@@ -571,14 +320,14 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     metadata_filename = 'metadata.pkl'
     # TODO: Consider saving/loading at the task level rather than the dataset level
     def __init__(self,
-                 tasks_to_models: Dict[str, Dict[int, List[str]]],
+                 tasks_to_models: Dict[str, Dict[int, Dict[str, List[str]]]],
                  output_dir: str,
                  rename_dict_inv: Dict[str, str] = None,
                  ):
         """
         Stores on pickle per task and load data in a lazy fashion which allows to reduce significantly the memory
         footprint.
-        :param tasks_to_models:
+        :param tasks_to_models: dictionary mapping dataset to fold to split to model names
         :param output_dir:
         """
         self.tasks_to_models = tasks_to_models
@@ -590,9 +339,21 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         for f in self.folds:
             assert isinstance(f, int)
 
+    def list_folds_available(self, datasets: List[str] = None, present_in_all: bool = True) -> List[int]:
+        datasets = datasets if datasets else self.datasets
+        all_folds = [self.tasks_to_models[dataset].keys() for dataset in datasets]
+        agg_fun = set.intersection if present_in_all else set.union
+        return sorted(list(agg_fun(*map(set, all_folds)))) if all_folds else []
+
+    def models_available_for_dataset_fold_split(self, dataset, fold, split) -> List[str]:
+        try:
+            return self.tasks_to_models[dataset][fold][split]
+        except KeyError:
+            return []
+
     def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
         pred_dict = self._load_dataset(dataset)
-        models_valid = self.models_available_in_dataset(dataset)
+        models_valid = self.list_models_available(datasets=[dataset], present_in_all=True)
         if models is None:
             models = models_valid
         else:
@@ -609,27 +370,12 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         available_model_mask = np.array([i for i, model in enumerate(models)])
         return [get_split(split, models)[available_model_mask] for split in splits]
 
-    def models_available_in_dataset(self, dataset: str, present_in_all=True) -> List[str]:
-        models = []
-        dataset_task_models = self.tasks_to_models[dataset]
-        for fold in dataset_task_models:
-            task_models = dataset_task_models[fold]
-            models.append(set(task_models))
-        if present_in_all:
-            models = sorted(list(set.intersection(*map(set, models))))
-        else:
-            all_models = set()
-            for model_set in models:
-                all_models = all_models.union(model_set)
-            models = sorted(list(all_models))
-        return models
-
     def folds_available_in_dataset(self, dataset: str) -> List[int]:
         """Returns the folds available in a dataset"""
         dataset_fold_dict = self.tasks_to_models[dataset]
         return sorted(list(dataset_fold_dict.keys()))
 
-    def get_dataset(self, dataset: str) -> DatasetPredictionsDict:
+    def predict_dataset(self, dataset: str) -> DatasetPredictionsDict:
         return self._load_dataset(dataset=dataset)
 
     def _load_dataset(self, dataset: str, enforce_folds: bool = True) -> DatasetPredictionsDict:
@@ -646,17 +392,27 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
+        rename_split = lambda split : 'test' if split == "pred_proba_dict_test" else 'val'
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         pred_proba = TabularPicklePredictions.from_dict(pred_dict=pred_dict)
         datasets = pred_proba.datasets
-        task_to_models = pred_proba.models_available_in_task_dict()
+        tasks_to_models = {
+            dataset: {
+                fold: {
+                    rename_split(split): list(models.keys())
+                    for split, models in splits.items()
+                }
+                for fold, splits in folds.items()
+            }
+            for dataset, folds in pred_dict.items()
+        }
         print(f"saving .pkl files in folder {output_dir}")
         for dataset in tqdm(datasets):
             filename = str(output_dir / f'{dataset}.pkl')
             save_pkl(filename, pred_dict[dataset])
-        cls._save_metadata(output_dir=output_dir, tasks_to_models=task_to_models)
-        return cls(tasks_to_models=task_to_models, output_dir=output_dir)
+        cls._save_metadata(output_dir=output_dir, tasks_to_models=tasks_to_models)
+        return cls(tasks_to_models=tasks_to_models, output_dir=output_dir)
 
     def save(self, output_dir: str):
         print(f"saving into {output_dir}")
@@ -689,16 +445,13 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
 
     def _restrict_models(self, models: List[str]):
         models_to_keep = set(models)
-        datasets = self.datasets
-        for dataset in datasets:
-            folds = list(self.tasks_to_models[dataset].keys())
-            for fold in folds:
-                models_in_task = self.tasks_to_models[dataset][fold]
-                models_in_task = [m for m in models_in_task if m in models_to_keep]
-                if not models_in_task:
-                    self.remove_task(dataset=dataset, fold=fold)
-                else:
-                    self.tasks_to_models[dataset][fold] = models_in_task
+        for dataset, folds in self.tasks_to_models.items():
+            for fold, splits in folds.items():
+                for split, models in splits.items():
+                    self.tasks_to_models[dataset][fold][split] = list(models_to_keep.intersection(self.tasks_to_models[dataset][fold][split]))
+
+        # remove collections that may now be empty
+        self.tasks_to_models = filter_empty(self.tasks_to_models)
 
     def _restrict_folds(self, folds: List[int]):
         valid_folds_set = set(folds)
@@ -755,178 +508,6 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def _load_metadata(cls, output_dir: Path) -> dict:
         return load_pkl.load(path=str(Path(output_dir) / cls.metadata_filename))
 
-    @property
-    def models(self) -> List[str]:
-        res = set()
-        for d in self.tasks_to_models.keys():
-            for f in self.tasks_to_models[d].keys():
-                for model in self.tasks_to_models[d][f]:
-                    res.add(model)
-        return sorted(list(res))
-
-
-# TODO: This might not work correctly. Haven't tested it.
-class TabularNpyPerTaskPredictions(TabularModelPredictions):
-    metadata_filename = 'metadata.pkl'
-
-    def __init__(self, output_dir: str, dataset_shapes: Dict[str, Tuple[int, int, int]], models, folds):
-        self._output_dir = output_dir
-        self._dataset_shapes = dataset_shapes
-        self._models = models
-        self._folds = folds
-        self.models_removed = set()
-
-    def _predict_from_dataset(self, dataset: str) -> np.array:
-        evals = np.load(Path(self._output_dir) / f"{dataset}.npy")
-        num_val, num_test, output_dim = self._dataset_shapes[dataset]
-        assert evals.shape[0] == num_val + num_test
-        assert evals.shape[-1] == output_dim
-        # (num_train/num_test, n_folds, n_models, output_dim)
-        return evals[:num_val], evals[num_val:]
-
-    def search_index(self, l, x):
-        for i, y in enumerate(l):
-            if y == x:
-                return i
-
-    def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
-        """
-        :return: for each split, a tensor with shape (num_models, num_points) for regression and
-        (num_models, num_points, num_classes) for classification corresponding the predictions of the model.
-        """
-        model_indices = {model: i for i, model in enumerate(self.models)}
-        res = []
-        # (num_train/num_test, n_folds, n_models, output_dim)
-        val_evals, test_evals = self._predict_from_dataset(dataset)
-        for split in splits:
-            tensor = val_evals if split == "val" else test_evals
-            if models is None:
-                res.append(tensor[:, fold, :])
-            else:
-                res.append(tensor[:, fold, [model_indices[m] for m in models]])
-
-        res = [np.swapaxes(x, 0, 1) for x in res]
-        # squeeze last dim to be uniform with other part of the code
-        res = [
-            np.squeeze(x, axis=-1) if x.shape[-1] == 1 else x
-            for x in res
-        ]
-        return res
-
-    @classmethod
-    def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        pred_proba = TabularPicklePredictions.from_dict(pred_dict=pred_dict)
-        datasets = pred_proba.datasets
-        models = pred_proba.models
-        print(f"saving .pkl files in folder {output_dir}")
-        dataset_shapes = {}
-        for dataset in datasets:
-            # (num_samples, n_folds, n_models, output_dim)
-            val_evals, test_evals = cls._stack_pred(pred_dict[dataset], models)
-            dataset_shapes[dataset] = (len(val_evals), len(test_evals), val_evals.shape[-1])
-            evals = np.concatenate([val_evals, test_evals], axis=0)
-            np.save(output_dir / f"{dataset}.npy", evals)
-        cls._save_metadata(
-            output_dir=output_dir,
-            dataset_shapes=dataset_shapes,
-            models=models,
-            folds=pred_proba.folds,
-        )
-
-        return cls(
-            dataset_shapes=dataset_shapes,
-            output_dir=output_dir,
-            models=models,
-            folds=pred_proba.folds,
-        )
-
-    @staticmethod
-    def _stack_pred(fold_dict: Dict[int, Dict[str, Dict[str, np.array]]], models):
-        """
-        :param fold_dict: dictionary mapping fold to split to config name to predictions
-        :return:
-        """
-        # split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
-        num_samples_val = min(len(config_evals) for config_evals in fold_dict[0]["pred_proba_dict_val"].values())
-        num_samples_test = min(len(config_evals) for config_evals in fold_dict[0]["pred_proba_dict_test"].values())
-        output_dims = set(
-            config_evals.shape[1] if config_evals.ndim > 1 else 1
-            for fold in fold_dict.values()
-            for split in fold.values()
-            for config_evals in split.values()
-        )
-        assert len(output_dims) == 1
-        output_dim = next(iter(output_dims))
-        n_folds = len(fold_dict)
-        n_models = len(fold_dict[0]["pred_proba_dict_val"])
-        val_res = np.zeros((num_samples_val, n_folds, n_models, output_dim))
-        test_res = np.zeros((num_samples_test, n_folds, n_models, output_dim))
-        def expand_if_scalar(x):
-            return x if output_dim > 1 else np.expand_dims(x, axis=-1)
-
-        for n_fold in range(n_folds):
-            for n_model, model in enumerate(models):
-                val_res[:, n_fold, n_model, :] = expand_if_scalar(
-                    fold_dict[n_fold]["pred_proba_dict_val"][model][:num_samples_val]
-                )
-                test_res[:, n_fold, n_model, :] = expand_if_scalar(
-                    fold_dict[n_fold]["pred_proba_dict_test"][model][:num_samples_test]
-                )
-        return val_res, test_res
-
-    @classmethod
-    def _save_metadata(cls, output_dir, dataset_shapes, models, folds):
-        metadata = {
-            "dataset_shapes": dataset_shapes,
-            "models": models,
-            "folds": folds,
-        }
-        save_pkl(path=str(Path(output_dir) / cls.metadata_filename), object=metadata)
-
-    @classmethod
-    def _load_metadata(cls, output_dir: Path) -> dict:
-        return load_pkl.load(path=str(Path(output_dir) / cls.metadata_filename))
-
-    @property
-    def datasets(self) -> List[str]:
-        return list(self._dataset_shapes.keys())
-
-    def models_available_in_dataset(self, dataset: str) -> List[str]:
-        return [m for m in self._models if m not in self.models_removed]
-
-    @property
-    def folds(self) -> List[int]:
-        return self._folds
-
-    @property
-    def models(self) -> List[int]:
-        return [m for m in self._models if m not in self.models_removed]
-
-    def _restrict_models(self, models: List[str]):
-        for model in self.models:
-            if model not in models:
-                self.models_removed.add(model)
-
-    def save(self, output_dir: str):
-        print(f"saving into {output_dir}")
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        self._save_metadata(output_dir, dataset_shapes=self._dataset_shapes, models=self._models, folds=self._folds)
-        print(f"copy .npy files from {self._output_dir} to {output_dir}")
-        for file in self._output_dir.glob("*.npy"):
-            shutil.copyfile(file, output_dir / file.name)
-
-    @classmethod
-    def load(cls, filename: str):
-        filename = Path(filename)
-        metadata = cls._load_metadata(filename)
-        return cls(
-            output_dir=filename,
-            **metadata
-        )
-
 
 class TabularPicklePredictionsOpt(TabularPicklePredictions):
     """
@@ -959,6 +540,13 @@ class TabularPicklePredictionsOpt(TabularPicklePredictions):
                     )
         return pred_dict
 
+    def models_available_for_dataset_fold_split(self, dataset, fold, split) -> List[str]:
+        split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
+        try:
+            return self.pred_dict[dataset][fold][split_key].model_index.keys()
+        except KeyError:
+            return []
+
     @classmethod
     def load(cls, filename: str):
         return cls(pred_dict_opt=load_pkl.load(filename))
@@ -984,35 +572,3 @@ class TabularPicklePredictionsOpt(TabularPicklePredictions):
             if not self.pred_dict[t]:
                 # If no folds, then pop the entire dataset
                 self.pred_dict.pop(t)
-
-    def models_available_in_task(self,
-                                 *,
-                                 task: Optional[TaskPredictionsDict] = None,
-                                 dataset: Optional[str] = None,
-                                 fold: Optional[int] = None,
-                                 split: str = None) -> List[str]:
-        """
-        Get list of valid models for a given task
-
-        Either task must be specified or dataset & fold must be specified.
-
-        If 'split' is not None, will only check for the given split.
-        If 'split' is None, will return models that are present in every split (dense).
-        """
-        if task is None:
-            assert dataset is not None
-            assert fold is not None
-            if self._check_task_exists(dataset=dataset, fold=fold):
-                task = self.get_task(dataset=dataset, fold=fold)
-            else:
-                return []
-        else:
-            assert dataset is None
-            assert fold is None
-        if split is not None:
-            models = list(task[split].models)
-        else:
-            splits = task.keys()
-            models = [set(task[split].models) for split in splits]
-            models = list(set.intersection(*map(set, models)))
-        return models

@@ -1,5 +1,6 @@
 from . import intersect_folds_and_datasets
 from ..simulation.tabular_predictions import TabularPicklePredictions, TabularPicklePredictionsOpt
+from ..simulation.dense_utils import force_to_dense
 
 
 def load_zeroshot_input(path_pred_proba, path_gt, zsc, lazy_format: bool = False):
@@ -15,7 +16,7 @@ def load_zeroshot_input(path_pred_proba, path_gt, zsc, lazy_format: bool = False
 
     # keep only dataset whose folds are all present
     intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
-    zeroshot_pred_proba.force_to_dense(first_prune_method='task', second_prune_method='dataset')
+    force_to_dense(zeroshot_pred_proba, first_prune_method='task', second_prune_method='dataset')
 
     zsc.subset_models(zeroshot_pred_proba.models)
     zsc.subset_datasets(zeroshot_pred_proba.datasets)

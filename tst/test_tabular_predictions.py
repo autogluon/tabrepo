@@ -10,7 +10,9 @@ from pathlib import Path
 import pytest
 
 from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredictions, TabularPredictionsDict, \
-    TabularPicklePerTaskPredictions, TabularNpyPerTaskPredictions, TabularPicklePredictionsOpt
+    TabularPicklePerTaskPredictions, TabularPicklePredictionsOpt, filter_empty
+from autogluon_zeroshot.simulation.dense_utils import is_dense_folds, force_to_dense_folds, \
+    get_folds_dense, is_dense_models, force_to_dense, print_summary, get_models_dense
 
 
 def generate_dummy(shape, models):
@@ -45,12 +47,23 @@ def generate_artificial_dict(
     return pred_dict
 
 
-# def check_synthetic_data_pickle(cls=TabularPicklePredictions):
+def test_filter_empty():
+    models_dict = {
+        "dataset": {
+            1: {"val": ["a", "b"], "test": ["a", "b"]},
+            2: {"val": [], "test": []},
+        }
+    }
+    assert filter_empty(models_dict)["dataset"] ==  {1: {'val': ['a', 'b'], 'test': ['a', 'b']}}
+    models_dict["dataset"][1]["val"] = []
+    models_dict["dataset"][1]["test"] = []
+    assert len(filter_empty(models_dict)) == 0
+
+
 @pytest.mark.parametrize("cls", [
     TabularPicklePredictions,
     TabularPicklePredictionsOpt,
     TabularPicklePerTaskPredictions,
-    # TabularNpyPerTaskPredictions  # TODO: Not fully implemented
 ])
 def test_save_load_equivalence(cls):
     """
@@ -71,8 +84,9 @@ def test_save_load_equivalence(cls):
 
         # 1) construct pred proba from dictionary
         pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
-        assert set(pred_proba.models_available_in_dataset(dataset="d1")) == set(models)
-        assert set(pred_proba.models_available_in_dataset(dataset=3)) == set(models)
+
+        assert set(pred_proba.list_models_available(datasets=["d1"])) == set(models)
+        assert set(pred_proba.list_models_available(datasets=[3])) == set(models)
         filename = str(Path(tmpdirname) / "dummy")
 
         # 2) save it and reload it
@@ -85,13 +99,12 @@ def test_save_load_equivalence(cls):
         assert pred_proba.models == pred_proba_load.models
 
         # Ensure can load from int dataset names still
-        assert set(pred_proba_load.models_available_in_dataset(dataset=3)) == set(models)
+        assert set(pred_proba.list_models_available(datasets=[3])) == set(models)
 
         # 3) checks that output is as expected after serializing/deserializing
         assert pred_proba_load.datasets == list(dataset_shapes.keys())
         for cur_pred_proba in [pred_proba, pred_proba_load]:
             for dataset, (val_shape, test_shape) in dataset_shapes.items():
-                print(dataset, val_shape, test_shape)
                 val_pred_proba, test_pred_proba = cur_pred_proba.predict(dataset=dataset, fold=2, models=models, splits=["val", "test"])
                 assert val_pred_proba.shape == tuple([num_models] + list(val_shape))
                 assert test_pred_proba.shape == tuple([num_models] + list(test_shape))
@@ -104,7 +117,6 @@ def test_save_load_equivalence(cls):
     TabularPicklePredictions,
     TabularPicklePredictionsOpt,
     TabularPicklePerTaskPredictions,
-    # TabularNpyPerTaskPredictions
     # TODO restricting models with this format does not work which is ok as this
     #  format is not  currently used in experiments.
 ])
@@ -122,12 +134,15 @@ def test_restrict_models(cls):
     pred_dict = generate_artificial_dict(num_folds, models, dataset_shapes)
     with tempfile.TemporaryDirectory() as tmpdirname:
         pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
+        assert pred_proba.folds == list(range(num_folds))
+        assert pred_proba.list_folds_available(["d1"]) == list(range(num_folds))
+        assert pred_proba.list_models_available() == sorted(models)
+        assert pred_proba.models == sorted(models)
         pred_proba.restrict_models(sub_models)
         assert sorted(pred_proba.models) == sorted(sub_models)
 
         # make sure shapes matches what is expected
         for dataset, (val_shape, test_shape) in dataset_shapes.items():
-            print(dataset, val_shape, test_shape)
             val_pred_proba, test_pred_proba = pred_proba.predict(dataset=dataset, fold=2, models=sub_models, splits=["val", "test"])
             assert val_pred_proba.shape == tuple([num_sub_models] + list(val_shape))
             assert test_pred_proba.shape == tuple([num_sub_models] + list(test_shape))
@@ -160,7 +175,6 @@ def test_restrict_datasets(cls):
         for dataset, (val_shape, test_shape) in dataset_shapes.items():
             if dataset == "d2":
                 continue
-            print(dataset, val_shape, test_shape)
             val_pred_proba, test_pred_proba = pred_proba.predict(dataset=dataset, fold=2, models=models, splits=["val", "test"])
             assert val_pred_proba.shape == tuple([num_models] + list(val_shape))
             assert test_pred_proba.shape == tuple([num_models] + list(test_shape))
@@ -206,7 +220,7 @@ def test_restrict_datasets_dense(cls):
         valid_datasets = [
             dataset
             for dataset in pred_proba.datasets
-            if all(m in pred_proba.models_available_in_dataset(dataset) for m in models)
+            if all(m in pred_proba.list_models_available(datasets=[dataset], present_in_all=True) for m in models)
         ]
         assert valid_datasets == ["d1", 3]
         pred_proba.restrict_datasets(valid_datasets)
@@ -248,24 +262,24 @@ def test_restrict_datasets_missing_fold(cls):
     }
     with tempfile.TemporaryDirectory() as tmpdirname:
         pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
-        assert pred_proba.models_available_in_dataset("d1", present_in_all=True) == models
-        assert pred_proba.models_available_in_dataset("d2", present_in_all=True) == models
-        assert pred_proba.models_available_in_dataset("d3", present_in_all=True) == models
+        assert pred_proba.list_models_available(datasets=["d1"], present_in_all=True) == models
+        assert pred_proba.list_models_available(datasets=["d2"], present_in_all=True) == models
+        assert pred_proba.list_models_available(datasets=["d3"], present_in_all=True) == models
         valid_datasets = [
             dataset
             for dataset in pred_proba.datasets
-            if all(m in pred_proba.models_available_in_dataset(dataset, present_in_all=True) for m in models)
+            if all(m in pred_proba.list_models_available(datasets=[dataset], present_in_all=True) for m in models)
         ]
         assert valid_datasets == ["d1", "d2", "d3"]
         assert pred_proba.datasets == ["d1", "d2", "d3"]
 
-        assert not pred_proba.is_dense_folds()
-        pred_proba.force_to_dense_folds()
-        assert pred_proba.is_dense_folds()
+        assert not is_dense_folds(pred_proba)
+        force_to_dense_folds(pred_proba)
+        assert is_dense_folds(pred_proba)
 
         assert pred_proba.datasets == ["d1", "d3"]
-        assert pred_proba.models_available_in_dataset("d1", present_in_all=True) == models
-        assert pred_proba.models_available_in_dataset("d3", present_in_all=True) == models
+        assert pred_proba.list_models_available(datasets=["d1"], present_in_all=True) == models
+        assert pred_proba.list_models_available(datasets=["d3"], present_in_all=True) == models
 
 
 @pytest.mark.parametrize("cls", [
@@ -364,7 +378,6 @@ def test_advanced(cls):
                 ]:
                     models_are_valid = False not in [m in pred_proba.models for m in models]
                     should_raise = dataset not in pred_proba.datasets or fold not in pred_proba.folds or not models_are_valid
-                    print(dataset, fold, val_shape, test_shape, models, should_raise)
                     if should_raise:
                         with pytest.raises(Exception):
                             pred_proba.predict(dataset=dataset, fold=fold, models=models, splits=["val", "test"])
@@ -435,42 +448,43 @@ def test_sparse_to_dense(cls):
         pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
 
         init_folds = pred_proba.folds
-        init_folds_dense = pred_proba.get_folds_dense()
+        init_folds_dense = get_folds_dense(pred_proba)
         init_models = pred_proba.models
-        init_models_dense = pred_proba.get_models_dense()
+        init_models_dense = get_models_dense(pred_proba)
         init_datasets = pred_proba.datasets
-
+        assert pred_proba.list_folds_available(present_in_all=False) == [0, 1, 2]
+        assert pred_proba.list_folds_available(present_in_all=True) == [1]
         assert init_folds == [0, 1, 2]
         assert init_folds_dense == [1]
         assert init_models == ['0', '1', '10', '11', '12', '2', '3', '4', '5', '6', '7', '8', '9']
         assert init_models_dense == ['0', '1', '10', '11', '12', '2', '3', '4', '6', '7', '9']
         assert init_datasets == ['d1', 'd2', 'd3']
-        assert not pred_proba.is_dense_models()
-        assert not pred_proba.is_dense_folds()
+        assert not is_dense_models(pred_proba)
+        assert not is_dense_folds(pred_proba)
         assert not pred_proba.is_empty()
 
         pred_proba_copy = copy.deepcopy(pred_proba)
         with pytest.raises(AssertionError):
-            pred_proba_copy.force_to_dense(first_prune_method='task', second_prune_method='dataset')
+            force_to_dense(pred_proba_copy, first_prune_method='task', second_prune_method='dataset')
         pred_proba_copy = copy.deepcopy(pred_proba)
         with pytest.raises(AssertionError):
-            pred_proba_copy.force_to_dense(first_prune_method='task', second_prune_method='fold')
+            force_to_dense(pred_proba_copy, first_prune_method='task', second_prune_method='fold')
 
         print(f'Pre Dense')
-        pred_proba.print_summary()
+        print_summary(pred_proba)
 
         _make_empty_and_assert(pred_proba=pred_proba)
 
         pred_proba.restrict_folds([0, 1])
-        pred_proba.force_to_dense(first_prune_method='task', second_prune_method='dataset')
+        force_to_dense(pred_proba, first_prune_method='task', second_prune_method='dataset')
 
         print(f'Post Dense')
-        pred_proba.print_summary()
+        print_summary(pred_proba)
 
         post_folds = pred_proba.folds
-        post_folds_dense = pred_proba.get_folds_dense()
+        post_folds_dense = get_folds_dense(pred_proba)
         post_models = pred_proba.models
-        post_models_dense = pred_proba.get_models_dense()
+        post_models_dense = pred_proba.list_models_available(present_in_all=True)
         post_datasets = pred_proba.datasets
 
         assert post_folds == [0, 1]
@@ -478,8 +492,8 @@ def test_sparse_to_dense(cls):
         assert post_models == init_models
         assert post_models_dense == init_models
         assert post_datasets == ['d3']
-        assert pred_proba.is_dense_models()
-        assert pred_proba.is_dense_folds()
+        assert is_dense_models(pred_proba)
+        assert is_dense_folds(pred_proba)
         assert not pred_proba.is_empty()
 
         # Additionally check that restricting to nothing results in empty
