@@ -77,9 +77,12 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         )
 
         weighted_ensemble.fit(predictions=pred_proba_dict_val, labels=y_val)
-        y_test_pred = weighted_ensemble.predict_proba(pred_proba_dict_test)
+        if eval_metric.needs_pred:
+            y_test_pred = weighted_ensemble.predict(pred_proba_dict_test)
+        else:
+            y_test_pred = weighted_ensemble.predict_proba(pred_proba_dict_test)
         y_test = y_test.fillna(-1)
-        err = eval_metric._optimum - eval_metric(y_test, y_test_pred)  # FIXME: proba or pred, figure out
+        err = eval_metric.error(y_test, y_test_pred)
 
         # FIXME
         # y_val_pred = weighed_ensemble.predict_proba(a)
