@@ -7,17 +7,18 @@ import numpy as np
 from autogluon.common.savers import save_pkl
 
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag, get_configs_default, get_configs_small
+from autogluon_zeroshot.contexts import get_context
 from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation
 from autogluon_zeroshot.portfolio import PortfolioCV
 from autogluon_zeroshot.utils import catchtime
 
 if __name__ == '__main__':
+    context_name = 'BAG_D104_F10_C158_FULL'
+    benchmark_context = get_context(context_name)
     with catchtime("load"):
-        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_12_11_bag(
-            load_zeroshot_pred_proba=True,
+        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(
+            load_predictions=True,
             lazy_format=False,
-            subset='small_30'
         )
     # zsc.subset_models(zeroshot_pred_proba.models)
     zsc.print_info()

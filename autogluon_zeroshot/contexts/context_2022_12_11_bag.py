@@ -1,80 +1,69 @@
-from typing import Tuple
-from autogluon.common.loaders import load_pd
-
-from . import intersect_folds_and_datasets
-from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
-from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.tabular_predictions import TabularModelPredictions
+from .context import BenchmarkContext
+from ..loaders import Paths
 
 
-def load_context_2022_12_11_bag(
-        folds=None,
-        load_zeroshot_pred_proba=False,
-        lazy_format=False,
-        subset='small_30') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
-    """
-    :param folds:
-    :param load_zeroshot_pred_proba:
-    :param lazy_format: whether to load with a format where all data is in memory (`TabularPicklePredictions`) or a
-    format where data is loaded on the fly (`TabularPicklePerTaskPredictions`). Both formats have the same interface.
-    :param subset: The version of the data used.
-        'small_30': Contains 158 configs, 30 random each from 5 model types plus the default of AG for 8 models.
-        'all': Contains 608 configs, all ran configs from 5 model types. Much slower to simulate than 'small_30'.
-    :return:
-    """
-    if folds is None:
-        folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+_s3_download_map = {
+    'results/bagged/zeroshot_gt_2022_12_11_zs.pkl': 's3://automl-benchmark-ag/aggregated/ec2/2022_12_11_zs/zeroshot_gt_2022_12_11_zs.pkl',
+    'results/bagged/zeroshot_gt_2022_12_11_zs_mini.pkl': 's3://automl-benchmark-ag/aggregated/ec2/2022_12_11_zs/zeroshot_gt_2022_12_11_zs_mini.pkl',
+    'results/bagged/zeroshot_pred_proba_2022_12_11_zs.pkl': 's3://automl-benchmark-ag/aggregated/ec2/2022_12_11_zs/zeroshot_pred_proba_2022_12_11_zs.pkl',
+    'results/bagged/zeroshot_pred_proba_2022_12_11_zs_mini.pkl': 's3://automl-benchmark-ag/aggregated/ec2/2022_12_11_zs/zeroshot_pred_proba_2022_12_11_zs_mini.pkl'
+}
+_s3_download_map = {Paths.rel_to_abs(k, relative_to=Paths.data_root): v for k, v in _s3_download_map.items()}
 
-    df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
-        results=str(Paths.bagged_results_root / subset / "results_ranked_valid.csv"),
-        results_by_dataset=str(Paths.bagged_results_root / subset / "results_ranked_by_dataset_valid.parquet"),
-        raw=str(Paths.bagged_results_root / "openml_ag_2022_12_11_zs_models.parquet"),
-        metadata=str(Paths.data_root / "metadata" / "task_metadata.csv"),
-    )
-    df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
 
-    # Load in real framework results to score against
-    path_prefix_automl = Paths.results_root / 'automl'
-    df_results_by_dataset_automl = load_pd.load(f'{path_prefix_automl}/results_ranked_by_dataset_valid.csv')
+_path_bagged_root = Paths.bagged_results_root
 
-    zsc = ZeroshotSimulatorContext(
-        df_results_by_dataset=df_results_by_dataset,
-        df_results_by_dataset_automl=df_results_by_dataset_automl,
-        df_raw=df_raw,
-        folds=folds,
-    )
+_bag_all_result_paths = dict(
+    result=str(_path_bagged_root / 'all' / "results_ranked_valid.csv"),
+    results_by_dataset=str(_path_bagged_root / 'all' / "results_ranked_by_dataset_valid.parquet"),
+    raw=str(_path_bagged_root / "openml_ag_2022_12_11_zs_models.parquet"),
+    comparison=str(Paths.results_root / 'automl' / 'results_ranked_by_dataset_valid.csv'),
+)
 
-    configs_prefix_1 = str(Paths.data_root / 'configs/configs_20221004')
-    configs_prefix_2 = str(Paths.data_root / 'configs')
-    config_files_to_load = [
-        f'{configs_prefix_1}/configs_catboost.json',
-        f'{configs_prefix_1}/configs_fastai.json',
-        f'{configs_prefix_1}/configs_lightgbm.json',
-        f'{configs_prefix_1}/configs_nn_torch.json',
-        f'{configs_prefix_1}/configs_xgboost.json',
-        f'{configs_prefix_2}/configs_rf.json',
-        f'{configs_prefix_2}/configs_xt.json',
-        f'{configs_prefix_2}/configs_knn.json',
-    ]
-    configs_full = load_configs(config_files_to_load)
 
-    zeroshot_pred_proba = None
-    zeroshot_gt = None
-    if load_zeroshot_pred_proba:
-        path_zs_gt = str(Paths.bagged_results_root / 'all' / 'zeroshot_gt_2022_12_11_zs.pkl')
-        zeroshot_gt = zsc.load_groundtruth(path_gt=path_zs_gt)
-        pred_pkl_path = Paths.bagged_results_root / 'all' / 'zeroshot_pred_proba_2022_12_11_zs.pkl'
-        zeroshot_pred_proba = zsc.load_pred(
-            pred_pkl_path=pred_pkl_path,
-            lazy_format=lazy_format,
-        )
+_bag_small_30_result_paths = dict(
+    result=str(_path_bagged_root / 'small_30' / "results_ranked_valid.csv"),
+    results_by_dataset=str(_path_bagged_root / 'small_30' / "results_ranked_by_dataset_valid.parquet"),
+    raw=str(_path_bagged_root / "openml_ag_2022_12_11_zs_models.parquet"),
+    comparison=str(Paths.results_root / 'automl' / 'results_ranked_by_dataset_valid.csv'),
+)
 
-        # keep only dataset whose folds are all present
-        intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
-        zsc.subset_models(zeroshot_pred_proba.models)
-        zeroshot_pred_proba.restrict_models(zsc.get_configs())
 
-    return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+_task_metadata_104_path = dict(
+    task_metadata=str(Paths.data_root / "metadata" / "task_metadata.csv"),
+)
+
+_bag_zs_path_all = dict(
+    zs_pp=str(_path_bagged_root / 'zeroshot_pred_proba_2022_12_11_zs.pkl'),
+    zs_gt=str(_path_bagged_root / 'zeroshot_gt_2022_12_11_zs.pkl'),
+)
+
+_bag_zs_path_small_30 = dict(
+    zs_pp=str(_path_bagged_root / 'zeroshot_pred_proba_2022_12_11_zs_mini.pkl'),
+    zs_gt=str(_path_bagged_root / 'zeroshot_gt_2022_12_11_zs_mini.pkl'),
+)
+
+context_bag_104_bench: BenchmarkContext = BenchmarkContext.from_paths(
+    name='BAG_D104_F10_C608_FULL',
+    description='Bagged results from 104 datasets (non-trivial), 10-fold CV, 608 configs.',
+    date='2022_12_11',
+    folds=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    s3_download_map=_s3_download_map,
+    **_bag_all_result_paths,
+    **_bag_zs_path_all,
+    **_task_metadata_104_path,
+)
+
+context_bag_104_bench_small: BenchmarkContext = BenchmarkContext.from_paths(
+    name='BAG_D104_F10_C158_FULL',
+    description='Bagged results from 104 datasets (non-trivial), 10-fold CV, 158 configs.',
+    date='2022_12_11',
+    folds=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    s3_download_map=_s3_download_map,
+    **_bag_small_30_result_paths,
+    **_bag_zs_path_small_30,
+    **_task_metadata_104_path,
+)
 
 
 def get_configs_default():

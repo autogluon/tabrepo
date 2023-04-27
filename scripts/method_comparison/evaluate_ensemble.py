@@ -12,8 +12,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 from syne_tune import Reporter
 
-from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
-from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag
+from autogluon_zeroshot.contexts import get_context
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
 from autogluon_zeroshot.utils import catchtime
 
@@ -42,10 +41,13 @@ def evaluate_ensemble(
     """
     assert backend in ['native', 'ray']
     print(f"Evaluating backend/bag/ensemble_size/num_folds:{backend}/{bag}/{ensemble_size}/{num_folds}/{n_splits}")
-    load_ctx = load_context_2022_12_11_bag if bag else load_context_2022_10_13
-
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_ctx(
-        load_zeroshot_pred_proba=True, lazy_format=True,
+    if bag:
+        context_name = 'BAG_D104_F10_C608_FULL'
+    else:
+        context_name = 'D104_F10_C608_FULL'
+    benchmark_context = get_context(context_name)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(
+        load_predictions=True, lazy_format=True,
     )
     if n_splits is not None:
         datasets = np.array(train_datasets)

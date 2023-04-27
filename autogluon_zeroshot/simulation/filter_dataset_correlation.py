@@ -1,5 +1,7 @@
 from typing import List
 import seaborn as sns
+
+from autogluon_zeroshot.contexts import get_context
 from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
 
 
@@ -26,10 +28,14 @@ def sort_datasets_linkage(zsc: ZeroshotSimulatorContext, datasets: List[float] =
 
 
 if __name__ == '__main__':
-    from autogluon_zeroshot.contexts.context_2022_10_13 import load_context_2022_10_13
+    bag = False
+    if bag:
+        context_name = 'BAG_D104_F10_C608_FULL'
+    else:
+        context_name = 'D104_F10_C608_FULL'
+    benchmark_context = get_context(context_name)
 
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_10_13(load_zeroshot_pred_proba=True,
-                                                                                  lazy_format=True)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(load_predictions=True, lazy_format=True)
     print(sort_datasets_linkage(zsc))
 
     sub_datasets = [359949.0, 359950.0, 359951.0, 359954.0, 359955.0, 359959.0,]

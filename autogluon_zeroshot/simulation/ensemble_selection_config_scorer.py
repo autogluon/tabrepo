@@ -8,6 +8,7 @@ from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSel
 from .configuration_list_scorer import ConfigurationListScorer
 
 from .simulation_context import ZeroshotSimulatorContext
+from .simulation_context import TabularModelPredictions
 from ..utils.rank_utils import RankScorer
 
 
@@ -22,7 +23,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def __init__(self,
                  datasets: list,
                  zeroshot_gt: dict,
-                 zeroshot_pred_proba: dict,
+                 zeroshot_pred_proba: TabularModelPredictions,
                  ranker: RankScorer,
                  dataset_name_to_tid_dict: dict,
                  dataset_name_to_fold_dict: dict,

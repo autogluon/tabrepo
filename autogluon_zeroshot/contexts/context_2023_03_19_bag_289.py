@@ -1,101 +1,100 @@
-import time
-from typing import Tuple
-from autogluon.common.loaders import load_pd
-from pathlib import Path
-
-from .utils import load_zeroshot_input
-from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
-from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.tabular_predictions import TabularModelPredictions
+from .context import BenchmarkContext
+from ..loaders import Paths
 
 
-# FIXME: Generalize this logic to avoid code dupe
-def load_context_2023_03_19_bag_289(
-        folds=None,
-        load_zeroshot_pred_proba=False,
-        lazy_format=False,
-        max_size_mb: int = 10,
-) -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
-    """
-    :param folds:
-    :param load_zeroshot_pred_proba:
-    :param lazy_format: whether to load with a format where all data is in memory (`TabularPicklePredictions`) or a
-    format where data is loaded on the fly (`TabularPicklePerTaskPredictions`). Both formats have the same interface.
-    :return:
-    """
-    if folds is None:
-        folds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+_s3_download_map = {
+    "results/bagged_289/608/results_ranked_by_dataset_valid.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/608/results_ranked_by_dataset_valid.csv",
+    "results/bagged_289/608/results_ranked_by_dataset_valid.parquet": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/608/results_ranked_by_dataset_valid.parquet",
+    "results/bagged_289/608/results_ranked_valid.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/608/results_ranked_valid.csv",
+    "results/bagged_289/608/results_ranked_valid.parquet": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/608/results_ranked_valid.parquet",
+    "results/bagged_289/openml_ag_2023_03_19_zs_models.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/openml_ag_2023_03_19_zs_models.csv",
+    "results/bagged_289/openml_ag_2023_03_19_zs_models.parquet": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/openml_ag_2023_03_19_zs_models.parquet",
+    "results/bagged_289/results_ranked_by_dataset_valid.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/results_ranked_by_dataset_valid.csv",
+    "results/bagged_289/results_ranked_valid.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/bagged_289/results_ranked_valid.csv",
+    "results/automl_289/results_ranked_by_dataset_valid.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/automl_289/results_ranked_by_dataset_valid.csv",
+    "results/automl_289/results_ranked_valid.csv": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zs_input/automl_289/results_ranked_valid.csv",
+    "results/bagged_289/zeroshot_gt_10_mb.pkl": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zeroshot_gt_10_mb.pkl",
+    "results/bagged_289/zeroshot_pred_proba_10_mb.pkl": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zeroshot_pred_proba_10_mb.pkl",
+    "results/bagged_289/zeroshot_gt_50_mb.pkl": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zeroshot_gt_50_mb.pkl",
+    "results/bagged_289/zeroshot_pred_proba_50_mb.pkl": "s3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/zeroshot_pred_proba_50_mb.pkl",
+}
+_s3_download_map = {Paths.rel_to_abs(k, relative_to=Paths.data_root): v for k, v in _s3_download_map.items()}
 
-    time_start = time.time()
-    path_bagged_root = Paths.bagged_289_results_root
-    path_bagged_root_s3 = 's3://automl-benchmark-ag/aggregated/ec2/2023_03_19_zs/'
 
-    path_bagged_root_s3_zs_input = f'{path_bagged_root_s3}zs_input/bagged_289/'
+_path_bagged_root = Paths.bagged_289_results_root
 
-    results_path = str(path_bagged_root / "608/results_ranked_valid.parquet")
-    results_by_dataset_path = str(path_bagged_root / "608/results_ranked_by_dataset_valid.parquet")
-    raw_path = str(path_bagged_root / "openml_ag_2023_03_19_zs_models.parquet")
-    path_automl = str(Paths.automl_289_results_root / "results_ranked_by_dataset_valid.csv")
-    local_files_exist = all(Path(f).exists() for f in [results_path, results_by_dataset_path, raw_path, path_automl])
-    if not local_files_exist:
-        # TODO option to automatically download files in this case
-        print(f"Could not find local files, using s3 files from {path_bagged_root_s3_zs_input}.")
-        results_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_valid.parquet"
-        results_by_dataset_path = f"{path_bagged_root_s3_zs_input}608/results_ranked_by_dataset_valid.parquet"
-        raw_path = f"{path_bagged_root_s3_zs_input}openml_ag_2023_03_19_zs_models.parquet"
-        path_automl = f'{path_bagged_root_s3}zs_input/automl_289/results_ranked_by_dataset_valid.csv'
+_bag_289_result_paths = dict(
+    result=str(_path_bagged_root / "608/results_ranked_valid.parquet"),
+    results_by_dataset=str(_path_bagged_root / "608/results_ranked_by_dataset_valid.parquet"),
+    raw=str(_path_bagged_root / "openml_ag_2023_03_19_zs_models.parquet"),
+    comparison=str(Paths.automl_289_results_root / "results_ranked_by_dataset_valid.csv"),
+)
 
-    df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
-        results=results_path,
-        results_by_dataset=results_by_dataset_path,
-        raw=raw_path,
-        metadata=str(Paths.data_root / "metadata" / "task_metadata_289.csv"),
-        require_tid_in_metadata=True,
-    )
-    df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
+_task_metadata_289_path = dict(
+    task_metadata=str(Paths.data_root / "metadata" / "task_metadata_289.csv"),
+)
 
-    # Load in real framework results to score against
-    print(f'Loading comparison_frameworks: {path_automl}')
-    df_results_by_dataset_automl = load_pd.load(path_automl)
+_task_metadata_244_path = dict(
+    task_metadata=str(Paths.data_root / "metadata" / "task_metadata_244.csv"),
+)
 
-    zsc = ZeroshotSimulatorContext(
-        df_results_by_dataset=df_results_by_dataset,
-        df_results_by_dataset_automl=df_results_by_dataset_automl,
-        df_raw=df_raw,
-        folds=folds,
-    )
+_bag_289_zs_50_mb_path = dict(
+    zs_pp=str(_path_bagged_root / f'zeroshot_pred_proba_50_mb.pkl'),
+    zs_gt=str(_path_bagged_root / f'zeroshot_gt_50_mb.pkl'),
+)
 
-    configs_prefix_1 = str(Paths.data_root / 'configs/configs_20221004')
-    configs_prefix_2 = str(Paths.data_root / 'configs')
-    config_files_to_load = [
-        f'{configs_prefix_1}/configs_catboost.json',
-        f'{configs_prefix_1}/configs_fastai.json',
-        f'{configs_prefix_1}/configs_lightgbm.json',
-        f'{configs_prefix_1}/configs_nn_torch.json',
-        f'{configs_prefix_1}/configs_xgboost.json',
-        f'{configs_prefix_2}/configs_rf.json',
-        f'{configs_prefix_2}/configs_xt.json',
-        f'{configs_prefix_2}/configs_knn.json',
-    ]
-    configs_full = load_configs(config_files_to_load)
+_bag_289_zs_10_mb_path = dict(
+    zs_pp=str(_path_bagged_root / f'zeroshot_pred_proba_10_mb.pkl'),
+    zs_gt=str(_path_bagged_root / f'zeroshot_gt_10_mb.pkl'),
+)
 
-    zeroshot_pred_proba = None
-    zeroshot_gt = None
-    if load_zeroshot_pred_proba:
-        max_size_mb_str = f'_{int(max_size_mb)}_mb' if max_size_mb is not None else ''
-        path_zs_gt = str(path_bagged_root / f'zeroshot_gt{max_size_mb_str}.pkl')
-        pred_pkl_path = path_bagged_root / f'zeroshot_pred_proba{max_size_mb_str}.pkl'
-        zeroshot_pred_proba, zeroshot_gt, zsc = load_zeroshot_input(
-            path_pred_proba=pred_pkl_path,
-            path_gt=path_zs_gt,
-            zsc=zsc,
-            lazy_format=lazy_format,
-        )
+context_bag_244_bench_50_mb: BenchmarkContext = BenchmarkContext.from_paths(
+    name='BAG_D244_F10_C608_FULL',
+    description='Bagged results from 244 datasets (non-trivial), 10-fold CV, 608 configs. '
+                '(130 dense result datasets w/ ZPP, 137 w/o)',
+    date='2023_03_19',
+    folds=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    s3_download_map=_s3_download_map,
+    **_bag_289_result_paths,
+    **_bag_289_zs_50_mb_path,
+    **_task_metadata_244_path,
+)
 
-    time_end = time.time()
-    print(f'Loaded ZS Context in {time_end-time_start:.2f}s')
+context_bag_244_bench_10_mb: BenchmarkContext = BenchmarkContext.from_paths(
+    name='BAG_D244_F10_C608_MEDIUM',
+    description='Bagged results from 244 datasets (non-trivial), 10-fold CV, 608 configs. '
+                '(105 dense result datasets w/ ZPP, 137 w/o)',
+    date='2023_03_19',
+    folds=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    s3_download_map=_s3_download_map,
+    **_bag_289_result_paths,
+    **_bag_289_zs_10_mb_path,
+    **_task_metadata_244_path,
+)
 
-    return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+context_bag_289_bench_50_mb: BenchmarkContext = BenchmarkContext.from_paths(
+    name='BAG_D279_F10_C608_FULL',
+    description='(NOTE: Use BAG_D244 context instead for improved results!! This context is outdated!) '
+                'Bagged results from 279 datasets (includes trivial datasets), 10-fold CV, 608 configs. ',
+    date='2023_03_19',
+    folds=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    s3_download_map=_s3_download_map,
+    **_bag_289_result_paths,
+    **_bag_289_zs_50_mb_path,
+    **_task_metadata_289_path,
+)
+
+context_bag_289_bench_10_mb: BenchmarkContext = BenchmarkContext.from_paths(
+    name='BAG_D279_F10_C608_MEDIUM',
+    description='(NOTE: Use BAG_D244 context instead for improved results!! This context is outdated!) '
+                'Bagged results from 279 datasets (includes trivial datasets), 10-fold CV, 608 configs. ',
+    date='2023_03_19',
+    folds=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    s3_download_map=_s3_download_map,
+    **_bag_289_result_paths,
+    **_bag_289_zs_10_mb_path,
+    **_task_metadata_289_path,
+)
 
 
 def get_configs_default():

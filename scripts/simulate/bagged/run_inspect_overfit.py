@@ -1,12 +1,12 @@
+from autogluon_zeroshot.contexts import get_context
 from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
-from autogluon_zeroshot.contexts.context_2022_12_11_bag import load_context_2022_12_11_bag
 from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation_debug
 
 
 if __name__ == '__main__':
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_2022_12_11_bag(
-        subset='small_30'
-    )
+    context_name = 'BAG_D104_F10_C608_FULL'
+    benchmark_context = get_context(context_name)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load()
     zsc.print_info()
 
     # NOTE: For speed of simulation, it is recommended backend='ray'

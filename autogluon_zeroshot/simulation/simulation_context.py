@@ -1,7 +1,7 @@
 import pickle
 import sys
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import pandas as pd
 from autogluon.common.loaders import load_pkl
@@ -9,7 +9,7 @@ from autogluon.common.loaders import load_pkl
 from ..loaders import Paths
 
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
-from .tabular_predictions import TabularPicklePredictions, TabularPicklePerTaskPredictions
+from .tabular_predictions import TabularPicklePredictions, TabularPicklePerTaskPredictions, TabularModelPredictions
 from ..utils.rank_utils import RankScorer
 
 
@@ -162,7 +162,7 @@ class ZeroshotSimulatorContext:
 
     def get_dataset_folds(self,
                           datasets: Optional[List[str]] = None,
-                          problem_type: Optional[List[str]] = None) -> List[str]:
+                          problem_type: Optional[Union[str, List[str]]] = None) -> List[str]:
         """
         :param datasets: a list of dataset parent names, only return folds that have a parent in this list
         :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ... or list of problem types
@@ -197,7 +197,7 @@ class ZeroshotSimulatorContext:
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
         return zeroshot_gt
 
-    def load_pred(self, pred_pkl_path: Path, lazy_format: bool = False) -> dict:
+    def load_pred(self, pred_pkl_path: Union[Path, str], lazy_format: bool = False) -> TabularModelPredictions:
         pred_pkl_path = Path(pred_pkl_path)
         assert pred_pkl_path.exists()
         print('Loading zeroshot...')
