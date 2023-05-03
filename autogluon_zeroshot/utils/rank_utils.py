@@ -40,7 +40,7 @@ def get_rank(error: float,
         else:
             win = True
         if win:
-            if include_partial and error != 0:
+            if include_partial and error > 0:
                 # Add up to 0.5 rank based on distance between closest loss and closest win.
                 divisor = e - prior_err
                 if divisor == 0:

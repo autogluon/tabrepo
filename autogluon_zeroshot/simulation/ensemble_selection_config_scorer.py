@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import ray
@@ -10,6 +10,7 @@ from .configuration_list_scorer import ConfigurationListScorer
 from .simulation_context import ZeroshotSimulatorContext
 from .simulation_context import TabularModelPredictions
 from ..utils.rank_utils import RankScorer
+from ..metrics import _fast_log_loss
 
 
 @ray.remote
@@ -31,7 +32,12 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  ensemble_selection_kwargs=None,
                  max_fold: Optional[float] = None,
                  backend: str = 'native',
+                 use_fast_metrics: bool = True,
                  ):
+        """
+        TODO: Add docstring
+        :param use_fast_metrics: If True, will leverage optimized eval metrics to speed up config scoring.
+        """
         super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
         if zeroshot_gt is None:
             raise ValueError(f'zeroshot_gt cannot be None!')
@@ -49,6 +55,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         self.max_fold = max_fold
         assert backend in ['native', 'ray']
         self.backend = backend
+        self.use_fast_metrics = use_fast_metrics
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -59,17 +66,58 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **kwargs,
         )
 
+    def _get_fast_metric_if_exist(self,
+                                  metric_name: str,
+                                  problem_type: str,
+                                  y_val: np.array,
+                                  pred_val: np.array,
+                                  y_test: np.array,
+                                  pred_test: np.array,
+                                  ):
+        """
+        # TODO: Add docstring
+        # TODO: Consider making this more standardized.
+        #  Currently fast_log_loss needs a bit of special preprocessing of the data and isn't a straightforward replace.
+        # TODO: Add fast_roc_auc
+        # TODO: Add fast_rmse
+        """
+        if metric_name == 'log_loss' and problem_type == 'multiclass':
+            # TODO: Can be even faster if we transform pred_val and pred_test
+            #  as a preprocessing step to TabularModelPredictions.
+            #  This would avoid ever having to pay the preprocessing time cost, and would massively reduce memory usage.
+            eval_metric = _fast_log_loss.fast_log_loss
+            pred_val = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_val, y_pred_bulk=pred_val)
+            pred_test = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_test, y_pred_bulk=pred_test)
+        else:
+            eval_metric = get_metric(metric_name)
+        return eval_metric, y_val, pred_val, y_test, pred_test
+
     def run_dataset(self, dataset, models):
         fold = self.dataset_name_to_fold_dict[dataset]
         dataset = self.dataset_name_to_tid_dict[dataset]
 
         problem_type = self.zeroshot_gt[dataset][fold]['problem_type']
         metric_name = self.zeroshot_gt[dataset][fold]['eval_metric']
-        eval_metric = get_metric(metric_name)
         y_val = self.zeroshot_gt[dataset][fold]['y_val']
         y_test = self.zeroshot_gt[dataset][fold]['y_test']
 
-        pred_proba_dict_val, pred_proba_dict_test = self.zeroshot_pred_proba.predict(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
+        y_val = y_val.to_numpy()
+        y_test = y_test.fillna(-1).to_numpy()
+
+        pred_val, pred_test = self.zeroshot_pred_proba.predict(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
+
+        if self.use_fast_metrics:
+            eval_metric, y_val, pred_val, y_test, pred_test = self._get_fast_metric_if_exist(
+                metric_name=metric_name,
+                problem_type=problem_type,
+                y_val=y_val,
+                pred_val=pred_val,
+                y_test=y_test,
+                pred_test=pred_test,
+            )
+        else:
+            eval_metric = get_metric(metric_name)
+
         weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
@@ -77,12 +125,11 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **self.ensemble_selection_kwargs,
         )
 
-        weighted_ensemble.fit(predictions=pred_proba_dict_val, labels=y_val)
+        weighted_ensemble.fit(predictions=pred_val, labels=y_val)
         if eval_metric.needs_pred:
-            y_test_pred = weighted_ensemble.predict(pred_proba_dict_test)
+            y_test_pred = weighted_ensemble.predict(pred_test)
         else:
-            y_test_pred = weighted_ensemble.predict_proba(pred_proba_dict_test)
-        y_test = y_test.fillna(-1)
+            y_test_pred = weighted_ensemble.predict_proba(pred_test)
         err = eval_metric.error(y_test, y_test_pred)
 
         # FIXME
