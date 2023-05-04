@@ -88,6 +88,17 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             eval_metric = _fast_log_loss.fast_log_loss
             pred_val = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_val, y_pred_bulk=pred_val)
             pred_test = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_test, y_pred_bulk=pred_test)
+        elif metric_name == 'roc_auc':
+            """
+            Lazy import since this requires to compile C++ code prior to work.
+            Will raise an OSError on import if the compiled code isn't present.
+            """
+            from ..metrics import _fast_roc_auc
+            y_val = y_val.astype(np.bool8)
+            y_test = y_test.astype(np.bool8)
+            pred_val = pred_val.astype(np.float32)
+            pred_test = pred_test.astype(np.float32)
+            eval_metric = _fast_roc_auc.fast_roc_auc_cpp
         else:
             eval_metric = get_metric(metric_name)
         return eval_metric, y_val, pred_val, y_test, pred_test

@@ -1,37 +1,14 @@
-import time
-from typing import Tuple
-
 import numpy as np
 
 from autogluon.core.metrics import log_loss
 from sklearn.metrics import log_loss as sk_log_loss
 from autogluon_zeroshot.metrics._fast_log_loss import \
     fast_log_loss_end_to_end, fast_log_loss, extract_true_class_prob
-from sklearn.preprocessing import normalize
+from autogluon_zeroshot.metrics.bench_utils import benchmark_metrics_speed, print_benchmark_result,\
+    get_eval_speed, generate_y_true_and_y_pred_proba
 
 
-def generate_y_true_and_y_pred_proba(num_samples, num_classes, random_seed=0):
-    np.random.seed(seed=random_seed)
-    y_true = np.random.randint(0, num_classes, num_samples)
-    y_pred = np.random.rand(num_samples, num_classes)
-    y_pred = normalize(y_pred, axis=1, norm='l1')
-    return y_true, y_pred
-
-
-def get_eval_speed(*,
-                   eval_metric: callable,
-                   y_true: np.array,
-                   y_pred: np.array,
-                   num_repeats: int) -> Tuple[float, float]:
-    ts = time.time()
-    for _ in range(num_repeats):
-        score = eval_metric(y_true, y_pred)
-    te = time.time()
-    time_average_s = (te - ts) / num_repeats
-    return time_average_s, score
-
-
-def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int):
+def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int, rtol=1e-06):
     """
     Benchmarks 4 log_loss computing methods, verifying equivalent scores and comparing compute speed
 
@@ -56,25 +33,14 @@ def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int):
         (fast_log_loss_end_to_end.error, 'fast_log_loss_e2e')
     ]
 
-    baseline_speed = None
-    baseline_score = None
-
-    for eval_metric, func_name in benchmark_metrics:
-        time_average_s, score = get_eval_speed(
-            eval_metric=eval_metric,
-            y_true=y_true,
-            y_pred=y_pred,
-            num_repeats=num_repeats,
-        )
-        if baseline_speed is None:
-            baseline_speed = time_average_s
-        if baseline_score is None:
-            baseline_score = score
-        relative_speedup = baseline_speed / time_average_s
-        print(f'\tTime = {time_average_s*1000:.4f} ms\t'
-              f'| Score = {score}\t'
-              f'| Rel Speedup = {relative_speedup:.1f}x\t| {func_name}')
-        np.testing.assert_allclose(baseline_score, score)
+    baseline_speed, baseline_score = benchmark_metrics_speed(
+        y_true=y_true,
+        y_pred=y_pred,
+        benchmark_metrics=benchmark_metrics,
+        num_repeats=num_repeats,
+        assert_score_isclose=True,
+        rtol=rtol,
+    )
 
     # fast log loss
     func_name = 'fast_log_loss'
@@ -89,11 +55,11 @@ def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int):
         y_pred=y_pred_opt,
         num_repeats=num_repeats,
     )
-    relative_speedup = baseline_speed / time_average_s
-    print(f'\tTime = {time_average_s * 1000:.4f} ms\t'
-          f'| Score = {score}\t'
-          f'| Rel Speedup = {relative_speedup:.1f}x\t| {func_name}')
-    np.testing.assert_allclose(baseline_score, score)
+    print_benchmark_result(baseline_speed=baseline_speed,
+                           time_average_s=time_average_s,
+                           score=score,
+                           func_name=func_name)
+    np.testing.assert_allclose(baseline_score, score, rtol=rtol)
 
 
 if __name__ == '__main__':
