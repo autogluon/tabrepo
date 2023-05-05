@@ -11,6 +11,7 @@ from .simulation_context import ZeroshotSimulatorContext
 from .simulation_context import TabularModelPredictions
 from ..utils.rank_utils import RankScorer
 from ..metrics import _fast_log_loss
+from ..metrics import _fast_roc_auc
 
 
 @ray.remote
@@ -89,11 +90,6 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             pred_val = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_val, y_pred_bulk=pred_val)
             pred_test = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_test, y_pred_bulk=pred_test)
         elif metric_name == 'roc_auc':
-            """
-            Lazy import since this requires to compile C++ code prior to work.
-            Will raise an OSError on import if the compiled code isn't present.
-            """
-            from ..metrics import _fast_roc_auc
             y_val = y_val.astype(np.bool8)
             y_test = y_test.astype(np.bool8)
             pred_val = pred_val.astype(np.float32)
