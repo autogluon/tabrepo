@@ -327,8 +327,12 @@ def show_cdf(df, method_styles: List[MethodStyle]):
                 print(f"Could not find method {method_style.name}")
     axes[-1].legend()
     plt.tight_layout()
-    plt.savefig(Path(__file__).parent / "figures" / "cdf.pdf")
+    fig_save_path = Path(__file__).parent / "figures" / "cdf.pdf"
+    fig_save_path_dir = fig_save_path.parent
+    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    plt.savefig(fig_save_path)
     plt.show()
+
 
 def main():
     from argparse import ArgumentParser
