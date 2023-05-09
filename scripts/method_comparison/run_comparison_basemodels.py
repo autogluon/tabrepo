@@ -16,12 +16,14 @@ from pathlib import Path
 from syne_tune.experiments import load_experiments_df
 from tqdm import tqdm
 import numpy as np
-from autogluon_zeroshot.simulation.repository import load
+
+from autogluon_zeroshot.contexts import get_subcontext
 import pandas as pd
 
 from autogluon_zeroshot.utils import catchtime
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
+from autogluon_zeroshot.simulation.repository import EvaluationRepository
 from dataclasses import dataclass
 from typing import List
 
@@ -217,6 +219,24 @@ def evaluate_tuning(repo, dataset_names, n_folds, expname="02-05-v2"):
                     })
     return rows
 
+
+def evaluate_simulate_zeroshot(repo: EvaluationRepository,
+                               name: str,
+                               n_splits=2,
+                               num_zeroshot=10,
+                               config_scorer_type='single'):
+    results_cv = repo.simulate_zeroshot(config_scorer_type=config_scorer_type,
+                                        n_splits=n_splits,
+                                        num_zeroshot=num_zeroshot)
+    result_df = repo.generate_output_from_portfolio_cv(portfolio_cv=results_cv,
+                                                       name=name,
+                                                       config_scorer_type=config_scorer_type)
+
+    result_df = result_df[['dataset', 'fold', 'framework', 'metric_error']]
+    result_df.columns = ['dataset', 'fold', 'method', 'test-error']
+    return result_df
+
+
 def evaluate_zeroshot(repo, dataset_names, n_folds, portfolio_sizes=[5, 10, 20, 40, 80]):
     from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
     dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
@@ -255,7 +275,10 @@ def evaluate_zeroshot(repo, dataset_names, n_folds, portfolio_sizes=[5, 10, 20, 
 
 
 def generate_results(n_datasets, n_folds, frameworks):
-    repo = load(version="BAG_D244_F10_C608_FULL")
+    repo: EvaluationRepository = get_subcontext(name="BAG_D244_F10_C608_FULL").load()
+    datasets_sub = repo.get_datasets()[:n_datasets]
+    repo = repo.subset(datasets=datasets_sub, folds=list(range(n_folds)))
+
     rank_scorer, normalized_scorer = make_scorers(repo)
 
     dataset_names = repo.dataset_names()
@@ -265,10 +288,22 @@ def generate_results(n_datasets, n_folds, frameworks):
 
     print(f"Original number of datasets: {len(repo.dataset_names())}, kept only: {len(dataset_names)}")
 
+    rows_zeroshot_single = evaluate_simulate_zeroshot(repo=repo,
+                                                      name='ZS-Single-10',
+                                                      config_scorer_type='single')
+    rows_zeroshot_ensemble = evaluate_simulate_zeroshot(repo=repo,
+                                                        name='ZS-Ensemble-10',
+                                                        config_scorer_type='ensemble')
+
     rows_automl = evaluate_automl(repo, dataset_names, n_folds)
     rows_basemodels = evaluate_basemodels(repo, dataset_names, n_folds, frameworks, config_names)
     rows_zeroshot = evaluate_zeroshot(repo, dataset_names, n_folds)
-    df = pd.DataFrame(rows_automl + rows_basemodels + rows_zeroshot)
+    df = pd.DataFrame(
+        rows_automl +
+        rows_basemodels +
+        rows_zeroshot
+    )
+    df = pd.concat([df, rows_zeroshot_single, rows_zeroshot_ensemble])
     df["rank"] = df.apply(
         lambda row: rank_scorer.rank(dataset_fold_name(repo, row["dataset"], row["fold"]), row["test-error"]),
         axis=1
@@ -299,11 +334,12 @@ def show_latex_table(df):
         avg_metric.sort_values().head(60)
 
         avg_metric = avg_metric[
-            avg_metric.index.str.contains("|".join(["AutoGluon", "Zeroshot", "LocalSearch", "Best of 10"]))]
+            avg_metric.index.str.contains("|".join(["AutoGluon", "Zeroshot", "LocalSearch", "Best of 10", 'ZS-']))]
         xx = avg_metric.sort_values()
         xx.index = [x.replace("_c1_BAG_L1", " default") for x in xx.index]
         avg_metrics[metric] = xx
     print(pd.DataFrame(avg_metrics).sort_values(by="rank").to_latex(float_format="%.2f"))
+
 
 def show_cdf(df, method_styles: List[MethodStyle]):
     fig, axes = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
@@ -371,7 +407,9 @@ def main():
         "Best of 10 frameworks",
         "Zeroshot",
         "LocalSearch",
-        "Best of 10 LightGBM"
+        "Best of 10 LightGBM",
+        'ZS-Single-10',
+        'ZS-Ensemble-10',
     ]
 
     methods_to_show += [x + " (ensemble)" for x in methods_to_show]
@@ -395,8 +433,14 @@ def main():
         for m in method_styles
     ]
 
+    method_styles += [
+        MethodStyle("ZS-Single-10", color="black", linestyle="--", label="ZS-Single-10"),
+        MethodStyle("ZS-Ensemble-10", color="black", linestyle="-", label="ZS-Ensemble-10"),
+    ]
+
     # 2) show cdf
     show_cdf(df, method_styles)
+
 
 if __name__ == '__main__':
     main()

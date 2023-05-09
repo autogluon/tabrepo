@@ -1,11 +1,10 @@
 import copy
-from typing import List
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
 
-from autogluon_zeroshot.portfolio import PortfolioCV
-from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from autogluon_zeroshot.portfolio import Portfolio, PortfolioCV
 
 
 # FIXME: Ideally this should be easier, but not really possible with current logic.
@@ -54,36 +53,61 @@ class SimulationOutputGenerator:
 
     """
     def __init__(self,
-                 zsc,
-                 zeroshot_gt,
-                 zeroshot_pred_proba,
-                 backend='ray'):
-        self.zsc = zsc
-        self.zeroshot_gt = zeroshot_gt
-        self.zeroshot_pred_proba = zeroshot_pred_proba
-        self.backend = backend
+                 repo,
+                 config_scorer_type='ensemble',
+                 config_scorer_kwargs: dict = None):
+        if config_scorer_kwargs is None:
+            config_scorer_kwargs = {}
+        else:
+            config_scorer_kwargs = copy.deepcopy(config_scorer_kwargs)
+
+        from autogluon_zeroshot.simulation.repository import EvaluationRepository
+        self.repo: EvaluationRepository = repo
+
+        self.config_scorer_type = config_scorer_type
+        self.config_scorer_kwargs = config_scorer_kwargs
+
+        assert self.config_scorer_type in ['ensemble', 'single']
+
+    @classmethod
+    def from_repo(cls, repo, **kwargs):
+        return cls(
+            zsc=repo._zeroshot_context,
+            zeroshot_pred_proba=repo._tabular_predictions,
+            zeroshot_gt=repo._ground_truth,
+            **kwargs,
+        )
 
     def from_portfolio(self,
-                       portfolio: List[str],
-                       datasets: List[str],
-                       name: str) -> pd.DataFrame:
+                       portfolio: Union[List[str], Portfolio],
+                       *,
+                       name: str,
+                       datasets: List[str] = None,
+                       minimal_columns=True,) -> pd.DataFrame:
         """
         Create from a single portfolio (Not cross-validated)
         """
-        zeroshot_pred_proba = copy.deepcopy(self.zeroshot_pred_proba)
+        if isinstance(portfolio, Portfolio):
+            if datasets is None and portfolio.test_datasets_fold is not None:
+                datasets = portfolio.test_datasets_fold
+            portfolio = portfolio.configs
+        if datasets is None:
+            datasets = self.repo._zeroshot_context.get_dataset_folds()
 
-        zeroshot_pred_proba.restrict_models(portfolio)
+        repo = copy.deepcopy(self.repo)
 
-        config_scorer_test = EnsembleSelectionConfigScorer.from_zsc(
+        # TODO: subset datasets
+        repo = repo.subset(models=portfolio, verbose=False)
+
+        config_scorer_test = repo._construct_config_scorer(
             datasets=datasets,
-            zeroshot_simulator_context=self.zsc,
-            zeroshot_gt=self.zeroshot_gt,
-            zeroshot_pred_proba=zeroshot_pred_proba,
-            ensemble_size=100,
-            backend=self.backend,
+            config_scorer_type=self.config_scorer_type,
+            **self.config_scorer_kwargs
         )
 
-        df_raw_subset = self.zsc.df_raw[self.zsc.df_raw['tid_new'].isin(datasets)]
+        zsc = repo._zeroshot_context
+
+        df_raw_subset = zsc.df_raw[zsc.df_raw['tid_new'].isin(datasets)]
         df_raw_subset = df_raw_subset[df_raw_subset['model'].isin(portfolio)]
         df_total_train_and_infer_times = df_raw_subset[['tid_new', 'time_train_s', 'time_infer_s']].groupby('tid_new').sum()
         df_raw_subset = df_raw_subset.drop_duplicates(subset=['tid_new'])
@@ -102,9 +126,23 @@ class SimulationOutputGenerator:
         df_raw_subset['time_infer_s'] = df_total_train_and_infer_times['time_infer_s']
         df_raw_subset = df_raw_subset.drop(columns=['model', 'framework_parent', 'constraint'])
         df_raw_subset = df_raw_subset.reset_index(drop=True)
+        if minimal_columns:
+            # TODO: Add val_error
+            min_cols = [
+                'dataset',
+                'fold',
+                'framework',
+                'metric_error',
+                'time_train_s',
+                'time_infer_s',
+                'metric',
+                'problem_type',
+                'tid',
+            ]
+            df_raw_subset = df_raw_subset[min_cols]
         return df_raw_subset
 
-    def from_portfolio_cv(self, portfolio_cv: PortfolioCV, name: str) -> pd.DataFrame:
+    def from_portfolio_cv(self, portfolio_cv: PortfolioCV, name: str, minimal_columns=True) -> pd.DataFrame:
         """
         Create from a cross-validated portfolio, using the results only from
         the holdout to construct an output that is not overfit.
@@ -127,7 +165,8 @@ class SimulationOutputGenerator:
             portfolio = portfolios[f]
             df_raw_subset = self.from_portfolio(portfolio=portfolio.configs,
                                                 datasets=portfolio.test_datasets_fold,
-                                                name=name)
+                                                name=name,
+                                                minimal_columns=minimal_columns)
             df_raw_all.append(df_raw_subset)
         df_raw_all = pd.concat(df_raw_all)
         return df_raw_all

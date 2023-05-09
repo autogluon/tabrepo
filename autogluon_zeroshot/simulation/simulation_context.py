@@ -84,6 +84,33 @@ class ZeroshotSimulatorContext:
             dataset_parent_to_fold_map[d] = sorted(dataset_parent_to_fold_map[d])
         return dataset_parent_to_fold_map
 
+    def _update_all(self, folds=None):
+        if folds is None:
+            folds = self.folds
+        self.folds = folds
+        self.df_results_by_dataset_vs_automl, \
+        self.df_raw, \
+        self.dataset_name_to_tid_dict, \
+        self.dataset_to_tid_dict, \
+        self.dataset_name_to_fold_dict, \
+        self.unique_dataset_folds, \
+        self.unique_datasets, \
+        self.rank_scorer_vs_automl = self.align_valid_folds(
+            df_results_by_dataset=self.df_results_by_dataset_vs_automl,
+            df_results_by_dataset_automl=self.df_results_by_dataset_automl,
+            df_raw=self.df_raw,
+            folds=folds,
+            score_against_only_automl=self.score_against_only_automl,
+            pct=self.pct,
+        )
+        self.dataset_parent_to_fold_map = self._compute_dataset_parent_to_fold_map()
+
+        tmp = self.df_results_by_dataset_vs_automl[['dataset', 'tid', 'problem_type']]
+        self.dataset_to_problem_type_dict = tmp[['dataset', 'problem_type']].drop_duplicates().set_index(
+            'dataset').squeeze().to_dict()
+        self.tid_to_problem_type_dict = tmp[['tid', 'problem_type']].drop_duplicates().set_index(
+            'tid').squeeze().to_dict()
+
     @staticmethod
     def align_valid_folds(*,
                           df_results_by_dataset,
@@ -298,6 +325,12 @@ class ZeroshotSimulatorContext:
         self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[
             self.df_results_by_dataset_vs_automl['framework'].isin(models)
         ]
+
+    def subset_folds(self, folds: List[int]):
+        """
+        Only keep the provided folds, drop all others
+        """
+        self._update_all(folds=folds)
 
     def _update_unique_datasets(self, unique_datasets):
         for d in unique_datasets:

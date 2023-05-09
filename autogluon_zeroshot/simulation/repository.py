@@ -1,17 +1,23 @@
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd
 import numpy as np
 
-from autogluon_zeroshot.contexts import get_context
+from autogluon.common.loaders import load_pkl
+from autogluon.common.savers import save_pkl
 
-from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-from autogluon_zeroshot.loaders import Paths
 from typing import List
+from autogluon_zeroshot.simulation.configuration_list_scorer import ConfigurationListScorer
 from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
 from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
 from autogluon_zeroshot.simulation.tabular_predictions import TabularModelPredictions
 from autogluon_zeroshot.utils import catchtime
+from autogluon_zeroshot.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
+from autogluon_zeroshot.portfolio import Portfolio, PortfolioCV
+from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation
+from autogluon_zeroshot.simulation.sim_output import SimulationOutputGenerator
 
 
 class EvaluationRepository:
@@ -21,17 +27,72 @@ class EvaluationRepository:
             tabular_predictions: TabularModelPredictions,
             ground_truth: dict,
     ):
-
         self._tabular_predictions = tabular_predictions
         self._zeroshot_context = zeroshot_context
-        self._zeroshot_context.subset_datasets(self._tabular_predictions.datasets)
-        self._zeroshot_context.subset_models(self._tabular_predictions.list_models_available(present_in_all=True))
-        self._df_metadata = zeroshot_context.df_metadata if zeroshot_context.df_metadata is not None else pd.read_csv(Paths.data_root / "metadata" / "task_metadata.csv")
-        self._tid_to_name = dict(self._df_metadata[['tid', 'name']].values)
-        self._tid_to_name = {k: v for k, v in self._tid_to_name.items() if k in self._tabular_predictions.datasets}
-        self._name_to_tid = {v: k for k, v in self._tid_to_name.items()}
         self._ground_truth = ground_truth
         assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
+
+    def print_info(self):
+        self._zeroshot_context.print_info()
+
+    @property
+    def _name_to_tid(self):
+        return self._zeroshot_context.dataset_to_tid_dict
+
+    @property
+    def _tid_to_name(self):
+        return {v: k for k, v in self._name_to_tid.items()}
+
+    def save(self, path: Union[str, Path]):
+        path = str(path)
+        assert path.endswith('.pkl')
+        save_pkl.save(path=path, object=self)
+
+    @classmethod
+    def load(cls, path: Union[str, Path]):
+        path = str(path)
+        assert path.endswith('.pkl')
+        obj = load_pkl.load(path=path)
+        assert isinstance(obj, cls)
+        return obj
+
+    def subset(self,
+               folds: List[int] = None,
+               models: List[str] = None,
+               datasets: List[Union[str, int]] = None,
+               verbose: bool = True,
+               ):
+        if folds:
+            self._zeroshot_context.subset_folds(folds=folds)
+        if models:
+            self._zeroshot_context.subset_models(models=models)
+        if datasets:
+            self._zeroshot_context.subset_datasets(datasets=datasets)
+        # TODO:
+        # if problem_type:
+        #     self._zeroshot_context.subset_problem_type(problem_type=problem_type)
+        self.force_to_dense(verbose=verbose)
+        return self
+
+    def force_to_dense(self, verbose: bool = True):
+        # keep only dataset whose folds are all present
+        intersect_folds_and_datasets(self._zeroshot_context, self._tabular_predictions, self._ground_truth)
+        force_to_dense(self._tabular_predictions,
+                       first_prune_method='task',
+                       second_prune_method='dataset',
+                       verbose=verbose)
+
+        self._zeroshot_context.subset_models(self._tabular_predictions.models)
+        self._zeroshot_context.subset_datasets(self._tabular_predictions.datasets)
+        self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
+        self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
+                                               zeroshot_gt=self._ground_truth,
+                                               verbose=verbose)
+        return self
+
+    @property
+    def _df_metadata(self):
+        return self._zeroshot_context.df_metadata
 
     def dataset_names(self) -> List[str]:
         return list(sorted([self._tid_to_name[task_id] for task_id in self._tabular_predictions.datasets]))
@@ -123,11 +184,8 @@ class EvaluationRepository:
             for dataset in dataset_names
             for fold in folds
         ]
-        scorer = EnsembleSelectionConfigScorer.from_zsc(
+        scorer = self._construct_ensemble_selection_config_scorer(
             datasets=tasks,
-            zeroshot_simulator_context=self._zeroshot_context,
-            zeroshot_gt=self._ground_truth,
-            zeroshot_pred_proba=self._tabular_predictions,
             ensemble_size=ensemble_size,
             backend=backend,
         )
@@ -141,12 +199,99 @@ class EvaluationRepository:
             ] for fold in folds
         ] for dataset in dataset_names])
 
+    def get_datasets(self, problem_type=None):
+        return self._zeroshot_context.get_datasets(problem_type=problem_type)
+
     def n_folds(self) -> int:
         return len(self._tabular_predictions.folds)
 
+    def _construct_config_scorer(self,
+                                 config_scorer_type: str = 'ensemble',
+                                 **config_scorer_kwargs) -> ConfigurationListScorer:
+        if config_scorer_type == 'ensemble':
+            return self._construct_ensemble_selection_config_scorer(**config_scorer_kwargs)
+        elif config_scorer_type == 'single':
+            return self._construct_single_best_config_scorer(**config_scorer_kwargs)
+        else:
+            raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
+
+    def _construct_ensemble_selection_config_scorer(self,
+                                                    ensemble_size: int = 10,
+                                                    backend='ray',
+                                                    **kwargs) -> EnsembleSelectionConfigScorer:
+        config_scorer = EnsembleSelectionConfigScorer.from_zsc(
+            zeroshot_simulator_context=self._zeroshot_context,
+            zeroshot_gt=self._ground_truth,
+            zeroshot_pred_proba=self._tabular_predictions,
+            ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
+            backend=backend,
+            **kwargs,
+        )
+        return config_scorer
+
+    def _construct_single_best_config_scorer(self, **kwargs) -> SingleBestConfigScorer:
+        config_scorer = SingleBestConfigScorer.from_zsc(
+            zeroshot_simulator_context=self._zeroshot_context,
+            **kwargs,
+        )
+        return config_scorer
+
+    # TODO: add saving support
+    # TODO: add loading support
+    def generate_output_from_portfolio_cv(self,
+                                          portfolio_cv: PortfolioCV,
+                                          name: str,
+                                          config_scorer_type: str = 'ensemble',
+                                          config_scorer_kwargs: dict = None) -> pd.DataFrame:
+        sog = SimulationOutputGenerator(repo=self,
+                                        config_scorer_type=config_scorer_type,
+                                        config_scorer_kwargs=config_scorer_kwargs)
+        df_result = sog.from_portfolio_cv(portfolio_cv=portfolio_cv, name=name)
+        return df_result
+
+    # TODO: add saving support
+    # TODO: add loading support
+    def generate_output_from_portfolio(self,
+                                       portfolio: Union[Portfolio, List[str]],
+                                       name: str,
+                                       config_scorer_type: str = 'ensemble',
+                                       config_scorer_kwargs: dict = None) -> pd.DataFrame:
+        sog = SimulationOutputGenerator(repo=self,
+                                        config_scorer_type=config_scorer_type,
+                                        config_scorer_kwargs=config_scorer_kwargs)
+        df_result = sog.from_portfolio(portfolio=portfolio, name=name)
+        return df_result
+
+    # TODO: add simulate_zeroshot_debug
+    # TODO: add saving support
+    # TODO: add loading support
+    def simulate_zeroshot(self,
+                          num_zeroshot: int = 10,
+                          n_splits: int = 2,
+                          backend: str = 'ray',
+                          config_scorer_type: str = 'ensemble',
+                          config_scorer_kwargs: dict = None) -> PortfolioCV:
+        if config_scorer_kwargs is None:
+            config_scorer_kwargs = {}
+        if config_scorer_type == 'ensemble':
+            config_scorer = self._construct_ensemble_selection_config_scorer(**config_scorer_kwargs)
+        elif config_scorer_type == 'single':
+            config_scorer = self._construct_single_best_config_scorer(**config_scorer_kwargs)
+        else:
+            raise ValueError(f'Unknown config_scorer_type: {config_scorer_type}')
+        results_cv: PortfolioCV = run_zs_simulation(
+            zsc=self._zeroshot_context,
+            config_scorer=config_scorer,
+            n_splits=n_splits,
+            config_generator_kwargs={'num_zeroshot': num_zeroshot},
+            backend=backend,
+        )
+        return results_cv
+
 
 def load(version: str = None):
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True, lazy_format=True)
+    from autogluon_zeroshot.contexts import get_context
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True, lazy_format=False)
     return EvaluationRepository(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,
@@ -160,6 +305,7 @@ if __name__ == '__main__':
         config_name = "NeuralNetFastAI_r1"
         # repo = EvaluationRepository.load(version="2022_10_13")
 
+        from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
         repo = EvaluationRepository(
             zeroshot_context=zsc,
