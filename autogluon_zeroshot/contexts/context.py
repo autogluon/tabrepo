@@ -111,6 +111,7 @@ class BenchmarkPaths:
     def exists(filepath: str) -> bool:
         if filepath is None:
             raise AssertionError(f'Filepath cannot be None!')
+        filepath = str(filepath)
 
         if is_s3_url(path=filepath):
             s3_bucket, s3_prefix = s3_path_to_bucket_prefix(s3_path=filepath)

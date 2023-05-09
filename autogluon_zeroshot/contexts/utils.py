@@ -15,7 +15,7 @@ def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
     if set(zpp_datasets) != set(valid_datasets):
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
         zpp_datasets = zeroshot_pred_proba.datasets
-        zs_gt_keys = zeroshot_gt.keys()
+        zs_gt_keys = list(zeroshot_gt.keys())
         for d in zs_gt_keys:
             if d not in zpp_datasets:
                 zeroshot_gt.pop(d)
@@ -23,7 +23,7 @@ def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
     zpp_folds = set(zeroshot_pred_proba.folds)
     if zpp_folds != set(zsc.folds):
         zeroshot_pred_proba.restrict_folds(folds=zsc.folds)
-        zs_gt_keys = zeroshot_gt.keys()
+        zs_gt_keys = list(zeroshot_gt.keys())
         for d in zs_gt_keys:
             for f in zpp_folds:
                 if f not in zsc.folds:
@@ -63,7 +63,7 @@ def load_zeroshot_input(path_pred_proba: str,
     return zeroshot_pred_proba, zeroshot_gt, zsc
 
 
-def prune_zeroshot_gt(zeroshot_pred_proba, zeroshot_gt):
+def prune_zeroshot_gt(zeroshot_pred_proba, zeroshot_gt, verbose: bool = True):
     num_datasets_start = len(zeroshot_gt)
     datasets = set(zeroshot_pred_proba.datasets)
     datasets_gt = list(zeroshot_gt.keys())
@@ -71,6 +71,7 @@ def prune_zeroshot_gt(zeroshot_pred_proba, zeroshot_gt):
         if d not in datasets:
             zeroshot_gt.pop(d)
     num_datasets_end = len(zeroshot_gt)
-    print(f'Aligning GT with pred_proba... (Dataset count {num_datasets_start} -> {num_datasets_end})')
+    if verbose:
+        print(f'Aligning GT with pred_proba... (Dataset count {num_datasets_start} -> {num_datasets_end})')
     assert len(datasets) == num_datasets_end
     return zeroshot_gt

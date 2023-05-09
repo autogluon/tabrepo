@@ -70,6 +70,10 @@ class SingleBestConfigScorer(ConfigurationListScorer):
         avg_error_real = best_val_model_by_dataset_df[self.score_col].mean()
         return avg_error_real
 
+    def compute_errors(self, configs: list):
+        errors = self.score_per_dataset(score_col='metric_error', configs=configs)
+        return errors
+
     def subset(self, datasets: List[str]) -> "SingleBestConfigScorer":
         """
         :param datasets:

@@ -85,7 +85,13 @@ class ZeroshotSimulatorContext:
         return dataset_parent_to_fold_map
 
     @staticmethod
-    def align_valid_folds(df_results_by_dataset, df_results_by_dataset_automl, df_raw, folds, score_against_only_automl, pct):
+    def align_valid_folds(*,
+                          df_results_by_dataset,
+                          df_results_by_dataset_automl,
+                          df_raw,
+                          folds,
+                          score_against_only_automl,
+                          pct):
         df_results_by_dataset = df_results_by_dataset[df_results_by_dataset['fold'].isin(folds)]
         unique_dataset_folds_set = set(list(df_results_by_dataset['dataset'].unique()))
         df_results_by_dataset_automl = df_results_by_dataset_automl[
