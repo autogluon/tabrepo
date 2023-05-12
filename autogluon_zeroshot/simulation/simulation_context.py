@@ -20,6 +20,7 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset_automl: pd.DataFrame,
             df_raw: pd.DataFrame, 
             folds: List[int],
+            df_metadata: pd.DataFrame = None,
             pct: bool = False,
             score_against_only_automl: bool = True,
     ):
@@ -37,6 +38,8 @@ class ZeroshotSimulatorContext:
         self.folds = folds
         self.score_against_only_automl = score_against_only_automl
         self.pct = pct
+        self.df_results_by_dataset_automl = df_results_by_dataset_automl
+        self.df_metadata = df_metadata
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.dataset_name_to_tid_dict, \
@@ -204,9 +207,9 @@ class ZeroshotSimulatorContext:
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         if lazy_format:
             # convert to lazy format if format not already available
-            self.convert_lazy_format(pred_pkl_path=pred_pkl_path)
-        lazy_filename = str(pred_pkl_path).rsplit('.pkl', 1)[0]
-        pred_path = str(lazy_filename) if lazy_format else str(pred_pkl_path)
+            pred_path = self.convert_lazy_format(pred_pkl_path=pred_pkl_path)
+        else:
+            pred_path = str(pred_pkl_path)
         zeroshot_pred_proba = cls.load(pred_path)
 
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
@@ -219,14 +222,19 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     @staticmethod
-    def convert_lazy_format(pred_pkl_path: Path, override_if_already_exists: bool = False):
+    def convert_lazy_format(pred_pkl_path: Path, override_if_already_exists: bool = False) -> str:
+        """
+        :param pred_pkl_path:
+        :param override_if_already_exists:
+        :return: the path of the generated lazy format
+        """
         new_filename = Path(pred_pkl_path).parent / Path(pred_pkl_path).stem
         if not new_filename.exists() or override_if_already_exists:
             print(f"lazy format folder {new_filename} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
             preds = TabularPicklePredictions.load(str(pred_pkl_path))
             preds_npy = TabularPicklePerTaskPredictions.from_dict(preds.pred_dict, output_dir=str(new_filename))
-
+        return new_filename
     @staticmethod
     def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):
         """
@@ -264,6 +272,14 @@ class ZeroshotSimulatorContext:
             if d not in self.unique_datasets:
                 raise ValueError(f'Missing expected dataset {d} in ZeroshotSimulatorContext!')
         self._update_unique_datasets(unique_datasets_subset)
+
+        # Remove datasets from internal dataframes
+        self.df_raw = self.df_raw[self.df_raw.tid.isin(datasets)]
+        self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[self.df_results_by_dataset_vs_automl["tid"].isin(datasets)]
+        self.df_results_by_dataset_automl['tid'] = self.df_results_by_dataset_automl.apply(lambda x: int(x["dataset"].split("_")[0]), axis=1)
+        self.df_results_by_dataset_automl = self.df_results_by_dataset_automl[self.df_results_by_dataset_automl["tid"].isin(datasets)]
+        self.df_results_by_dataset_automl.drop("tid", axis=1, inplace=True)
+        self.df_metadata = self.df_metadata[self.df_metadata.tid.isin(datasets)]
 
     def subset_models(self, models):
         """

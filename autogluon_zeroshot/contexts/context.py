@@ -268,9 +268,9 @@ class BenchmarkContext:
 
     def load(self,
              folds: List[int] = None,
-             load_predictions: bool = False,
+             load_predictions: bool = True,
              lazy_format: bool = False,
-             download_files: bool = False,
+             download_files: bool = True,
              exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
         """
         :param folds: If None, uses self.folds as default.
@@ -357,5 +357,6 @@ class BenchmarkContext:
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
             folds=folds,
+            df_metadata=df_metadata,
         )
         return zsc

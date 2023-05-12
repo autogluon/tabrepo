@@ -96,7 +96,7 @@ class RankScorer:
         self.include_partial = include_partial
         df_pivot = df_results_by_dataset.pivot_table(values=metric_error_col, index=dataset_col, columns=framework_col)
         df_pivot.values.sort(axis=1)
-        self.error_dict = {dataset: df_pivot.loc[dataset] for dataset in datasets}
+        self.error_dict = {dataset: df_pivot.loc[dataset].dropna() for dataset in datasets}
 
     def rank(self, dataset: str, error: float) -> float:
         """
