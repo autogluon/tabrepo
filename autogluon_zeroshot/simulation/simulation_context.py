@@ -190,6 +190,10 @@ class ZeroshotSimulatorContext:
             dataset_folds += self.dataset_parent_to_fold_map[d]
         return dataset_folds
 
+    @property
+    def tid_to_dataset_dict(self):
+        return {v: k for k, v in self.dataset_to_tid_dict.items()}
+
     def get_configs(self) -> list:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())

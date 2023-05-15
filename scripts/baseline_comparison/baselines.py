@@ -1,4 +1,5 @@
 import ast
+import copy
 from typing import List
 
 import numpy as np
@@ -26,22 +27,31 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_folds
     """
     :return: evaluation of AutoGluon medium/high/best quality.
     """
+    automl_df = copy.deepcopy(repo._zeroshot_context.df_results_by_dataset_automl)
+    automl_df['fold'] = automl_df['dataset'].map(repo._zeroshot_context.dataset_name_to_fold_dict)
+    automl_df['tid'] = automl_df['dataset'].map(repo._zeroshot_context.dataset_name_to_tid_dict)
+    automl_df['task'] = automl_df['dataset']
+    # FIXME: Instead of returning list of "ResultRow", return this dataframe
+    automl_df['dataset'] = automl_df['tid'].map(repo._zeroshot_context.tid_to_dataset_dict)
+
     rows_automl = []
     for dataset in tqdm(dataset_names):
         for fold in range(n_folds):
             dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
-            automl_errors = repo._zeroshot_context.rank_scorer_vs_automl.error_dict[dataset_fold_name]
-            for method, test_error in automl_errors.to_dict().items():
-                rows_automl.append(
-                    ResultRow(
-                        dataset=dataset,
-                        fold=fold,
-                        method=method,
-                        test_error=test_error,
-                        rank=rank_scorer.rank(dataset_fold_name, test_error),
-                        normalized_score=normalized_scorer.rank(dataset_fold_name, test_error),
-                    )
-                )
+            automl_df_fold = automl_df[automl_df['task'] == dataset_fold_name]
+            task_automl_dict = automl_df_fold.T.to_dict()
+
+            for k, v in task_automl_dict.items():
+                metric_error = v['metric_error']
+                rows_automl.append(ResultRow(
+                    dataset=v['dataset'],
+                    fold=v['fold'],
+                    method=v['framework'],
+                    test_error=metric_error,
+                    rank=rank_scorer.rank(dataset_fold_name, metric_error),
+                    normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
+                ))
+
     return rows_automl
 
 
