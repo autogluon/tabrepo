@@ -163,7 +163,7 @@ if __name__ == "__main__":
         }
         df["method"] = df["method"].replace(rename_dict)
 
-    print(f"Obtained {len(df)} evaluations on {len(df.dataset.unique())} datasets for {len(df.method.unique())} methods.")
+    print(f"Obtained {len(df)} evaluations on {len(df.taskid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available: {sorted(df.method.unique())}.")
     if method_styles:
         for method_style in method_styles:

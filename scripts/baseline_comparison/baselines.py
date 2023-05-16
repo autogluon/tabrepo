@@ -14,7 +14,7 @@ from autogluon_zeroshot.simulation.repository import EvaluationRepository
 
 @dataclass
 class ResultRow:
-    dataset: str
+    taskid: int  # OpenML taskid, also refered to "tid"
     fold: int
     method: str
     test_error: float
@@ -44,7 +44,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_folds
             for k, v in task_automl_dict.items():
                 metric_error = v['metric_error']
                 rows_automl.append(ResultRow(
-                    dataset=v['dataset'],
+                    taskid=v['tid'],
                     fold=v['fold'],
                     method=v['framework'],
                     test_error=metric_error,
@@ -92,7 +92,7 @@ def zeroshot_results(
                     test_error = test_errors[0][fold]
                     dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
                     rows_zeroshot.append(ResultRow(
-                        dataset=dataset,
+                        taskid=repo.dataset_to_taskid(dataset),
                         fold=fold,
                         method=f"Zeroshot{suffix}",
                         test_error=test_error,
@@ -169,7 +169,7 @@ def evaluate_tuning(
                     test_error = test_errors[0][fold]
                     dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
                     rows.append(ResultRow(
-                        dataset=dataset,
+                        taskid=repo.dataset_to_taskid(dataset),
                         fold=fold,
                         method=f"{method}{suffix}".capitalize(),
                         test_error=test_error,
