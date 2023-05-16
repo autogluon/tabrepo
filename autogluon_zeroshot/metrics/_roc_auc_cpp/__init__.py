@@ -41,20 +41,13 @@ class CppAuc:
     def _compile(self):
         # load compilation command
         with open(self.compile_script_path(), "r") as f:
-            compile_command = f.readlines()[1]
+            compile_command = f.readlines()[1][:-1]
         assert compile_command.startswith("g++")
 
         # execute compilation command
         print(f"Running \"{compile_command}\" to compile c++ auc implementation.")
         with open("std.out", "w") as stdout:
-            with open("std.err", "w") as stderr:
-                proc = subprocess.Popen(
-                    compile_command.split(" "),
-                    shell=False,
-                    stdout=stdout,
-                    stderr=stderr,
-                    cwd=Path(__file__).parent,
-                )
+            proc = subprocess.Popen(compile_command.split(" "), shell=False, stdout=stdout, cwd=Path(__file__).parent)
 
         # wait command completion
         for max_trials in range(50):
@@ -62,7 +55,10 @@ class CppAuc:
                 break
             time.sleep(0.1)
 
-        if proc.poll() != 0 and not self.plugin_path().exists():
+        # handle potential failure: timeout or error while compiling
+        if proc.poll() is None:
+            raise ValueError("Could not compile after 5 secs.")
+        elif proc.poll() != 0:
             raise ValueError(f"Got an error while compiling, you can try to run manually {self.compile_script_path()}")
 
     @staticmethod
