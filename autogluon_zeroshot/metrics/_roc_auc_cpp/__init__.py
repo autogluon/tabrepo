@@ -41,7 +41,8 @@ class CppAuc:
     def _compile(self):
         # load compilation command
         with open(self.compile_script_path(), "r") as f:
-            compile_command = f.readlines()[1][:-1]
+            # remove \n character from the command line
+            compile_command = f.readlines()[1].replace("\n", "")
         assert compile_command.startswith("g++")
 
         # execute compilation command

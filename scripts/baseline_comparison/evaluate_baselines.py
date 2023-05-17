@@ -52,11 +52,11 @@ def make_scorers(repo):
 def list_artificial_experiments() -> List[Experiment]:
     # a list of artificial experiments which allow to quickly check the results
     expname = "artificial"
-    datasets = [f"d{i}" for i in range(10)]
+    datasets = range(10)
     folds = list(range(3))
     return [
         Experiment(expname, "method-group-1", lambda : [ResultRow(
-            dataset=dataset,
+            taskid=dataset,
             fold=fold,
             method=method,
             test_error=np.random.rand(),
