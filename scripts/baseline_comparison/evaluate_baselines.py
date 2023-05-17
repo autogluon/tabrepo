@@ -17,7 +17,8 @@ from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
 
-from scripts.baseline_comparison.baselines import zeroshot_results, automl_results, ResultRow, evaluate_tuning
+from scripts.baseline_comparison.baselines import zeroshot_results, automl_results, ResultRow, evaluate_tuning, \
+    zeroshot_name
 from scripts.baseline_comparison.plot_utils import show_latex_table, show_cdf, MethodStyle
 
 
@@ -67,20 +68,21 @@ def list_artificial_experiments() -> List[Experiment]:
     ]
 
 
-def list_experiments(n_datasets: int, n_folds: int, expname: str, repo_version: str = "BAG_D244_F10_C608_FULL") -> List[Experiment]:
+def list_experiments(n_datasets: int, n_eval_folds: int, expname: str, engine: str, repo_version: str = "BAG_D244_F10_C608_FULL") -> List[Experiment]:
     repo = cache_function(lambda: load(version=repo_version), cache_name="repo")
     rank_scorer, normalized_scorer = make_scorers(repo)
     dataset_names = repo.dataset_names()
     if n_datasets is not None:
         dataset_names = dataset_names[:n_datasets]
-    if n_folds is None:
-        n_folds = repo.n_folds()
+    if n_eval_folds is None:
+        n_eval_folds = repo.n_folds()
     experiment_common_kwargs = dict(
         repo=repo,
         dataset_names=dataset_names,
-        n_folds=n_folds,
+        n_eval_folds=n_eval_folds,
         rank_scorer=rank_scorer,
-        normalized_scorer=normalized_scorer
+        normalized_scorer=normalized_scorer,
+        engine=engine,
     )
     return [
         # Automl baselines such as Autogluon best, high, medium quality
@@ -88,22 +90,27 @@ def list_experiments(n_datasets: int, n_folds: int, expname: str, repo_version: 
             expname=expname, name=f"automl-baselines-{expname}",
             run_fun=lambda: automl_results(**experiment_common_kwargs),
         ),
+        # Effect of different number of portfolio configurations
         Experiment(
             expname=expname, name=f"zeroshot-multiple-portfolio-sizes-{expname}",
-            run_fun=lambda: zeroshot_results(**experiment_common_kwargs),
+            run_fun=lambda: zeroshot_results(n_portfolios=[5, 10, 20, 40, 80], **experiment_common_kwargs),
         ),
+        # Effect of different number of forward steps in caruana selection
         Experiment(
             expname=expname, name=f"zeroshot-multiple-caruana-sizes-{expname}",
-            run_fun=lambda : zeroshot_results(
-                ensemble_sizes=[20, 40, 80], portfolio_sizes=[20, 40], **experiment_common_kwargs
-            )
+            run_fun=lambda : zeroshot_results(n_ensembles=[5, 10, 20, 40, 80], **experiment_common_kwargs)
+        ),
+        # Effect of different number of datasets to fit zeroshot portfolio
+        Experiment(
+            expname=expname, name=f"zeroshot-multiple-training-sizes-{expname}",
+            run_fun=lambda: zeroshot_results(n_training_datasets=[5, 10, 20, 40, 80, 129], **experiment_common_kwargs)
         ),
         # Results of local search, results would only be reported if `run_method_comparison.py` was evaluted with
         # the specified `expname`
-        Experiment(
-            expname=expname, name="localsearch",
-            run_fun=lambda: evaluate_tuning(**experiment_common_kwargs, expname="02-05-v2")
-        )
+        # Experiment(
+        #     expname=expname, name="localsearch",
+        #     run_fun=lambda: evaluate_tuning(**experiment_common_kwargs, expname="02-05-v2")
+        # )
     ]
 
 
@@ -115,6 +122,8 @@ if __name__ == "__main__":
     parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
     parser.add_argument("--quick_check", action="store_true", help="Perform a quick check of the script with artificial data")
     parser.add_argument("--expname", type=str, help="Name of the experiment", default="dummy")
+    parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
+                        help="Engine used for embarrassingly parallel loop.")
     args = parser.parse_args()
     print(args.__dict__)
 
@@ -122,6 +131,7 @@ if __name__ == "__main__":
     n_datasets = args.n_datasets
     quick_check = args.quick_check
     ignore_cache = args.ignore_cache
+    engine = args.engine
 
     if quick_check:
         experiments = list_artificial_experiments()
@@ -136,10 +146,14 @@ if __name__ == "__main__":
         expname += f"-folds_{n_folds}" if n_folds else f"-folds_all"
         expname += f"-datasets_{n_datasets}" if n_datasets else f"-datasets_all"
         experiments = list_experiments(
-            expname=expname, n_folds=n_folds, n_datasets=n_datasets
+            expname=expname, n_eval_folds=n_folds, n_datasets=n_datasets, engine=engine,
         )
         method_styles = [
-            MethodStyle(f"Zeroshot-{n_portfolio}-{20} (ensemble)", color=cm.get_cmap("viridis")(i / 4), linestyle="-")
+            MethodStyle(
+                name=zeroshot_name(n_portfolio=n_portfolio),
+                color=cm.get_cmap("viridis")(i / 4),
+                linestyle="-"
+            )
             for i, n_portfolio in enumerate([5, 10, 20, 40, 80])
         ] + [
             MethodStyle("AutoGluon best quality (ensemble)", color="black", linestyle="--"),
