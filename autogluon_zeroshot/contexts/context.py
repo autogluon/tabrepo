@@ -30,17 +30,16 @@ class BenchmarkPaths:
 
     def __post_init__(self):
         if self.configs is None:
-            configs_prefix_1 = Paths.data_root / 'configs' / 'configs_20221004'
-            configs_prefix_2 = Paths.data_root / 'configs'
+            configs_prefix = Paths.data_root / 'configs'
             configs = [
-                f'{configs_prefix_1}/configs_catboost.json',
-                f'{configs_prefix_1}/configs_fastai.json',
-                f'{configs_prefix_1}/configs_lightgbm.json',
-                f'{configs_prefix_1}/configs_nn_torch.json',
-                f'{configs_prefix_1}/configs_xgboost.json',
-                f'{configs_prefix_2}/configs_rf.json',
-                f'{configs_prefix_2}/configs_xt.json',
-                f'{configs_prefix_2}/configs_knn.json',
+                f'{configs_prefix}/configs_catboost.json',
+                f'{configs_prefix}/configs_fastai.json',
+                f'{configs_prefix}/configs_lightgbm.json',
+                f'{configs_prefix}/configs_nn_torch.json',
+                f'{configs_prefix}/configs_xgboost.json',
+                f'{configs_prefix}/configs_rf.json',
+                f'{configs_prefix}/configs_xt.json',
+                f'{configs_prefix}/configs_knn.json',
             ]
             self.configs = configs
 
