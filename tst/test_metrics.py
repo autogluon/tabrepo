@@ -48,6 +48,8 @@ def assert_fast_roc_auc_equivalence(y_true, y_pred, rtol=1e-7):
                          [
                             ([0, 1, 0, 0], [0.6, 0.5, 0.4, 0.3]),
                             ([0, 1, 0, 0], [0.5, 0.5, 0.6, 0.6]),
+                            ([0, 1, 0, 0], [0.6, 0.6, 0.6, 0.6]),
+                            ([1, 0, 1, 1], [0.6, 0.6, 0.6, 0.6]),
                          ])
 def test_fast_roc_auc_ties(y_true, y_pred):
     """Ensure fast_roc_auc produces equivalent scores to AutoGluon and Scikit-Learn roc_auc implementations
