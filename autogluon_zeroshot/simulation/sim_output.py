@@ -1,7 +1,6 @@
 import copy
 from typing import List, Union
 
-import numpy as np
 import pandas as pd
 
 from autogluon_zeroshot.portfolio import Portfolio, PortfolioCV
@@ -61,22 +60,13 @@ class SimulationOutputGenerator:
         else:
             config_scorer_kwargs = copy.deepcopy(config_scorer_kwargs)
 
-        from autogluon_zeroshot.simulation.repository import EvaluationRepository
+        from autogluon_zeroshot.repository import EvaluationRepository
         self.repo: EvaluationRepository = repo
 
         self.config_scorer_type = config_scorer_type
         self.config_scorer_kwargs = config_scorer_kwargs
 
         assert self.config_scorer_type in ['ensemble', 'single']
-
-    @classmethod
-    def from_repo(cls, repo, **kwargs):
-        return cls(
-            zsc=repo._zeroshot_context,
-            zeroshot_pred_proba=repo._tabular_predictions,
-            zeroshot_gt=repo._ground_truth,
-            **kwargs,
-        )
 
     def from_portfolio(self,
                        portfolio: Union[List[str], Portfolio],

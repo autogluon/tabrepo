@@ -23,7 +23,7 @@ import pandas as pd
 from autogluon_zeroshot.utils import catchtime
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
-from autogluon_zeroshot.simulation.repository import EvaluationRepository
+from autogluon_zeroshot.repository import EvaluationRepository
 from dataclasses import dataclass
 from typing import List
 

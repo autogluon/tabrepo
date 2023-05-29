@@ -1,7 +1,7 @@
 import numpy as np
 
 from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-from autogluon_zeroshot.simulation.repository import EvaluationRepository
+from autogluon_zeroshot.repository import EvaluationRepository
 
 
 def test_repository():

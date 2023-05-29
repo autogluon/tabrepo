@@ -3,7 +3,7 @@ from typing import List, Union
 
 from .context import BenchmarkContext, BenchmarkPaths
 from ..loaders import Paths
-from ..simulation.repository import EvaluationRepository
+from ..repository import EvaluationRepository
 
 
 # TODO: Allow BenchmarkSubcontext as a parent

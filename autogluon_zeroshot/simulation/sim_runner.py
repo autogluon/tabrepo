@@ -21,11 +21,14 @@ def run_zs_sim_end_to_end(subcontext_name: str,
                           n_splits: int = 2,
                           config_scorer_type: str = 'ensemble',
                           config_scorer_kwargs: dict = None,
+                          subcontext_load_kwargs: dict = None,
                           backend='ray'):
     from ..contexts import get_subcontext
     benchmark_subcontext = get_subcontext(subcontext_name)
+    if subcontext_load_kwargs is None:
+        subcontext_load_kwargs = dict()
     with catchtime(f"load {benchmark_subcontext.name}"):
-        repo = benchmark_subcontext.load()
+        repo = benchmark_subcontext.load(**subcontext_load_kwargs)
     repo.print_info()
 
     results_cv = repo.simulate_zeroshot(

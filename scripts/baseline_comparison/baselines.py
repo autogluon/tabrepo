@@ -9,7 +9,7 @@ from syne_tune.experiments import load_experiments_df
 from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
-from autogluon_zeroshot.simulation.repository import EvaluationRepository
+from autogluon_zeroshot.repository import EvaluationRepository
 
 
 @dataclass

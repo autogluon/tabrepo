@@ -11,7 +11,7 @@ from typing import List, Callable
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from autogluon_zeroshot.simulation.repository import load
+from autogluon_zeroshot.repository.evaluation_repository import load
 from autogluon_zeroshot.utils.cache import cache_function, cache_function_dataframe
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
