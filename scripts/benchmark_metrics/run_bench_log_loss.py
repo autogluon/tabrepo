@@ -5,10 +5,10 @@ from sklearn.metrics import log_loss as sk_log_loss
 from autogluon_zeroshot.metrics._fast_log_loss import \
     fast_log_loss_end_to_end, fast_log_loss, extract_true_class_prob
 from autogluon_zeroshot.metrics.bench_utils import benchmark_metrics_speed, print_benchmark_result,\
-    get_eval_speed, generate_y_true_and_y_pred_proba
+    get_eval_speed, generate_y_true_and_y_pred_proba, generate_y_true_and_y_pred_binary
 
 
-def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int, rtol=1e-06):
+def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int, rtol=1e-06, binary_format=False):
     """
     Benchmarks 4 log_loss computing methods, verifying equivalent scores and comparing compute speed
 
@@ -24,8 +24,15 @@ def benchmark_log_loss(num_samples: int, num_classes: int, num_repeats: int, rto
         Technically for the purposes of ZS simulation, we can run the preprocessing logic on all y_pred for all models,
         thus never paying the cost of preprocessing and massively reducing memory usage.
     """
-    print(f'Benchmarking log_loss... (num_samples={num_samples}, num_classes={num_classes}, num_repeats={num_repeats}')
-    y_true, y_pred = generate_y_true_and_y_pred_proba(num_samples=num_samples, num_classes=num_classes)
+    print(f'Benchmarking log_loss... (num_samples={num_samples}, '
+          f'num_classes={num_classes}, '
+          f'binary_format={binary_format}, '
+          f'num_repeats={num_repeats}')
+    if binary_format:
+        assert num_classes == 2
+        y_true, y_pred = generate_y_true_and_y_pred_binary(num_samples=num_samples)
+    else:
+        y_true, y_pred = generate_y_true_and_y_pred_proba(num_samples=num_samples, num_classes=num_classes)
 
     benchmark_metrics = [
         (sk_log_loss, 'sk_log_loss'),
@@ -151,4 +158,12 @@ if __name__ == '__main__':
         (1000000, 10, 3),
         (1000000, 100, 3),
     ]:
-        benchmark_log_loss(num_samples=num_samples, num_classes=num_classes, num_repeats=num_repeats)
+        if num_classes == 2:
+            benchmark_log_loss(num_samples=num_samples,
+                               num_classes=num_classes,
+                               num_repeats=num_repeats,
+                               binary_format=True)
+        benchmark_log_loss(num_samples=num_samples,
+                           num_classes=num_classes,
+                           num_repeats=num_repeats,
+                           binary_format=False)

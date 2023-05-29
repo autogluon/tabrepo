@@ -1,17 +1,16 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import ray
 
-from autogluon.core.metrics import get_metric
+from autogluon.core.metrics import get_metric, Scorer
 from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSelection
 from .configuration_list_scorer import ConfigurationListScorer
 
 from .simulation_context import ZeroshotSimulatorContext
 from .simulation_context import TabularModelPredictions
 from ..utils.rank_utils import RankScorer
-from ..metrics import _fast_log_loss
-from ..metrics import _fast_roc_auc
+from ..metrics import _fast_log_loss, _fast_roc_auc
 
 
 @ray.remote
@@ -34,10 +33,17 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  max_fold: Optional[float] = None,
                  backend: str = 'native',
                  use_fast_metrics: bool = True,
+                 proxy_fit_metric_map: Optional[Union[dict, str]] = None,  # TODO: Add unit test
                  ):
         """
         TODO: Add docstring
         :param use_fast_metrics: If True, will leverage optimized eval metrics to speed up config scoring.
+        :param proxy_fit_metric_map:
+            If eval_metric is among the keys in the `proxy_fit_metric_map` dictionary,
+            the value eval_metric will be used during the weighted ensemble fitting process as a proxy.
+            For example, the proxy metric could be faster to compute while producing a similar end result.
+            If None: Do not use proxy metrics, equivalent to {}.
+            If 'roc_auc_to_log_loss': set to {'roc_auc': 'log_loss'}, making 'log_loss' a proxy to 'roc_auc'
         """
         super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
         if zeroshot_gt is None:
@@ -57,6 +63,12 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         assert backend in ['native', 'ray']
         self.backend = backend
         self.use_fast_metrics = use_fast_metrics
+        if proxy_fit_metric_map is None:
+            proxy_fit_metric_map = {}
+        elif isinstance(proxy_fit_metric_map, str):
+            assert proxy_fit_metric_map == 'roc_auc_to_log_loss'
+            proxy_fit_metric_map = {'roc_auc': 'log_loss'}  # log_loss is fast to compute and a good proxy for roc_auc
+        self.proxy_fit_metric_map = proxy_fit_metric_map
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -67,37 +79,28 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **kwargs,
         )
 
-    def _get_fast_metric_if_exist(self,
-                                  metric_name: str,
-                                  problem_type: str,
-                                  y_val: np.array,
-                                  pred_val: np.array,
-                                  y_test: np.array,
-                                  pred_test: np.array,
-                                  ):
+    def _get_metric_from_name(self, metric_name: str, problem_type: str) -> Scorer:
+        if self.use_fast_metrics:
+            return self._get_fast_metric_if_exist(metric_name=metric_name, problem_type=problem_type)
+        else:
+            return get_metric(metric=metric_name, problem_type=problem_type)
+
+    def _get_fast_metric_if_exist(self, metric_name: str, problem_type: str) -> Scorer:
         """
         # TODO: Add docstring
         # TODO: Consider making this more standardized.
         #  Currently fast_log_loss needs a bit of special preprocessing of the data and isn't a straightforward replace.
-        # TODO: Add fast_roc_auc
-        # TODO: Add fast_rmse
         """
-        if metric_name == 'log_loss' and problem_type == 'multiclass':
+        if metric_name == 'log_loss':
             # TODO: Can be even faster if we transform pred_val and pred_test
             #  as a preprocessing step to TabularModelPredictions.
             #  This would avoid ever having to pay the preprocessing time cost, and would massively reduce memory usage.
             eval_metric = _fast_log_loss.fast_log_loss
-            pred_val = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_val, y_pred_bulk=pred_val)
-            pred_test = _fast_log_loss.extract_true_class_prob_bulk(y_true=y_test, y_pred_bulk=pred_test)
         elif metric_name == 'roc_auc':
-            y_val = y_val.astype(np.bool8)
-            y_test = y_test.astype(np.bool8)
-            pred_val = pred_val.astype(np.float32)
-            pred_test = pred_test.astype(np.float32)
             eval_metric = _fast_roc_auc.fast_roc_auc_cpp
         else:
-            eval_metric = get_metric(metric_name)
-        return eval_metric, y_val, pred_val, y_test, pred_test
+            eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
+        return eval_metric
 
     def run_dataset(self, dataset, models):
         fold = self.dataset_name_to_fold_dict[dataset]
@@ -113,26 +116,26 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
         pred_val, pred_test = self.zeroshot_pred_proba.predict(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
 
-        if self.use_fast_metrics:
-            eval_metric, y_val, pred_val, y_test, pred_test = self._get_fast_metric_if_exist(
-                metric_name=metric_name,
-                problem_type=problem_type,
-                y_val=y_val,
-                pred_val=pred_val,
-                y_test=y_test,
-                pred_test=pred_test,
-            )
-        else:
-            eval_metric = get_metric(metric_name)
+        fit_metric_name = self.proxy_fit_metric_map.get(metric_name, metric_name)
+
+        eval_metric = self._get_metric_from_name(metric_name=metric_name, problem_type=problem_type)
+        fit_eval_metric = self._get_metric_from_name(metric_name=fit_metric_name, problem_type=problem_type)
+
+        if hasattr(fit_eval_metric, 'preprocess_bulk'):
+            y_val, pred_val = fit_eval_metric.preprocess_bulk(y_val, pred_val)
 
         weighted_ensemble = EnsembleSelection(
             ensemble_size=self.ensemble_size,
             problem_type=problem_type,
-            metric=eval_metric,
+            metric=fit_eval_metric,
             **self.ensemble_selection_kwargs,
         )
 
         weighted_ensemble.fit(predictions=pred_val, labels=y_val)
+
+        if hasattr(eval_metric, 'preprocess_bulk'):
+            y_test, pred_test = eval_metric.preprocess_bulk(y_test, pred_test)
+
         if eval_metric.needs_pred:
             y_test_pred = weighted_ensemble.predict(pred_test)
         else:

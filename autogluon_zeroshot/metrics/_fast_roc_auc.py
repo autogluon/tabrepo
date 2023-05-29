@@ -1,3 +1,7 @@
+from typing import Tuple
+
+import numpy as np
+
 from autogluon.core.metrics import make_scorer
 
 from ._roc_auc_cpp import CppAuc
@@ -10,3 +14,10 @@ fast_roc_auc_cpp = make_scorer('roc_auc',
                                CppAuc().roc_auc_score,
                                greater_is_better=True,
                                needs_threshold=True)
+
+
+def _preprocess_bulk(y_true: np.ndarray, y_pred_bulk: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    return y_true.astype(np.bool8), y_pred_bulk.astype(np.float32)
+
+
+fast_roc_auc_cpp.preprocess_bulk = _preprocess_bulk

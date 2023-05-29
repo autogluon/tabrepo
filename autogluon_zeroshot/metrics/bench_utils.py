@@ -24,8 +24,11 @@ def generate_y_true_and_y_pred_proba(num_samples, num_classes, random_seed=0):
 def generate_y_true_and_y_pred_proba_bulk(num_configs, num_samples, num_classes, random_seed=0):
     np.random.seed(seed=random_seed)
     y_true = np.random.randint(0, num_classes, num_samples)
-    y_pred_bulk = [normalize(np.random.rand(num_samples, num_classes), axis=1, norm='l1') for _ in range(num_configs)]
-    y_pred_bulk = np.array(y_pred_bulk)
+    if num_classes == 2:
+        y_pred_bulk = np.array([np.random.rand(num_samples) for _ in range(num_configs)])
+    else:
+        y_pred_bulk = [normalize(np.random.rand(num_samples, num_classes), axis=1, norm='l1') for _ in range(num_configs)]
+        y_pred_bulk = np.array(y_pred_bulk)
     return y_true, y_pred_bulk
 
 
