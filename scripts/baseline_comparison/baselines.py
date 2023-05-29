@@ -5,11 +5,15 @@ from typing import List
 import numpy as np
 from dataclasses import dataclass
 
+import pandas as pd
+import ray
+
 from syne_tune.experiments import load_experiments_df
 from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
 from autogluon_zeroshot.repository import EvaluationRepository
+from autogluon_zeroshot.utils import loop_utils
 
 
 @dataclass
@@ -55,10 +59,71 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_folds
     return rows_automl
 
 
+def _zeroshot_results(i,
+                      repo: EvaluationRepository,
+                      df_rank: pd.DataFrame,
+                      train_dataset_names: List[str],  # FIXME: Use this instead of assuming LOO
+                      test_dataset_names: List[str],  # FIXME: Allow more than 1 element
+                      n_folds: int,  # TODO: Switch to list of folds to have more control
+                      rank_scorer,
+                      normalized_scorer,
+                      ensemble_size: int,
+                      portfolio_size,
+                      name_suffix: str) -> List[ResultRow]:
+    rows_zeroshot = []
+    if name_suffix is None:
+        name_suffix = ''
+
+    assert len(test_dataset_names) == 1
+    dataset = test_dataset_names[0]
+
+    taskid = repo.dataset_to_taskid(dataset)
+    train_datasets = [x for x in df_rank.columns if x.split("_")[0] != str(taskid)]
+    # assert train_datasets == train_dataset_names
+
+    indices = zeroshot_configs(-df_rank[train_datasets].values.T, portfolio_size)
+    portfolio_configs = [df_rank.index[i] for i in indices]
+
+    # run best base model and ensemble
+    suffix = f"-{portfolio_size}-{ensemble_size}"
+    if ensemble_size:
+        suffix += " (ensemble)"
+    test_errors = repo.evaluate_ensemble(
+        dataset_names=[dataset],
+        config_names=portfolio_configs,
+        ensemble_size=ensemble_size,
+        rank=False,
+        backend='native',
+    )
+    assert test_errors.shape[0] == 1  # we send one model, we should get one row back
+    for fold in range(n_folds):
+        test_error = test_errors[0][fold]
+        dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
+        rows_zeroshot.append(ResultRow(
+            taskid=taskid,
+            fold=fold,
+            method=f"Zeroshot{name_suffix}{suffix}",
+            test_error=test_error,
+            rank=rank_scorer.rank(dataset_fold_name, test_error),
+            normalized_score=normalized_scorer.rank(dataset_fold_name, test_error),
+            config_selected=portfolio_configs,
+        ))
+    print(f'Done {i}: {dataset}')
+    return rows_zeroshot
+
+
 def zeroshot_results(
-        repo: EvaluationRepository, dataset_names: List[str], n_folds: int, rank_scorer, normalized_scorer,
-        ensemble_sizes: List[int] =[1, 20], portfolio_sizes: List[int]=[5, 10, 20, 40, 80]
-) -> List[ResultRow]:
+    repo: EvaluationRepository,
+    dataset_names: List[str],
+    n_folds: int,
+    rank_scorer,
+    normalized_scorer,
+    configs: List[str] = None,
+    ensemble_sizes: List[int] = [1, 20],
+    portfolio_sizes: List[int] = [5, 10, 20, 40, 80],
+    name_suffix: str = None,
+    backend: str = 'ray',
+):
     """
     :param ensemble_sizes: number of caruana sizes to consider
     :param portfolio_sizes: number of portfolio to consider
@@ -68,38 +133,55 @@ def zeroshot_results(
     df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()
     df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
     assert not any(df_rank.isna().values.reshape(-1))
-    rows_zeroshot = []
-    for dataset in tqdm(dataset_names):
+
+    if configs is not None:
+        df_rank = df_rank.loc[configs]
+        assert len(df_rank) == len(configs)
+
+    if backend == 'ray':
+        if not ray.is_initialized():
+            ray.init()
+        repo = ray.put(repo)
+        df_rank = ray.put(df_rank)
+        rank_scorer = ray.put(rank_scorer)
+        normalized_scorer = ray.put(normalized_scorer)
+        loop_func = loop_utils.with_ray
+    elif backend == 'seq':
+        loop_func = loop_utils.with_seq
+    else:
+        raise ValueError(f'Invalid backend: "{backend}"')
+
+    i = 1
+    input_list = []
+    kwargs = {
+        'repo': repo,
+        'df_rank': df_rank,
+        'train_dataset_names': None,
+        'rank_scorer': rank_scorer,
+        'normalized_scorer': normalized_scorer,
+        'name_suffix': name_suffix,
+
+    }
+    for dataset in dataset_names:
         for portfolio_size in portfolio_sizes:
             for ensemble_size in ensemble_sizes:
-                taskid = repo.dataset_to_taskid(dataset)
-                train_datasets = [x for x in df_rank.columns if x.split("_")[0] != str(taskid)]
-                indices = zeroshot_configs(-df_rank[train_datasets].values.T, portfolio_size)
-                portfolio_configs = [df_rank.index[i] for i in indices]
-
-                # run best base model and ensemble
-                suffix = f"-{portfolio_size}-{ensemble_size}"
-                if ensemble_size:
-                    suffix += " (ensemble)"
-                test_errors = repo.evaluate_ensemble(
-                    dataset_names=[dataset],
-                    config_names=portfolio_configs,
-                    ensemble_size=ensemble_size,
-                    rank=False,
-                )
-                assert test_errors.shape[0] == 1  # we send one model, we should get one row back
-                for fold in range(n_folds):
-                    test_error = test_errors[0][fold]
-                    dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
-                    rows_zeroshot.append(ResultRow(
-                        taskid=repo.dataset_to_taskid(dataset),
-                        fold=fold,
-                        method=f"Zeroshot{suffix}",
-                        test_error=test_error,
-                        rank=rank_scorer.rank(dataset_fold_name, test_error),
-                        normalized_score=normalized_scorer.rank(dataset_fold_name, test_error),
-                        config_selected=portfolio_configs,
-                    ))
+                # Create and execute all tasks in parallel
+                input_row_dict = {
+                    'i': i,
+                    'test_dataset_names': [dataset],
+                    'n_folds': n_folds,
+                    'ensemble_size': ensemble_size,
+                    'portfolio_size': portfolio_size,
+                }
+                input_list.append(input_row_dict)
+                i += 1
+    print(f'total: {i}')
+    rows_zeroshot: list = loop_func(
+        func=_zeroshot_results,
+        input_list=input_list,
+        kwargs=kwargs,
+    )
+    rows_zeroshot = [item for sublist in rows_zeroshot for item in sublist]
     return rows_zeroshot
 
 
