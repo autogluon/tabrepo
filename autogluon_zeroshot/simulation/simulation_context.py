@@ -190,7 +190,7 @@ class ZeroshotSimulatorContext:
         out += '=============================================\n'
         print(out)
 
-    def get_datasets(self, problem_type=None):
+    def get_datasets(self, problem_type=None) -> list:
         datasets = self.unique_datasets
         if problem_type is not None:
             datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]

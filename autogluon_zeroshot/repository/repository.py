@@ -134,7 +134,12 @@ class SimpleRepository(SaveLoadMixin):
         metadata = self._df_metadata[self._df_metadata.name == dataset_name]
         return dict(zip(metadata.columns, metadata.values[0]))
 
-    def get_datasets(self, problem_type=None):
+    def get_datasets(self, problem_type: str = None) -> list:
+        """
+        Note: returns the taskid of the datasets rather than the string name.
+
+        :param problem_type: If specified, only datasets with the given problem_type are returned.
+        """
         return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
     def n_folds(self) -> int:
