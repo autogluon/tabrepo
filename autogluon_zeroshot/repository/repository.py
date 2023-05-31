@@ -100,6 +100,8 @@ class SimpleRepository(SaveLoadMixin):
     def dataset_names(self) -> List[str]:
         return list(sorted([self._tid_to_name[task_id] for task_id in self._tabular_predictions.datasets]))
 
+    # TODO: Unify with `get_datasets`, currently they do the same thing. Keeping both to avoid merge conflicts.
+    #  Will address in isolated PR.
     def task_ids(self) -> List[int]:
         return list(sorted(self._name_to_tid.values()))
 
