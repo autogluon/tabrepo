@@ -1,6 +1,8 @@
-from typing import Union
+from typing import Dict, List, Union
 
-from typing import List
+import numpy as np
+import pandas as pd
+
 from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
 from autogluon_zeroshot.simulation.tabular_predictions import TabularModelPredictions
 from autogluon_zeroshot.utils.cache import SaveLoadMixin
@@ -8,6 +10,10 @@ from autogluon_zeroshot.utils import catchtime
 
 
 class SimpleRepository(SaveLoadMixin):
+    """
+    Simple Repository class that implements core functionality related to
+    fetching model predictions, available datasets, folds, etc.
+    """
     def __init__(
             self,
             zeroshot_context: ZeroshotSimulatorContext,
@@ -23,11 +29,11 @@ class SimpleRepository(SaveLoadMixin):
         self._zeroshot_context.print_info()
 
     @property
-    def _name_to_tid(self):
+    def _name_to_tid(self) -> Dict[str, int]:
         return self._zeroshot_context.dataset_to_tid_dict
 
     @property
-    def _tid_to_name(self):
+    def _tid_to_name(self) -> Dict[int, str]:
         return {v: k for k, v in self._name_to_tid.items()}
 
     def subset(self,
@@ -36,6 +42,15 @@ class SimpleRepository(SaveLoadMixin):
                datasets: List[Union[str, int]] = None,
                verbose: bool = True,
                ):
+        """
+        Method to subset the repository object and force to a dense representation.
+
+        @param folds: The list of folds to subset. Ignored if unspecified.
+        @param models: The list of models to subset. Ignored if unspecified.
+        @param datasets: The list of datasets to subset. Ignored if unspecified.
+        @param verbose: Whether to log verbose details about the force to dense operation.
+        @return: Return self after in-place updates in this call.
+        """
         if folds:
             self._zeroshot_context.subset_folds(folds=folds)
         if models:
@@ -48,7 +63,19 @@ class SimpleRepository(SaveLoadMixin):
         self.force_to_dense(verbose=verbose)
         return self
 
+    # TODO: Add `is_dense` method to assist in unit tests + sanity checks
     def force_to_dense(self, verbose: bool = True):
+        """
+        Method to force the repository to a dense representation inplace.
+
+        This will ensure that `self._zeroshot_context`, `self._tabular_predictions`, and `self._ground_truth`
+        contain the same datasets, folds, and models, and all models and folds are present for every dataset.
+
+        Calling this method when already in a dense representation will result in no changes.
+
+        @param verbose: Whether to log verbose details about the force to dense operation.
+        @return: Return self after in-place updates in this call.
+        """
         # TODO: Move these util functions to simulations or somewhere else to avoid circular imports
         from autogluon_zeroshot.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
         # keep only dataset whose folds are all present
@@ -67,16 +94,16 @@ class SimpleRepository(SaveLoadMixin):
         return self
 
     @property
-    def _df_metadata(self):
+    def _df_metadata(self) -> pd.DataFrame:
         return self._zeroshot_context.df_metadata
 
     def dataset_names(self) -> List[str]:
         return list(sorted([self._tid_to_name[task_id] for task_id in self._tabular_predictions.datasets]))
 
-    def task_ids(self):
+    def task_ids(self) -> List[int]:
         return list(sorted(self._name_to_tid.values()))
 
-    def list_models_available(self, dataset_name: str):
+    def list_models_available(self, dataset_name: str) -> List[str]:
         # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
         #  datasets, specify whether all need to be present etc
         """
@@ -114,7 +141,7 @@ class SimpleRepository(SaveLoadMixin):
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
-    def val_predictions(self, dataset_name: str, config_name: str, fold: int):
+    def val_predictions(self, dataset_name: str, config_name: str, fold: int) -> np.array:
         val_predictions, _ = self._tabular_predictions.predict(
             dataset=self.dataset_to_taskid(dataset_name),
             fold=fold,
@@ -122,7 +149,7 @@ class SimpleRepository(SaveLoadMixin):
         )
         return val_predictions[0]
 
-    def test_predictions(self, dataset_name: str, config_name: str, fold: int):
+    def test_predictions(self, dataset_name: str, config_name: str, fold: int) -> np.array:
         _, test_predictions = self._tabular_predictions.predict(
             dataset=self.dataset_to_taskid(dataset_name),
             fold=fold,
@@ -134,7 +161,8 @@ class SimpleRepository(SaveLoadMixin):
         metadata = self._df_metadata[self._df_metadata.name == dataset_name]
         return dict(zip(metadata.columns, metadata.values[0]))
 
-    def get_datasets(self, problem_type: str = None) -> list:
+    # TODO: Unify with dataset_names in future, keeping separate for now to avoid merge conflicts
+    def get_datasets(self, problem_type: str = None) -> List[int]:
         """
         Note: returns the taskid of the datasets rather than the string name.
 
@@ -142,8 +170,12 @@ class SimpleRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
+    @property
+    def folds(self) -> List[int]:
+        return self._zeroshot_context.folds
+
     def n_folds(self) -> int:
-        return len(self._tabular_predictions.folds)
+        return len(self.folds)
 
 
 # TODO: git shelve ADD BACK
