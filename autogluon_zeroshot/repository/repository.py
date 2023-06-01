@@ -20,9 +20,9 @@ class SimpleRepository(SaveLoadMixin):
             tabular_predictions: TabularModelPredictions,
             ground_truth: dict,
     ):
-        self._tabular_predictions = tabular_predictions
-        self._zeroshot_context = zeroshot_context
-        self._ground_truth = ground_truth
+        self._tabular_predictions: TabularModelPredictions = tabular_predictions
+        self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
+        self._ground_truth: dict = ground_truth
         assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
 
     def print_info(self):
@@ -120,6 +120,15 @@ class SimpleRepository(SaveLoadMixin):
             res = res.intersection(methods)
         return list(sorted(res))
 
+    # TODO: Unify with `list_models_available`
+    def list_models(self) -> List[str]:
+        """
+        List all models that appear in at least one task.
+
+        @return: the list of configurations that are available in at least one task.
+        """
+        return self._zeroshot_context.get_configs()
+
     def dataset_to_taskid(self, dataset_name: str) -> int:
         return self._name_to_tid[dataset_name]
 
@@ -164,6 +173,7 @@ class SimpleRepository(SaveLoadMixin):
         return dict(zip(metadata.columns, metadata.values[0]))
 
     # TODO: Unify with dataset_names in future, keeping separate for now to avoid merge conflicts
+    # TODO: Determine if `get_datasets` or `list_datasets` is a better name.
     def get_datasets(self, problem_type: str = None) -> List[int]:
         """
         Note: returns the taskid of the datasets rather than the string name.
@@ -178,6 +188,12 @@ class SimpleRepository(SaveLoadMixin):
 
     def n_folds(self) -> int:
         return len(self.folds)
+
+    def n_datasets(self) -> int:
+        return len(self.get_datasets())
+
+    def n_models(self) -> int:
+        return len(self.list_models())
 
 
 # TODO: git shelve ADD BACK

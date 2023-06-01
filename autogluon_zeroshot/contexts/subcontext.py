@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Union
 
 from .context import BenchmarkContext, BenchmarkPaths
+from ._subcontext_utils import gen_sample_repo_with_cache
 from ..loaders import Paths
 from ..repository import EvaluationRepository
 
@@ -88,3 +89,32 @@ class BenchmarkSubcontext:
 
     def _load(self) -> EvaluationRepository:
         return EvaluationRepository.load(self.path)
+
+    def load_subset(self,
+                    *,
+                    n_folds: int = None,
+                    n_datasets: int = None,
+                    n_models: int = None,
+                    random_seed: int = 0,
+                    ignore_cache: bool = False) -> EvaluationRepository:
+        """
+        Generate and cache a subset of the EvaluationRepository.
+        Future calls will reload the cache, which is uniquely identified by the automatically generated cache file name.
+
+        @param n_folds: The number of folds to subset to. If None, will use all folds.
+        @param n_datasets: The number of datasets to subset to. If None, will use all datasets.
+        @param n_models: The number of models to subset to. If None, will use all models.
+        @param random_seed: The random seed used when randomly selecting {n_datasets} and {n_models}.
+        @param ignore_cache: If True, will compute the repo subset even if the cache already existed, and will overwrite it.
+        @return: An EvaluationRepository object that is subset according to the parameters, and cached to disk.
+        """
+        repo_subset = gen_sample_repo_with_cache(
+            fun=self.load,
+            cache_name_prefix=self.name,
+            n_folds=n_folds,
+            n_datasets=n_datasets,
+            n_models=n_models,
+            random_seed=random_seed,
+            ignore_cache=ignore_cache,
+        )
+        return repo_subset

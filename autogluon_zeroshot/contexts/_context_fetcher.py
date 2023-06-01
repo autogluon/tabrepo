@@ -43,8 +43,6 @@ for c in [
 for c_name, c in _context_map.items():
     subcontext = BenchmarkSubcontext(parent=c)
     _add_subcontext(subcontext=subcontext)
-    subcontext_f0 = BenchmarkSubcontext(parent=c, folds=[0])
-    _add_subcontext(subcontext=subcontext_f0)
 
 
 def list_contexts() -> List[str]:
