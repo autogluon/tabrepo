@@ -1,2 +1,2 @@
 from .repository import SimpleRepository
-from .evaluation_repository import EvaluationRepositoryZeroshot
+from .evaluation_repository_zeroshot import EvaluationRepositoryZeroshot
