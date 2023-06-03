@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from .repository import SimpleRepository
+from .evaluation_repository import SimpleRepository
 from ..portfolio import Portfolio, PortfolioCV
 from ..simulation.configuration_list_scorer import ConfigurationListScorer
 from ..simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
