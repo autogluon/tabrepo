@@ -9,7 +9,7 @@ from autogluon_zeroshot.utils.cache import SaveLoadMixin
 from autogluon_zeroshot.utils import catchtime
 
 
-class SimpleRepository(SaveLoadMixin):
+class EvaluationRepository(SaveLoadMixin):
     """
     Simple Repository class that implements core functionality related to
     fetching model predictions, available datasets, folds, etc.

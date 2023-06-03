@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from .evaluation_repository import SimpleRepository
+from .evaluation_repository import EvaluationRepository
 from ..portfolio import Portfolio, PortfolioCV
 from ..simulation.configuration_list_scorer import ConfigurationListScorer
 from ..simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
@@ -12,7 +12,7 @@ from ..simulation.sim_output import SimulationOutputGenerator
 from ..simulation.sim_runner import run_zs_simulation
 
 
-class EvaluationRepositoryZeroshot(SimpleRepository):
+class EvaluationRepositoryZeroshot(EvaluationRepository):
     """An extension of SimpleRepository that includes zeroshot simulation methods."""
     def evaluate_ensemble(
         self,
