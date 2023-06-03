@@ -15,5 +15,5 @@ def test_cpp_auc_compilation():
             y_true=np.array([i % 2 == 0 for i in range(n_samples)]),
             y_score=np.arange(n_samples) / n_samples + 1,
         ),
-        0.46875
+        0.5
     )

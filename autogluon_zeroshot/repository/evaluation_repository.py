@@ -1,12 +1,17 @@
-from typing import Dict, List, Union
+import copy
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+from autogluon_zeroshot.simulation.configuration_list_scorer import ConfigurationListScorer
+from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
 from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
+from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
 from autogluon_zeroshot.simulation.tabular_predictions import TabularModelPredictions
 from autogluon_zeroshot.utils.cache import SaveLoadMixin
 from autogluon_zeroshot.utils import catchtime
+from autogluon_zeroshot import repository
 
 
 class EvaluationRepository(SaveLoadMixin):
@@ -24,6 +29,17 @@ class EvaluationRepository(SaveLoadMixin):
         self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
         self._ground_truth: dict = ground_truth
         assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
+
+    def to_zeroshot(self) -> 'repository.EvaluationRepositoryZeroshot':
+        """
+        Returns a version of the repository as an EvaluationRepositoryZeroshot object.
+
+        @return: EvaluationRepositoryZeroshot object
+        """
+        from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
+        self_zeroshot = copy.copy(self)  # Shallow copy so that the class update does not alter self
+        self_zeroshot.__class__ = EvaluationRepositoryZeroshot
+        return self_zeroshot
 
     def print_info(self):
         self._zeroshot_context.print_info()
@@ -195,18 +211,103 @@ class EvaluationRepository(SaveLoadMixin):
     def n_models(self) -> int:
         return len(self.list_models())
 
+    def evaluate_ensemble(
+        self,
+        dataset_names: List[str],
+        config_names: List[str],
+        ensemble_size: int,
+        rank: bool = True,
+        folds: Optional[List[int]] = None,
+        backend: str = "ray",
+    ) -> np.array:
+        """
+        :param dataset_names: list of dataset to compute errors on.
+        :param config_names: list of config to consider for ensembling.
+        :param ensemble_size: number of members to select with Caruana.
+        :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
+        automl framework.
+        :param folds: list of folds that need to be evaluated, use all folds if not provided.
+        :return: 2D array of scores whose rows are datasets and columns are folds
+        """
+        if folds is None:
+            folds = range(self.n_folds())
+        dataset_fold_name = lambda dataset, fold: f"{self.dataset_to_taskid(dataset)}_{fold}"
+        tasks = [
+            dataset_fold_name(dataset, fold)
+            for dataset in dataset_names
+            for fold in folds
+        ]
+        scorer = self._construct_ensemble_selection_config_scorer(
+            datasets=tasks,
+            ensemble_size=ensemble_size,
+            backend=backend,
+        )
+        if rank:
+            dict_scores = scorer.score_per_dataset(config_names)
+        else:
+            dict_scores = scorer.compute_errors(configs=config_names)
+
+        return np.array([[
+                dict_scores[dataset_fold_name(dataset, fold)
+            ] for fold in folds
+        ] for dataset in dataset_names])
+
+    def _construct_config_scorer(self,
+                                 config_scorer_type: str = 'ensemble',
+                                 **config_scorer_kwargs) -> ConfigurationListScorer:
+        if config_scorer_type == 'ensemble':
+            return self._construct_ensemble_selection_config_scorer(**config_scorer_kwargs)
+        elif config_scorer_type == 'single':
+            return self._construct_single_best_config_scorer(**config_scorer_kwargs)
+        else:
+            raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
+
+
+    def _construct_ensemble_selection_config_scorer(self,
+                                                    ensemble_size: int = 10,
+                                                    backend='ray',
+                                                    **kwargs) -> EnsembleSelectionConfigScorer:
+        config_scorer = EnsembleSelectionConfigScorer.from_zsc(
+            zeroshot_simulator_context=self._zeroshot_context,
+            zeroshot_gt=self._ground_truth,
+            zeroshot_pred_proba=self._tabular_predictions,
+            ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
+            backend=backend,
+            **kwargs,
+        )
+        return config_scorer
+
+    def _construct_single_best_config_scorer(self, **kwargs) -> SingleBestConfigScorer:
+        config_scorer = SingleBestConfigScorer.from_zsc(
+            zeroshot_simulator_context=self._zeroshot_context,
+            **kwargs,
+        )
+        return config_scorer
+
+
+def load(version: str = None, lazy_format=True) -> EvaluationRepository:
+    from autogluon_zeroshot.contexts import get_context
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True,
+                                                                                    lazy_format=lazy_format)
+    r = EvaluationRepository(
+        zeroshot_context=zsc,
+        tabular_predictions=zeroshot_pred_proba,
+        ground_truth=zeroshot_gt,
+    )
+    r = r.force_to_dense(verbose=True)
+    return r
+
 
 # TODO: git shelve ADD BACK
 if __name__ == '__main__':
     from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-    from autogluon_zeroshot.repository.evaluation_repository import EvaluationRepositoryZeroshot
     with catchtime("loading repo and evaluating one ensemble config"):
         dataset_name = "abalone"
         config_name = "NeuralNetFastAI_r1"
         # repo = EvaluationRepository.load(version="2022_10_13")
 
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
-        repo = EvaluationRepositoryZeroshot(
+        repo = EvaluationRepository(
             zeroshot_context=zsc,
             tabular_predictions=zeroshot_pred_proba,
             ground_truth=zeroshot_gt,
@@ -224,5 +325,3 @@ if __name__ == '__main__':
         print(repo.evaluate_ensemble(dataset_names=[dataset_name], config_names=[config_name, config_name], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
         print(repo.evaluate_ensemble(dataset_names=[dataset_name], config_names=[config_name, config_name],
                                      ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]
-
-

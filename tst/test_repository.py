@@ -1,13 +1,13 @@
 import numpy as np
 
 from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
+from autogluon_zeroshot.repository import EvaluationRepository
 
 
 def test_repository():
 
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
-    repo = EvaluationRepositoryZeroshot(
+    repo = EvaluationRepository(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,
         ground_truth=zeroshot_gt,

@@ -45,7 +45,8 @@ def test_subcontext():
         n_folds=n_folds,
         n_models=n_models,
         n_datasets=n_datasets,
-    )
+    ).to_zeroshot()
+
     assert isinstance(repo, EvaluationRepositoryZeroshot)
     assert repo.n_folds() == n_folds
     assert repo.n_datasets() == n_datasets

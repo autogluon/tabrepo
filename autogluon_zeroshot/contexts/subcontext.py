@@ -4,7 +4,7 @@ from typing import List, Union
 from .context import BenchmarkContext, BenchmarkPaths
 from ._subcontext_utils import gen_sample_repo_with_cache
 from ..loaders import Paths
-from ..repository import EvaluationRepositoryZeroshot
+from ..repository import EvaluationRepository
 
 
 # TODO: Allow BenchmarkSubcontext as a parent
@@ -46,7 +46,7 @@ class BenchmarkSubcontext:
             path = path_prefix / (path_main + path_suffix)
         self.path = path
 
-    def download(self, exists: str = 'raise') -> EvaluationRepositoryZeroshot:
+    def download(self, exists: str = 'raise') -> EvaluationRepository:
         assert exists in ['ignore', 'raise', 'overwrite'], f'Invalid exists value: {exists}'
         _exists = self.exists()
         if exists == 'ignore':
@@ -57,16 +57,16 @@ class BenchmarkSubcontext:
                 raise AssertionError(f'{self.path} already exists, but exists="{exists}"')
         return self._download()
 
-    def _download(self) -> EvaluationRepositoryZeroshot:
+    def _download(self) -> EvaluationRepository:
         repo = self.load_from_parent()
         repo.save(self.path)
         return repo
 
-    def load_from_parent(self) -> EvaluationRepositoryZeroshot:
+    def load_from_parent(self) -> EvaluationRepository:
         # TODO: Consider adding configs_full to Repo
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = self.parent.load(load_predictions=True)
 
-        repo = EvaluationRepositoryZeroshot(
+        repo = EvaluationRepository(
             zeroshot_context=zsc,
             tabular_predictions=zeroshot_pred_proba,
             ground_truth=zeroshot_gt,
@@ -79,7 +79,7 @@ class BenchmarkSubcontext:
     def exists(self):
         return BenchmarkPaths.exists(self.path)
 
-    def load(self, download_files=True, exists='ignore') -> EvaluationRepositoryZeroshot:
+    def load(self, download_files=True, exists='ignore') -> EvaluationRepository:
         if not self.exists():
             if not download_files:
                 raise FileNotFoundError(f'Missing file: "{self.path}", try calling `load` with `download_files=True`')
@@ -87,8 +87,8 @@ class BenchmarkSubcontext:
             return self.download(exists=exists)
         return self._load()
 
-    def _load(self) -> EvaluationRepositoryZeroshot:
-        return EvaluationRepositoryZeroshot.load(self.path)
+    def _load(self) -> EvaluationRepository:
+        return EvaluationRepository.load(self.path)
 
     def load_subset(self,
                     *,
@@ -96,7 +96,7 @@ class BenchmarkSubcontext:
                     n_datasets: int = None,
                     n_models: int = None,
                     random_seed: int = 0,
-                    ignore_cache: bool = False) -> EvaluationRepositoryZeroshot:
+                    ignore_cache: bool = False) -> EvaluationRepository:
         """
         Generate and cache a subset of the EvaluationRepository.
         Future calls will reload the cache, which is uniquely identified by the automatically generated cache file name.

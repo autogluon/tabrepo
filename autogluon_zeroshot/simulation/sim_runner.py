@@ -28,7 +28,7 @@ def run_zs_sim_end_to_end(subcontext_name: str,
     if subcontext_load_kwargs is None:
         subcontext_load_kwargs = dict()
     with catchtime(f"load {benchmark_subcontext.name}"):
-        repo = benchmark_subcontext.load(**subcontext_load_kwargs)
+        repo = benchmark_subcontext.load(**subcontext_load_kwargs).to_zeroshot()
     repo.print_info()
 
     results_cv = repo.simulate_zeroshot(
