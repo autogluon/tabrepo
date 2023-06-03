@@ -12,7 +12,7 @@ from ..simulation.sim_output import SimulationOutputGenerator
 from ..simulation.sim_runner import run_zs_simulation
 
 
-class EvaluationRepository(SimpleRepository):
+class EvaluationRepositoryZeroshot(SimpleRepository):
     """An extension of SimpleRepository that includes zeroshot simulation methods."""
     def evaluate_ensemble(
         self,
@@ -207,10 +207,10 @@ class EvaluationRepository(SimpleRepository):
         return results_cv
 
 
-def load(version: str = None) -> EvaluationRepository:
+def load(version: str = None) -> EvaluationRepositoryZeroshot:
     from autogluon_zeroshot.contexts import get_context
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True, lazy_format=True)
-    r = EvaluationRepository(
+    r = EvaluationRepositoryZeroshot(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,
         ground_truth=zeroshot_gt,

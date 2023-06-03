@@ -12,7 +12,7 @@ from syne_tune.experiments import load_experiments_df
 from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
-from autogluon_zeroshot.repository import EvaluationRepository
+from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
 from autogluon_zeroshot.utils import loop_utils
 
 
@@ -27,7 +27,7 @@ class ResultRow:
     config_selected: list = None
 
 
-def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_folds: int, rank_scorer, normalized_scorer) -> List[ResultRow]:
+def automl_results(repo: EvaluationRepositoryZeroshot, dataset_names: List[str], n_folds: int, rank_scorer, normalized_scorer) -> List[ResultRow]:
     """
     :return: evaluation of AutoGluon medium/high/best quality.
     """
@@ -60,7 +60,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_folds
 
 
 def _zeroshot_results(i,
-                      repo: EvaluationRepository,
+                      repo: EvaluationRepositoryZeroshot,
                       df_rank: pd.DataFrame,
                       train_dataset_names: List[str],  # FIXME: Use this instead of assuming LOO
                       test_dataset_names: List[str],  # FIXME: Allow more than 1 element
@@ -113,7 +113,7 @@ def _zeroshot_results(i,
 
 
 def zeroshot_results(
-    repo: EvaluationRepository,
+    repo: EvaluationRepositoryZeroshot,
     dataset_names: List[str],
     n_folds: int,
     rank_scorer,
@@ -186,7 +186,7 @@ def zeroshot_results(
 
 
 def evaluate_tuning(
-        repo: EvaluationRepository, dataset_names: List[str], n_folds: int, rank_scorer, normalized_scorer,
+        repo: EvaluationRepositoryZeroshot, dataset_names: List[str], n_folds: int, rank_scorer, normalized_scorer,
         expname="02-05-v2",
 ) -> List[ResultRow]:
     """

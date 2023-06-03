@@ -60,8 +60,8 @@ class SimulationOutputGenerator:
         else:
             config_scorer_kwargs = copy.deepcopy(config_scorer_kwargs)
 
-        from autogluon_zeroshot.repository import EvaluationRepository
-        self.repo: EvaluationRepository = repo
+        from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
+        self.repo: EvaluationRepositoryZeroshot = repo
 
         self.config_scorer_type = config_scorer_type
         self.config_scorer_kwargs = config_scorer_kwargs

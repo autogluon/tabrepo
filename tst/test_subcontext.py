@@ -1,10 +1,12 @@
 import pandas as pd
 
+import pytest
+
 from autogluon_zeroshot.contexts import get_subcontext
-from autogluon_zeroshot.repository import EvaluationRepository
+from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
 
 
-def verify_result_df(repo: EvaluationRepository, result_df: pd.DataFrame, name: str):
+def verify_result_df(repo: EvaluationRepositoryZeroshot, result_df: pd.DataFrame, name: str):
     assert list(result_df.columns) == [
         'dataset', 'fold', 'framework', 'metric_error', 'time_train_s', 'time_infer_s', 'metric', 'problem_type', 'tid'
     ]
@@ -25,6 +27,8 @@ def verify_result_df(repo: EvaluationRepository, result_df: pd.DataFrame, name: 
 
 
 # TODO: Update so that anyone can run this test without needing private data first
+@pytest.mark.skip("skipping for now as takes 20s and requires downloading data from s3, "
+                  "we can add it back once we have infrastructure for integration test")
 def test_subcontext():
     """
     Tests subcontext and EvaluationRepository logic by loading an EvaluationRepository
@@ -42,7 +46,7 @@ def test_subcontext():
         n_models=n_models,
         n_datasets=n_datasets,
     )
-    assert isinstance(repo, EvaluationRepository)
+    assert isinstance(repo, EvaluationRepositoryZeroshot)
     assert repo.n_folds() == n_folds
     assert repo.n_datasets() == n_datasets
     assert repo.n_models() == n_models

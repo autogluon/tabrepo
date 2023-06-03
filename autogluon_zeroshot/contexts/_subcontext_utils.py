@@ -2,26 +2,26 @@ import copy
 import random
 from typing import Callable, List
 
-from autogluon_zeroshot.repository import EvaluationRepository
+from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
 from autogluon_zeroshot.utils.cache import cache_function
 
 
 def gen_sample_repo_exact(
-        repo: EvaluationRepository,
+        repo: EvaluationRepositoryZeroshot,
         folds: List[int] = None,
         datasets: List[int] = None,
         models: List[str] = None,
-) -> EvaluationRepository:
+) -> EvaluationRepositoryZeroshot:
     return copy.deepcopy(repo).subset(folds=folds, datasets=datasets, models=models)
 
 
 def gen_sample_repo(
-        fun: Callable[[], EvaluationRepository],
+        fun: Callable[[], EvaluationRepositoryZeroshot],
         n_models: int = None,
         n_folds: int = None,
         n_datasets: int = None,
         random_seed: int = 0,
-) -> EvaluationRepository:
+) -> EvaluationRepositoryZeroshot:
     repo = fun()
     models = repo.list_models()
     datasets = [repo.taskid_to_dataset(taskid) for taskid in repo.get_datasets()]
@@ -49,7 +49,7 @@ def gen_sample_repo(
 
 
 def gen_sample_repo_with_cache(
-        fun: Callable[[], EvaluationRepository],
+        fun: Callable[[], EvaluationRepositoryZeroshot],
         cache_name_prefix: str,
         *,
         n_folds: int = None,
@@ -57,7 +57,7 @@ def gen_sample_repo_with_cache(
         n_models: int = None,
         random_seed: int = 0,
         ignore_cache: bool = False,
-) -> EvaluationRepository:
+) -> EvaluationRepositoryZeroshot:
     f"""
     Generate and cache a subset of a EvaluationRepository.
     Future calls will reload the cache, which is uniquely identified by the automatically generated cache file name.
@@ -79,7 +79,7 @@ def gen_sample_repo_with_cache(
     if n_models:
         cache_name += f'_C{n_models}'
     cache_name += f'_S{random_seed}'
-    repo: EvaluationRepository = cache_function(lambda: gen_sample_repo(
+    repo: EvaluationRepositoryZeroshot = cache_function(lambda: gen_sample_repo(
         fun=fun,
         n_folds=n_folds,
         n_models=n_models,
@@ -90,7 +90,7 @@ def gen_sample_repo_with_cache(
 
 
 if __name__ == '__main__':
-    repo: EvaluationRepository = gen_sample_repo_with_cache(
+    repo: EvaluationRepositoryZeroshot = gen_sample_repo_with_cache(
         n_folds=2,
         n_models=20,
         n_datasets=10,

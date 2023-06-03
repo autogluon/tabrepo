@@ -199,14 +199,14 @@ class SimpleRepository(SaveLoadMixin):
 # TODO: git shelve ADD BACK
 if __name__ == '__main__':
     from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-    from autogluon_zeroshot.repository.evaluation_repository import EvaluationRepository
+    from autogluon_zeroshot.repository.evaluation_repository import EvaluationRepositoryZeroshot
     with catchtime("loading repo and evaluating one ensemble config"):
         dataset_name = "abalone"
         config_name = "NeuralNetFastAI_r1"
         # repo = EvaluationRepository.load(version="2022_10_13")
 
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
-        repo = EvaluationRepository(
+        repo = EvaluationRepositoryZeroshot(
             zeroshot_context=zsc,
             tabular_predictions=zeroshot_pred_proba,
             ground_truth=zeroshot_gt,

@@ -22,6 +22,7 @@ def benchmark_root_mean_squared_error(num_samples: int, num_repeats: int):
         benchmark_metrics=benchmark_metrics,
         num_repeats=num_repeats,
         assert_score_isclose=True,
+        rtol=5e-7,
     )
 
 
