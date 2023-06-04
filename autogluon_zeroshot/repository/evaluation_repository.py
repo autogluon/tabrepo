@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 from typing import Dict, List, Optional, Union
 
@@ -30,7 +31,7 @@ class EvaluationRepository(SaveLoadMixin):
         self._ground_truth: dict = ground_truth
         assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
 
-    def to_zeroshot(self) -> 'repository.EvaluationRepositoryZeroshot':
+    def to_zeroshot(self) -> repository.EvaluationRepositoryZeroshot:
         """
         Returns a version of the repository as an EvaluationRepositoryZeroshot object.
 
