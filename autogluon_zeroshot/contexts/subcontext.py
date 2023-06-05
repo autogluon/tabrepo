@@ -101,12 +101,12 @@ class BenchmarkSubcontext:
         Generate and cache a subset of the EvaluationRepository.
         Future calls will reload the cache, which is uniquely identified by the automatically generated cache file name.
 
-        @param n_folds: The number of folds to subset to. If None, will use all folds.
-        @param n_datasets: The number of datasets to subset to. If None, will use all datasets.
-        @param n_models: The number of models to subset to. If None, will use all models.
-        @param random_seed: The random seed used when randomly selecting {n_datasets} and {n_models}.
-        @param ignore_cache: If True, will compute the repo subset even if the cache already existed, and will overwrite it.
-        @return: An EvaluationRepository object that is subset according to the parameters, and cached to disk.
+        :param n_folds: The number of folds to subset to. If None, will use all folds.
+        :param n_datasets: The number of datasets to subset to. If None, will use all datasets.
+        :param n_models: The number of models to subset to. If None, will use all models.
+        :param random_seed: The random seed used when randomly selecting {n_datasets} and {n_models}.
+        :param ignore_cache: If True, will compute the repo subset even if the cache already existed, and will overwrite it.
+        :return: An EvaluationRepository object that is subset according to the parameters, and cached to disk.
         """
         repo_subset = gen_sample_repo_with_cache(
             fun=self.load,

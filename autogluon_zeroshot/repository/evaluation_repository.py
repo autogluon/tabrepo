@@ -35,7 +35,7 @@ class EvaluationRepository(SaveLoadMixin):
         """
         Returns a version of the repository as an EvaluationRepositoryZeroshot object.
 
-        @return: EvaluationRepositoryZeroshot object
+        :return: EvaluationRepositoryZeroshot object
         """
         from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
         self_zeroshot = copy.copy(self)  # Shallow copy so that the class update does not alter self
@@ -62,11 +62,11 @@ class EvaluationRepository(SaveLoadMixin):
         """
         Method to subset the repository object and force to a dense representation.
 
-        @param folds: The list of folds to subset. Ignored if unspecified.
-        @param models: The list of models to subset. Ignored if unspecified.
-        @param datasets: The list of datasets to subset. Ignored if unspecified.
-        @param verbose: Whether to log verbose details about the force to dense operation.
-        @return: Return self after in-place updates in this call.
+        :param folds: The list of folds to subset. Ignored if unspecified.
+        :param models: The list of models to subset. Ignored if unspecified.
+        :param datasets: The list of datasets to subset. Ignored if unspecified.
+        :param verbose: Whether to log verbose details about the force to dense operation.
+        :return: Return self after in-place updates in this call.
         """
         if folds:
             self._zeroshot_context.subset_folds(folds=folds)
@@ -90,8 +90,8 @@ class EvaluationRepository(SaveLoadMixin):
 
         Calling this method when already in a dense representation will result in no changes.
 
-        @param verbose: Whether to log verbose details about the force to dense operation.
-        @return: Return self after in-place updates in this call.
+        :param verbose: Whether to log verbose details about the force to dense operation.
+        :return: Return self after in-place updates in this call.
         """
         # TODO: Move these util functions to simulations or somewhere else to avoid circular imports
         from autogluon_zeroshot.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
@@ -142,7 +142,7 @@ class EvaluationRepository(SaveLoadMixin):
         """
         List all models that appear in at least one task.
 
-        @return: the list of configurations that are available in at least one task.
+        :return: the list of configurations that are available in at least one task.
         """
         return self._zeroshot_context.get_configs()
 
