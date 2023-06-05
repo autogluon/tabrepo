@@ -72,6 +72,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
+        if 'datasets' not in kwargs:
+            kwargs['datasets'] = zeroshot_simulator_context.get_dataset_folds()
         return cls(
             ranker=zeroshot_simulator_context.rank_scorer_vs_automl,
             dataset_name_to_tid_dict=zeroshot_simulator_context.dataset_name_to_tid_dict,

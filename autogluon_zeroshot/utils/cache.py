@@ -1,8 +1,13 @@
+from typing import Union
+
 import pandas as pd
 import pickle
 import sys
 from pathlib import Path
 from typing import Callable, Optional
+
+from autogluon.common.loaders import load_pkl
+from autogluon.common.savers import save_pkl
 
 from autogluon_zeroshot.utils import catchtime
 
@@ -69,6 +74,24 @@ def cache_function_dataframe(
             assert isinstance(df, pd.DataFrame)
             df.to_csv(cache_file, index=False)
             return pd.read_csv(cache_file)
+
+
+class SaveLoadMixin:
+    """
+    Mixin class to add generic pickle save/load methods.
+    """
+    def save(self, path: Union[str, Path]):
+        path = str(path)
+        assert path.endswith('.pkl')
+        save_pkl.save(path=path, object=self)
+
+    @classmethod
+    def load(cls, path: Union[str, Path]):
+        path = str(path)
+        assert path.endswith('.pkl')
+        obj = load_pkl.load(path=path)
+        assert isinstance(obj, cls)
+        return obj
 
 
 if __name__ == '__main__':

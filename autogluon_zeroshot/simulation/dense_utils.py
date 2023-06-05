@@ -48,7 +48,8 @@ def get_models(tabular_predictions: TabularModelPredictions, present_in_all=Fals
 def force_to_dense(tabular_predictions: TabularModelPredictions,
                    first_prune_method: str = 'task',
                    second_prune_method: str = 'dataset',
-                   assert_not_empty: bool = True):
+                   assert_not_empty: bool = True,
+                   verbose: bool = True):
     """
     Force to be dense in all dimensions.
     This means all models will be present in all tasks, and all folds will be present in all datasets.
@@ -60,13 +61,15 @@ def force_to_dense(tabular_predictions: TabularModelPredictions,
     else:
         first_method = force_to_dense_models
         second_method = force_to_dense_folds
-    print(
-        f'Forcing {tabular_predictions.__class__.__name__} to dense representation via two-stage filtering using '
-        f'`first_prune_method="{first_prune_method}"`, `second_prune_method="{second_prune_method}"`...')
-    first_method(tabular_predictions, prune_method=first_prune_method, assert_not_empty=assert_not_empty)
-    second_method(tabular_predictions, prune_method=second_prune_method, assert_not_empty=assert_not_empty)
+    if verbose:
+        print(
+            f'Forcing {tabular_predictions.__class__.__name__} to dense representation via two-stage filtering using '
+            f'`first_prune_method="{first_prune_method}"`, `second_prune_method="{second_prune_method}"`...')
+    first_method(tabular_predictions, prune_method=first_prune_method, assert_not_empty=assert_not_empty, verbose=verbose)
+    second_method(tabular_predictions, prune_method=second_prune_method, assert_not_empty=assert_not_empty, verbose=verbose)
 
-    print(f'The {tabular_predictions.__class__.__name__} object is now guaranteed to be dense.')
+    if verbose:
+        print(f'The {tabular_predictions.__class__.__name__} object is now guaranteed to be dense.')
     assert is_dense(tabular_predictions)
 
 
@@ -82,14 +85,18 @@ def get_datasets_with_folds(tabular_predictions: TabularModelPredictions, folds:
             valid_datasets.append(dataset)
     return valid_datasets
 
-def force_to_dense_folds(tabular_predictions: TabularModelPredictions, prune_method: str = 'dataset', assert_not_empty: bool = True):
+def force_to_dense_folds(tabular_predictions: TabularModelPredictions,
+                         prune_method: str = 'dataset',
+                         assert_not_empty: bool = True,
+                         verbose: bool = True):
     """
     Force the pred dict to contain only dense fold results (no missing folds for any dataset)
     :param prune_method:
         If 'dataset', prunes any dataset that doesn't contain results for all folds
         If 'fold', prunes any fold that doesn't exist for all datasets
     """
-    print(f'Forcing {tabular_predictions.__class__.__name__} to dense fold representation using `prune_method="{prune_method}"`...')
+    if verbose:
+        print(f'Forcing {tabular_predictions.__class__.__name__} to dense fold representation using `prune_method="{prune_method}"`...')
     valid_prune_methods = ['dataset', 'fold']
     if prune_method not in valid_prune_methods:
         raise ValueError(f'`prune_method={prune_method}` is invalid. Valid values: {valid_prune_methods}')
@@ -108,21 +115,26 @@ def force_to_dense_folds(tabular_predictions: TabularModelPredictions, prune_met
     post_num_datasets = len(tabular_predictions.datasets)
     post_num_folds = len(tabular_predictions.folds)
 
-    print(f'\tPre : datasets={pre_num_datasets} | models={pre_num_models} | folds={pre_num_folds}')
-    print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
+    if verbose:
+        print(f'\tPre : datasets={pre_num_datasets} | models={pre_num_models} | folds={pre_num_folds}')
+        print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
     assert is_dense_folds(tabular_predictions)
     if assert_not_empty:
         assert not tabular_predictions.is_empty()
 
 
-def force_to_dense_models(tabular_predictions: TabularModelPredictions, prune_method: str = 'task', assert_not_empty: bool = True):
+def force_to_dense_models(tabular_predictions: TabularModelPredictions,
+                          prune_method: str = 'task',
+                          assert_not_empty: bool = True,
+                          verbose: bool = True):
     """
     Force the pred dict to contain only dense results (no missing result for any task/model)
     :param prune_method:
         If 'task', prunes any task that doesn't contain results for all models
         If 'model', prunes any model that doesn't have results for all tasks
     """
-    print(f'Forcing {tabular_predictions.__class__.__name__} to dense model representation using `prune_method="{prune_method}"`...')
+    if verbose:
+        print(f'Forcing {tabular_predictions.__class__.__name__} to dense model representation using `prune_method="{prune_method}"`...')
     valid_prune_methods = ['task', 'model']
     if prune_method not in valid_prune_methods:
         raise ValueError(f'`prune_method={prune_method}` is invalid. Valid values: {valid_prune_methods}')
@@ -150,8 +162,9 @@ def force_to_dense_models(tabular_predictions: TabularModelPredictions, prune_me
     post_num_datasets = len(tabular_predictions.datasets)
     post_num_folds = len(tabular_predictions.folds)
 
-    print(f'\tPre : datasets={pre_num_datasets} | models={pre_num_models} | folds={pre_num_folds}')
-    print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
+    if verbose:
+        print(f'\tPre : datasets={pre_num_datasets} | models={pre_num_models} | folds={pre_num_folds}')
+        print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
     assert is_dense_models(tabular_predictions)
     if assert_not_empty:
         assert not tabular_predictions.is_empty()
