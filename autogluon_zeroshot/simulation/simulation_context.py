@@ -134,6 +134,7 @@ class ZeroshotSimulatorContext:
         b = a['tid'].value_counts()
         b = b[b == len(folds)]
         unique_datasets = list(b.index)
+        unique_datasets = sorted(unique_datasets)
 
         dataset_name_to_fold_dict = df_results_by_dataset[['dataset', 'fold']].drop_duplicates().set_index('dataset')[
             'fold'].to_dict()

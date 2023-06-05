@@ -113,21 +113,31 @@ class EvaluationRepository(SaveLoadMixin):
     def _df_metadata(self) -> pd.DataFrame:
         return self._zeroshot_context.df_metadata
 
-    def dataset_names(self) -> List[str]:
-        return list(sorted([self._tid_to_name[task_id] for task_id in self._tabular_predictions.datasets]))
+    def tids(self, problem_type: str = None) -> List[int]:
+        """
+        Note: returns the taskid of the datasets rather than the string name.
 
-    def list_models_available(self, dataset_name: str) -> List[str]:
+        :param problem_type: If specified, only datasets with the given problem_type are returned.
+        """
+        return self._zeroshot_context.get_datasets(problem_type=problem_type)
+
+    def dataset_names(self) -> List[str]:
+        tids = self.tids()
+        dataset_names = [self._tid_to_name[tid] for tid in tids]
+        return dataset_names
+
+    def list_models_available(self, tid: int) -> List[str]:
         # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
         #  datasets, specify whether all need to be present etc
         """
-        :param dataset_name:
+        :param tid:
         :return: the list of configurations that are available on all folds of the given dataset.
         """
-        task_id = self._name_to_tid[dataset_name]
-        res = set(self._tabular_predictions.list_models_available(datasets=[task_id]))
-        for fold in range(self.n_folds()):
+        res = set(self._tabular_predictions.list_models_available(datasets=[tid]))
+        for fold in self.folds:
             df = self._zeroshot_context.df_results_by_dataset_vs_automl
-            methods = set(df.loc[df.dataset == f"{self.dataset_to_tid(dataset_name)}_{fold}", "framework"].unique())
+            task = self._task_name(tid=tid, fold=fold)
+            methods = set(df.loc[df.dataset == task, "framework"].unique())
             res = res.intersection(methods)
         return list(sorted(res))
 
@@ -182,14 +192,6 @@ class EvaluationRepository(SaveLoadMixin):
     def dataset_metadata(self, dataset_name: str) -> dict:
         metadata = self._df_metadata[self._df_metadata.name == dataset_name]
         return dict(zip(metadata.columns, metadata.values[0]))
-
-    def tids(self, problem_type: str = None) -> List[int]:
-        """
-        Note: returns the taskid of the datasets rather than the string name.
-
-        :param problem_type: If specified, only datasets with the given problem_type are returned.
-        """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
     @property
     def folds(self) -> List[int]:
