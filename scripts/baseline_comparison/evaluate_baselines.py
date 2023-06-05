@@ -41,7 +41,7 @@ def make_scorers(repo):
         repo._zeroshot_context.df_results_by_dataset_automl,
     ], ignore_index=True)
     unique_dataset_folds = [
-        f"{repo.dataset_to_taskid(dataset)}_{fold}"
+        f"{repo.dataset_to_tid(dataset)}_{fold}"
         for dataset in repo.dataset_names()
         for fold in range(repo.n_folds())
     ]

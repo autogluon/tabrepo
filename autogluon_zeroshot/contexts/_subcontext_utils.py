@@ -9,10 +9,10 @@ from autogluon_zeroshot.utils.cache import cache_function
 def gen_sample_repo_exact(
         repo: EvaluationRepository,
         folds: List[int] = None,
-        datasets: List[int] = None,
+        tids: List[int] = None,
         models: List[str] = None,
 ) -> EvaluationRepository:
-    return copy.deepcopy(repo).subset(folds=folds, datasets=datasets, models=models)
+    return copy.deepcopy(repo).subset(folds=folds, tids=tids, models=models)
 
 
 def gen_sample_repo(
@@ -24,7 +24,7 @@ def gen_sample_repo(
 ) -> EvaluationRepository:
     repo = fun()
     models = repo.list_models()
-    datasets = [repo.taskid_to_dataset(taskid) for taskid in repo.get_datasets()]
+    datasets = [repo.tid_to_dataset(taskid) for taskid in repo.tids()]
     folds_sample = None
     if n_folds is not None:
         folds_sample = list(range(n_folds))
@@ -33,7 +33,7 @@ def gen_sample_repo(
     tid_sample = None
     if n_datasets is not None:
         datasets_sample = random.sample(datasets, n_datasets)
-        tid_sample = [repo.dataset_to_taskid(d) for d in datasets_sample]
+        tid_sample = [repo.dataset_to_tid(d) for d in datasets_sample]
 
     random.seed(random_seed + 1)
     models_sample = None
@@ -43,7 +43,7 @@ def gen_sample_repo(
     return gen_sample_repo_exact(
         repo=repo,
         folds=folds_sample,
-        datasets=tid_sample,
+        tids=tid_sample,
         models=models_sample,
     )
 

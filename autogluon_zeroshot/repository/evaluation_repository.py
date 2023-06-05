@@ -56,7 +56,7 @@ class EvaluationRepository(SaveLoadMixin):
     def subset(self,
                folds: List[int] = None,
                models: List[str] = None,
-               datasets: List[Union[str, int]] = None,
+               tids: List[Union[str, int]] = None,
                verbose: bool = True,
                ):
         """
@@ -64,7 +64,7 @@ class EvaluationRepository(SaveLoadMixin):
 
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param models: The list of models to subset. Ignored if unspecified.
-        :param datasets: The list of datasets to subset. Ignored if unspecified.
+        :param tids: The list of dataset task ids to subset. Ignored if unspecified.
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
         """
@@ -72,8 +72,9 @@ class EvaluationRepository(SaveLoadMixin):
             self._zeroshot_context.subset_folds(folds=folds)
         if models:
             self._zeroshot_context.subset_models(models=models)
-        if datasets:
-            self._zeroshot_context.subset_datasets(datasets=datasets)
+        if tids:
+            # TODO: Align `_zeroshot_context` naming of datasets -> tids
+            self._zeroshot_context.subset_datasets(datasets=tids)
         # TODO:
         # if problem_type:
         #     self._zeroshot_context.subset_problem_type(problem_type=problem_type)
@@ -115,11 +116,6 @@ class EvaluationRepository(SaveLoadMixin):
     def dataset_names(self) -> List[str]:
         return list(sorted([self._tid_to_name[task_id] for task_id in self._tabular_predictions.datasets]))
 
-    # TODO: Unify with `get_datasets`, currently they do the same thing. Keeping both to avoid merge conflicts.
-    #  Will address in isolated PR.
-    def task_ids(self) -> List[int]:
-        return list(sorted(self._name_to_tid.values()))
-
     def list_models_available(self, dataset_name: str) -> List[str]:
         # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
         #  datasets, specify whether all need to be present etc
@@ -131,7 +127,7 @@ class EvaluationRepository(SaveLoadMixin):
         res = set(self._tabular_predictions.list_models_available(datasets=[task_id]))
         for fold in range(self.n_folds()):
             df = self._zeroshot_context.df_results_by_dataset_vs_automl
-            methods = set(df.loc[df.dataset == f"{self.dataset_to_taskid(dataset_name)}_{fold}", "framework"].unique())
+            methods = set(df.loc[df.dataset == f"{self.dataset_to_tid(dataset_name)}_{fold}", "framework"].unique())
             res = res.intersection(methods)
         return list(sorted(res))
 
@@ -144,11 +140,11 @@ class EvaluationRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_configs()
 
-    def dataset_to_taskid(self, dataset_name: str) -> int:
+    def dataset_to_tid(self, dataset_name: str) -> int:
         return self._name_to_tid[dataset_name]
 
-    def taskid_to_dataset(self, taskid: int) -> str:
-        return self._tid_to_name.get(taskid, "Not found")
+    def tid_to_dataset(self, tid: int) -> str:
+        return self._tid_to_name.get(tid, "Not found")
 
     def eval_metrics(self, dataset_name: str, config_names: List[str], fold: int, check_all_found: bool = True) -> List[dict]:
         """
@@ -158,7 +154,7 @@ class EvaluationRepository(SaveLoadMixin):
         :return: list of metrics for each configuration
         """
         df = self._zeroshot_context.df_results_by_dataset_vs_automl
-        mask = (df.dataset == f"{self.dataset_to_taskid(dataset_name)}_{fold}") & (df.framework.isin(config_names))
+        mask = (df.dataset == f"{self.dataset_to_tid(dataset_name)}_{fold}") & (df.framework.isin(config_names))
         output_cols = ["framework", "time_train_s", "metric_error", "time_infer_s", "bestdiff", "loss_rescaled",
                        "time_train_s_rescaled", "time_infer_s_rescaled", "rank", "score_val"]
         if check_all_found:
@@ -169,7 +165,7 @@ class EvaluationRepository(SaveLoadMixin):
 
     def val_predictions(self, dataset_name: str, config_name: str, fold: int) -> np.array:
         val_predictions, _ = self._tabular_predictions.predict(
-            dataset=self.dataset_to_taskid(dataset_name),
+            dataset=self.dataset_to_tid(dataset_name),
             fold=fold,
             models=[config_name]
         )
@@ -177,7 +173,7 @@ class EvaluationRepository(SaveLoadMixin):
 
     def test_predictions(self, dataset_name: str, config_name: str, fold: int) -> np.array:
         _, test_predictions = self._tabular_predictions.predict(
-            dataset=self.dataset_to_taskid(dataset_name),
+            dataset=self.dataset_to_tid(dataset_name),
             fold=fold,
             models=[config_name]
         )
@@ -187,9 +183,7 @@ class EvaluationRepository(SaveLoadMixin):
         metadata = self._df_metadata[self._df_metadata.name == dataset_name]
         return dict(zip(metadata.columns, metadata.values[0]))
 
-    # TODO: Unify with dataset_names in future, keeping separate for now to avoid merge conflicts
-    # TODO: Determine if `get_datasets` or `list_datasets` is a better name.
-    def get_datasets(self, problem_type: str = None) -> List[int]:
+    def tids(self, problem_type: str = None) -> List[int]:
         """
         Note: returns the taskid of the datasets rather than the string name.
 
@@ -205,10 +199,16 @@ class EvaluationRepository(SaveLoadMixin):
         return len(self.folds)
 
     def n_datasets(self) -> int:
-        return len(self.get_datasets())
+        return len(self.tids())
 
     def n_models(self) -> int:
         return len(self.list_models())
+
+    def _task_name(self, tid: int, fold: int) -> str:
+        return f"{tid}_{fold}"
+
+    def _task_name_from_dataset(self, dataset_name: str, fold: int) -> str:
+        return self._task_name(tid=self.dataset_to_tid(dataset_name), fold=fold)
 
     def evaluate_ensemble(
         self,
@@ -230,9 +230,8 @@ class EvaluationRepository(SaveLoadMixin):
         """
         if folds is None:
             folds = self.folds
-        dataset_fold_name = lambda dataset, fold: f"{self.dataset_to_taskid(dataset)}_{fold}"
         tasks = [
-            dataset_fold_name(dataset, fold)
+            self._task_name_from_dataset(dataset, fold)
             for dataset in dataset_names
             for fold in folds
         ]
@@ -247,7 +246,7 @@ class EvaluationRepository(SaveLoadMixin):
             dict_scores = scorer.compute_errors(configs=config_names)
 
         return np.array([[
-                dict_scores[dataset_fold_name(dataset, fold)
+                dict_scores[self._task_name_from_dataset(dataset, fold)
             ] for fold in folds
         ] for dataset in dataset_names])
 
@@ -260,7 +259,6 @@ class EvaluationRepository(SaveLoadMixin):
             return self._construct_single_best_config_scorer(**config_scorer_kwargs)
         else:
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
-
 
     def _construct_ensemble_selection_config_scorer(self,
                                                     ensemble_size: int = 10,
@@ -313,9 +311,9 @@ if __name__ == '__main__':
         )
 
         print(repo.dataset_names()[:3])  # ['abalone', 'ada', 'adult']
-        print(repo.task_ids()[:3])  # [2073, 3945, 7593]
+        print(repo.tids()[:3])  # [2073, 3945, 7593]
 
-        print(repo.dataset_to_taskid(dataset_name))  # 360945
+        print(repo.dataset_to_tid(dataset_name))  # 360945
         print(list(repo.list_models_available(dataset_name))[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
         print(repo.eval_metrics(dataset_name=dataset_name, config_names=[config_name], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
         print(repo.val_predictions(dataset_name=dataset_name, config_name=config_name, fold=2).shape)

@@ -37,7 +37,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_folds
     rows_automl = []
     for dataset in tqdm(dataset_names):
         for fold in range(n_folds):
-            dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
+            dataset_fold_name = f"{repo.dataset_to_tid(dataset)}_{fold}"
             automl_df_fold = automl_df[automl_df['task'] == dataset_fold_name]
             task_automl_dict = automl_df_fold.T.to_dict()
 
@@ -72,7 +72,7 @@ def zeroshot_results(
     for dataset in tqdm(dataset_names):
         for portfolio_size in portfolio_sizes:
             for ensemble_size in ensemble_sizes:
-                taskid = repo.dataset_to_taskid(dataset)
+                taskid = repo.dataset_to_tid(dataset)
                 train_datasets = [x for x in df_rank.columns if x.split("_")[0] != str(taskid)]
                 indices = zeroshot_configs(-df_rank[train_datasets].values.T, portfolio_size)
                 portfolio_configs = [df_rank.index[i] for i in indices]
@@ -90,9 +90,9 @@ def zeroshot_results(
                 assert test_errors.shape[0] == 1  # we send one model, we should get one row back
                 for fold in range(n_folds):
                     test_error = test_errors[0][fold]
-                    dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
+                    dataset_fold_name = f"{repo.dataset_to_tid(dataset)}_{fold}"
                     rows_zeroshot.append(ResultRow(
-                        taskid=repo.dataset_to_taskid(dataset),
+                        taskid=repo.dataset_to_tid(dataset),
                         fold=fold,
                         method=f"Zeroshot{suffix}",
                         test_error=test_error,
@@ -160,16 +160,16 @@ def evaluate_tuning(
             for method in ["zeroshot", "localsearch"]:
                 test_errors = repo.evaluate_ensemble(
                     dataset_names=[dataset],
-                    config_names=taskid_to_config(tuning_rows, repo.dataset_to_taskid(dataset))[method],
+                    config_names=taskid_to_config(tuning_rows, repo.dataset_to_tid(dataset))[method],
                     ensemble_size=ensemble_size,
                     rank=False,
                 )
                 assert test_errors.shape[0] == 1  # we send one model, we should get one row back
                 for fold in range(n_folds):
                     test_error = test_errors[0][fold]
-                    dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
+                    dataset_fold_name = f"{repo.dataset_to_tid(dataset)}_{fold}"
                     rows.append(ResultRow(
-                        taskid=repo.dataset_to_taskid(dataset),
+                        taskid=repo.dataset_to_tid(dataset),
                         fold=fold,
                         method=f"{method}{suffix}".capitalize(),
                         test_error=test_error,
