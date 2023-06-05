@@ -85,9 +85,7 @@ class EvaluationRepository(SaveLoadMixin):
         """
         Method to force the repository to a dense representation inplace.
 
-        This will ensure that `self._zeroshot_context`, `self._tabular_predictions`, and `self._ground_truth`
-        contain the same datasets, folds, and models, and all models and folds are present for every dataset.
-
+        This will ensure that all datasets contain the same folds, and all tasks contain the same models.
         Calling this method when already in a dense representation will result in no changes.
 
         :param verbose: Whether to log verbose details about the force to dense operation.
@@ -231,7 +229,7 @@ class EvaluationRepository(SaveLoadMixin):
         :return: 2D array of scores whose rows are datasets and columns are folds
         """
         if folds is None:
-            folds = range(self.n_folds())
+            folds = self.folds
         dataset_fold_name = lambda dataset, fold: f"{self.dataset_to_taskid(dataset)}_{fold}"
         tasks = [
             dataset_fold_name(dataset, fold)

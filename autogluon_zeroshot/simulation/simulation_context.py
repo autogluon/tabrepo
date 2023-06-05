@@ -317,6 +317,7 @@ class ZeroshotSimulatorContext:
         self.df_results_by_dataset_automl = self.df_results_by_dataset_automl[self.df_results_by_dataset_automl["tid"].isin(datasets)]
         self.df_results_by_dataset_automl.drop("tid", axis=1, inplace=True)
         self.df_metadata = self.df_metadata[self.df_metadata.tid.isin(datasets)]
+        self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if t in datasets}
 
     def subset_models(self, models):
         """
