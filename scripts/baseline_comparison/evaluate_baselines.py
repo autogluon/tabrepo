@@ -11,7 +11,7 @@ from typing import List, Callable
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from autogluon_zeroshot.repository.evaluation_repository import load
+from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
 from autogluon_zeroshot.utils.cache import cache_function, cache_function_dataframe
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
@@ -69,7 +69,7 @@ def list_artificial_experiments() -> List[Experiment]:
 
 
 def list_experiments(n_datasets: int, n_eval_folds: int, expname: str, engine: str, repo_version: str = "BAG_D244_F10_C608_FULL") -> List[Experiment]:
-    repo = cache_function(lambda: load(version=repo_version), cache_name="repo")
+    repo: EvaluationRepository = cache_function(lambda: load(version=repo_version), cache_name="repo")
     rank_scorer, normalized_scorer = make_scorers(repo)
     dataset_names = repo.dataset_names()
     if n_datasets is not None:

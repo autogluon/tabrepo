@@ -10,7 +10,7 @@ from syne_tune.experiments import load_experiments_df
 from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
-from autogluon_zeroshot.repository import EvaluationRepository, load
+from autogluon_zeroshot.repository import EvaluationRepository
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 
@@ -38,15 +38,17 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
 
     rows_automl = []
     for dataset in tqdm(dataset_names):
+        tid = repo.dataset_to_tid(dataset)
         for fold in range(n_eval_folds):
-            dataset_fold_name = f"{repo.dataset_to_taskid(dataset)}_{fold}"
+            dataset_fold_name = repo.task_name(tid=tid, fold=fold)
             automl_df_fold = automl_df[automl_df['task'] == dataset_fold_name]
             task_automl_dict = automl_df_fold.T.to_dict()
 
             for k, v in task_automl_dict.items():
+                assert tid == v['tid']
                 metric_error = v['metric_error']
                 rows_automl.append(ResultRow(
-                    taskid=v['tid'],
+                    taskid=tid,
                     fold=v['fold'],
                     method=v['framework'],
                     test_error=metric_error,
@@ -78,7 +80,7 @@ def zeroshot_results(
         normalized_scorer,
         n_eval_folds: int,
         n_ensembles: List[int] = [40],
-        n_portfolios: List[int]=[20],
+        n_portfolios: List[int] = [20],
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
         engine: str = "ray",
@@ -93,29 +95,29 @@ def zeroshot_results(
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
     :return: evaluation obtained on all combinations
     """
-    def evaluate_dataset(test_dataset, portfolio_size, ensemble_size, n_training_dataset, n_training_fold, repo, df_rank, rank_scorer, normalized_scorer):
+    def evaluate_dataset(test_dataset, portfolio_size, ensemble_size, n_training_dataset, n_training_fold, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer):
         method_name = zeroshot_name(portfolio_size, ensemble_size, n_training_dataset, n_training_fold=n_training_fold)
         if n_training_fold is None:
             n_training_fold = n_eval_folds
         rows_zeroshot = []
-        taskid = repo.dataset_to_taskid(test_dataset)
-        available_taskids = [repo.dataset_to_taskid(dataset) for dataset in dataset_names if dataset != test_dataset]
-        np.random.shuffle(available_taskids)
+        test_tid = repo.dataset_to_tid(test_dataset)
+        available_tids = [repo.dataset_to_tid(dataset) for dataset in dataset_names if dataset != test_dataset]
+        np.random.shuffle(available_tids)
         if n_training_dataset is None:
-            n_training_dataset = len(available_taskids)
-        selected_taskids = set(available_taskids[:n_training_dataset])
+            n_training_dataset = len(available_tids)
+        selected_tids = set(available_tids[:n_training_dataset])
 
         train_tasks = []
         for task in df_rank.columns:
             tid, fold = task.split("_")
-            if int(tid) in selected_taskids and int(fold) < n_training_fold:
+            if int(tid) in selected_tids and int(fold) < n_training_fold:
                 train_tasks.append(task)
 
         indices = zeroshot_configs(-df_rank[train_tasks].values.T, portfolio_size)
         portfolio_configs = [df_rank.index[i] for i in indices]
 
         test_errors = repo.evaluate_ensemble(
-            dataset_names=[test_dataset],
+            tids=[test_tid],
             config_names=portfolio_configs,
             ensemble_size=ensemble_size,
             rank=False,
@@ -124,9 +126,9 @@ def zeroshot_results(
         assert test_errors.shape[0] == 1  # we send one model, we should get one row back
         for fold in range(n_eval_folds):
             test_error = test_errors[0][fold]
-            dataset_fold_name = f"{taskid}_{fold}"
+            dataset_fold_name = repo.task_name(tid=test_tid, fold=fold)
             rows_zeroshot.append(ResultRow(
-                taskid=taskid,
+                taskid=test_tid,
                 fold=fold,
                 method=method_name,
                 test_error=test_error,
