@@ -17,9 +17,9 @@ def verify_result_df(repo: EvaluationRepositoryZeroshot, result_df: pd.DataFrame
 
     assert result_df['metric_error'].min() >= 0
 
-    tids = repo.get_datasets()
+    tids = repo.tids()
     for tid in tids:
-        dataset = repo.taskid_to_dataset(tid)
+        dataset = repo.tid_to_dataset(tid)
         result_df_dataset = result_df[result_df['dataset'] == dataset]
         assert len(result_df_dataset) == repo.n_folds()
         assert set(list(result_df_dataset['fold'].unique())) == set(list(range(repo.n_folds())))

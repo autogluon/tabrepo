@@ -56,7 +56,7 @@ class EvaluationRepository(SaveLoadMixin):
     def subset(self,
                folds: List[int] = None,
                models: List[str] = None,
-               datasets: List[Union[str, int]] = None,
+               tids: List[Union[str, int]] = None,
                verbose: bool = True,
                ):
         """
@@ -64,7 +64,7 @@ class EvaluationRepository(SaveLoadMixin):
 
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param models: The list of models to subset. Ignored if unspecified.
-        :param datasets: The list of datasets to subset. Ignored if unspecified.
+        :param tids: The list of dataset task ids to subset. Ignored if unspecified.
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
         """
@@ -72,8 +72,9 @@ class EvaluationRepository(SaveLoadMixin):
             self._zeroshot_context.subset_folds(folds=folds)
         if models:
             self._zeroshot_context.subset_models(models=models)
-        if datasets:
-            self._zeroshot_context.subset_datasets(datasets=datasets)
+        if tids:
+            # TODO: Align `_zeroshot_context` naming of datasets -> tids
+            self._zeroshot_context.subset_datasets(datasets=tids)
         # TODO:
         # if problem_type:
         #     self._zeroshot_context.subset_problem_type(problem_type=problem_type)
@@ -112,26 +113,31 @@ class EvaluationRepository(SaveLoadMixin):
     def _df_metadata(self) -> pd.DataFrame:
         return self._zeroshot_context.df_metadata
 
+    def tids(self, problem_type: str = None) -> List[int]:
+        """
+        Note: returns the taskid of the datasets rather than the string name.
+
+        :param problem_type: If specified, only datasets with the given problem_type are returned.
+        """
+        return self._zeroshot_context.get_datasets(problem_type=problem_type)
+
     def dataset_names(self) -> List[str]:
-        return list(sorted([self._tid_to_name[task_id] for task_id in self._tabular_predictions.datasets]))
+        tids = self.tids()
+        dataset_names = [self._tid_to_name[tid] for tid in tids]
+        return dataset_names
 
-    # TODO: Unify with `get_datasets`, currently they do the same thing. Keeping both to avoid merge conflicts.
-    #  Will address in isolated PR.
-    def task_ids(self) -> List[int]:
-        return list(sorted(self._name_to_tid.values()))
-
-    def list_models_available(self, dataset_name: str) -> List[str]:
+    def list_models_available(self, tid: int) -> List[str]:
         # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
         #  datasets, specify whether all need to be present etc
         """
-        :param dataset_name:
+        :param tid:
         :return: the list of configurations that are available on all folds of the given dataset.
         """
-        task_id = self._name_to_tid[dataset_name]
-        res = set(self._tabular_predictions.list_models_available(datasets=[task_id]))
-        for fold in range(self.n_folds()):
+        res = set(self._tabular_predictions.list_models_available(datasets=[tid]))
+        for fold in self.folds:
             df = self._zeroshot_context.df_results_by_dataset_vs_automl
-            methods = set(df.loc[df.dataset == f"{self.dataset_to_taskid(dataset_name)}_{fold}", "framework"].unique())
+            task = self.task_name(tid=tid, fold=fold)
+            methods = set(df.loc[df.dataset == task, "framework"].unique())
             res = res.intersection(methods)
         return list(sorted(res))
 
@@ -144,21 +150,22 @@ class EvaluationRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_configs()
 
-    def dataset_to_taskid(self, dataset_name: str) -> int:
+    def dataset_to_tid(self, dataset_name: str) -> int:
         return self._name_to_tid[dataset_name]
 
-    def taskid_to_dataset(self, taskid: int) -> str:
-        return self._tid_to_name.get(taskid, "Not found")
+    def tid_to_dataset(self, tid: int) -> str:
+        return self._tid_to_name.get(tid, "Not found")
 
-    def eval_metrics(self, dataset_name: str, config_names: List[str], fold: int, check_all_found: bool = True) -> List[dict]:
+    def eval_metrics(self, tid: int, config_names: List[str], fold: int, check_all_found: bool = True) -> List[dict]:
         """
-        :param dataset_name:
+        :param tid:
         :param config_names: list of configs to query metrics
         :param fold:
         :return: list of metrics for each configuration
         """
         df = self._zeroshot_context.df_results_by_dataset_vs_automl
-        mask = (df.dataset == f"{self.dataset_to_taskid(dataset_name)}_{fold}") & (df.framework.isin(config_names))
+        task = self.task_name(tid=tid, fold=fold)
+        mask = (df.dataset == task) & (df.framework.isin(config_names))
         output_cols = ["framework", "time_train_s", "metric_error", "time_infer_s", "bestdiff", "loss_rescaled",
                        "time_train_s_rescaled", "time_infer_s_rescaled", "rank", "score_val"]
         if check_all_found:
@@ -167,35 +174,25 @@ class EvaluationRepository(SaveLoadMixin):
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
-    def val_predictions(self, dataset_name: str, config_name: str, fold: int) -> np.array:
+    def val_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
         val_predictions, _ = self._tabular_predictions.predict(
-            dataset=self.dataset_to_taskid(dataset_name),
+            dataset=tid,
             fold=fold,
             models=[config_name]
         )
         return val_predictions[0]
 
-    def test_predictions(self, dataset_name: str, config_name: str, fold: int) -> np.array:
+    def test_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
         _, test_predictions = self._tabular_predictions.predict(
-            dataset=self.dataset_to_taskid(dataset_name),
+            dataset=tid,
             fold=fold,
             models=[config_name]
         )
         return test_predictions[0]
 
-    def dataset_metadata(self, dataset_name: str) -> dict:
-        metadata = self._df_metadata[self._df_metadata.name == dataset_name]
+    def dataset_metadata(self, tid: int) -> dict:
+        metadata = self._df_metadata[self._df_metadata.tid == tid]
         return dict(zip(metadata.columns, metadata.values[0]))
-
-    # TODO: Unify with dataset_names in future, keeping separate for now to avoid merge conflicts
-    # TODO: Determine if `get_datasets` or `list_datasets` is a better name.
-    def get_datasets(self, problem_type: str = None) -> List[int]:
-        """
-        Note: returns the taskid of the datasets rather than the string name.
-
-        :param problem_type: If specified, only datasets with the given problem_type are returned.
-        """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
     @property
     def folds(self) -> List[int]:
@@ -205,14 +202,21 @@ class EvaluationRepository(SaveLoadMixin):
         return len(self.folds)
 
     def n_datasets(self) -> int:
-        return len(self.get_datasets())
+        return len(self.tids())
 
     def n_models(self) -> int:
         return len(self.list_models())
 
+    @staticmethod
+    def task_name(tid: int, fold: int) -> str:
+        return f"{tid}_{fold}"
+
+    def task_name_from_dataset(self, dataset_name: str, fold: int) -> str:
+        return self.task_name(tid=self.dataset_to_tid(dataset_name), fold=fold)
+
     def evaluate_ensemble(
         self,
-        dataset_names: List[str],
+        tids: List[int],
         config_names: List[str],
         ensemble_size: int,
         rank: bool = True,
@@ -220,7 +224,7 @@ class EvaluationRepository(SaveLoadMixin):
         backend: str = "ray",
     ) -> np.array:
         """
-        :param dataset_names: list of dataset to compute errors on.
+        :param tids: list of dataset tids to compute errors on.
         :param config_names: list of config to consider for ensembling.
         :param ensemble_size: number of members to select with Caruana.
         :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
@@ -230,10 +234,9 @@ class EvaluationRepository(SaveLoadMixin):
         """
         if folds is None:
             folds = self.folds
-        dataset_fold_name = lambda dataset, fold: f"{self.dataset_to_taskid(dataset)}_{fold}"
         tasks = [
-            dataset_fold_name(dataset, fold)
-            for dataset in dataset_names
+            self.task_name(tid=tid, fold=fold)
+            for tid in tids
             for fold in folds
         ]
         scorer = self._construct_ensemble_selection_config_scorer(
@@ -247,9 +250,9 @@ class EvaluationRepository(SaveLoadMixin):
             dict_scores = scorer.compute_errors(configs=config_names)
 
         return np.array([[
-                dict_scores[dataset_fold_name(dataset, fold)
+                dict_scores[self.task_name(tid=tid, fold=fold)
             ] for fold in folds
-        ] for dataset in dataset_names])
+        ] for tid in tids])
 
     def _construct_config_scorer(self,
                                  config_scorer_type: str = 'ensemble',
@@ -260,7 +263,6 @@ class EvaluationRepository(SaveLoadMixin):
             return self._construct_single_best_config_scorer(**config_scorer_kwargs)
         else:
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
-
 
     def _construct_ensemble_selection_config_scorer(self,
                                                     ensemble_size: int = 10,
@@ -311,16 +313,16 @@ if __name__ == '__main__':
             tabular_predictions=zeroshot_pred_proba,
             ground_truth=zeroshot_gt,
         )
-
+        tid = repo.dataset_to_tid(dataset_name=dataset_name)
         print(repo.dataset_names()[:3])  # ['abalone', 'ada', 'adult']
-        print(repo.task_ids()[:3])  # [2073, 3945, 7593]
+        print(repo.tids()[:3])  # [2073, 3945, 7593]
 
-        print(repo.dataset_to_taskid(dataset_name))  # 360945
-        print(list(repo.list_models_available(dataset_name))[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
-        print(repo.eval_metrics(dataset_name=dataset_name, config_names=[config_name], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
-        print(repo.val_predictions(dataset_name=dataset_name, config_name=config_name, fold=2).shape)
-        print(repo.test_predictions(dataset_name=dataset_name, config_name=config_name, fold=2).shape)
-        print(repo.dataset_metadata(dataset_name=dataset_name))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
-        print(repo.evaluate_ensemble(dataset_names=[dataset_name], config_names=[config_name, config_name], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
-        print(repo.evaluate_ensemble(dataset_names=[dataset_name], config_names=[config_name, config_name],
+        print(tid)  # 360945
+        print(list(repo.list_models_available(tid))[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
+        print(repo.eval_metrics(tid=tid, config_names=[config_name], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
+        print(repo.val_predictions(tid=tid, config_name=config_name, fold=2).shape)
+        print(repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape)
+        print(repo.dataset_metadata(tid=tid))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
+        print(repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
+        print(repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
                                      ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]
