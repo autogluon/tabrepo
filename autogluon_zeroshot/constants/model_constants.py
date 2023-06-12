@@ -10,4 +10,5 @@ MODEL_TYPE_DICT = {
     'KNeighbors': 'KNN',
     'RandomForest': 'RF',
     'ExtraTrees': 'XT',
+    'TabPFN': 'TABPFN',
 }
