@@ -73,7 +73,7 @@ class BenchmarkSubcontext:
         )
         repo = repo.subset(folds=self.folds,
                            models=self.configs,
-                           datasets=self.datasets)
+                           tids=self.datasets)
         return repo
 
     def exists(self):
