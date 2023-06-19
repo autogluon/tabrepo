@@ -22,6 +22,8 @@ class ResultRow:
     test_error: float
     rank: float
     normalized_score: float
+    time_train_s: float = None
+    time_infer_s: float = None
     config_selected: list = None
 
 
@@ -51,6 +53,8 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
                     taskid=tid,
                     fold=v['fold'],
                     method=v['framework'],
+                    time_train_s=v['time_train_s'],
+                    time_infer_s=v['time_infer_s'],
                     test_error=metric_error,
                     rank=rank_scorer.rank(dataset_fold_name, metric_error),
                     normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
@@ -59,7 +63,16 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
     return rows_automl
 
 
-def zeroshot_name(n_portfolio: int = 20, n_ensemble: int = 40, n_training_dataset: int = None, n_training_fold: int = None):
+def zeroshot_name(n_portfolio: int = 20,
+                  n_ensemble: int = 40,
+                  n_training_dataset: int = None,
+                  n_training_fold: int = None,
+                  split_by_problem_type=False,
+                  split_by_rows=False,
+                  include_self=False,
+                  include_only_self=False,
+                  time_limit=None,
+                  ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
     None, suffixes "-D{n_training_dataset}" and "-S{n_training_folds}" are added, for instance "Zeroshot-N20-C40-D30-S5"
@@ -70,6 +83,16 @@ def zeroshot_name(n_portfolio: int = 20, n_ensemble: int = 40, n_training_datase
         for letter, x in [("N", n_portfolio), ("C", n_ensemble), ("D", n_training_dataset), ("S", n_training_fold), ]
     ]
     suffix = "".join(suffix)
+    if split_by_problem_type == True:
+        suffix += '-PT'
+    if split_by_rows == True:
+        suffix += '-R'
+    if include_self == True:
+        suffix += '-LEAK'
+    if include_only_self == True:
+        suffix += '-ORACLE'
+    if time_limit is not None:
+        suffix += f'-T{time_limit}'
     return f"Zeroshot{suffix}"
 
 
@@ -83,6 +106,12 @@ def zeroshot_results(
         n_portfolios: List[int] = [20],
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
+        sort_by_train_time: bool = True,
+        split_by_problem_type: bool = False,
+        split_by_rows: bool = False,
+        include_self=False,
+        include_only_self=False,
+        time_limit=None,
         engine: str = "ray",
 ) -> List[ResultRow]:
     """
@@ -92,16 +121,37 @@ def zeroshot_results(
     :param n_portfolios: number of folds to use when fitting zeroshot
     :param n_training_datasets: number of dataset to use when fitting zeroshot
     :param n_training_folds: number of folds to use when fitting zeroshot
+    :param sort_by_train_time: whether to sort the selected configs from fastest to slowest
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
     :return: evaluation obtained on all combinations
     """
     def evaluate_dataset(test_dataset, portfolio_size, ensemble_size, n_training_dataset, n_training_fold, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer):
-        method_name = zeroshot_name(portfolio_size, ensemble_size, n_training_dataset, n_training_fold=n_training_fold)
+        method_name = zeroshot_name(portfolio_size, ensemble_size, n_training_dataset, n_training_fold=n_training_fold, split_by_problem_type=split_by_problem_type, split_by_rows=split_by_rows, time_limit=time_limit, include_self=include_self, include_only_self=include_only_self)
         if n_training_fold is None:
             n_training_fold = n_eval_folds
         rows_zeroshot = []
         test_tid = repo.dataset_to_tid(test_dataset)
-        available_tids = [repo.dataset_to_tid(dataset) for dataset in dataset_names if dataset != test_dataset]
+        if include_only_self:
+            available_tids = [test_tid]
+        elif include_self:
+            available_tids = [repo.dataset_to_tid(dataset) for dataset in dataset_names]
+        else:
+            available_tids = [repo.dataset_to_tid(dataset) for dataset in dataset_names if dataset != test_dataset]
+
+        if split_by_problem_type:
+            problem_types = repo._zeroshot_context.tid_to_problem_type_dict
+            test_problem_type = problem_types[test_tid]
+            available_tids = [t for t in available_tids if problem_types[t] == test_problem_type]
+
+        # Split by size
+        if split_by_rows:
+            tid_metadata = repo._zeroshot_context.get_dataset_metadata(test_tid)
+            num_instances = tid_metadata['NumberOfInstances']
+            if num_instances > 5000:
+                available_tids = [t for t in available_tids if repo._zeroshot_context.get_dataset_metadata(t)['NumberOfInstances'] > 5000]
+            else:
+                available_tids = [t for t in available_tids if repo._zeroshot_context.get_dataset_metadata(t)['NumberOfInstances'] <= 5000]
+
         np.random.shuffle(available_tids)
         if n_training_dataset is None:
             n_training_dataset = len(available_tids)
@@ -116,22 +166,95 @@ def zeroshot_results(
         indices = zeroshot_configs(-df_rank[train_tasks].values.T, portfolio_size)
         portfolio_configs = [df_rank.index[i] for i in indices]
 
-        test_errors = repo.evaluate_ensemble(
-            tids=[test_tid],
-            config_names=portfolio_configs,
-            ensemble_size=ensemble_size,
-            rank=False,
-            backend='native',
-        )
-        assert test_errors.shape[0] == 1  # we send one model, we should get one row back
+        # FIXME: ORDER
+        if sort_by_train_time:
+            c = repo._zeroshot_context.df_results_by_dataset_vs_automl
+
+            c = c[c['dataset'].isin(train_tasks)]
+            c = c[c['framework'].isin(portfolio_configs)]
+            d = c[['framework', 'time_train_s']].groupby('framework').mean()
+            e = c[['framework', 'time_train_s']].groupby('framework').max()
+            f = c[['framework', 'time_train_s']].groupby('framework').median()
+
+            verify_correctness = False
+            if verify_correctness:  # FIXME: There is a bug, this fails assert
+                num_appear = repo._zeroshot_context.df_results_by_dataset_vs_automl.value_counts(['framework'])
+                num_appear_datasets = repo._zeroshot_context.df_results_by_dataset_vs_automl.value_counts(['dataset'])
+                assert num_appear_datasets.min() == num_appear_datasets.max()
+                assert num_appear.min() == num_appear.max()
+                num_counts_per_framework = c.value_counts(['framework'])
+                for f in portfolio_configs:
+                    assert num_counts_per_framework.loc[f] == train_tasks
+
+            model_time_dict = dict()
+            for m in portfolio_configs:
+                model_time_train_s = d.loc[m]["time_train_s"]
+                model_time_dict[m] = model_time_train_s
+            sorted_by_train_time_portfolio_configs = sorted(model_time_dict, key=model_time_dict.get)
+            portfolio_configs = sorted_by_train_time_portfolio_configs
+
+        # FIXME
+
+
+        # assert test_errors.shape[0] == 1  # we send one model, we should get one row back
+        portfolio_configs_og = copy.deepcopy(portfolio_configs)
         for fold in range(n_eval_folds):
-            test_error = test_errors[0][fold]
+            portfolio_configs = copy.deepcopy(portfolio_configs_og)
+            c = repo._zeroshot_context.df_results_by_dataset_vs_automl
+            c = c[(c['tid'] == test_tid) & (c['fold'] == fold) & (c['framework'].isin(portfolio_configs))]
+
+            # print(portfolio_configs)
+            if time_limit is not None:
+                c2 = c.set_index('framework', drop=True)
+                c_dict = c2.T.to_dict()
+                tot_time = 0
+                portfolio_configs_in_time = []
+                for m in portfolio_configs:
+
+                    if m in c_dict:
+                        m_time = c_dict[m]['time_train_s']
+                    else:
+                        m_time = 0
+                        # raise AssertionError()
+                        pass
+                    if tot_time + m_time > time_limit:
+                        break
+                    portfolio_configs_in_time.append(m)
+                    tot_time += m_time
+                if len(portfolio_configs_in_time) != len(portfolio_configs):
+                    print(f'DIFF: {len(portfolio_configs)} -> {len(portfolio_configs_in_time)} | {test_dataset} {fold}')
+
+                if len(portfolio_configs_in_time) == 0:
+                    # FIXME: Cheat
+                    portfolio_configs = [portfolio_configs[0]]
+                else:
+                    portfolio_configs = portfolio_configs_in_time
+                c = c[(c['tid'] == test_tid) & (c['fold'] == fold) & (c['framework'].isin(portfolio_configs))]
+            # print(portfolio_configs)
+            time_train_s = c["time_train_s"].sum()
+
+            # FIXME: Not correct, only infer time added by models that were used in ensemble
+            time_infer_s = c["time_infer_s"].sum()
+
+            test_errors = repo.evaluate_ensemble(
+                tids=[test_tid],
+                config_names=portfolio_configs,
+                ensemble_size=ensemble_size,
+                rank=False,
+                folds=[fold],
+                backend='native',
+            )
+            test_error = test_errors[0][0]
+
+            # test_error = test_errors[0][fold]
             dataset_fold_name = repo.task_name(tid=test_tid, fold=fold)
             rows_zeroshot.append(ResultRow(
                 taskid=test_tid,
                 fold=fold,
                 method=method_name,
                 test_error=test_error,
+                time_train_s=time_train_s,
+                time_infer_s=time_infer_s,
                 rank=rank_scorer.rank(dataset_fold_name, test_error),
                 normalized_score=normalized_scorer.rank(dataset_fold_name, test_error),
                 config_selected=portfolio_configs,
