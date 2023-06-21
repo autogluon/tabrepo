@@ -170,7 +170,7 @@ class EvaluationRepository(SaveLoadMixin):
                        "time_train_s_rescaled", "time_infer_s_rescaled", "rank", "score_val"]
         if check_all_found:
             assert sum(mask) == len(config_names), \
-                f"expected one evaluation occurence for each configuration {config_names} for {dataset_name}, " \
+                f"expected one evaluation occurence for each configuration {config_names} for {tid}, " \
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
