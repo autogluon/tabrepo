@@ -24,8 +24,20 @@ def get_runtime(
     df_metrics = repo._zeroshot_context.df_results_by_dataset_vs_automl
     df_configs = pd.DataFrame(config_names, columns=["framework"]).merge(df_metrics[df_metrics.dataset == task])
     runtime_configs = dict(df_configs.set_index('framework')['time_train_s'])
-    if fail_if_missing:
-        assert all(c in runtime_configs for c in config_names)
+    missing_configurations = set(config_names).difference(runtime_configs.keys())
+    if len(missing_configurations) > 0:
+        if fail_if_missing:
+            raise ValueError(
+                f"not all configurations could be found in available data for the task {task}\n" \
+                f"requested: {config_names}\n" \
+                f"available: {list(runtime_configs.keys())}."
+            )
+        else:
+            # todo take mean of framework
+            mean_value = np.mean(list(runtime_configs.values()))
+            print(f"Imputing missing value {mean_value} for configurations {missing_configurations} on task {task}")
+            for configuration in missing_configurations:
+                runtime_configs[configuration] = mean_value
     return runtime_configs
 
 
@@ -62,7 +74,7 @@ def filter_configs_by_runtime(
     else:
         assert tid in repo.tids()
         assert fold in repo.folds
-        runtime_configs = get_runtime(repo=repo, tid=tid, fold=fold, config_names=config_names, fail_if_missing=True)
+        runtime_configs = get_runtime(repo=repo, tid=tid, fold=fold, config_names=config_names, fail_if_missing=False)
         cumruntime = np.cumsum(list(runtime_configs.values()))
         # str_runtimes = ", ".join([f"{name}: {time}" for name, time in zip(runtime_configs.keys(), cumruntime)])
         # print(f"Cumulative runtime:\n {str_runtimes}")

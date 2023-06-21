@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
 from autogluon_zeroshot.repository import EvaluationRepository
+from autogluon_zeroshot.repository.utils import filter_configs_by_runtime, sort_by_runtime
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 
@@ -59,7 +60,10 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
     return rows_automl
 
 
-def zeroshot_name(n_portfolio: int = 20, n_ensemble: int = 40, n_training_dataset: int = None, n_training_fold: int = None):
+def zeroshot_name(
+        n_portfolio: int = 20, n_ensemble: int = 40, n_training_dataset: int = None, n_training_fold: int = None,
+        max_runtime: float = None
+):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
     None, suffixes "-D{n_training_dataset}" and "-S{n_training_folds}" are added, for instance "Zeroshot-N20-C40-D30-S5"
@@ -67,7 +71,7 @@ def zeroshot_name(n_portfolio: int = 20, n_ensemble: int = 40, n_training_datase
     """
     suffix = [
         f"-{letter}{x}" if x is not None else ""
-        for letter, x in [("N", n_portfolio), ("C", n_ensemble), ("D", n_training_dataset), ("S", n_training_fold), ]
+        for letter, x in [("N", n_portfolio), ("C", n_ensemble), ("D", n_training_dataset), ("S", n_training_fold), ("T", max_runtime)]
     ]
     suffix = "".join(suffix)
     return f"Zeroshot{suffix}"
@@ -83,6 +87,7 @@ def zeroshot_results(
         n_portfolios: List[int] = [20],
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
+        max_runtimes: List[float] = [None],
         engine: str = "ray",
 ) -> List[ResultRow]:
     """
@@ -95,8 +100,11 @@ def zeroshot_results(
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
     :return: evaluation obtained on all combinations
     """
-    def evaluate_dataset(test_dataset, portfolio_size, ensemble_size, n_training_dataset, n_training_fold, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer):
-        method_name = zeroshot_name(portfolio_size, ensemble_size, n_training_dataset, n_training_fold=n_training_fold)
+    def evaluate_dataset(test_dataset, portfolio_size, ensemble_size, n_training_dataset, n_training_fold, max_runtime, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer):
+        method_name = zeroshot_name(
+            portfolio_size, ensemble_size, n_training_dataset,
+            n_training_fold=n_training_fold, max_runtime=max_runtime
+        )
         if n_training_fold is None:
             n_training_fold = n_eval_folds
         rows_zeroshot = []
@@ -115,7 +123,16 @@ def zeroshot_results(
 
         indices = zeroshot_configs(-df_rank[train_tasks].values.T, portfolio_size)
         portfolio_configs = [df_rank.index[i] for i in indices]
+        portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
+        portfolio_configs = filter_configs_by_runtime(
+            repo=repo,
+            tid=test_tid,
+            fold=0,
+            config_names=portfolio_configs,
+            max_cumruntime=max_runtime,
+        )
 
+        assert len(portfolio_configs) > 0
         test_errors = repo.evaluate_ensemble(
             tids=[test_tid],
             config_names=portfolio_configs,
@@ -145,7 +162,7 @@ def zeroshot_results(
 
     list_rows = parallel_for(
         evaluate_dataset,
-        inputs=list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds)),
+        inputs=list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds, max_runtimes)),
         context=dict(repo=repo, df_rank=df_rank, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer),
         engine=engine,
     )

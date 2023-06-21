@@ -100,6 +100,11 @@ def list_experiments(n_datasets: int, n_eval_folds: int, expname: str, engine: s
             expname=expname, name=f"zeroshot-multiple-caruana-sizes-{expname}",
             run_fun=lambda : zeroshot_results(n_ensembles=[5, 10, 20, 40, 80], **experiment_common_kwargs)
         ),
+        # Effect of different runtime limits
+        Experiment(
+            expname=expname, name=f"zeroshot-multiple-runtimes-{expname}",
+            run_fun=lambda: zeroshot_results(max_runtimes=[60, 120, 240, 480, 960], **experiment_common_kwargs)
+        ),
         # Effect of different number of datasets to fit zeroshot portfolio
         Experiment(
             expname=expname, name=f"zeroshot-multiple-training-sizes-{expname}",
