@@ -1,7 +1,7 @@
 import numpy as np
 
 from autogluon_zeroshot.repository.evaluation_repository import load
-from autogluon_zeroshot.repository.utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
+from autogluon_zeroshot.repository.time_utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
 
 # TODO replace test with artificial data
 repo = load(version="BAG_D244_F10_C608_FULL")

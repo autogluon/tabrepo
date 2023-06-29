@@ -236,6 +236,9 @@ class EvaluationRepository(SaveLoadMixin):
             Dictionary of task_name -> model weights in the ensemble. Model weights are stored in a numpy array,
                 with weights corresponding to the order of `config_names`.
         """
+        # Makes results invariant to config order (otherwise tie breaking logic in Caruana selection can make the
+        # result depend on configuration order)
+        config_names = list(sorted(config_names.copy()))
         if folds is None:
             folds = self.folds
         tasks = [
