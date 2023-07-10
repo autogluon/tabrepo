@@ -123,6 +123,8 @@ def zeroshot_results(
 
         indices = zeroshot_configs(-df_rank[train_tasks].values.T, portfolio_size)
         portfolio_configs = [df_rank.index[i] for i in indices]
+        # TODO: Technically we should exclude data from the fold when computing the average runtime and also pass the
+        #  current fold when filtering by runtime.
         portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
         portfolio_configs = filter_configs_by_runtime(
             repo=repo,

@@ -8,7 +8,7 @@ def get_runtime(
         repo: EvaluationRepository,
         tid: int,
         fold: int,
-        config_names: List[str],
+        config_names: Optional[List[str]] = None,
         fail_if_missing: bool = True
 ) -> Dict[str, float]:
     """
@@ -21,6 +21,8 @@ def get_runtime(
     on the task `tid`_`fold`.
     """
     task = repo.task_name(tid, fold)
+    if not config_names:
+        config_names = repo.list_models()
     df_metrics = repo._zeroshot_context.df_results_by_dataset_vs_automl
     df_configs = pd.DataFrame(config_names, columns=["framework"]).merge(df_metrics[df_metrics.dataset == task])
     runtime_configs = dict(df_configs.set_index('framework')['time_train_s'])
