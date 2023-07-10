@@ -46,13 +46,15 @@ def test_repository():
     assert repo.val_predictions(tid=tid, config_name=config_name, fold=2).shape == (123, 25)
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
+    result_errors, result_metadata = repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")
     assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native"),
+        result_errors,
         [[2.5, 2.5, 2.5]]
     )
+    assert len(result_metadata.keys()) == 3
     assert np.allclose(
         repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
-                                 ensemble_size=5, folds=[2], backend="native"),
+                                 ensemble_size=5, folds=[2], backend="native")[0],
         [[2.5]]
     )
 
@@ -66,12 +68,12 @@ def test_repository():
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native"),
+        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0],
         [[2.5, 2.5]]
     )
     assert np.allclose(
         repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
-                                 ensemble_size=5, folds=[2], backend="native"),
+                                 ensemble_size=5, folds=[2], backend="native")[0],
         [[2.5]]
     )
 
@@ -85,12 +87,12 @@ def test_repository():
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native"),
+        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0],
         [[2.5]]
     )
     assert np.allclose(
         repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
-                                 ensemble_size=5, folds=[2], backend="native"),
+                                 ensemble_size=5, folds=[2], backend="native")[0],
         [[2.5]]
     )
 

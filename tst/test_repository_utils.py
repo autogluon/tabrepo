@@ -19,6 +19,19 @@ def test_get_runtime():
     assert np.allclose(list(runtime_dict.values()), [170.68276143074036, 261.43372082710266, 262.73713970184326])
 
 
+def test_get_runtime_time_infer_s():
+    config_names = ['CatBoost_r10_BAG_L1', 'CatBoost_r46_BAG_L1', 'CatBoost_r79_BAG_L1', ]
+    runtime_dict = get_runtime(
+        repo,
+        tid=9983,
+        fold=1,
+        config_names=config_names,
+        runtime_col='time_infer_s',
+    )
+    assert list(runtime_dict.keys()) == config_names
+    assert np.allclose(list(runtime_dict.values()), [0.3531279563903808, 0.6377890110015869, 0.0613722801208496])
+
+
 def test_sort_by_runtime():
     config_names = ['CatBoost_r46_BAG_L1', 'RandomForest_r6_BAG_L1', 'LightGBM_r151_BAG_L1']
     assert sort_by_runtime(repo, config_names) == ['LightGBM_r151_BAG_L1', 'RandomForest_r6_BAG_L1', 'CatBoost_r46_BAG_L1']
