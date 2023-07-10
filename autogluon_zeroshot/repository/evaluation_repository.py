@@ -222,7 +222,7 @@ class EvaluationRepository(SaveLoadMixin):
         rank: bool = True,
         folds: Optional[List[int]] = None,
         backend: str = "ray",
-    ) -> np.array:
+    ) -> (np.array, dict):
         """
         :param tids: list of dataset tids to compute errors on.
         :param config_names: list of config to consider for ensembling.
@@ -244,15 +244,20 @@ class EvaluationRepository(SaveLoadMixin):
             ensemble_size=ensemble_size,
             backend=backend,
         )
-        if rank:
-            dict_scores = scorer.score_per_dataset(config_names)
-        else:
-            dict_scores = scorer.compute_errors(configs=config_names)
 
-        return np.array([[
-                dict_scores[self.task_name(tid=tid, fold=fold)
+        dict_errors, metadata = scorer.compute_errors(configs=config_names)
+        if rank:
+            dict_scores = scorer.compute_ranks(errors=dict_errors)
+            out = dict_scores
+        else:
+            out = dict_errors
+
+        out_numpy = np.array([[
+                out[self.task_name(tid=tid, fold=fold)
             ] for fold in folds
         ] for tid in tids])
+
+        return out_numpy, metadata
 
     def _construct_config_scorer(self,
                                  config_scorer_type: str = 'ensemble',

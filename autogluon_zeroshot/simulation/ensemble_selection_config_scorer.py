@@ -14,9 +14,9 @@ from ..metrics import _fast_log_loss, _fast_roc_auc
 
 
 @ray.remote
-def compute_error_ray(config_scorer, configs, dataset) -> float:
-    error = config_scorer.run_dataset(dataset=dataset, models=configs)
-    return error
+def compute_error_ray(config_scorer, configs, dataset) -> (float, dict):
+    error, metadata = config_scorer.run_dataset(dataset=dataset, models=configs)
+    return error, metadata
 
 
 # FIXME: Add temperature scaling!!
@@ -104,7 +104,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
         return eval_metric
 
-    def run_dataset(self, dataset, models):
+    def run_dataset(self, dataset, models) -> (float, dict):
         fold = self.dataset_name_to_fold_dict[dataset]
         dataset = self.dataset_name_to_tid_dict[dataset]
 
@@ -149,21 +149,27 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         # errval = eval_metric._optimum - eval_metric(y_val, y_val_pred)  # FIXME: proba or pred, figure out
         # print(dataset, errval)
 
-        return err
+        ensemble_weights = weighted_ensemble.weights_
+        metadata = dict(
+            ensemble_weights=ensemble_weights,
+        )
+
+        return err, metadata
 
     def compute_errors(self, configs: list):
         if self.backend == 'ray':
             return self.compute_errors_ray(configs=configs)
         errors = {}
+        metadata = {}
         for dataset in self.datasets:
             fold = self.dataset_name_to_fold_dict[dataset]
             if self.max_fold and fold >= self.max_fold:
                 continue
-            errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
-        return errors
+            errors[dataset], metadata[dataset] = self.run_dataset(dataset=dataset, models=configs)
+        return errors, metadata
 
     # speedup can be obtained by only sending minimum zeroshot pred proba info for each task by using lazy format
-    def compute_errors_ray(self, configs: list):
+    def compute_errors_ray(self, configs: list) -> (dict, dict):
         # Create and execute all tasks in parallel
         if not ray.is_initialized():
             ray.init()
@@ -175,9 +181,12 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                 configs,
                 self.datasets[i],
             ))
-        errors_list = ray.get(results)
+        results_list = ray.get(results)
+        errors_list = [r[0] for r in results_list]
+        metadata_list = [r[1] for r in results_list]
         errors = {self.datasets[i]: errors_list[i] for i in range(len(self.datasets))}
-        return errors
+        metadata = {self.datasets[i]: metadata_list[i] for i in range(len(self.datasets))}
+        return errors, metadata
 
     def compute_ranks(self, errors: dict):
         ranks = {}
@@ -192,12 +201,12 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         return average_rank
 
     def score(self, configs: list):
-        errors = self.compute_errors(configs=configs)
+        errors, metadata = self.compute_errors(configs=configs)
         rank = self.compute_rank_mean(errors)
         return rank
 
     def score_per_dataset(self, configs: list):
-        errors = self.compute_errors(configs=configs)
+        errors, metadata = self.compute_errors(configs=configs)
         return self.compute_ranks(errors=errors)
 
     def subset(self, datasets):
