@@ -139,7 +139,7 @@ def zeroshot_results(
         )
 
         assert len(portfolio_configs) > 0
-        test_errors, metadata = repo.evaluate_ensemble(
+        test_errors, ensemble_weights = repo.evaluate_ensemble(
             tids=[test_tid],
             config_names=portfolio_configs,
             ensemble_size=ensemble_size,
@@ -149,17 +149,14 @@ def zeroshot_results(
         assert test_errors.shape[0] == 1  # we send one model, we should get one row back
         for fold in range(n_eval_folds):
             test_error = test_errors[0][fold]
-            dataset_fold_name = repo.task_name(tid=test_tid, fold=fold)
+            task_name = repo.task_name(tid=test_tid, fold=fold)
 
-            task_metadata = metadata[dataset_fold_name]
-            if "ensemble_weights" in task_metadata:
-                # infer time only depends on the models with non-zero weight.
-                portfolio_configs_used_in_ensemble = []
-                for i in range(len(portfolio_configs)):
-                    if task_metadata["ensemble_weights"][i] != 0:
-                        portfolio_configs_used_in_ensemble.append(portfolio_configs[i])
-            else:
-                portfolio_configs_used_in_ensemble = portfolio_configs
+            task_ensemble_weights = ensemble_weights[task_name]
+            # infer time only depends on the models with non-zero weight.
+            portfolio_configs_used_in_ensemble = []
+            for i in range(len(portfolio_configs)):
+                if task_ensemble_weights[i] != 0:
+                    portfolio_configs_used_in_ensemble.append(portfolio_configs[i])
 
             time_train_s_runtimes = get_runtime(
                 repo=repo,
@@ -185,8 +182,8 @@ def zeroshot_results(
                 fold=fold,
                 method=method_name,
                 test_error=test_error,
-                rank=rank_scorer.rank(dataset_fold_name, test_error),
-                normalized_score=normalized_scorer.rank(dataset_fold_name, test_error),
+                rank=rank_scorer.rank(task_name, test_error),
+                normalized_score=normalized_scorer.rank(task_name, test_error),
                 config_selected=portfolio_configs,
                 time_train_s=time_train_s,
                 time_infer_s=time_infer_s,
@@ -265,7 +262,7 @@ def evaluate_tuning(
         tid = repo.dataset_to_tid(dataset)
         for suffix, ensemble_size in [("", 1), (f" (ensemble)", 20)]:
             for method in ["zeroshot", "localsearch"]:
-                test_errors, metadata = repo.evaluate_ensemble(
+                test_errors, ensemble_weights = repo.evaluate_ensemble(
                     tids=[tid],
                     config_names=taskid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
