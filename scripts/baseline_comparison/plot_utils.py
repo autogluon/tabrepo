@@ -28,7 +28,9 @@ def show_latex_table(df: pd.DataFrame):
         avg_metric.sort_values().head(60)
         xx = avg_metric.sort_values()
         avg_metrics[metric] = xx
-    print(pd.DataFrame(avg_metrics).sort_values(by="normalized_score").to_latex(float_format="%.2f"))
+    df_metrics = pd.DataFrame(avg_metrics).sort_values(by="normalized_score")
+    df_metrics.columns = [x.replace("_", "-") for x in df_metrics.columns]
+    print(df_metrics.to_latex(float_format="%.2f"))
 
 def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
     if method_styles is None:
