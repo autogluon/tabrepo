@@ -1,4 +1,4 @@
-from autogluon.core import Real, Int, Categorical
+from autogluon.common.space import Real, Int, Categorical
 
 from ...utils.config_utils import ConfigGenerator
 

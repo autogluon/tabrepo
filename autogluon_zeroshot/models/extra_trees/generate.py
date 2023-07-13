@@ -1,4 +1,4 @@
-from autogluon.core import Real, Int, Categorical
+from autogluon.common.space import Real, Int, Categorical
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -8,9 +8,9 @@ manual_configs = [
     {},
 ]
 search_space = {
-    'max_leaf_nodes': Categorical(5000, 15000, 30000, 50000),
+    'max_leaf_nodes': Int(5000, 50000),
     'min_samples_leaf': Categorical(1, 2, 3, 4, 5, 10, 20, 40, 80),
-    'max_features': Categorical('sqrt', 'log2', 0.5)
+    'max_features': Categorical('sqrt', 'log2', 0.5, 0.75, 1.0)
 }
 
 
