@@ -1,4 +1,4 @@
-from autogluon.core import Real, Int, Categorical
+from autogluon.common.space import Real, Int, Categorical
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -14,7 +14,7 @@ search_space = {
     'learning_rate': Real(lower=5e-3, upper=0.1, default=0.05, log=True),
     'feature_fraction': Real(lower=0.4, upper=1.0, default=1.0),
     'min_data_in_leaf': Int(lower=2, upper=60, default=20),
-    'num_leaves': Int(lower=16, upper=128, default=31),
+    'num_leaves': Int(lower=16, upper=255, default=31),
     'extra_trees': Categorical(False, True),
 }
 
