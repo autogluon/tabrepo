@@ -1,6 +1,6 @@
 from __future__ import annotations
 import copy
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -57,6 +57,7 @@ class EvaluationRepository(SaveLoadMixin):
                folds: List[int] = None,
                models: List[str] = None,
                tids: List[Union[str, int]] = None,
+               problem_types: List[str] = None,
                verbose: bool = True,
                ):
         """
@@ -65,6 +66,7 @@ class EvaluationRepository(SaveLoadMixin):
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param models: The list of models to subset. Ignored if unspecified.
         :param tids: The list of dataset task ids to subset. Ignored if unspecified.
+        :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
         """
@@ -75,9 +77,8 @@ class EvaluationRepository(SaveLoadMixin):
         if tids:
             # TODO: Align `_zeroshot_context` naming of datasets -> tids
             self._zeroshot_context.subset_datasets(datasets=tids)
-        # TODO:
-        # if problem_type:
-        #     self._zeroshot_context.subset_problem_type(problem_type=problem_type)
+        if problem_types:
+            self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         self.force_to_dense(verbose=verbose)
         return self
 
@@ -222,7 +223,7 @@ class EvaluationRepository(SaveLoadMixin):
         rank: bool = True,
         folds: Optional[List[int]] = None,
         backend: str = "ray",
-    ) -> np.array:
+    ) -> Tuple[np.array, Dict[str, np.array]]:
         """
         :param tids: list of dataset tids to compute errors on.
         :param config_names: list of config to consider for ensembling.
@@ -230,7 +231,10 @@ class EvaluationRepository(SaveLoadMixin):
         :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
         automl framework.
         :param folds: list of folds that need to be evaluated, use all folds if not provided.
-        :return: 2D array of scores whose rows are datasets and columns are folds
+        :return: Tuple:
+            2D array of scores whose rows are datasets and columns are folds.
+            Dictionary of task_name -> model weights in the ensemble. Model weights are stored in a numpy array,
+                with weights corresponding to the order of `config_names`.
         """
         if folds is None:
             folds = self.folds
@@ -244,15 +248,20 @@ class EvaluationRepository(SaveLoadMixin):
             ensemble_size=ensemble_size,
             backend=backend,
         )
-        if rank:
-            dict_scores = scorer.score_per_dataset(config_names)
-        else:
-            dict_scores = scorer.compute_errors(configs=config_names)
 
-        return np.array([[
-                dict_scores[self.task_name(tid=tid, fold=fold)
+        dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=config_names)
+        if rank:
+            dict_scores = scorer.compute_ranks(errors=dict_errors)
+            out = dict_scores
+        else:
+            out = dict_errors
+
+        out_numpy = np.array([[
+                out[self.task_name(tid=tid, fold=fold)
             ] for fold in folds
         ] for tid in tids])
+
+        return out_numpy, dict_ensemble_weights
 
     def _construct_config_scorer(self,
                                  config_scorer_type: str = 'ensemble',

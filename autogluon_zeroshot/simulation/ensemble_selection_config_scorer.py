@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import ray
@@ -14,9 +14,9 @@ from ..metrics import _fast_log_loss, _fast_roc_auc
 
 
 @ray.remote
-def compute_error_ray(config_scorer, configs, dataset) -> float:
-    error = config_scorer.run_dataset(dataset=dataset, models=configs)
-    return error
+def compute_error_ray(config_scorer, configs: List[str], task: str) -> (float, dict):
+    error, ensemble_weights = config_scorer.run_task(task=task, models=configs)
+    return error, ensemble_weights
 
 
 # FIXME: Add temperature scaling!!
@@ -104,19 +104,19 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
         return eval_metric
 
-    def run_dataset(self, dataset, models):
-        fold = self.dataset_name_to_fold_dict[dataset]
-        dataset = self.dataset_name_to_tid_dict[dataset]
+    def run_task(self, task: str, models: List[str]) -> Tuple[float, np.array]:
+        fold = self.dataset_name_to_fold_dict[task]
+        tid = self.dataset_name_to_tid_dict[task]
 
-        problem_type = self.zeroshot_gt[dataset][fold]['problem_type']
-        metric_name = self.zeroshot_gt[dataset][fold]['eval_metric']
-        y_val = self.zeroshot_gt[dataset][fold]['y_val']
-        y_test = self.zeroshot_gt[dataset][fold]['y_test']
+        problem_type = self.zeroshot_gt[tid][fold]['problem_type']
+        metric_name = self.zeroshot_gt[tid][fold]['eval_metric']
+        y_val = self.zeroshot_gt[tid][fold]['y_val']
+        y_test = self.zeroshot_gt[tid][fold]['y_test']
 
         y_val = y_val.to_numpy()
         y_test = y_test.fillna(-1).to_numpy()
 
-        pred_val, pred_test = self.zeroshot_pred_proba.predict(dataset=dataset, fold=fold, splits=['val', 'test'], models=models)
+        pred_val, pred_test = self.zeroshot_pred_proba.predict(dataset=tid, fold=fold, splits=['val', 'test'], models=models)
 
         fit_metric_name = self.proxy_fit_metric_map.get(metric_name, metric_name)
 
@@ -149,21 +149,33 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         # errval = eval_metric._optimum - eval_metric(y_val, y_val_pred)  # FIXME: proba or pred, figure out
         # print(dataset, errval)
 
-        return err
+        ensemble_weights: np.array = weighted_ensemble.weights_
 
-    def compute_errors(self, configs: list):
+        return err, ensemble_weights
+
+    def compute_errors(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
+        """
+        Compute and return test errors and ensemble weights for all tasks on the user-specified list of configs.
+
+        :param configs: List of model config names to ensemble and compute test errors with.
+        :return: Tuple:
+            Dictionary of task_name -> test evaluation metric error of the ensemble.
+            Dictionary of task_name -> model weights in the ensemble. Model weights are stored in a numpy array,
+                with weights corresponding to the order of `configs`.
+        """
         if self.backend == 'ray':
             return self.compute_errors_ray(configs=configs)
-        errors = {}
-        for dataset in self.datasets:
-            fold = self.dataset_name_to_fold_dict[dataset]
+        errors = dict()
+        ensemble_weights = dict()
+        for task in self.datasets:
+            fold = self.dataset_name_to_fold_dict[task]
             if self.max_fold and fold >= self.max_fold:
                 continue
-            errors[dataset] = self.run_dataset(dataset=dataset, models=configs)
-        return errors
+            errors[task], ensemble_weights[task] = self.run_task(task=task, models=configs)
+        return errors, ensemble_weights
 
     # speedup can be obtained by only sending minimum zeroshot pred proba info for each task by using lazy format
-    def compute_errors_ray(self, configs: list):
+    def compute_errors_ray(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
         # Create and execute all tasks in parallel
         if not ray.is_initialized():
             ray.init()
@@ -175,29 +187,32 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                 configs,
                 self.datasets[i],
             ))
-        errors_list = ray.get(results)
+        results_list = ray.get(results)
+        errors_list = [r[0] for r in results_list]
+        ensemble_weights_list = [r[1] for r in results_list]
         errors = {self.datasets[i]: errors_list[i] for i in range(len(self.datasets))}
-        return errors
+        ensemble_weights = {self.datasets[i]: ensemble_weights_list[i] for i in range(len(self.datasets))}
+        return errors, ensemble_weights
 
-    def compute_ranks(self, errors: dict):
+    def compute_ranks(self, errors: Dict[str, float]) -> Dict[str, float]:
         ranks = {}
         for dataset, error in errors.items():
             rank = self.ranker.rank(dataset, error)  # FIXME: Use score or error?
             ranks[dataset] = rank
         return ranks
 
-    def compute_rank_mean(self, errors: dict):
+    def compute_rank_mean(self, errors: Dict[str, float]) -> float:
         ranks = self.compute_ranks(errors=errors)
         average_rank = np.mean(list(ranks.values()))
         return average_rank
 
-    def score(self, configs: list):
-        errors = self.compute_errors(configs=configs)
+    def score(self, configs: List[str]) -> float:
+        errors, ensemble_weights = self.compute_errors(configs=configs)
         rank = self.compute_rank_mean(errors)
         return rank
 
-    def score_per_dataset(self, configs: list):
-        errors = self.compute_errors(configs=configs)
+    def score_per_dataset(self, configs: List[str]) -> Dict[str, float]:
+        errors, ensemble_weights = self.compute_errors(configs=configs)
         return self.compute_ranks(errors=errors)
 
     def subset(self, datasets):

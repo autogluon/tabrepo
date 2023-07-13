@@ -102,7 +102,7 @@ class SimulationOutputGenerator:
         df_total_train_and_infer_times = df_raw_subset[['tid_new', 'time_train_s', 'time_infer_s']].groupby('tid_new').sum()
         df_raw_subset = df_raw_subset.drop_duplicates(subset=['tid_new'])
 
-        score_per_dataset = config_scorer_test.compute_errors(portfolio)
+        score_per_dataset, metadata = config_scorer_test.compute_errors(portfolio)
 
         df_raw_subset['metric_error'] = [score_per_dataset[row[0]] for row in zip(df_raw_subset['tid_new'])]
         df_raw_subset['metric_score'] = [metric_error_to_score(row[0], row[1]) for row in

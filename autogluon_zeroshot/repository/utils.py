@@ -9,6 +9,7 @@ def get_runtime(
         tid: int,
         fold: int,
         config_names: Optional[List[str]] = None,
+        runtime_col: str = 'time_train_s',
         fail_if_missing: bool = True
 ) -> Dict[str, float]:
     """
@@ -25,7 +26,7 @@ def get_runtime(
         config_names = repo.list_models()
     df_metrics = repo._zeroshot_context.df_results_by_dataset_vs_automl
     df_configs = pd.DataFrame(config_names, columns=["framework"]).merge(df_metrics[df_metrics.dataset == task])
-    runtime_configs = dict(df_configs.set_index('framework')['time_train_s'])
+    runtime_configs = dict(df_configs.set_index('framework')[runtime_col])
     missing_configurations = set(config_names).difference(runtime_configs.keys())
     if len(missing_configurations) > 0:
         if fail_if_missing:
