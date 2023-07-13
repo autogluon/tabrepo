@@ -57,6 +57,7 @@ class EvaluationRepository(SaveLoadMixin):
                folds: List[int] = None,
                models: List[str] = None,
                tids: List[Union[str, int]] = None,
+               problem_types: List[str] = None,
                verbose: bool = True,
                ):
         """
@@ -65,6 +66,7 @@ class EvaluationRepository(SaveLoadMixin):
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param models: The list of models to subset. Ignored if unspecified.
         :param tids: The list of dataset task ids to subset. Ignored if unspecified.
+        :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
         """
@@ -75,9 +77,8 @@ class EvaluationRepository(SaveLoadMixin):
         if tids:
             # TODO: Align `_zeroshot_context` naming of datasets -> tids
             self._zeroshot_context.subset_datasets(datasets=tids)
-        # TODO:
-        # if problem_type:
-        #     self._zeroshot_context.subset_problem_type(problem_type=problem_type)
+        if problem_types:
+            self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         self.force_to_dense(verbose=verbose)
         return self
 

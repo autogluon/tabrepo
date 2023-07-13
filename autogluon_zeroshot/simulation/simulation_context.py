@@ -194,7 +194,10 @@ class ZeroshotSimulatorContext:
     def get_datasets(self, problem_type=None) -> list:
         datasets = self.unique_datasets
         if problem_type is not None:
-            datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]
+            if isinstance(problem_type, list):
+                datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] in problem_type]
+            else:
+                datasets = [dataset for dataset in datasets if self.tid_to_problem_type_dict[dataset] == problem_type]
         return datasets
 
     def get_dataset_folds(self,
@@ -319,6 +322,13 @@ class ZeroshotSimulatorContext:
         self.df_results_by_dataset_automl.drop("tid", axis=1, inplace=True)
         self.df_metadata = self.df_metadata[self.df_metadata.tid.isin(datasets)]
         self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if t in datasets}
+
+    def subset_problem_types(self, problem_types: List[str]):
+        """
+        Only keep the provided problem_types, drop all others
+        """
+        datasets = self.get_datasets(problem_type=problem_types)
+        self.subset_datasets(datasets=datasets)
 
     def subset_models(self, models):
         """
