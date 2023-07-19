@@ -55,6 +55,11 @@ def evaluate_configs(
         config_sampled = config_selected
     if ensemble_size is None:
         ensemble_size = default_ensemble_size
+
+    # Makes results invariant to config order (otherwise tie breaking logic in Caruana selection can make the
+    # result depend on configuration order)
+    config_selected = list(sorted(config_selected.copy()))
+
     metric_errors, ensemble_weights = repo.evaluate_ensemble(
         tids=[tid],
         config_names=config_selected,
