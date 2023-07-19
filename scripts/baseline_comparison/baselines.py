@@ -14,7 +14,7 @@ from autogluon_zeroshot.repository import EvaluationRepository
 from autogluon_zeroshot.repository.time_utils import filter_configs_by_runtime, sort_by_runtime, get_runtime
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
-
+default_ensemble_size = 20
 @dataclass
 class ResultRow:
     taskid: int  # OpenML taskid, also refered to "tid"
@@ -33,8 +33,8 @@ def evaluate_configs(
         normalized_scorer,
         tid: int,
         method: str,
-        ensemble_size: int,
         config_selected: List[str],
+        ensemble_size: int = default_ensemble_size,
         config_sampled: List[str] = None,
         folds: List[int] = range(10),
 ) -> List[ResultRow]:
@@ -53,6 +53,8 @@ def evaluate_configs(
     """
     if not config_sampled:
         config_sampled = config_selected
+    if ensemble_size is None:
+        ensemble_size = default_ensemble_size
     metric_errors, ensemble_weights = repo.evaluate_ensemble(
         tids=[tid],
         config_names=config_selected,
@@ -146,6 +148,8 @@ def sample_and_pick_best(
     based on validation scores. If `framework_type` is specified then only configuration of this framework are considered.
     Returns the configurations sampled and the configurations chosen.
     """
+    if n_output is None:
+        n_output = default_ensemble_size
     df_score_val = repo._zeroshot_context.df_results_by_dataset_vs_automl
 
     # gets rows with desired task and framework
@@ -174,14 +178,14 @@ def framework_name(framework_type, n_configs, ensemble_size) -> str:
         return method
     else:
         suffix = "" if n_configs == 1 else f"{n_configs} samples"
-        suffix += " + ensemble" if ensemble_size > 1 else ""
+        suffix += " + ensemble" if ensemble_size and ensemble_size > 1 else ""
         method += f" ({suffix})"
     return method
 
 def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         n_configs: int = [100],
-        ensemble_size: int = 20,
+        ensemble_size: int = default_ensemble_size,
         framework_types=["CatBoost", "NeuralNetFastAI", "LightGBM", "RandomForest", "ExtraTrees"],
         **kwargs) -> List[ResultRow]:
     """
@@ -190,7 +194,6 @@ def framework_best_results(
     """
     def evaluate_tid(dataset_name, n_configs, framework_type, ensemble_size, repo, rank_scorer, normalized_scorer):
         tid = repo.dataset_to_tid(dataset_name)
-
         rows = []
 
         for fold in range(n_eval_folds):
@@ -265,7 +268,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
 
 
 def zeroshot_name(
-        n_portfolio: int = 20, n_ensemble: int = 40, n_training_dataset: int = None, n_training_fold: int = None, n_training_config: int = None,
+        n_portfolio: int = 20, n_ensemble: int = None, n_training_dataset: int = None, n_training_fold: int = None, n_training_config: int = None,
         max_runtime: float = None
 ):
     """
@@ -275,8 +278,10 @@ def zeroshot_name(
     """
     suffix = [
         f"-{letter}{x}" if x is not None else ""
-        for letter, x in [("N", n_portfolio), ("C", n_ensemble), ("D", n_training_dataset), ("S", n_training_fold), ("T", max_runtime), ("M", n_training_config)]
+        for letter, x in [("N", n_portfolio), ("D", n_training_dataset), ("S", n_training_fold), ("T", max_runtime), ("M", n_training_config)]
     ]
+    if n_ensemble:
+        suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
     return f"Zeroshot{suffix}"
 
@@ -287,7 +292,7 @@ def zeroshot_results(
         rank_scorer,
         normalized_scorer,
         n_eval_folds: int,
-        n_ensembles: List[int] = [40],
+        n_ensembles: List[int] = [None],
         n_portfolios: List[int] = [20],
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
@@ -359,7 +364,8 @@ def zeroshot_results(
             tid=test_tid,
             fold=0,
             config_names=portfolio_configs,
-            max_cumruntime=max_runtime,
+            # TODO hack to make results comparable, we should get rid of this
+            max_cumruntime=max_runtime / 8 if max_runtime else None,
         )
         if len(portfolio_configs) == 0:
             # in case all configurations selected were above the budget, we evaluate a quick backup

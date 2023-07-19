@@ -6,6 +6,9 @@ from typing import List
 import numpy as np
 import pandas as pd
 
+from scripts.baseline_comparison.baselines import zeroshot_name
+
+
 @dataclass
 class MethodStyle:
     name: str
@@ -22,6 +25,10 @@ def iqm(x):
     return np.mean(x[start:end])
 
 def show_latex_table(df: pd.DataFrame):
+    df_metrics = compute_avg_metrics(df)
+    print(df_metrics.to_latex(float_format="%.2f"))
+
+def compute_avg_metrics(df: pd.DataFrame):
     avg_metrics = {}
     for metric in ["normalized_score", "rank", "time_train_s", "time_infer_s"]:
         avg_metric = df.groupby("method").agg(iqm)[metric]
@@ -30,7 +37,8 @@ def show_latex_table(df: pd.DataFrame):
         avg_metrics[metric] = xx
     df_metrics = pd.DataFrame(avg_metrics).sort_values(by="normalized_score")
     df_metrics.columns = [x.replace("_", "-") for x in df_metrics.columns]
-    print(df_metrics.to_latex(float_format="%.2f"))
+    return df_metrics
+
 
 def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
     if method_styles is None:
@@ -65,3 +73,36 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
     axes[-1].legend(fontsize="small")
     return fig, axes
 
+
+def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes):
+    import seaborn as sns
+    n_frameworks = 5
+    df_metrics = compute_avg_metrics(df)
+    autogluon_methods = [
+        f"AutoGluon {preset} quality (ensemble)"
+        for preset in ["medium", "high", "best"]
+    ]
+    zeroshot_methods = [zeroshot_name(max_runtime=max_runtime) for max_runtime in max_runtimes]
+    cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
+    fig, axes = plt.subplots(1, 2, sharey=True, figsize=(8, 3))
+    for i, metric in enumerate([
+        "time-train-s",
+        "time-infer-s",
+    ]):
+        df_metrics[df_metrics.index.isin(zeroshot_methods)].plot(
+            kind="scatter", x=metric, y="normalized-score", label="Zeroshot + ensemble", ax=axes[i],
+            color=sns.color_palette('bright')[n_frameworks + 1],
+            marker="*",
+            s=50.0,
+        )
+        df_metrics[df_metrics.index.isin(autogluon_methods)].plot(
+            kind="scatter", x=metric, y="normalized-score", label="AutoGluon + ensemble", ax=axes[i],
+            color="black",
+            marker="^",
+        )
+        df_metrics[cash_methods].plot(
+            kind="scatter", x=metric, y="normalized-score", label="All (N samples + ensemble)", ax=axes[i],
+            marker="D",
+            color=sns.color_palette('bright')[n_frameworks]
+        )
+    return fig, axes

@@ -78,8 +78,8 @@ for framework in df['framework_type'].unique():
     ax.set_yscale('log')
 ax.grid()
 ax.legend();
-ax.set_ylabel("Runtime (s)", fontdict={'size': title_size})
-ax.set_title("Runtime distribution per framework", fontdict={'size': title_size})
+ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
+ax.set_title("Training runtime distribution", fontdict={'size': title_size})
 
 plt.tight_layout()
 fig_save_path = Path(__file__).parent / "figures"

@@ -10,7 +10,8 @@ from autogluon_zeroshot.repository.evaluation_repository import load
 from autogluon_zeroshot.utils.cache import cache_function, cache_function_dataframe
 from scripts.baseline_comparison.baselines import automl_results, framework_default_results, \
     framework_best_results, zeroshot_results, zeroshot_name, ResultRow
-from scripts.baseline_comparison.plot_utils import MethodStyle, show_latex_table, show_cdf
+from scripts.baseline_comparison.plot_utils import MethodStyle, show_latex_table, show_cdf, \
+    show_scatter_performance_vs_time
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80]
     # n_ensembles=[5, 10, 20, 40, 80]
-    max_runtimes = [60, 120, 240, 3600]
+    max_runtimes = [120, 240, 480, 960, 1920, 7200]
     n_training_datasets = [1, 4, 16, 32, 64, 130]
     n_training_folds = [1, 2, 5, 10]
     n_training_configs = [1, 2, 5, 50, 100]
@@ -134,7 +135,7 @@ if __name__ == "__main__":
         ),
         Experiment(
             expname=expname, name=f"framework-all-best-{expname}",
-            run_fun=lambda: framework_best_results(framework_types=[None], n_configs=[10, 20, 100, 608], **experiment_common_kwargs),
+            run_fun=lambda: framework_best_results(framework_types=[None], n_configs=n_portfolios, **experiment_common_kwargs),
         ),
         # Automl baselines such as Autogluon best, high, medium quality
         Experiment(
@@ -190,6 +191,7 @@ if __name__ == "__main__":
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     print("all")
     show_latex_table(df)#, ["rank", "normalized_score", ])
+    print(f"Total time of experiments: {df.time_train_s.sum() / 3600} hours")
 
     ag_styles = [
         MethodStyle("AutoGluon best quality (ensemble)", color="black", linestyle="--", label_str="AG-best"),
@@ -308,3 +310,12 @@ if __name__ == "__main__":
     plot_figure(df, method_styles, title="Effect of number of Caruana steps", figname="cdf-caruana")
 
     show_latex_table(df[(df.method.str.contains("Zeroshot") | (df.method.str.contains("AutoGluon best quality")))])
+
+    fig, _ = show_scatter_performance_vs_time(df, max_runtimes=max_runtimes)
+    fig_save_path = Path(__file__).parent.parent / "figures" / "scatter-perf-vs-time.pdf"
+    fig_save_path_dir = fig_save_path.parent
+    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(fig_save_path)
+    plt.show()
+
