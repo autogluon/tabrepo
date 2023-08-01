@@ -8,6 +8,27 @@ This repo is WIP and is an actively on-going research effort.
 
 Requires the latest `autogluon` installed (can be installed from source).
 
+First, clone the repository:
+
+```
+git clone https://github.com/Innixma/autogluon-zeroshot-private.git
+cd autogluon-zeroshot-private
+```
+
+Create a virtual environments to install the dependencies in:
+
+```
+# Optionally create a new venv
+python -m venv venv
+source venv/bin/activate
+```
+
+Install locally:
+
+```
+python -m pip install -e .
+```
+
 ## Quick-start
 
 You can try the code out to generate a zeroshot portfolio immediately by running `scripts/simulate/bagged/run_simulate_zs_single_best_bagged.py`.
@@ -27,11 +48,47 @@ Existing configs are stored in `data/configs/`.
 
 Configs created in this way can then be run on the benchmark to generate results needed for conducting zeroshot simulation.
 
+Next, to generate an AutoMLBenchmark compatible framework yaml file to run the model configs on the benchmark, run `scripts/run_generate_amlb_config.py`.
+
+This will result in the creation of the file `data/configs/frameworks_zeroshot.yaml`.
+
 Refer to `scripts/run_generate_amlb_config.py` for more details.
 
 ## Generating hyperparameter sweep results (Running the benchmark on all configs)
 
 WIP. This repo contains results that are already generated inside `data/results/`.
+
+### Prepare the AutoMLBenchmark fork
+
+WIP.
+
+You must copy the `data/configs/frameworks_zeroshot.yaml` file into an AutoMLBenchmark custom_configs folder and execute AutoMLBenchmark.
+
+TODO: Document the full process of creating the AutoMLBenchmark fork and running the benchmark
+
+### Run the benchmark on all configs
+
+WIP.
+
+#### Handling server errors / transient failures
+
+WIP.
+
+## Generating all required input files for simulation
+
+WIP.
+
+### Aggregating raw results
+
+WIP. This repo contains results that are already aggregated and preprocessed in S3 (not yet public)
+
+### Preprocessing aggregated results
+
+WIP.
+
+### Run evaluation code to generating the remaining required inputs
+
+WIP.
 
 ## Downloading results
 
