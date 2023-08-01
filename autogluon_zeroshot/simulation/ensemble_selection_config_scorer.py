@@ -118,6 +118,14 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
         pred_val, pred_test = self.zeroshot_pred_proba.predict(dataset=tid, fold=fold, splits=['val', 'test'], models=models)
 
+        if problem_type == 'binary':
+            # Force binary prediction probabilities to 1 dimensional prediction probabilites of the positive class
+            # if it is in multiclass format
+            if len(pred_val.shape) == 3:
+                pred_val = pred_val[:, :, 1]
+            if len(pred_test.shape) == 3:
+                pred_test = pred_test[:, :, 1]
+
         fit_metric_name = self.proxy_fit_metric_map.get(metric_name, metric_name)
 
         eval_metric = self._get_metric_from_name(metric_name=metric_name, problem_type=problem_type)
