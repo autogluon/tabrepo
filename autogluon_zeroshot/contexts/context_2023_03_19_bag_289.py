@@ -24,7 +24,6 @@ _s3_download_map = {Paths.rel_to_abs(k, relative_to=Paths.data_root): v for k, v
 _path_bagged_root = Paths.bagged_289_results_root
 
 _bag_289_result_paths = dict(
-    result=str(_path_bagged_root / "608/results_ranked_valid.parquet"),
     results_by_dataset=str(_path_bagged_root / "608/results_ranked_by_dataset_valid.parquet"),
     raw=str(_path_bagged_root / "openml_ag_2023_03_19_zs_models.parquet"),
     comparison=str(Paths.automl_289_results_root / "results_ranked_by_dataset_valid.csv"),

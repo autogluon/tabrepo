@@ -4,18 +4,15 @@ from autogluon.common.loaders import load_pd
 
 
 def load_results(
-    results: str,
     results_by_dataset: str,
     raw: str,
     metadata: str,
     require_tid_in_metadata: bool = False,
-) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame):
+) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
     print(f'Loading input files...\n'
-          f'\tresults:            {results}\n'
           f'\tresults_by_dataset: {results_by_dataset}\n'
           f'\traw:                {raw}\n'
           f'\tmetadata:           {metadata}')
-    df_results = load_pd.load(results)
     df_results_by_dataset = load_pd.load(results_by_dataset)
     if metadata is not None:
         df_metadata = load_pd.load(metadata)
@@ -36,7 +33,7 @@ def load_results(
             print(f'Filtered datasets with tids that are missing from metadata. '
                   f'Filtered from {init_tid_count} datasets -> {post_tid_count} datasets.')
 
-    return df_results, df_results_by_dataset, df_raw, df_metadata
+    return df_results_by_dataset, df_raw, df_metadata
 
 
 def combine_results_with_score_val(df_raw, df_results_by_dataset):

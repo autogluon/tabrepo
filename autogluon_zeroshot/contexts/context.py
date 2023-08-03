@@ -19,7 +19,6 @@ from ..utils import catchtime
 
 @dataclass
 class BenchmarkPaths:
-    result: str
     results_by_dataset: str
     raw: str
     comparison: str
@@ -50,7 +49,6 @@ class BenchmarkPaths:
 
     def get_file_paths(self, include_zs: bool = True) -> List[str]:
         file_paths = [
-            self.result,
             self.results_by_dataset,
             self.raw,
             self.comparison,
@@ -65,7 +63,6 @@ class BenchmarkPaths:
         return file_paths
 
     def assert_exists_all(self, check_zs=True):
-        self._assert_exists(self.result, 'result')
         self._assert_exists(self.results_by_dataset, 'result_by_dataset')
         self._assert_exists(self.raw, 'raw')
         self._assert_exists(self.comparison, 'comparison')
@@ -124,15 +121,14 @@ class BenchmarkPaths:
                 return False
         return True
 
-    def load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        df_results, df_results_by_dataset, df_raw, df_metadata = load_results(
-            results=self.result,
+    def load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        df_results_by_dataset, df_raw, df_metadata = load_results(
             results_by_dataset=self.results_by_dataset,
             raw=self.raw,
             metadata=self.task_metadata,
             require_tid_in_metadata=self.task_metadata is not None,
         )
-        return df_results, df_results_by_dataset, df_raw, df_metadata
+        return df_results_by_dataset, df_raw, df_metadata
 
     def load_comparison(self) -> pd.DataFrame:
         return load_pd.load(self.comparison)
@@ -333,7 +329,7 @@ class BenchmarkContext:
         return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
     def _load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        df_results, df_results_by_dataset, df_raw, df_metadata = self.benchmark_paths.load_results()
+        df_results_by_dataset, df_raw, df_metadata = self.benchmark_paths.load_results()
         df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
         return df_results_by_dataset, df_raw, df_metadata
 
