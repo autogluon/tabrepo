@@ -6,6 +6,7 @@ from .context_2023_03_19_bag_289 import context_bag_244_bench_50_mb, context_bag
     context_bag_289_bench_50_mb, context_bag_289_bench_10_mb
 from .context_2022_12_11_bag import context_bag_104_bench, context_bag_104_bench_small
 from .context_2022_10_13 import context_104_bench
+from .context_2023_07_25 import context_bag_2023_07_25_50_mb
 
 
 __all__ = [
@@ -34,6 +35,7 @@ for c in [
     context_bag_104_bench,
     context_bag_104_bench_small,
     context_104_bench,
+    context_bag_2023_07_25_50_mb,
 ]:
     if c.name in _context_map:
         raise AssertionError(f'ERROR: Multiple contexts have the same name: {c.name}')
