@@ -102,7 +102,7 @@ def evaluate_configs(
             test_error=metric_error,
             rank=rank_scorer.rank(dataset_fold_name, metric_error),
             normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
-            time_train_s=sum(runtimes.values()) * 8,  # TODO hack to make results comparable, we should get rid of this
+            time_train_s=sum(runtimes.values()),  # TODO hack to make results comparable, we should get rid of this
             time_infer_s=sum(latencies.values()),
             config_selected=config_sampled,
         ))
@@ -131,7 +131,9 @@ def framework_default_results(repo: EvaluationRepository, dataset_names: List[st
         ('ExtraTrees (default)', ['ExtraTrees_c1_BAG_L1'], 1),
         ('LightGBM (default)', ['LightGBM_c1_BAG_L1'], 1),
         ('NeuralNetFastAI (default)', ['NeuralNetFastAI_c1_BAG_L1'], 1),
+        ('NeuralNetTorch (default)', ['NeuralNetTorch_c1_BAG_L1'], 1),
         ('RandomForest (default)', ['RandomForest_c1_BAG_L1'], 1),
+        ('XGBoost (default)', ['XGBoost_c1_BAG_L1'], 1),
         ('All (default)', default_models, 1),
         ('All (default + ensemble)', default_models, 20),
     ]
@@ -191,7 +193,8 @@ def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         n_configs: int = [100],
         ensemble_size: int = default_ensemble_size,
-        framework_types=["CatBoost", "NeuralNetFastAI", "LightGBM", "RandomForest", "ExtraTrees"],
+        framework_types=["CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"],
+        engine='ray',
         **kwargs) -> List[ResultRow]:
     """
     Evaluates best configurations among `n_configs` random draws and ensemble built with `ensemble_size`
@@ -231,7 +234,7 @@ def framework_best_results(
         evaluate_tid,
         inputs=list(itertools.product(dataset_names, n_configs, framework_types, ensemble_sizes)),
         context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer),
-        engine="ray",
+        engine=engine,
     )
     return [x for l in list_rows for x in l]
 
@@ -369,8 +372,7 @@ def zeroshot_results(
             tid=test_tid,
             fold=0,
             config_names=portfolio_configs,
-            # TODO hack to make results comparable, we should get rid of this
-            max_cumruntime=max_runtime / 8 if max_runtime else None,
+            max_cumruntime=max_runtime if max_runtime else None,
         )
         if len(portfolio_configs) == 0:
             # in case all configurations selected were above the budget, we evaluate a quick backup
