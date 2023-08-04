@@ -115,7 +115,7 @@
       "feature_fraction": 0.4522775798209244,
       "learning_rate": 0.005312204016544514,
       "min_data_in_leaf": 53,
-      "num_leaves": 85,
+      "num_leaves": 213,
       "ag_args": {
         "name_suffix": "_r5"
       }
@@ -130,7 +130,7 @@
       "feature_fraction": 0.4842104682475871,
       "learning_rate": 0.06776097187257554,
       "min_data_in_leaf": 37,
-      "num_leaves": 104,
+      "num_leaves": 232,
       "ag_args": {
         "name_suffix": "_r6"
       }
@@ -145,7 +145,7 @@
       "feature_fraction": 0.6768876173517591,
       "learning_rate": 0.051815760320740985,
       "min_data_in_leaf": 16,
-      "num_leaves": 55,
+      "num_leaves": 183,
       "ag_args": {
         "name_suffix": "_r7"
       }
@@ -175,7 +175,7 @@
       "feature_fraction": 0.6487971639943142,
       "learning_rate": 0.011044976373595985,
       "min_data_in_leaf": 13,
-      "num_leaves": 71,
+      "num_leaves": 130,
       "ag_args": {
         "name_suffix": "_r9"
       }
@@ -186,11 +186,11 @@
   },
   "LightGBM_r10": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7410603693211891,
-      "learning_rate": 0.005289517987346848,
-      "min_data_in_leaf": 55,
-      "num_leaves": 21,
+      "extra_trees": true,
+      "feature_fraction": 0.5299302126546231,
+      "learning_rate": 0.007497093097985987,
+      "min_data_in_leaf": 38,
+      "num_leaves": 69,
       "ag_args": {
         "name_suffix": "_r10"
       }
@@ -201,11 +201,11 @@
   },
   "LightGBM_r11": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.5333928329509526,
-      "learning_rate": 0.015914894417563136,
-      "min_data_in_leaf": 6,
-      "num_leaves": 121,
+      "extra_trees": true,
+      "feature_fraction": 0.7672574336334528,
+      "learning_rate": 0.031740929437815736,
+      "min_data_in_leaf": 17,
+      "num_leaves": 148,
       "ag_args": {
         "name_suffix": "_r11"
       }
@@ -216,11 +216,11 @@
   },
   "LightGBM_r12": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6157047403442716,
-      "learning_rate": 0.018516618774992607,
+      "extra_trees": true,
+      "feature_fraction": 0.6699699939467365,
+      "learning_rate": 0.031375015734637225,
       "min_data_in_leaf": 3,
-      "num_leaves": 119,
+      "num_leaves": 81,
       "ag_args": {
         "name_suffix": "_r12"
       }
@@ -232,10 +232,10 @@
   "LightGBM_r13": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9818854406480493,
-      "learning_rate": 0.03537730797073661,
-      "min_data_in_leaf": 13,
-      "num_leaves": 62,
+      "feature_fraction": 0.43613528297756193,
+      "learning_rate": 0.03685135839677242,
+      "min_data_in_leaf": 57,
+      "num_leaves": 27,
       "ag_args": {
         "name_suffix": "_r13"
       }
@@ -247,10 +247,10 @@
   "LightGBM_r14": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.477355778592912,
-      "learning_rate": 0.01286328080486346,
-      "min_data_in_leaf": 55,
-      "num_leaves": 28,
+      "feature_fraction": 0.614891300181715,
+      "learning_rate": 0.04738437879002857,
+      "min_data_in_leaf": 37,
+      "num_leaves": 69,
       "ag_args": {
         "name_suffix": "_r14"
       }
@@ -261,11 +261,11 @@
   },
   "LightGBM_r15": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.42305525588364085,
-      "learning_rate": 0.033433325705023165,
-      "min_data_in_leaf": 8,
-      "num_leaves": 84,
+      "extra_trees": false,
+      "feature_fraction": 0.7421180622507277,
+      "learning_rate": 0.018603888565740096,
+      "min_data_in_leaf": 6,
+      "num_leaves": 22,
       "ag_args": {
         "name_suffix": "_r15"
       }
@@ -276,11 +276,11 @@
   },
   "LightGBM_r16": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.5253260536569009,
-      "learning_rate": 0.008106595918180283,
-      "min_data_in_leaf": 38,
-      "num_leaves": 68,
+      "extra_trees": false,
+      "feature_fraction": 0.7916741902032944,
+      "learning_rate": 0.033512023192001285,
+      "min_data_in_leaf": 14,
+      "num_leaves": 116,
       "ag_args": {
         "name_suffix": "_r16"
       }
@@ -292,10 +292,10 @@
   "LightGBM_r17": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.6486211529358212,
-      "learning_rate": 0.02072839584546626,
-      "min_data_in_leaf": 60,
-      "num_leaves": 39,
+      "feature_fraction": 0.5519749615238693,
+      "learning_rate": 0.02021409521894178,
+      "min_data_in_leaf": 37,
+      "num_leaves": 202,
       "ag_args": {
         "name_suffix": "_r17"
       }
@@ -307,10 +307,10 @@
   "LightGBM_r18": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.4662250846985831,
-      "learning_rate": 0.035716959988573986,
-      "min_data_in_leaf": 51,
-      "num_leaves": 85,
+      "feature_fraction": 0.602804568903335,
+      "learning_rate": 0.037743573427861346,
+      "min_data_in_leaf": 50,
+      "num_leaves": 65,
       "ag_args": {
         "name_suffix": "_r18"
       }
@@ -322,10 +322,10 @@
   "LightGBM_r19": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9697426320704453,
-      "learning_rate": 0.03638625268630514,
-      "min_data_in_leaf": 32,
-      "num_leaves": 16,
+      "feature_fraction": 0.5179494170080321,
+      "learning_rate": 0.015090113680567405,
+      "min_data_in_leaf": 7,
+      "num_leaves": 110,
       "ag_args": {
         "name_suffix": "_r19"
       }
@@ -336,11 +336,11 @@
   },
   "LightGBM_r20": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9027669444992823,
-      "learning_rate": 0.006668020334168042,
-      "min_data_in_leaf": 31,
-      "num_leaves": 19,
+      "extra_trees": false,
+      "feature_fraction": 0.7737076573280017,
+      "learning_rate": 0.037620225195741756,
+      "min_data_in_leaf": 50,
+      "num_leaves": 109,
       "ag_args": {
         "name_suffix": "_r20"
       }
@@ -351,11 +351,11 @@
   },
   "LightGBM_r21": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7057746260319401,
-      "learning_rate": 0.005908217736251025,
-      "min_data_in_leaf": 23,
-      "num_leaves": 89,
+      "extra_trees": true,
+      "feature_fraction": 0.681190720988621,
+      "learning_rate": 0.09327504745556998,
+      "min_data_in_leaf": 41,
+      "num_leaves": 165,
       "ag_args": {
         "name_suffix": "_r21"
       }
@@ -367,10 +367,10 @@
   "LightGBM_r22": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.4235126753525924,
-      "learning_rate": 0.011665687694611088,
-      "min_data_in_leaf": 60,
-      "num_leaves": 39,
+      "feature_fraction": 0.4119925992452553,
+      "learning_rate": 0.018777992544462777,
+      "min_data_in_leaf": 45,
+      "num_leaves": 202,
       "ag_args": {
         "name_suffix": "_r22"
       }
@@ -382,10 +382,10 @@
   "LightGBM_r23": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.47123663137254646,
-      "learning_rate": 0.012962108691834466,
-      "min_data_in_leaf": 37,
-      "num_leaves": 110,
+      "feature_fraction": 0.5776841185132869,
+      "learning_rate": 0.007135728670126616,
+      "min_data_in_leaf": 36,
+      "num_leaves": 78,
       "ag_args": {
         "name_suffix": "_r23"
       }
@@ -397,10 +397,10 @@
   "LightGBM_r24": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.5300932825765258,
-      "learning_rate": 0.02718301801873849,
-      "min_data_in_leaf": 22,
-      "num_leaves": 97,
+      "feature_fraction": 0.9509412798172868,
+      "learning_rate": 0.009573309708615805,
+      "min_data_in_leaf": 48,
+      "num_leaves": 243,
       "ag_args": {
         "name_suffix": "_r24"
       }
@@ -412,10 +412,10 @@
   "LightGBM_r25": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7139488320800198,
-      "learning_rate": 0.006625054063102624,
-      "min_data_in_leaf": 3,
-      "num_leaves": 52,
+      "feature_fraction": 0.5592336945636672,
+      "learning_rate": 0.02397349855292197,
+      "min_data_in_leaf": 43,
+      "num_leaves": 74,
       "ag_args": {
         "name_suffix": "_r25"
       }
@@ -426,11 +426,11 @@
   },
   "LightGBM_r26": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.5666311367686194,
-      "learning_rate": 0.005142133623307423,
-      "min_data_in_leaf": 4,
-      "num_leaves": 67,
+      "extra_trees": true,
+      "feature_fraction": 0.4498674955783615,
+      "learning_rate": 0.011489210406388107,
+      "min_data_in_leaf": 42,
+      "num_leaves": 27,
       "ag_args": {
         "name_suffix": "_r26"
       }
@@ -442,10 +442,10 @@
   "LightGBM_r27": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.8297963224711393,
-      "learning_rate": 0.011898604034833728,
-      "min_data_in_leaf": 21,
-      "num_leaves": 62,
+      "feature_fraction": 0.4790787174426353,
+      "learning_rate": 0.04274971104748569,
+      "min_data_in_leaf": 2,
+      "num_leaves": 54,
       "ag_args": {
         "name_suffix": "_r27"
       }
@@ -456,11 +456,11 @@
   },
   "LightGBM_r28": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7316928879325428,
-      "learning_rate": 0.008195255361815645,
-      "min_data_in_leaf": 15,
-      "num_leaves": 46,
+      "extra_trees": true,
+      "feature_fraction": 0.6386924516551774,
+      "learning_rate": 0.026194332255708278,
+      "min_data_in_leaf": 42,
+      "num_leaves": 93,
       "ag_args": {
         "name_suffix": "_r28"
       }
@@ -472,10 +472,10 @@
   "LightGBM_r29": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.8066899220777382,
-      "learning_rate": 0.011226864382769612,
-      "min_data_in_leaf": 36,
-      "num_leaves": 123,
+      "feature_fraction": 0.48786505763746735,
+      "learning_rate": 0.027546132776827173,
+      "min_data_in_leaf": 32,
+      "num_leaves": 242,
       "ag_args": {
         "name_suffix": "_r29"
       }
@@ -487,10 +487,10 @@
   "LightGBM_r30": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6599728371892264,
-      "learning_rate": 0.048160112525742475,
-      "min_data_in_leaf": 33,
-      "num_leaves": 88,
+      "feature_fraction": 0.9773131270704629,
+      "learning_rate": 0.010534290864227067,
+      "min_data_in_leaf": 21,
+      "num_leaves": 111,
       "ag_args": {
         "name_suffix": "_r30"
       }
@@ -502,10 +502,10 @@
   "LightGBM_r31": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.743351143474524,
-      "learning_rate": 0.009754519918490221,
-      "min_data_in_leaf": 46,
-      "num_leaves": 77,
+      "feature_fraction": 0.9376230325054462,
+      "learning_rate": 0.033902013257644116,
+      "min_data_in_leaf": 5,
+      "num_leaves": 252,
       "ag_args": {
         "name_suffix": "_r31"
       }
@@ -516,11 +516,11 @@
   },
   "LightGBM_r32": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6695186429310233,
-      "learning_rate": 0.09378213924038177,
-      "min_data_in_leaf": 13,
-      "num_leaves": 102,
+      "extra_trees": true,
+      "feature_fraction": 0.6682752271705764,
+      "learning_rate": 0.06312088448366947,
+      "min_data_in_leaf": 47,
+      "num_leaves": 155,
       "ag_args": {
         "name_suffix": "_r32"
       }
@@ -531,11 +531,11 @@
   },
   "LightGBM_r33": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6470920833789069,
-      "learning_rate": 0.037821304947718695,
-      "min_data_in_leaf": 18,
-      "num_leaves": 40,
+      "extra_trees": false,
+      "feature_fraction": 0.860214222135236,
+      "learning_rate": 0.01716960713293752,
+      "min_data_in_leaf": 13,
+      "num_leaves": 200,
       "ag_args": {
         "name_suffix": "_r33"
       }
@@ -546,11 +546,11 @@
   },
   "LightGBM_r34": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9290412171129117,
-      "learning_rate": 0.03980836823243114,
-      "min_data_in_leaf": 59,
-      "num_leaves": 77,
+      "extra_trees": false,
+      "feature_fraction": 0.7487637235815152,
+      "learning_rate": 0.07016720191562995,
+      "min_data_in_leaf": 27,
+      "num_leaves": 224,
       "ag_args": {
         "name_suffix": "_r34"
       }
@@ -561,11 +561,11 @@
   },
   "LightGBM_r35": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7863941195377824,
-      "learning_rate": 0.017799923520872868,
-      "min_data_in_leaf": 59,
-      "num_leaves": 86,
+      "extra_trees": false,
+      "feature_fraction": 0.7958010472416477,
+      "learning_rate": 0.024699452953399655,
+      "min_data_in_leaf": 21,
+      "num_leaves": 177,
       "ag_args": {
         "name_suffix": "_r35"
       }
@@ -576,11 +576,11 @@
   },
   "LightGBM_r36": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8296447187371859,
-      "learning_rate": 0.011848269921046147,
-      "min_data_in_leaf": 26,
-      "num_leaves": 95,
+      "extra_trees": false,
+      "feature_fraction": 0.6543130291349077,
+      "learning_rate": 0.030754294236235564,
+      "min_data_in_leaf": 59,
+      "num_leaves": 86,
       "ag_args": {
         "name_suffix": "_r36"
       }
@@ -592,10 +592,10 @@
   "LightGBM_r37": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6572612205674597,
-      "learning_rate": 0.007502842425833761,
-      "min_data_in_leaf": 13,
-      "num_leaves": 54,
+      "feature_fraction": 0.8296447187371859,
+      "learning_rate": 0.011848269921046147,
+      "min_data_in_leaf": 26,
+      "num_leaves": 95,
       "ag_args": {
         "name_suffix": "_r37"
       }
@@ -607,10 +607,10 @@
   "LightGBM_r38": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6124279972502862,
-      "learning_rate": 0.026115570021020322,
-      "min_data_in_leaf": 56,
-      "num_leaves": 60,
+      "feature_fraction": 0.6572612205674597,
+      "learning_rate": 0.007502842425833761,
+      "min_data_in_leaf": 13,
+      "num_leaves": 182,
       "ag_args": {
         "name_suffix": "_r38"
       }
@@ -621,11 +621,11 @@
   },
   "LightGBM_r39": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7912619620010133,
-      "learning_rate": 0.018207835854270764,
-      "min_data_in_leaf": 49,
-      "num_leaves": 19,
+      "extra_trees": true,
+      "feature_fraction": 0.6124279972502862,
+      "learning_rate": 0.026115570021020322,
+      "min_data_in_leaf": 56,
+      "num_leaves": 60,
       "ag_args": {
         "name_suffix": "_r39"
       }
@@ -637,10 +637,10 @@
   "LightGBM_r40": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.45835595623790437,
-      "learning_rate": 0.09533195017847339,
-      "min_data_in_leaf": 7,
-      "num_leaves": 103,
+      "feature_fraction": 0.7912619620010133,
+      "learning_rate": 0.018207835854270764,
+      "min_data_in_leaf": 49,
+      "num_leaves": 19,
       "ag_args": {
         "name_suffix": "_r40"
       }
@@ -651,11 +651,11 @@
   },
   "LightGBM_r41": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.4601361323873807,
-      "learning_rate": 0.07856777698860955,
-      "min_data_in_leaf": 12,
-      "num_leaves": 70,
+      "extra_trees": false,
+      "feature_fraction": 0.45835595623790437,
+      "learning_rate": 0.09533195017847339,
+      "min_data_in_leaf": 7,
+      "num_leaves": 231,
       "ag_args": {
         "name_suffix": "_r41"
       }
@@ -667,10 +667,10 @@
   "LightGBM_r42": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9046840778713597,
-      "learning_rate": 0.07515257316211908,
-      "min_data_in_leaf": 42,
-      "num_leaves": 18,
+      "feature_fraction": 0.4601361323873807,
+      "learning_rate": 0.07856777698860955,
+      "min_data_in_leaf": 12,
+      "num_leaves": 198,
       "ag_args": {
         "name_suffix": "_r42"
       }
@@ -682,10 +682,10 @@
   "LightGBM_r43": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7693357385703066,
-      "learning_rate": 0.007245419174458268,
-      "min_data_in_leaf": 53,
-      "num_leaves": 62,
+      "feature_fraction": 0.9046840778713597,
+      "learning_rate": 0.07515257316211908,
+      "min_data_in_leaf": 42,
+      "num_leaves": 18,
       "ag_args": {
         "name_suffix": "_r43"
       }
@@ -696,11 +696,11 @@
   },
   "LightGBM_r44": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6468380342532727,
-      "learning_rate": 0.00760463784709763,
-      "min_data_in_leaf": 41,
-      "num_leaves": 25,
+      "extra_trees": true,
+      "feature_fraction": 0.7693357385703066,
+      "learning_rate": 0.007245419174458268,
+      "min_data_in_leaf": 53,
+      "num_leaves": 190,
       "ag_args": {
         "name_suffix": "_r44"
       }
@@ -711,11 +711,11 @@
   },
   "LightGBM_r45": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8184572638867382,
-      "learning_rate": 0.019455510854745447,
-      "min_data_in_leaf": 28,
-      "num_leaves": 66,
+      "extra_trees": false,
+      "feature_fraction": 0.6468380342532727,
+      "learning_rate": 0.00760463784709763,
+      "min_data_in_leaf": 41,
+      "num_leaves": 153,
       "ag_args": {
         "name_suffix": "_r45"
       }
@@ -726,11 +726,11 @@
   },
   "LightGBM_r46": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6192976637580462,
-      "learning_rate": 0.005255372412257368,
-      "min_data_in_leaf": 29,
-      "num_leaves": 61,
+      "extra_trees": true,
+      "feature_fraction": 0.8184572638867382,
+      "learning_rate": 0.019455510854745447,
+      "min_data_in_leaf": 28,
+      "num_leaves": 194,
       "ag_args": {
         "name_suffix": "_r46"
       }
@@ -741,11 +741,11 @@
   },
   "LightGBM_r47": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6159868386870183,
-      "learning_rate": 0.044535837390296616,
-      "min_data_in_leaf": 46,
-      "num_leaves": 50,
+      "extra_trees": false,
+      "feature_fraction": 0.6192976637580462,
+      "learning_rate": 0.005255372412257368,
+      "min_data_in_leaf": 29,
+      "num_leaves": 189,
       "ag_args": {
         "name_suffix": "_r47"
       }
@@ -756,11 +756,11 @@
   },
   "LightGBM_r48": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6937293621346563,
-      "learning_rate": 0.013803836586316339,
-      "min_data_in_leaf": 38,
-      "num_leaves": 16,
+      "extra_trees": true,
+      "feature_fraction": 0.6159868386870183,
+      "learning_rate": 0.044535837390296616,
+      "min_data_in_leaf": 46,
+      "num_leaves": 50,
       "ag_args": {
         "name_suffix": "_r48"
       }
@@ -771,11 +771,11 @@
   },
   "LightGBM_r49": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6780705864306897,
-      "learning_rate": 0.06867768629215554,
-      "min_data_in_leaf": 18,
-      "num_leaves": 78,
+      "extra_trees": false,
+      "feature_fraction": 0.6937293621346563,
+      "learning_rate": 0.013803836586316339,
+      "min_data_in_leaf": 38,
+      "num_leaves": 16,
       "ag_args": {
         "name_suffix": "_r49"
       }
@@ -786,11 +786,11 @@
   },
   "LightGBM_r50": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7579932437770318,
-      "learning_rate": 0.052301563688720604,
-      "min_data_in_leaf": 37,
-      "num_leaves": 107,
+      "extra_trees": true,
+      "feature_fraction": 0.6780705864306897,
+      "learning_rate": 0.06867768629215554,
+      "min_data_in_leaf": 18,
+      "num_leaves": 206,
       "ag_args": {
         "name_suffix": "_r50"
       }
@@ -802,10 +802,10 @@
   "LightGBM_r51": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.8194588448311066,
-      "learning_rate": 0.09774791148389239,
-      "min_data_in_leaf": 5,
-      "num_leaves": 119,
+      "feature_fraction": 0.7579932437770318,
+      "learning_rate": 0.052301563688720604,
+      "min_data_in_leaf": 37,
+      "num_leaves": 136,
       "ag_args": {
         "name_suffix": "_r51"
       }
@@ -816,11 +816,11 @@
   },
   "LightGBM_r52": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7213796818149749,
-      "learning_rate": 0.029272551471352003,
-      "min_data_in_leaf": 51,
-      "num_leaves": 49,
+      "extra_trees": true,
+      "feature_fraction": 0.7463371531625005,
+      "learning_rate": 0.010197077045666502,
+      "min_data_in_leaf": 27,
+      "num_leaves": 83,
       "ag_args": {
         "name_suffix": "_r52"
       }
@@ -831,11 +831,11 @@
   },
   "LightGBM_r53": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7325454610506641,
-      "learning_rate": 0.009447054356012436,
-      "min_data_in_leaf": 4,
-      "num_leaves": 85,
+      "extra_trees": true,
+      "feature_fraction": 0.8074543693764484,
+      "learning_rate": 0.06659261754456541,
+      "min_data_in_leaf": 31,
+      "num_leaves": 49,
       "ag_args": {
         "name_suffix": "_r53"
       }
@@ -846,11 +846,11 @@
   },
   "LightGBM_r54": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9666234339903601,
-      "learning_rate": 0.04582977995120822,
+      "extra_trees": false,
+      "feature_fraction": 0.7325454610506641,
+      "learning_rate": 0.009447054356012436,
       "min_data_in_leaf": 4,
-      "num_leaves": 127,
+      "num_leaves": 85,
       "ag_args": {
         "name_suffix": "_r54"
       }
@@ -862,10 +862,10 @@
   "LightGBM_r55": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8083268147156677,
-      "learning_rate": 0.0064556814746310025,
-      "min_data_in_leaf": 24,
-      "num_leaves": 46,
+      "feature_fraction": 0.9666234339903601,
+      "learning_rate": 0.04582977995120822,
+      "min_data_in_leaf": 4,
+      "num_leaves": 127,
       "ag_args": {
         "name_suffix": "_r55"
       }
@@ -877,10 +877,10 @@
   "LightGBM_r56": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.5870775291964616,
-      "learning_rate": 0.04026556251041824,
-      "min_data_in_leaf": 45,
-      "num_leaves": 99,
+      "feature_fraction": 0.8083268147156677,
+      "learning_rate": 0.0064556814746310025,
+      "min_data_in_leaf": 24,
+      "num_leaves": 174,
       "ag_args": {
         "name_suffix": "_r56"
       }
@@ -892,10 +892,10 @@
   "LightGBM_r57": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7254992650062384,
-      "learning_rate": 0.06469160215389161,
-      "min_data_in_leaf": 11,
-      "num_leaves": 105,
+      "feature_fraction": 0.5870775291964616,
+      "learning_rate": 0.04026556251041824,
+      "min_data_in_leaf": 45,
+      "num_leaves": 99,
       "ag_args": {
         "name_suffix": "_r57"
       }
@@ -906,11 +906,11 @@
   },
   "LightGBM_r58": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6722181067336273,
-      "learning_rate": 0.02495029317103656,
-      "min_data_in_leaf": 45,
-      "num_leaves": 97,
+      "extra_trees": true,
+      "feature_fraction": 0.7254992650062384,
+      "learning_rate": 0.06469160215389161,
+      "min_data_in_leaf": 11,
+      "num_leaves": 105,
       "ag_args": {
         "name_suffix": "_r58"
       }
@@ -921,11 +921,11 @@
   },
   "LightGBM_r59": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6816983098547026,
-      "learning_rate": 0.019600118975966658,
-      "min_data_in_leaf": 18,
-      "num_leaves": 122,
+      "extra_trees": false,
+      "feature_fraction": 0.6722181067336273,
+      "learning_rate": 0.02495029317103656,
+      "min_data_in_leaf": 45,
+      "num_leaves": 225,
       "ag_args": {
         "name_suffix": "_r59"
       }
@@ -936,11 +936,11 @@
   },
   "LightGBM_r60": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.41239059967943725,
-      "learning_rate": 0.04848901712678711,
-      "min_data_in_leaf": 5,
-      "num_leaves": 67,
+      "extra_trees": true,
+      "feature_fraction": 0.6816983098547026,
+      "learning_rate": 0.019600118975966658,
+      "min_data_in_leaf": 18,
+      "num_leaves": 122,
       "ag_args": {
         "name_suffix": "_r60"
       }
@@ -952,10 +952,10 @@
   "LightGBM_r61": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7874707591011395,
-      "learning_rate": 0.013224896749953946,
-      "min_data_in_leaf": 48,
-      "num_leaves": 103,
+      "feature_fraction": 0.41239059967943725,
+      "learning_rate": 0.04848901712678711,
+      "min_data_in_leaf": 5,
+      "num_leaves": 67,
       "ag_args": {
         "name_suffix": "_r61"
       }
@@ -967,10 +967,10 @@
   "LightGBM_r62": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9235903932684372,
-      "learning_rate": 0.011346355763952223,
-      "min_data_in_leaf": 15,
-      "num_leaves": 74,
+      "feature_fraction": 0.7874707591011395,
+      "learning_rate": 0.013224896749953946,
+      "min_data_in_leaf": 48,
+      "num_leaves": 103,
       "ag_args": {
         "name_suffix": "_r62"
       }
@@ -981,11 +981,11 @@
   },
   "LightGBM_r63": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8079276738440617,
-      "learning_rate": 0.019606881306994683,
-      "min_data_in_leaf": 13,
-      "num_leaves": 108,
+      "extra_trees": false,
+      "feature_fraction": 0.9235903932684372,
+      "learning_rate": 0.011346355763952223,
+      "min_data_in_leaf": 15,
+      "num_leaves": 74,
       "ag_args": {
         "name_suffix": "_r63"
       }
@@ -996,11 +996,11 @@
   },
   "LightGBM_r64": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9684223542933545,
-      "learning_rate": 0.04465142582082474,
-      "min_data_in_leaf": 24,
-      "num_leaves": 44,
+      "extra_trees": true,
+      "feature_fraction": 0.8079276738440617,
+      "learning_rate": 0.019606881306994683,
+      "min_data_in_leaf": 13,
+      "num_leaves": 236,
       "ag_args": {
         "name_suffix": "_r64"
       }
@@ -1012,10 +1012,10 @@
   "LightGBM_r65": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9744705133953723,
-      "learning_rate": 0.020546267996855768,
-      "min_data_in_leaf": 60,
-      "num_leaves": 99,
+      "feature_fraction": 0.9684223542933545,
+      "learning_rate": 0.04465142582082474,
+      "min_data_in_leaf": 24,
+      "num_leaves": 44,
       "ag_args": {
         "name_suffix": "_r65"
       }
@@ -1026,11 +1026,11 @@
   },
   "LightGBM_r66": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6548112812509037,
-      "learning_rate": 0.015338269782051729,
-      "min_data_in_leaf": 2,
-      "num_leaves": 24,
+      "extra_trees": false,
+      "feature_fraction": 0.9744705133953723,
+      "learning_rate": 0.020546267996855768,
+      "min_data_in_leaf": 60,
+      "num_leaves": 99,
       "ag_args": {
         "name_suffix": "_r66"
       }
@@ -1042,10 +1042,10 @@
   "LightGBM_r67": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.5118749316936031,
-      "learning_rate": 0.056189628147929035,
-      "min_data_in_leaf": 41,
-      "num_leaves": 108,
+      "feature_fraction": 0.6548112812509037,
+      "learning_rate": 0.015338269782051729,
+      "min_data_in_leaf": 2,
+      "num_leaves": 152,
       "ag_args": {
         "name_suffix": "_r67"
       }
@@ -1057,10 +1057,10 @@
   "LightGBM_r68": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7104274642924685,
-      "learning_rate": 0.0074266776175061265,
-      "min_data_in_leaf": 51,
-      "num_leaves": 107,
+      "feature_fraction": 0.5118749316936031,
+      "learning_rate": 0.056189628147929035,
+      "min_data_in_leaf": 41,
+      "num_leaves": 108,
       "ag_args": {
         "name_suffix": "_r68"
       }
@@ -1072,10 +1072,10 @@
   "LightGBM_r69": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6778901199940799,
-      "learning_rate": 0.06200014916728295,
-      "min_data_in_leaf": 36,
-      "num_leaves": 67,
+      "feature_fraction": 0.7104274642924685,
+      "learning_rate": 0.0074266776175061265,
+      "min_data_in_leaf": 51,
+      "num_leaves": 235,
       "ag_args": {
         "name_suffix": "_r69"
       }
@@ -1086,11 +1086,11 @@
   },
   "LightGBM_r70": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6928337683893728,
-      "learning_rate": 0.01450884506740741,
-      "min_data_in_leaf": 20,
-      "num_leaves": 61,
+      "extra_trees": true,
+      "feature_fraction": 0.6778901199940799,
+      "learning_rate": 0.06200014916728295,
+      "min_data_in_leaf": 36,
+      "num_leaves": 67,
       "ag_args": {
         "name_suffix": "_r70"
       }
@@ -1101,11 +1101,11 @@
   },
   "LightGBM_r71": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.45555769907110816,
-      "learning_rate": 0.009591347321206594,
-      "min_data_in_leaf": 50,
-      "num_leaves": 110,
+      "extra_trees": false,
+      "feature_fraction": 0.6928337683893728,
+      "learning_rate": 0.01450884506740741,
+      "min_data_in_leaf": 20,
+      "num_leaves": 189,
       "ag_args": {
         "name_suffix": "_r71"
       }
@@ -1117,10 +1117,10 @@
   "LightGBM_r72": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7506856413734613,
-      "learning_rate": 0.08922325989547217,
-      "min_data_in_leaf": 60,
-      "num_leaves": 65,
+      "feature_fraction": 0.45555769907110816,
+      "learning_rate": 0.009591347321206594,
+      "min_data_in_leaf": 50,
+      "num_leaves": 110,
       "ag_args": {
         "name_suffix": "_r72"
       }
@@ -1131,11 +1131,11 @@
   },
   "LightGBM_r73": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.8063579832030562,
-      "learning_rate": 0.006039273669165622,
-      "min_data_in_leaf": 8,
-      "num_leaves": 54,
+      "extra_trees": true,
+      "feature_fraction": 0.7506856413734613,
+      "learning_rate": 0.08922325989547217,
+      "min_data_in_leaf": 60,
+      "num_leaves": 193,
       "ag_args": {
         "name_suffix": "_r73"
       }
@@ -1146,11 +1146,11 @@
   },
   "LightGBM_r74": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8019499279545461,
-      "learning_rate": 0.05253847879984237,
-      "min_data_in_leaf": 18,
-      "num_leaves": 38,
+      "extra_trees": false,
+      "feature_fraction": 0.8063579832030562,
+      "learning_rate": 0.006039273669165622,
+      "min_data_in_leaf": 8,
+      "num_leaves": 54,
       "ag_args": {
         "name_suffix": "_r74"
       }
@@ -1161,11 +1161,11 @@
   },
   "LightGBM_r75": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.4383731596725887,
-      "learning_rate": 0.02141835306847089,
-      "min_data_in_leaf": 8,
-      "num_leaves": 97,
+      "extra_trees": true,
+      "feature_fraction": 0.8019499279545461,
+      "learning_rate": 0.05253847879984237,
+      "min_data_in_leaf": 18,
+      "num_leaves": 38,
       "ag_args": {
         "name_suffix": "_r75"
       }
@@ -1176,11 +1176,11 @@
   },
   "LightGBM_r76": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7638852760411454,
-      "learning_rate": 0.00961875071780359,
-      "min_data_in_leaf": 18,
-      "num_leaves": 72,
+      "extra_trees": false,
+      "feature_fraction": 0.4383731596725887,
+      "learning_rate": 0.02141835306847089,
+      "min_data_in_leaf": 8,
+      "num_leaves": 225,
       "ag_args": {
         "name_suffix": "_r76"
       }
@@ -1191,11 +1191,11 @@
   },
   "LightGBM_r77": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9695912934494089,
-      "learning_rate": 0.0838939485577584,
-      "min_data_in_leaf": 38,
-      "num_leaves": 124,
+      "extra_trees": true,
+      "feature_fraction": 0.7638852760411454,
+      "learning_rate": 0.00961875071780359,
+      "min_data_in_leaf": 18,
+      "num_leaves": 72,
       "ag_args": {
         "name_suffix": "_r77"
       }
@@ -1206,11 +1206,11 @@
   },
   "LightGBM_r78": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8251288900120018,
-      "learning_rate": 0.02223644618429363,
-      "min_data_in_leaf": 22,
-      "num_leaves": 113,
+      "extra_trees": false,
+      "feature_fraction": 0.9695912934494089,
+      "learning_rate": 0.0838939485577584,
+      "min_data_in_leaf": 38,
+      "num_leaves": 252,
       "ag_args": {
         "name_suffix": "_r78"
       }
@@ -1222,10 +1222,10 @@
   "LightGBM_r79": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7707260151505143,
-      "learning_rate": 0.005202254006317356,
-      "min_data_in_leaf": 35,
-      "num_leaves": 69,
+      "feature_fraction": 0.8251288900120018,
+      "learning_rate": 0.02223644618429363,
+      "min_data_in_leaf": 22,
+      "num_leaves": 113,
       "ag_args": {
         "name_suffix": "_r79"
       }
@@ -1237,10 +1237,10 @@
   "LightGBM_r80": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.989097633890952,
-      "learning_rate": 0.020957724297038502,
-      "min_data_in_leaf": 43,
-      "num_leaves": 25,
+      "feature_fraction": 0.7707260151505143,
+      "learning_rate": 0.005202254006317356,
+      "min_data_in_leaf": 35,
+      "num_leaves": 131,
       "ag_args": {
         "name_suffix": "_r80"
       }
@@ -1251,11 +1251,11 @@
   },
   "LightGBM_r81": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6211507636777706,
-      "learning_rate": 0.007534967166327874,
-      "min_data_in_leaf": 19,
-      "num_leaves": 36,
+      "extra_trees": true,
+      "feature_fraction": 0.8682559906624081,
+      "learning_rate": 0.09561511371136407,
+      "min_data_in_leaf": 9,
+      "num_leaves": 121,
       "ag_args": {
         "name_suffix": "_r81"
       }
@@ -1267,10 +1267,10 @@
   "LightGBM_r82": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6406794049351766,
-      "learning_rate": 0.007177089616258588,
-      "min_data_in_leaf": 3,
-      "num_leaves": 36,
+      "feature_fraction": 0.7836835098392342,
+      "learning_rate": 0.015083760666418882,
+      "min_data_in_leaf": 58,
+      "num_leaves": 180,
       "ag_args": {
         "name_suffix": "_r82"
       }
@@ -1281,11 +1281,11 @@
   },
   "LightGBM_r83": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.91731491045301,
-      "learning_rate": 0.09220775385808395,
-      "min_data_in_leaf": 12,
-      "num_leaves": 125,
+      "extra_trees": true,
+      "feature_fraction": 0.5787050911330338,
+      "learning_rate": 0.016628581867418828,
+      "min_data_in_leaf": 44,
+      "num_leaves": 81,
       "ag_args": {
         "name_suffix": "_r83"
       }
@@ -1297,10 +1297,10 @@
   "LightGBM_r84": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.6468234484227627,
-      "learning_rate": 0.014668742825065481,
-      "min_data_in_leaf": 33,
-      "num_leaves": 36,
+      "feature_fraction": 0.6436722957887866,
+      "learning_rate": 0.027512514032704473,
+      "min_data_in_leaf": 49,
+      "num_leaves": 154,
       "ag_args": {
         "name_suffix": "_r84"
       }
@@ -1311,11 +1311,11 @@
   },
   "LightGBM_r85": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6443447028482844,
-      "learning_rate": 0.010025674243662493,
-      "min_data_in_leaf": 37,
-      "num_leaves": 99,
+      "extra_trees": true,
+      "feature_fraction": 0.9439332995327073,
+      "learning_rate": 0.05081931446141268,
+      "min_data_in_leaf": 33,
+      "num_leaves": 164,
       "ag_args": {
         "name_suffix": "_r85"
       }
@@ -1327,10 +1327,10 @@
   "LightGBM_r86": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9717224034321056,
-      "learning_rate": 0.00521335484279385,
-      "min_data_in_leaf": 35,
-      "num_leaves": 59,
+      "feature_fraction": 0.6443447028482844,
+      "learning_rate": 0.010025674243662493,
+      "min_data_in_leaf": 37,
+      "num_leaves": 99,
       "ag_args": {
         "name_suffix": "_r86"
       }
@@ -1341,11 +1341,11 @@
   },
   "LightGBM_r87": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.48816798724022503,
-      "learning_rate": 0.006344985282999711,
-      "min_data_in_leaf": 51,
-      "num_leaves": 16,
+      "extra_trees": false,
+      "feature_fraction": 0.9717224034321056,
+      "learning_rate": 0.00521335484279385,
+      "min_data_in_leaf": 35,
+      "num_leaves": 187,
       "ag_args": {
         "name_suffix": "_r87"
       }
@@ -1357,10 +1357,10 @@
   "LightGBM_r88": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8862544547559345,
-      "learning_rate": 0.018247676786352373,
-      "min_data_in_leaf": 7,
-      "num_leaves": 22,
+      "feature_fraction": 0.48816798724022503,
+      "learning_rate": 0.006344985282999711,
+      "min_data_in_leaf": 51,
+      "num_leaves": 144,
       "ag_args": {
         "name_suffix": "_r88"
       }
@@ -1372,10 +1372,10 @@
   "LightGBM_r89": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9163307042972763,
-      "learning_rate": 0.04414447927691279,
-      "min_data_in_leaf": 35,
-      "num_leaves": 44,
+      "feature_fraction": 0.8862544547559345,
+      "learning_rate": 0.018247676786352373,
+      "min_data_in_leaf": 7,
+      "num_leaves": 150,
       "ag_args": {
         "name_suffix": "_r89"
       }
@@ -1386,11 +1386,11 @@
   },
   "LightGBM_r90": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7551610949130698,
-      "learning_rate": 0.020839204403354215,
-      "min_data_in_leaf": 53,
-      "num_leaves": 89,
+      "extra_trees": true,
+      "feature_fraction": 0.9163307042972763,
+      "learning_rate": 0.04414447927691279,
+      "min_data_in_leaf": 35,
+      "num_leaves": 44,
       "ag_args": {
         "name_suffix": "_r90"
       }
@@ -1401,11 +1401,11 @@
   },
   "LightGBM_r91": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6736843400802879,
-      "learning_rate": 0.03872037166898414,
-      "min_data_in_leaf": 32,
-      "num_leaves": 88,
+      "extra_trees": false,
+      "feature_fraction": 0.7551610949130698,
+      "learning_rate": 0.020839204403354215,
+      "min_data_in_leaf": 53,
+      "num_leaves": 217,
       "ag_args": {
         "name_suffix": "_r91"
       }
@@ -1416,11 +1416,11 @@
   },
   "LightGBM_r92": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6600633846816135,
-      "learning_rate": 0.05953236776786347,
-      "min_data_in_leaf": 29,
-      "num_leaves": 124,
+      "extra_trees": true,
+      "feature_fraction": 0.6736843400802879,
+      "learning_rate": 0.03872037166898414,
+      "min_data_in_leaf": 32,
+      "num_leaves": 88,
       "ag_args": {
         "name_suffix": "_r92"
       }
@@ -1431,11 +1431,11 @@
   },
   "LightGBM_r93": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.4341088458599442,
-      "learning_rate": 0.04034449862560467,
-      "min_data_in_leaf": 33,
-      "num_leaves": 16,
+      "extra_trees": false,
+      "feature_fraction": 0.6600633846816135,
+      "learning_rate": 0.05953236776786347,
+      "min_data_in_leaf": 29,
+      "num_leaves": 124,
       "ag_args": {
         "name_suffix": "_r93"
       }
@@ -1447,10 +1447,10 @@
   "LightGBM_r94": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8088154774580414,
-      "learning_rate": 0.008531615528605938,
-      "min_data_in_leaf": 21,
-      "num_leaves": 23,
+      "feature_fraction": 0.4341088458599442,
+      "learning_rate": 0.04034449862560467,
+      "min_data_in_leaf": 33,
+      "num_leaves": 16,
       "ag_args": {
         "name_suffix": "_r94"
       }
@@ -1462,10 +1462,10 @@
   "LightGBM_r95": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.5636931414546802,
-      "learning_rate": 0.01518660230385841,
-      "min_data_in_leaf": 48,
-      "num_leaves": 16,
+      "feature_fraction": 0.8088154774580414,
+      "learning_rate": 0.008531615528605938,
+      "min_data_in_leaf": 21,
+      "num_leaves": 23,
       "ag_args": {
         "name_suffix": "_r95"
       }
@@ -1476,11 +1476,11 @@
   },
   "LightGBM_r96": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9550980555025292,
-      "learning_rate": 0.042602884918110075,
-      "min_data_in_leaf": 53,
-      "num_leaves": 114,
+      "extra_trees": true,
+      "feature_fraction": 0.5636931414546802,
+      "learning_rate": 0.01518660230385841,
+      "min_data_in_leaf": 48,
+      "num_leaves": 16,
       "ag_args": {
         "name_suffix": "_r96"
       }
@@ -1491,11 +1491,11 @@
   },
   "LightGBM_r97": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7113010892989156,
-      "learning_rate": 0.012535427424259274,
-      "min_data_in_leaf": 16,
-      "num_leaves": 48,
+      "extra_trees": false,
+      "feature_fraction": 0.9550980555025292,
+      "learning_rate": 0.042602884918110075,
+      "min_data_in_leaf": 53,
+      "num_leaves": 242,
       "ag_args": {
         "name_suffix": "_r97"
       }
@@ -1507,10 +1507,10 @@
   "LightGBM_r98": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.5044671713362794,
-      "learning_rate": 0.020765185967116236,
-      "min_data_in_leaf": 59,
-      "num_leaves": 66,
+      "feature_fraction": 0.7113010892989156,
+      "learning_rate": 0.012535427424259274,
+      "min_data_in_leaf": 16,
+      "num_leaves": 48,
       "ag_args": {
         "name_suffix": "_r98"
       }
@@ -1522,10 +1522,10 @@
   "LightGBM_r99": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7060101113909502,
-      "learning_rate": 0.024920285179914237,
-      "min_data_in_leaf": 29,
-      "num_leaves": 33,
+      "feature_fraction": 0.5044671713362794,
+      "learning_rate": 0.020765185967116236,
+      "min_data_in_leaf": 59,
+      "num_leaves": 194,
       "ag_args": {
         "name_suffix": "_r99"
       }
@@ -1537,10 +1537,10 @@
   "LightGBM_r100": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7235341584482516,
-      "learning_rate": 0.013264645704595504,
-      "min_data_in_leaf": 17,
-      "num_leaves": 52,
+      "feature_fraction": 0.7060101113909502,
+      "learning_rate": 0.024920285179914237,
+      "min_data_in_leaf": 29,
+      "num_leaves": 161,
       "ag_args": {
         "name_suffix": "_r100"
       }
@@ -1552,10 +1552,10 @@
   "LightGBM_r101": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.4776474024533508,
-      "learning_rate": 0.028324705017996187,
-      "min_data_in_leaf": 15,
-      "num_leaves": 46,
+      "feature_fraction": 0.7235341584482516,
+      "learning_rate": 0.013264645704595504,
+      "min_data_in_leaf": 17,
+      "num_leaves": 135,
       "ag_args": {
         "name_suffix": "_r101"
       }
@@ -1566,11 +1566,11 @@
   },
   "LightGBM_r102": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9292248461379338,
-      "learning_rate": 0.019752747616308856,
-      "min_data_in_leaf": 28,
-      "num_leaves": 71,
+      "extra_trees": false,
+      "feature_fraction": 0.5122785350505069,
+      "learning_rate": 0.07500327813048528,
+      "min_data_in_leaf": 52,
+      "num_leaves": 221,
       "ag_args": {
         "name_suffix": "_r102"
       }
@@ -1582,10 +1582,10 @@
   "LightGBM_r103": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.4560756738664704,
-      "learning_rate": 0.01793109212996653,
-      "min_data_in_leaf": 36,
-      "num_leaves": 106,
+      "feature_fraction": 0.9463268334360782,
+      "learning_rate": 0.006410896076454028,
+      "min_data_in_leaf": 11,
+      "num_leaves": 234,
       "ag_args": {
         "name_suffix": "_r103"
       }
@@ -1597,10 +1597,10 @@
   "LightGBM_r104": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.5966322409342714,
-      "learning_rate": 0.04825715545703618,
-      "min_data_in_leaf": 49,
-      "num_leaves": 120,
+      "feature_fraction": 0.6394151930218612,
+      "learning_rate": 0.07501685915234306,
+      "min_data_in_leaf": 17,
+      "num_leaves": 114,
       "ag_args": {
         "name_suffix": "_r104"
       }
@@ -1612,10 +1612,10 @@
   "LightGBM_r105": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.40585986135777,
-      "learning_rate": 0.012590980616372347,
-      "min_data_in_leaf": 32,
-      "num_leaves": 22,
+      "feature_fraction": 0.7481182634579557,
+      "learning_rate": 0.04273907900536603,
+      "min_data_in_leaf": 49,
+      "num_leaves": 120,
       "ag_args": {
         "name_suffix": "_r105"
       }
@@ -1626,11 +1626,11 @@
   },
   "LightGBM_r106": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.754590499194211,
-      "learning_rate": 0.06529694945901941,
-      "min_data_in_leaf": 40,
-      "num_leaves": 69,
+      "extra_trees": false,
+      "feature_fraction": 0.40585986135777,
+      "learning_rate": 0.012590980616372347,
+      "min_data_in_leaf": 32,
+      "num_leaves": 22,
       "ag_args": {
         "name_suffix": "_r106"
       }
@@ -1642,10 +1642,10 @@
   "LightGBM_r107": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7730070944536529,
-      "learning_rate": 0.06634196266155237,
-      "min_data_in_leaf": 43,
-      "num_leaves": 82,
+      "feature_fraction": 0.754590499194211,
+      "learning_rate": 0.06529694945901941,
+      "min_data_in_leaf": 40,
+      "num_leaves": 69,
       "ag_args": {
         "name_suffix": "_r107"
       }
@@ -1656,11 +1656,11 @@
   },
   "LightGBM_r108": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.8893142912611414,
-      "learning_rate": 0.008060704546855004,
-      "min_data_in_leaf": 56,
-      "num_leaves": 116,
+      "extra_trees": true,
+      "feature_fraction": 0.7730070944536529,
+      "learning_rate": 0.06634196266155237,
+      "min_data_in_leaf": 43,
+      "num_leaves": 82,
       "ag_args": {
         "name_suffix": "_r108"
       }
@@ -1671,11 +1671,11 @@
   },
   "LightGBM_r109": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9695784839811009,
-      "learning_rate": 0.08273804695112645,
-      "min_data_in_leaf": 31,
-      "num_leaves": 49,
+      "extra_trees": false,
+      "feature_fraction": 0.8893142912611414,
+      "learning_rate": 0.008060704546855004,
+      "min_data_in_leaf": 56,
+      "num_leaves": 116,
       "ag_args": {
         "name_suffix": "_r109"
       }
@@ -1686,11 +1686,11 @@
   },
   "LightGBM_r110": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.8453427867590098,
-      "learning_rate": 0.012542036819497109,
-      "min_data_in_leaf": 10,
-      "num_leaves": 26,
+      "extra_trees": true,
+      "feature_fraction": 0.9695784839811009,
+      "learning_rate": 0.08273804695112645,
+      "min_data_in_leaf": 31,
+      "num_leaves": 130,
       "ag_args": {
         "name_suffix": "_r110"
       }
@@ -1701,11 +1701,11 @@
   },
   "LightGBM_r111": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.40979710161022476,
-      "learning_rate": 0.008708890211023034,
-      "min_data_in_leaf": 3,
-      "num_leaves": 80,
+      "extra_trees": true,
+      "feature_fraction": 0.9094229850571065,
+      "learning_rate": 0.005524593428192805,
+      "min_data_in_leaf": 4,
+      "num_leaves": 216,
       "ag_args": {
         "name_suffix": "_r111"
       }
@@ -1717,10 +1717,10 @@
   "LightGBM_r112": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8081620906276178,
-      "learning_rate": 0.031011895411506087,
-      "min_data_in_leaf": 48,
-      "num_leaves": 53,
+      "feature_fraction": 0.666327205404819,
+      "learning_rate": 0.016168887718896234,
+      "min_data_in_leaf": 29,
+      "num_leaves": 200,
       "ag_args": {
         "name_suffix": "_r112"
       }
@@ -1731,11 +1731,11 @@
   },
   "LightGBM_r113": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.43357949700966875,
-      "learning_rate": 0.006479647339946224,
-      "min_data_in_leaf": 8,
-      "num_leaves": 44,
+      "extra_trees": false,
+      "feature_fraction": 0.6407557004821652,
+      "learning_rate": 0.08091071014734019,
+      "min_data_in_leaf": 36,
+      "num_leaves": 223,
       "ag_args": {
         "name_suffix": "_r113"
       }
@@ -1747,10 +1747,10 @@
   "LightGBM_r114": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.4198447548853034,
-      "learning_rate": 0.005239308391990418,
-      "min_data_in_leaf": 40,
-      "num_leaves": 117,
+      "feature_fraction": 0.45908680201838253,
+      "learning_rate": 0.00658719702703652,
+      "min_data_in_leaf": 21,
+      "num_leaves": 104,
       "ag_args": {
         "name_suffix": "_r114"
       }
@@ -1761,11 +1761,11 @@
   },
   "LightGBM_r115": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7267545264301045,
-      "learning_rate": 0.005510719780963575,
-      "min_data_in_leaf": 56,
-      "num_leaves": 93,
+      "extra_trees": false,
+      "feature_fraction": 0.5396464775674341,
+      "learning_rate": 0.03150699751789893,
+      "min_data_in_leaf": 8,
+      "num_leaves": 82,
       "ag_args": {
         "name_suffix": "_r115"
       }
@@ -1776,11 +1776,11 @@
   },
   "LightGBM_r116": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.4786331387291547,
-      "learning_rate": 0.00518357625004934,
-      "min_data_in_leaf": 47,
-      "num_leaves": 24,
+      "extra_trees": false,
+      "feature_fraction": 0.7078449179029274,
+      "learning_rate": 0.03502844787947471,
+      "min_data_in_leaf": 7,
+      "num_leaves": 125,
       "ag_args": {
         "name_suffix": "_r116"
       }
@@ -1791,11 +1791,11 @@
   },
   "LightGBM_r117": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6245939179823324,
-      "learning_rate": 0.0057329026637345445,
-      "min_data_in_leaf": 24,
-      "num_leaves": 32,
+      "extra_trees": true,
+      "feature_fraction": 0.5326965492076503,
+      "learning_rate": 0.010675281650082547,
+      "min_data_in_leaf": 33,
+      "num_leaves": 97,
       "ag_args": {
         "name_suffix": "_r117"
       }
@@ -1807,10 +1807,10 @@
   "LightGBM_r118": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7832570544199176,
-      "learning_rate": 0.021720607471727896,
-      "min_data_in_leaf": 3,
-      "num_leaves": 21,
+      "feature_fraction": 0.4692905782832489,
+      "learning_rate": 0.03188830048019173,
+      "min_data_in_leaf": 27,
+      "num_leaves": 37,
       "ag_args": {
         "name_suffix": "_r118"
       }
@@ -1821,11 +1821,11 @@
   },
   "LightGBM_r119": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.5876519774641146,
-      "learning_rate": 0.05523099753667594,
-      "min_data_in_leaf": 56,
-      "num_leaves": 94,
+      "extra_trees": true,
+      "feature_fraction": 0.645432457223837,
+      "learning_rate": 0.008146641412243612,
+      "min_data_in_leaf": 48,
+      "num_leaves": 135,
       "ag_args": {
         "name_suffix": "_r119"
       }
@@ -1836,11 +1836,11 @@
   },
   "LightGBM_r120": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7975027429196055,
-      "learning_rate": 0.010449742500899953,
-      "min_data_in_leaf": 49,
-      "num_leaves": 75,
+      "extra_trees": true,
+      "feature_fraction": 0.7840144931796631,
+      "learning_rate": 0.015061987081987353,
+      "min_data_in_leaf": 14,
+      "num_leaves": 106,
       "ag_args": {
         "name_suffix": "_r120"
       }
@@ -1852,10 +1852,10 @@
   "LightGBM_r121": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.912364070523183,
-      "learning_rate": 0.0222056751716396,
-      "min_data_in_leaf": 29,
-      "num_leaves": 105,
+      "feature_fraction": 0.5730390983988963,
+      "learning_rate": 0.010305352949119608,
+      "min_data_in_leaf": 10,
+      "num_leaves": 215,
       "ag_args": {
         "name_suffix": "_r121"
       }
@@ -1867,10 +1867,10 @@
   "LightGBM_r122": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8239448237637874,
-      "learning_rate": 0.017326515652550962,
-      "min_data_in_leaf": 60,
-      "num_leaves": 20,
+      "feature_fraction": 0.7803585737907548,
+      "learning_rate": 0.08032810135942213,
+      "min_data_in_leaf": 5,
+      "num_leaves": 154,
       "ag_args": {
         "name_suffix": "_r122"
       }
@@ -1881,11 +1881,11 @@
   },
   "LightGBM_r123": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6178967547042679,
-      "learning_rate": 0.01645026889089319,
-      "min_data_in_leaf": 5,
-      "num_leaves": 85,
+      "extra_trees": false,
+      "feature_fraction": 0.7328126851968514,
+      "learning_rate": 0.011814970512055711,
+      "min_data_in_leaf": 16,
+      "num_leaves": 98,
       "ag_args": {
         "name_suffix": "_r123"
       }
@@ -1896,11 +1896,11 @@
   },
   "LightGBM_r124": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6091116216955379,
-      "learning_rate": 0.05744679967910335,
-      "min_data_in_leaf": 26,
-      "num_leaves": 49,
+      "extra_trees": true,
+      "feature_fraction": 0.6163273362915354,
+      "learning_rate": 0.05985184000092805,
+      "min_data_in_leaf": 32,
+      "num_leaves": 168,
       "ag_args": {
         "name_suffix": "_r124"
       }
@@ -1911,11 +1911,11 @@
   },
   "LightGBM_r125": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.8182849700970128,
-      "learning_rate": 0.07346578417740322,
-      "min_data_in_leaf": 55,
-      "num_leaves": 123,
+      "extra_trees": true,
+      "feature_fraction": 0.5395761956978593,
+      "learning_rate": 0.014203787232787209,
+      "min_data_in_leaf": 51,
+      "num_leaves": 199,
       "ag_args": {
         "name_suffix": "_r125"
       }
@@ -1927,10 +1927,10 @@
   "LightGBM_r126": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.5496520246338708,
-      "learning_rate": 0.006866842534245749,
-      "min_data_in_leaf": 19,
-      "num_leaves": 45,
+      "feature_fraction": 0.6290558843417691,
+      "learning_rate": 0.04036195176473009,
+      "min_data_in_leaf": 51,
+      "num_leaves": 151,
       "ag_args": {
         "name_suffix": "_r126"
       }
@@ -1941,11 +1941,11 @@
   },
   "LightGBM_r127": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6148644850690734,
-      "learning_rate": 0.01585533568837928,
-      "min_data_in_leaf": 36,
-      "num_leaves": 103,
+      "extra_trees": true,
+      "feature_fraction": 0.9952067460486844,
+      "learning_rate": 0.010555357797319897,
+      "min_data_in_leaf": 35,
+      "num_leaves": 97,
       "ag_args": {
         "name_suffix": "_r127"
       }
@@ -1956,11 +1956,11 @@
   },
   "LightGBM_r128": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.7786753249426346,
-      "learning_rate": 0.007443313336648343,
-      "min_data_in_leaf": 54,
-      "num_leaves": 121,
+      "extra_trees": true,
+      "feature_fraction": 0.5400521532808578,
+      "learning_rate": 0.03948018756343427,
+      "min_data_in_leaf": 34,
+      "num_leaves": 50,
       "ag_args": {
         "name_suffix": "_r128"
       }
@@ -1971,11 +1971,11 @@
   },
   "LightGBM_r129": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.8492729545240798,
-      "learning_rate": 0.010194463143057771,
-      "min_data_in_leaf": 20,
-      "num_leaves": 20,
+      "extra_trees": true,
+      "feature_fraction": 0.4682899842339167,
+      "learning_rate": 0.0331194613561241,
+      "min_data_in_leaf": 52,
+      "num_leaves": 123,
       "ag_args": {
         "name_suffix": "_r129"
       }
@@ -1986,11 +1986,11 @@
   },
   "LightGBM_r130": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.5777454330226857,
-      "learning_rate": 0.07106135613917601,
-      "min_data_in_leaf": 54,
-      "num_leaves": 125,
+      "extra_trees": false,
+      "feature_fraction": 0.6245777099925497,
+      "learning_rate": 0.04711573688184715,
+      "min_data_in_leaf": 56,
+      "num_leaves": 89,
       "ag_args": {
         "name_suffix": "_r130"
       }
@@ -2002,10 +2002,10 @@
   "LightGBM_r131": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7014336744935569,
-      "learning_rate": 0.08419756676660635,
-      "min_data_in_leaf": 9,
-      "num_leaves": 106,
+      "feature_fraction": 0.7023601671276614,
+      "learning_rate": 0.012144796373999013,
+      "min_data_in_leaf": 14,
+      "num_leaves": 53,
       "ag_args": {
         "name_suffix": "_r131"
       }
@@ -2016,11 +2016,11 @@
   },
   "LightGBM_r132": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7117856976697282,
-      "learning_rate": 0.014214995036736176,
-      "min_data_in_leaf": 22,
-      "num_leaves": 122,
+      "extra_trees": false,
+      "feature_fraction": 0.5426450956093832,
+      "learning_rate": 0.02252131567611884,
+      "min_data_in_leaf": 53,
+      "num_leaves": 65,
       "ag_args": {
         "name_suffix": "_r132"
       }
@@ -2032,10 +2032,10 @@
   "LightGBM_r133": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9807793399625362,
-      "learning_rate": 0.09833661606528284,
-      "min_data_in_leaf": 52,
-      "num_leaves": 44,
+      "feature_fraction": 0.7291114577678862,
+      "learning_rate": 0.02371597110187949,
+      "min_data_in_leaf": 5,
+      "num_leaves": 90,
       "ag_args": {
         "name_suffix": "_r133"
       }
@@ -2047,10 +2047,10 @@
   "LightGBM_r134": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7670490486597747,
-      "learning_rate": 0.037423222939481186,
-      "min_data_in_leaf": 40,
-      "num_leaves": 25,
+      "feature_fraction": 0.8197450361348508,
+      "learning_rate": 0.09084943720027289,
+      "min_data_in_leaf": 18,
+      "num_leaves": 58,
       "ag_args": {
         "name_suffix": "_r134"
       }
@@ -2062,10 +2062,10 @@
   "LightGBM_r135": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.4787735970839536,
-      "learning_rate": 0.030545369867560204,
-      "min_data_in_leaf": 55,
-      "num_leaves": 116,
+      "feature_fraction": 0.8254432681390782,
+      "learning_rate": 0.031251656439648626,
+      "min_data_in_leaf": 50,
+      "num_leaves": 210,
       "ag_args": {
         "name_suffix": "_r135"
       }
@@ -2077,10 +2077,10 @@
   "LightGBM_r136": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9806768030791011,
-      "learning_rate": 0.025732599787380628,
-      "min_data_in_leaf": 42,
-      "num_leaves": 113,
+      "feature_fraction": 0.650491824877607,
+      "learning_rate": 0.007409371300077883,
+      "min_data_in_leaf": 43,
+      "num_leaves": 105,
       "ag_args": {
         "name_suffix": "_r136"
       }
@@ -2091,11 +2091,11 @@
   },
   "LightGBM_r137": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.5552213932429008,
-      "learning_rate": 0.009536290078048163,
-      "min_data_in_leaf": 28,
-      "num_leaves": 115,
+      "extra_trees": false,
+      "feature_fraction": 0.976154070624944,
+      "learning_rate": 0.006211684557294549,
+      "min_data_in_leaf": 43,
+      "num_leaves": 26,
       "ag_args": {
         "name_suffix": "_r137"
       }
@@ -2106,11 +2106,11 @@
   },
   "LightGBM_r138": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.5629916605636875,
-      "learning_rate": 0.01956665123986178,
-      "min_data_in_leaf": 32,
-      "num_leaves": 44,
+      "extra_trees": false,
+      "feature_fraction": 0.564894141920558,
+      "learning_rate": 0.029476746294446,
+      "min_data_in_leaf": 34,
+      "num_leaves": 138,
       "ag_args": {
         "name_suffix": "_r138"
       }
@@ -2121,11 +2121,11 @@
   },
   "LightGBM_r139": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9328262232506263,
-      "learning_rate": 0.04177258564262711,
-      "min_data_in_leaf": 44,
-      "num_leaves": 44,
+      "extra_trees": true,
+      "feature_fraction": 0.7479474390391034,
+      "learning_rate": 0.0929934189417801,
+      "min_data_in_leaf": 26,
+      "num_leaves": 226,
       "ag_args": {
         "name_suffix": "_r139"
       }
@@ -2137,10 +2137,10 @@
   "LightGBM_r140": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.4159135315593855,
-      "learning_rate": 0.03257931958535658,
-      "min_data_in_leaf": 47,
-      "num_leaves": 70,
+      "feature_fraction": 0.6410281212277592,
+      "learning_rate": 0.010523576773121442,
+      "min_data_in_leaf": 27,
+      "num_leaves": 168,
       "ag_args": {
         "name_suffix": "_r140"
       }
@@ -2151,11 +2151,11 @@
   },
   "LightGBM_r141": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9173911281015414,
-      "learning_rate": 0.00578518884197662,
-      "min_data_in_leaf": 37,
-      "num_leaves": 73,
+      "extra_trees": true,
+      "feature_fraction": 0.5666642041789063,
+      "learning_rate": 0.07298168050421013,
+      "min_data_in_leaf": 20,
+      "num_leaves": 211,
       "ag_args": {
         "name_suffix": "_r141"
       }
@@ -2167,10 +2167,10 @@
   "LightGBM_r142": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9335399930386001,
-      "learning_rate": 0.023210526058955,
-      "min_data_in_leaf": 40,
-      "num_leaves": 36,
+      "feature_fraction": 0.6001044794747652,
+      "learning_rate": 0.0796761389769558,
+      "min_data_in_leaf": 12,
+      "num_leaves": 211,
       "ag_args": {
         "name_suffix": "_r142"
       }
@@ -2181,11 +2181,11 @@
   },
   "LightGBM_r143": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8083086886856956,
-      "learning_rate": 0.03226345068025385,
-      "min_data_in_leaf": 43,
-      "num_leaves": 82,
+      "extra_trees": false,
+      "feature_fraction": 0.9408897917880529,
+      "learning_rate": 0.01343464462043561,
+      "min_data_in_leaf": 21,
+      "num_leaves": 178,
       "ag_args": {
         "name_suffix": "_r143"
       }
@@ -2196,11 +2196,11 @@
   },
   "LightGBM_r144": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8062686398999308,
-      "learning_rate": 0.033912811788050286,
-      "min_data_in_leaf": 25,
-      "num_leaves": 28,
+      "extra_trees": false,
+      "feature_fraction": 0.6090855934200983,
+      "learning_rate": 0.04590490414627263,
+      "min_data_in_leaf": 56,
+      "num_leaves": 144,
       "ag_args": {
         "name_suffix": "_r144"
       }
@@ -2211,11 +2211,11 @@
   },
   "LightGBM_r145": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7262068322968571,
-      "learning_rate": 0.011661938048053478,
-      "min_data_in_leaf": 8,
-      "num_leaves": 118,
+      "extra_trees": false,
+      "feature_fraction": 0.9668244885378855,
+      "learning_rate": 0.07254551525590439,
+      "min_data_in_leaf": 14,
+      "num_leaves": 31,
       "ag_args": {
         "name_suffix": "_r145"
       }
@@ -2227,10 +2227,10 @@
   "LightGBM_r146": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.40473046210506425,
-      "learning_rate": 0.015269916173189029,
-      "min_data_in_leaf": 52,
-      "num_leaves": 66,
+      "feature_fraction": 0.8057454893664777,
+      "learning_rate": 0.06964353454098567,
+      "min_data_in_leaf": 40,
+      "num_leaves": 17,
       "ag_args": {
         "name_suffix": "_r146"
       }
@@ -2241,11 +2241,11 @@
   },
   "LightGBM_r147": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6166909102625902,
-      "learning_rate": 0.0225429213581465,
-      "min_data_in_leaf": 53,
-      "num_leaves": 88,
+      "extra_trees": false,
+      "feature_fraction": 0.913781786100128,
+      "learning_rate": 0.03351181491507831,
+      "min_data_in_leaf": 40,
+      "num_leaves": 91,
       "ag_args": {
         "name_suffix": "_r147"
       }
@@ -2256,11 +2256,11 @@
   },
   "LightGBM_r148": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6055665906049542,
-      "learning_rate": 0.03224863049304437,
-      "min_data_in_leaf": 45,
-      "num_leaves": 95,
+      "extra_trees": false,
+      "feature_fraction": 0.6236074418925973,
+      "learning_rate": 0.024502750300688218,
+      "min_data_in_leaf": 53,
+      "num_leaves": 18,
       "ag_args": {
         "name_suffix": "_r148"
       }
@@ -2272,10 +2272,10 @@
   "LightGBM_r149": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.8145362352536762,
-      "learning_rate": 0.00673462960997408,
-      "min_data_in_leaf": 58,
-      "num_leaves": 34,
+      "feature_fraction": 0.7016257244614168,
+      "learning_rate": 0.007922167829715967,
+      "min_data_in_leaf": 7,
+      "num_leaves": 132,
       "ag_args": {
         "name_suffix": "_r149"
       }
@@ -2287,10 +2287,10 @@
   "LightGBM_r150": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8031742843574934,
-      "learning_rate": 0.08579592363845025,
-      "min_data_in_leaf": 43,
-      "num_leaves": 101,
+      "feature_fraction": 0.7733386353038769,
+      "learning_rate": 0.011535748413132126,
+      "min_data_in_leaf": 14,
+      "num_leaves": 63,
       "ag_args": {
         "name_suffix": "_r150"
       }
@@ -2302,10 +2302,10 @@
   "LightGBM_r151": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.6729159277695069,
-      "learning_rate": 0.09197684428256217,
-      "min_data_in_leaf": 32,
-      "num_leaves": 21,
+      "feature_fraction": 0.7462841464122051,
+      "learning_rate": 0.040136281786810175,
+      "min_data_in_leaf": 15,
+      "num_leaves": 238,
       "ag_args": {
         "name_suffix": "_r151"
       }
@@ -2316,11 +2316,11 @@
   },
   "LightGBM_r152": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.41012300402202384,
-      "learning_rate": 0.04028232584237865,
-      "min_data_in_leaf": 51,
-      "num_leaves": 111,
+      "extra_trees": false,
+      "feature_fraction": 0.6333204582454408,
+      "learning_rate": 0.009872179927494,
+      "min_data_in_leaf": 38,
+      "num_leaves": 64,
       "ag_args": {
         "name_suffix": "_r152"
       }
@@ -2332,10 +2332,10 @@
   "LightGBM_r153": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7891589850215533,
-      "learning_rate": 0.005455442663128415,
-      "min_data_in_leaf": 12,
-      "num_leaves": 28,
+      "feature_fraction": 0.7532437659821729,
+      "learning_rate": 0.08944644189688526,
+      "min_data_in_leaf": 39,
+      "num_leaves": 53,
       "ag_args": {
         "name_suffix": "_r153"
       }
@@ -2347,10 +2347,10 @@
   "LightGBM_r154": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6652213826379552,
-      "learning_rate": 0.02373797346123184,
-      "min_data_in_leaf": 24,
-      "num_leaves": 35,
+      "feature_fraction": 0.8882071898211181,
+      "learning_rate": 0.02302737636023178,
+      "min_data_in_leaf": 18,
+      "num_leaves": 48,
       "ag_args": {
         "name_suffix": "_r154"
       }
@@ -2361,11 +2361,11 @@
   },
   "LightGBM_r155": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.6766040976096369,
-      "learning_rate": 0.059524136978392664,
-      "min_data_in_leaf": 7,
-      "num_leaves": 108,
+      "extra_trees": false,
+      "feature_fraction": 0.951718861299349,
+      "learning_rate": 0.025393515914572104,
+      "min_data_in_leaf": 31,
+      "num_leaves": 106,
       "ag_args": {
         "name_suffix": "_r155"
       }
@@ -2376,11 +2376,11 @@
   },
   "LightGBM_r156": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9321764687304505,
-      "learning_rate": 0.03192136185668287,
-      "min_data_in_leaf": 40,
-      "num_leaves": 23,
+      "extra_trees": true,
+      "feature_fraction": 0.8163738465607285,
+      "learning_rate": 0.006564702778548751,
+      "min_data_in_leaf": 21,
+      "num_leaves": 143,
       "ag_args": {
         "name_suffix": "_r156"
       }
@@ -2392,10 +2392,10 @@
   "LightGBM_r157": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7267884144415814,
-      "learning_rate": 0.032196681753592554,
-      "min_data_in_leaf": 17,
-      "num_leaves": 90,
+      "feature_fraction": 0.7234709409920632,
+      "learning_rate": 0.07133919010093165,
+      "min_data_in_leaf": 51,
+      "num_leaves": 99,
       "ag_args": {
         "name_suffix": "_r157"
       }
@@ -2407,10 +2407,10 @@
   "LightGBM_r158": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7248284762542815,
-      "learning_rate": 0.07947286942946127,
-      "min_data_in_leaf": 50,
-      "num_leaves": 89,
+      "feature_fraction": 0.4800768825609607,
+      "learning_rate": 0.09434831975621583,
+      "min_data_in_leaf": 31,
+      "num_leaves": 16,
       "ag_args": {
         "name_suffix": "_r158"
       }
@@ -2421,11 +2421,11 @@
   },
   "LightGBM_r159": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.4257858451595134,
-      "learning_rate": 0.007079741869438114,
-      "min_data_in_leaf": 58,
-      "num_leaves": 64,
+      "extra_trees": true,
+      "feature_fraction": 0.627613646934992,
+      "learning_rate": 0.02536861076051312,
+      "min_data_in_leaf": 5,
+      "num_leaves": 160,
       "ag_args": {
         "name_suffix": "_r159"
       }
@@ -2436,11 +2436,11 @@
   },
   "LightGBM_r160": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.5479208765274705,
-      "learning_rate": 0.026987815352519515,
-      "min_data_in_leaf": 17,
-      "num_leaves": 118,
+      "extra_trees": false,
+      "feature_fraction": 0.5722715570105005,
+      "learning_rate": 0.005687004881446912,
+      "min_data_in_leaf": 58,
+      "num_leaves": 78,
       "ag_args": {
         "name_suffix": "_r160"
       }
@@ -2452,10 +2452,10 @@
   "LightGBM_r161": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7587620382594813,
-      "learning_rate": 0.010201681694483418,
-      "min_data_in_leaf": 9,
-      "num_leaves": 78,
+      "feature_fraction": 0.5898927512279213,
+      "learning_rate": 0.010464516487486093,
+      "min_data_in_leaf": 11,
+      "num_leaves": 252,
       "ag_args": {
         "name_suffix": "_r161"
       }
@@ -2466,11 +2466,11 @@
   },
   "LightGBM_r162": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7966705069048596,
-      "learning_rate": 0.018696759978396843,
-      "min_data_in_leaf": 24,
-      "num_leaves": 114,
+      "extra_trees": false,
+      "feature_fraction": 0.49628058633256067,
+      "learning_rate": 0.0711342832991347,
+      "min_data_in_leaf": 6,
+      "num_leaves": 160,
       "ag_args": {
         "name_suffix": "_r162"
       }
@@ -2482,10 +2482,10 @@
   "LightGBM_r163": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9465963926050011,
-      "learning_rate": 0.06948887152579379,
-      "min_data_in_leaf": 49,
-      "num_leaves": 27,
+      "feature_fraction": 0.7485323644886783,
+      "learning_rate": 0.007740186947268623,
+      "min_data_in_leaf": 48,
+      "num_leaves": 23,
       "ag_args": {
         "name_suffix": "_r163"
       }
@@ -2497,10 +2497,10 @@
   "LightGBM_r164": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6848007928180677,
-      "learning_rate": 0.008686228937071537,
-      "min_data_in_leaf": 36,
-      "num_leaves": 70,
+      "feature_fraction": 0.4458920614181713,
+      "learning_rate": 0.04027999856442633,
+      "min_data_in_leaf": 18,
+      "num_leaves": 171,
       "ag_args": {
         "name_suffix": "_r164"
       }
@@ -2512,10 +2512,10 @@
   "LightGBM_r165": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8035493867779129,
-      "learning_rate": 0.024385783732869395,
-      "min_data_in_leaf": 50,
-      "num_leaves": 53,
+      "feature_fraction": 0.6604933458266151,
+      "learning_rate": 0.023572132449503177,
+      "min_data_in_leaf": 16,
+      "num_leaves": 247,
       "ag_args": {
         "name_suffix": "_r165"
       }
@@ -2527,10 +2527,10 @@
   "LightGBM_r166": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.40185972465063213,
-      "learning_rate": 0.0299280930286191,
-      "min_data_in_leaf": 45,
-      "num_leaves": 24,
+      "feature_fraction": 0.8439303506974607,
+      "learning_rate": 0.07368448781277909,
+      "min_data_in_leaf": 37,
+      "num_leaves": 87,
       "ag_args": {
         "name_suffix": "_r166"
       }
@@ -2541,11 +2541,11 @@
   },
   "LightGBM_r167": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.9877161576012752,
-      "learning_rate": 0.008437344905073202,
-      "min_data_in_leaf": 3,
-      "num_leaves": 45,
+      "extra_trees": true,
+      "feature_fraction": 0.7138038335939334,
+      "learning_rate": 0.013062764930322806,
+      "min_data_in_leaf": 55,
+      "num_leaves": 29,
       "ag_args": {
         "name_suffix": "_r167"
       }
@@ -2557,10 +2557,10 @@
   "LightGBM_r168": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.4379245710031784,
-      "learning_rate": 0.030833274885896645,
-      "min_data_in_leaf": 24,
-      "num_leaves": 46,
+      "feature_fraction": 0.6823893695283457,
+      "learning_rate": 0.015526669996831215,
+      "min_data_in_leaf": 19,
+      "num_leaves": 213,
       "ag_args": {
         "name_suffix": "_r168"
       }
@@ -2571,11 +2571,11 @@
   },
   "LightGBM_r169": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7798372040916083,
-      "learning_rate": 0.0720669305427689,
-      "min_data_in_leaf": 12,
-      "num_leaves": 83,
+      "extra_trees": false,
+      "feature_fraction": 0.7983196407317579,
+      "learning_rate": 0.012032605136107703,
+      "min_data_in_leaf": 7,
+      "num_leaves": 224,
       "ag_args": {
         "name_suffix": "_r169"
       }
@@ -2587,10 +2587,10 @@
   "LightGBM_r170": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7552483976072552,
-      "learning_rate": 0.018227837442570265,
-      "min_data_in_leaf": 43,
-      "num_leaves": 56,
+      "feature_fraction": 0.7643496244069246,
+      "learning_rate": 0.02091233040320358,
+      "min_data_in_leaf": 21,
+      "num_leaves": 20,
       "ag_args": {
         "name_suffix": "_r170"
       }
@@ -2602,10 +2602,10 @@
   "LightGBM_r171": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.45808237190702455,
-      "learning_rate": 0.013987269532749648,
-      "min_data_in_leaf": 44,
-      "num_leaves": 110,
+      "feature_fraction": 0.7087076459792541,
+      "learning_rate": 0.015054100909817387,
+      "min_data_in_leaf": 24,
+      "num_leaves": 76,
       "ag_args": {
         "name_suffix": "_r171"
       }
@@ -2617,10 +2617,10 @@
   "LightGBM_r172": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6416600558039103,
-      "learning_rate": 0.005595556231151457,
-      "min_data_in_leaf": 26,
-      "num_leaves": 32,
+      "feature_fraction": 0.6590709565750972,
+      "learning_rate": 0.029525340671532455,
+      "min_data_in_leaf": 19,
+      "num_leaves": 195,
       "ag_args": {
         "name_suffix": "_r172"
       }
@@ -2631,11 +2631,11 @@
   },
   "LightGBM_r173": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9625811352025688,
-      "learning_rate": 0.037438253272858886,
-      "min_data_in_leaf": 25,
-      "num_leaves": 88,
+      "extra_trees": false,
+      "feature_fraction": 0.7913853716449151,
+      "learning_rate": 0.05862063297323188,
+      "min_data_in_leaf": 35,
+      "num_leaves": 110,
       "ag_args": {
         "name_suffix": "_r173"
       }
@@ -2647,10 +2647,10 @@
   "LightGBM_r174": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.9338761938673241,
-      "learning_rate": 0.04939557741379516,
-      "min_data_in_leaf": 28,
-      "num_leaves": 105,
+      "feature_fraction": 0.9995667963533027,
+      "learning_rate": 0.01434806540259691,
+      "min_data_in_leaf": 37,
+      "num_leaves": 183,
       "ag_args": {
         "name_suffix": "_r174"
       }
@@ -2662,10 +2662,10 @@
   "LightGBM_r175": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.44923464721896755,
-      "learning_rate": 0.049500545925908024,
-      "min_data_in_leaf": 39,
-      "num_leaves": 57,
+      "feature_fraction": 0.8032246342884921,
+      "learning_rate": 0.011116053846452057,
+      "min_data_in_leaf": 2,
+      "num_leaves": 103,
       "ag_args": {
         "name_suffix": "_r175"
       }
@@ -2677,10 +2677,10 @@
   "LightGBM_r176": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.6593688887087792,
-      "learning_rate": 0.023883766352034402,
-      "min_data_in_leaf": 7,
-      "num_leaves": 35,
+      "feature_fraction": 0.8587371846146251,
+      "learning_rate": 0.040496008447123616,
+      "min_data_in_leaf": 27,
+      "num_leaves": 150,
       "ag_args": {
         "name_suffix": "_r176"
       }
@@ -2691,11 +2691,11 @@
   },
   "LightGBM_r177": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.47039228823088663,
-      "learning_rate": 0.006889466621588173,
-      "min_data_in_leaf": 35,
-      "num_leaves": 23,
+      "extra_trees": false,
+      "feature_fraction": 0.8591623502789557,
+      "learning_rate": 0.005335654312618175,
+      "min_data_in_leaf": 19,
+      "num_leaves": 224,
       "ag_args": {
         "name_suffix": "_r177"
       }
@@ -2706,11 +2706,11 @@
   },
   "LightGBM_r178": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.9644689955479668,
-      "learning_rate": 0.005851735736169696,
-      "min_data_in_leaf": 56,
-      "num_leaves": 112,
+      "extra_trees": false,
+      "feature_fraction": 0.7131977641779894,
+      "learning_rate": 0.050672799391249086,
+      "min_data_in_leaf": 21,
+      "num_leaves": 255,
       "ag_args": {
         "name_suffix": "_r178"
       }
@@ -2722,10 +2722,10 @@
   "LightGBM_r179": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.6398810153347155,
-      "learning_rate": 0.01562418909718754,
-      "min_data_in_leaf": 4,
-      "num_leaves": 24,
+      "feature_fraction": 0.5950707455292529,
+      "learning_rate": 0.02870756469612625,
+      "min_data_in_leaf": 9,
+      "num_leaves": 135,
       "ag_args": {
         "name_suffix": "_r179"
       }
@@ -2737,10 +2737,10 @@
   "LightGBM_r180": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.5134375959192006,
-      "learning_rate": 0.07383855458828271,
-      "min_data_in_leaf": 3,
-      "num_leaves": 75,
+      "feature_fraction": 0.9088902282081909,
+      "learning_rate": 0.08251171454677236,
+      "min_data_in_leaf": 34,
+      "num_leaves": 116,
       "ag_args": {
         "name_suffix": "_r180"
       }
@@ -2752,10 +2752,10 @@
   "LightGBM_r181": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.7715096797693458,
-      "learning_rate": 0.015723022837814068,
-      "min_data_in_leaf": 26,
-      "num_leaves": 65,
+      "feature_fraction": 0.8685586797311985,
+      "learning_rate": 0.009422842897085002,
+      "min_data_in_leaf": 10,
+      "num_leaves": 26,
       "ag_args": {
         "name_suffix": "_r181"
       }
@@ -2767,10 +2767,10 @@
   "LightGBM_r182": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9157485018517729,
-      "learning_rate": 0.005958345656330413,
-      "min_data_in_leaf": 6,
-      "num_leaves": 65,
+      "feature_fraction": 0.7940571750645022,
+      "learning_rate": 0.06615143957780696,
+      "min_data_in_leaf": 55,
+      "num_leaves": 75,
       "ag_args": {
         "name_suffix": "_r182"
       }
@@ -2782,10 +2782,10 @@
   "LightGBM_r183": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.687852322118247,
-      "learning_rate": 0.022929846648247564,
-      "min_data_in_leaf": 15,
-      "num_leaves": 27,
+      "feature_fraction": 0.7715096797693458,
+      "learning_rate": 0.015723022837814068,
+      "min_data_in_leaf": 26,
+      "num_leaves": 193,
       "ag_args": {
         "name_suffix": "_r183"
       }
@@ -2797,10 +2797,10 @@
   "LightGBM_r184": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9142749505027404,
-      "learning_rate": 0.007105605177797098,
-      "min_data_in_leaf": 49,
-      "num_leaves": 114,
+      "feature_fraction": 0.9157485018517729,
+      "learning_rate": 0.005958345656330413,
+      "min_data_in_leaf": 6,
+      "num_leaves": 193,
       "ag_args": {
         "name_suffix": "_r184"
       }
@@ -2811,11 +2811,11 @@
   },
   "LightGBM_r185": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.5411577063790506,
-      "learning_rate": 0.005964334727977805,
-      "min_data_in_leaf": 19,
-      "num_leaves": 117,
+      "extra_trees": false,
+      "feature_fraction": 0.687852322118247,
+      "learning_rate": 0.022929846648247564,
+      "min_data_in_leaf": 15,
+      "num_leaves": 27,
       "ag_args": {
         "name_suffix": "_r185"
       }
@@ -2827,10 +2827,10 @@
   "LightGBM_r186": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.8282601210460099,
-      "learning_rate": 0.033929021353492905,
-      "min_data_in_leaf": 6,
-      "num_leaves": 127,
+      "feature_fraction": 0.9142749505027404,
+      "learning_rate": 0.007105605177797098,
+      "min_data_in_leaf": 49,
+      "num_leaves": 114,
       "ag_args": {
         "name_suffix": "_r186"
       }
@@ -2841,11 +2841,11 @@
   },
   "LightGBM_r187": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.624851622944449,
-      "learning_rate": 0.03628615336683363,
-      "min_data_in_leaf": 21,
-      "num_leaves": 128,
+      "extra_trees": true,
+      "feature_fraction": 0.5411577063790506,
+      "learning_rate": 0.005964334727977805,
+      "min_data_in_leaf": 19,
+      "num_leaves": 117,
       "ag_args": {
         "name_suffix": "_r187"
       }
@@ -2857,10 +2857,10 @@
   "LightGBM_r188": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7920526966681822,
-      "learning_rate": 0.044051767425465606,
-      "min_data_in_leaf": 47,
-      "num_leaves": 22,
+      "feature_fraction": 0.8282601210460099,
+      "learning_rate": 0.033929021353492905,
+      "min_data_in_leaf": 6,
+      "num_leaves": 127,
       "ag_args": {
         "name_suffix": "_r188"
       }
@@ -2871,11 +2871,11 @@
   },
   "LightGBM_r189": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.8999894845710796,
-      "learning_rate": 0.051087336729504676,
-      "min_data_in_leaf": 18,
-      "num_leaves": 39,
+      "extra_trees": false,
+      "feature_fraction": 0.624851622944449,
+      "learning_rate": 0.03628615336683363,
+      "min_data_in_leaf": 21,
+      "num_leaves": 128,
       "ag_args": {
         "name_suffix": "_r189"
       }
@@ -2886,11 +2886,11 @@
   },
   "LightGBM_r190": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.41797019494284965,
-      "learning_rate": 0.04551555978504112,
-      "min_data_in_leaf": 31,
-      "num_leaves": 18,
+      "extra_trees": true,
+      "feature_fraction": 0.7920526966681822,
+      "learning_rate": 0.044051767425465606,
+      "min_data_in_leaf": 47,
+      "num_leaves": 22,
       "ag_args": {
         "name_suffix": "_r190"
       }
@@ -2902,10 +2902,10 @@
   "LightGBM_r191": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.45113983617671205,
-      "learning_rate": 0.0367313338793234,
-      "min_data_in_leaf": 37,
-      "num_leaves": 68,
+      "feature_fraction": 0.8999894845710796,
+      "learning_rate": 0.051087336729504676,
+      "min_data_in_leaf": 18,
+      "num_leaves": 167,
       "ag_args": {
         "name_suffix": "_r191"
       }
@@ -2916,11 +2916,11 @@
   },
   "LightGBM_r192": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.4619788930510832,
-      "learning_rate": 0.06717079518015412,
-      "min_data_in_leaf": 59,
-      "num_leaves": 67,
+      "extra_trees": false,
+      "feature_fraction": 0.41797019494284965,
+      "learning_rate": 0.04551555978504112,
+      "min_data_in_leaf": 31,
+      "num_leaves": 18,
       "ag_args": {
         "name_suffix": "_r192"
       }
@@ -2932,10 +2932,10 @@
   "LightGBM_r193": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.9623312953304214,
-      "learning_rate": 0.08825851667733511,
-      "min_data_in_leaf": 15,
-      "num_leaves": 71,
+      "feature_fraction": 0.45113983617671205,
+      "learning_rate": 0.0367313338793234,
+      "min_data_in_leaf": 37,
+      "num_leaves": 196,
       "ag_args": {
         "name_suffix": "_r193"
       }
@@ -2946,11 +2946,11 @@
   },
   "LightGBM_r194": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.6131351188680063,
-      "learning_rate": 0.06348717259105749,
-      "min_data_in_leaf": 55,
-      "num_leaves": 102,
+      "extra_trees": true,
+      "feature_fraction": 0.4619788930510832,
+      "learning_rate": 0.06717079518015412,
+      "min_data_in_leaf": 59,
+      "num_leaves": 195,
       "ag_args": {
         "name_suffix": "_r194"
       }
@@ -2962,10 +2962,10 @@
   "LightGBM_r195": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.7800488928982487,
-      "learning_rate": 0.012556700991078005,
-      "min_data_in_leaf": 20,
-      "num_leaves": 105,
+      "feature_fraction": 0.9623312953304214,
+      "learning_rate": 0.08825851667733511,
+      "min_data_in_leaf": 15,
+      "num_leaves": 138,
       "ag_args": {
         "name_suffix": "_r195"
       }
@@ -2976,11 +2976,11 @@
   },
   "LightGBM_r196": {
     "hyperparameters": {
-      "extra_trees": false,
-      "feature_fraction": 0.5328378677756633,
-      "learning_rate": 0.006746698421917274,
-      "min_data_in_leaf": 16,
-      "num_leaves": 27,
+      "extra_trees": true,
+      "feature_fraction": 0.5143401489640409,
+      "learning_rate": 0.00529479887023554,
+      "min_data_in_leaf": 6,
+      "num_leaves": 133,
       "ag_args": {
         "name_suffix": "_r196"
       }
@@ -2992,10 +2992,10 @@
   "LightGBM_r197": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.708255839641116,
-      "learning_rate": 0.00974214644462612,
-      "min_data_in_leaf": 41,
-      "num_leaves": 79,
+      "feature_fraction": 0.8323165105576036,
+      "learning_rate": 0.03334737757179092,
+      "min_data_in_leaf": 13,
+      "num_leaves": 222,
       "ag_args": {
         "name_suffix": "_r197"
       }
@@ -3006,11 +3006,11 @@
   },
   "LightGBM_r198": {
     "hyperparameters": {
-      "extra_trees": true,
-      "feature_fraction": 0.7358094434940687,
-      "learning_rate": 0.05072929980505916,
-      "min_data_in_leaf": 2,
-      "num_leaves": 101,
+      "extra_trees": false,
+      "feature_fraction": 0.45118655387122203,
+      "learning_rate": 0.009705399613761859,
+      "min_data_in_leaf": 9,
+      "num_leaves": 45,
       "ag_args": {
         "name_suffix": "_r198"
       }
@@ -3022,10 +3022,10 @@
   "LightGBM_r199": {
     "hyperparameters": {
       "extra_trees": false,
-      "feature_fraction": 0.599314532576186,
-      "learning_rate": 0.04231644979488381,
-      "min_data_in_leaf": 30,
-      "num_leaves": 67,
+      "feature_fraction": 0.48657165795333446,
+      "learning_rate": 0.023301658181825655,
+      "min_data_in_leaf": 41,
+      "num_leaves": 207,
       "ag_args": {
         "name_suffix": "_r199"
       }
@@ -3037,9 +3037,9 @@
   "LightGBM_r200": {
     "hyperparameters": {
       "extra_trees": true,
-      "feature_fraction": 0.4422464986807686,
-      "learning_rate": 0.017693036584874196,
-      "min_data_in_leaf": 26,
+      "feature_fraction": 0.7358094434940687,
+      "learning_rate": 0.05072929980505916,
+      "min_data_in_leaf": 2,
       "num_leaves": 101,
       "ag_args": {
         "name_suffix": "_r200"

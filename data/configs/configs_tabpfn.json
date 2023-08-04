@@ -11,7 +11,7 @@
   },
   "TabPFN_c2": {
     "hyperparameters": {
-      "N_ensemble_configurations": 2,
+      "N_ensemble_configurations": 4,
       "ag_args": {
         "name_suffix": "_c2"
       }
@@ -22,24 +22,13 @@
   },
   "TabPFN_c3": {
     "hyperparameters": {
-      "N_ensemble_configurations": 4,
+      "N_ensemble_configurations": 8,
       "ag_args": {
         "name_suffix": "_c3"
       }
     },
     "name_prefix": "TabPFN",
     "name_suffix": "_c3",
-    "model_type": "TABPFN"
-  },
-  "TabPFN_c4": {
-    "hyperparameters": {
-      "N_ensemble_configurations": 8,
-      "ag_args": {
-        "name_suffix": "_c4"
-      }
-    },
-    "name_prefix": "TabPFN",
-    "name_suffix": "_c4",
     "model_type": "TABPFN"
   }
 }
