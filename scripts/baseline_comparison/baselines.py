@@ -15,6 +15,8 @@ from autogluon_zeroshot.repository.time_utils import filter_configs_by_runtime, 
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 default_ensemble_size = 20
+
+
 @dataclass
 class ResultRow:
     taskid: int  # OpenML taskid, also refered to "tid"
@@ -26,6 +28,7 @@ class ResultRow:
     time_train_s: float
     time_infer_s: float
     config_selected: list = None
+
 
 def evaluate_configs(
         repo: EvaluationRepository,
@@ -102,7 +105,7 @@ def evaluate_configs(
             test_error=metric_error,
             rank=rank_scorer.rank(dataset_fold_name, metric_error),
             normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
-            time_train_s=sum(runtimes.values()),  # TODO hack to make results comparable, we should get rid of this
+            time_train_s=sum(runtimes.values()),
             time_infer_s=sum(latencies.values()),
             config_selected=config_sampled,
         ))
@@ -188,6 +191,7 @@ def framework_name(framework_type, n_configs, ensemble_size) -> str:
         suffix += " + ensemble" if ensemble_size and ensemble_size > 1 else ""
         method += f" ({suffix})"
     return method
+
 
 def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,

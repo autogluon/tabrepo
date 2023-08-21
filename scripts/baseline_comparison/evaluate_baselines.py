@@ -31,7 +31,8 @@ class Experiment:
             cache_path=Path(__file__).parent.parent.parent / "data" / "results-baseline-comparison" / self.expname,
         )
 
-def make_scorers(repo):
+
+def make_scorers(repo: EvaluationRepository):
     df_results_baselines = pd.concat([
         repo._zeroshot_context.df_results_by_dataset_vs_automl,
         repo._zeroshot_context.df_results_by_dataset_automl,
@@ -46,7 +47,7 @@ def make_scorers(repo):
     return rank_scorer, normalized_scorer
 
 
-def impute_missing(repo):
+def impute_missing(repo: EvaluationRepository):
     # impute random forest data missing folds by picking data from another fold
     # TODO remove once we have complete dataset
     df = repo._zeroshot_context.df_results_by_dataset_vs_automl

@@ -137,7 +137,6 @@ if __name__ == '__main__':
             bash_str = bash_dict_to_str(d=bash_dict)
             bash_str_list.append(bash_str)
 
-    # FIXME FIXME FIXME FIXME
     baselines = [
         "AutoGluon_bq:latest",
         "AutoGluon_hq:latest",
@@ -176,7 +175,6 @@ if __name__ == '__main__':
             bash_str_list_baselines.append(bash_str)
 
     bash_str_list = bash_str_list_baselines + bash_str_list
-    # FIXME FIXME FIXME FIXME
 
     baseline_autogluon_yaml_dict = get_amlb_yaml_ag_baseline()
     yaml_baseline_string = yaml.dump(baseline_autogluon_yaml_dict)

@@ -318,6 +318,7 @@ class BenchmarkContext:
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
 
             zsc = self._load_zsc(folds=folds)
+            print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
             configs_full = self._load_configs()
 
             if load_predictions:
