@@ -192,7 +192,7 @@ if __name__ == "__main__":
         "AutoGluon_mq_1h8c_2023_03_19_zs_LightGBM": "AutoGluon medium quality only LightGBM",
     }
     df["method"] = df["method"].replace(rename_dict)
-    print(f"Obtained {len(df)} evaluations on {len(df.taskid.unique())} datasets for {len(df.method.unique())} methods.")
+    print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     print("all")
     show_latex_table(df)#, ["rank", "normalized_score", ])
