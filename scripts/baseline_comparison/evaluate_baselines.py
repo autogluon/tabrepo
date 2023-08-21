@@ -6,7 +6,7 @@ from pathlib import Path
 
 from matplotlib import cm
 
-from autogluon_zeroshot.repository.evaluation_repository import load
+from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
 from autogluon_zeroshot.utils.cache import cache_function, cache_function_dataframe
 from scripts.baseline_comparison.baselines import automl_results, framework_default_results, \
     framework_best_results, zeroshot_results, zeroshot_name, ResultRow
@@ -31,7 +31,8 @@ class Experiment:
             cache_path=Path(__file__).parent.parent.parent / "data" / "results-baseline-comparison" / self.expname,
         )
 
-def make_scorers(repo):
+
+def make_scorers(repo: EvaluationRepository):
     df_results_baselines = pd.concat([
         repo._zeroshot_context.df_results_by_dataset_vs_automl,
         repo._zeroshot_context.df_results_by_dataset_automl,
@@ -46,7 +47,7 @@ def make_scorers(repo):
     return rank_scorer, normalized_scorer
 
 
-def impute_missing(repo):
+def impute_missing(repo: EvaluationRepository):
     # impute random forest data missing folds by picking data from another fold
     # TODO remove once we have complete dataset
     df = repo._zeroshot_context.df_results_by_dataset_vs_automl
@@ -75,11 +76,12 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
     plt.show()
 
 
-
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--n_folds", type=int, default=10, required=False, help="Number of folds to consider when evaluating all baselines.")
+    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="BAG_D244_F1_C1416")
+    parser.add_argument("--n_folds", type=int, default=-1, required=False,
+                        help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
     parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
     parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
     parser.add_argument("--expname", type=str, help="Name of the experiment", default="dummy")
@@ -88,6 +90,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args.__dict__)
 
+    repo_version = args.repo
     ignore_cache = args.ignore_cache
     engine = args.engine
     expname = args.expname
@@ -107,11 +110,12 @@ if __name__ == "__main__":
     linestyle_default = "dotted"
     linestyle_tune = "-"
 
+    repo: EvaluationRepository = cache_function(lambda: load(version=repo_version), cache_name=f"repo_{repo_version}")
+    if n_eval_folds == -1:
+        n_eval_folds = repo.n_folds()
 
-    repo = cache_function(lambda: load(version="BAG_D244_F10_C608_FULL"), cache_name="repo")
     rank_scorer, normalized_scorer = make_scorers(repo)
-    missing_tids = [359932, 359944, 359933, 359946]
-    dataset_names = [ds for ds in repo.dataset_names() if not repo.dataset_to_tid(ds) in missing_tids]
+    dataset_names = repo.dataset_names()
     if n_datasets:
         dataset_names = dataset_names[:n_datasets]
     impute_missing(repo)
@@ -122,6 +126,7 @@ if __name__ == "__main__":
         rank_scorer=rank_scorer,
         normalized_scorer=normalized_scorer,
         n_eval_folds=n_eval_folds,
+        engine=engine,
     )
 
     experiments = [
@@ -187,7 +192,7 @@ if __name__ == "__main__":
         "AutoGluon_mq_1h8c_2023_03_19_zs_LightGBM": "AutoGluon medium quality only LightGBM",
     }
     df["method"] = df["method"].replace(rename_dict)
-    print(f"Obtained {len(df)} evaluations on {len(df.taskid.unique())} datasets for {len(df.method.unique())} methods.")
+    print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     print("all")
     show_latex_table(df)#, ["rank", "normalized_score", ])

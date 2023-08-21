@@ -15,9 +15,11 @@ from autogluon_zeroshot.repository.time_utils import filter_configs_by_runtime, 
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 default_ensemble_size = 20
+
+
 @dataclass
 class ResultRow:
-    taskid: int  # OpenML taskid, also refered to "tid"
+    tid: int  # OpenML tid (task ID)
     fold: int
     method: str
     test_error: float
@@ -26,6 +28,7 @@ class ResultRow:
     time_train_s: float
     time_infer_s: float
     config_selected: list = None
+
 
 def evaluate_configs(
         repo: EvaluationRepository,
@@ -96,13 +99,13 @@ def evaluate_configs(
             runtime_col='time_infer_s',
         )
         rows.append(ResultRow(
-            taskid=tid,
+            tid=tid,
             fold=fold,
             method=method,
             test_error=metric_error,
             rank=rank_scorer.rank(dataset_fold_name, metric_error),
             normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
-            time_train_s=sum(runtimes.values()) * 8,  # TODO hack to make results comparable, we should get rid of this
+            time_train_s=sum(runtimes.values()),
             time_infer_s=sum(latencies.values()),
             config_selected=config_sampled,
         ))
@@ -131,7 +134,9 @@ def framework_default_results(repo: EvaluationRepository, dataset_names: List[st
         ('ExtraTrees (default)', ['ExtraTrees_c1_BAG_L1'], 1),
         ('LightGBM (default)', ['LightGBM_c1_BAG_L1'], 1),
         ('NeuralNetFastAI (default)', ['NeuralNetFastAI_c1_BAG_L1'], 1),
+        ('NeuralNetTorch (default)', ['NeuralNetTorch_c1_BAG_L1'], 1),
         ('RandomForest (default)', ['RandomForest_c1_BAG_L1'], 1),
+        ('XGBoost (default)', ['XGBoost_c1_BAG_L1'], 1),
         ('All (default)', default_models, 1),
         ('All (default + ensemble)', default_models, 20),
     ]
@@ -187,11 +192,13 @@ def framework_name(framework_type, n_configs, ensemble_size) -> str:
         method += f" ({suffix})"
     return method
 
+
 def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         n_configs: int = [100],
         ensemble_size: int = default_ensemble_size,
-        framework_types=["CatBoost", "NeuralNetFastAI", "LightGBM", "RandomForest", "ExtraTrees"],
+        framework_types=["CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"],
+        engine='ray',
         **kwargs) -> List[ResultRow]:
     """
     Evaluates best configurations among `n_configs` random draws and ensemble built with `ensemble_size`
@@ -231,7 +238,7 @@ def framework_best_results(
         evaluate_tid,
         inputs=list(itertools.product(dataset_names, n_configs, framework_types, ensemble_sizes)),
         context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer),
-        engine="ray",
+        engine=engine,
     )
     return [x for l in list_rows for x in l]
 
@@ -259,7 +266,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
                 assert tid == v['tid']
                 metric_error = v['metric_error']
                 rows_automl.append(ResultRow(
-                    taskid=tid,
+                    tid=tid,
                     fold=v['fold'],
                     method=v['framework'],
                     test_error=metric_error,
@@ -369,8 +376,7 @@ def zeroshot_results(
             tid=test_tid,
             fold=0,
             config_names=portfolio_configs,
-            # TODO hack to make results comparable, we should get rid of this
-            max_cumruntime=max_runtime / 8 if max_runtime else None,
+            max_cumruntime=max_runtime if max_runtime else None,
         )
         if len(portfolio_configs) == 0:
             # in case all configurations selected were above the budget, we evaluate a quick backup
@@ -405,7 +411,6 @@ def zeroshot_results(
         engine=engine,
     )
     return [x for l in list_rows for x in l]
-
 
 
 def evaluate_tuning(
@@ -447,8 +452,8 @@ def evaluate_tuning(
             })
         return rows
 
-    def taskid_to_config(tuning_rows, taskid):
-        contains_task = lambda tasks: any(task.split("_")[0] == str(taskid) for task in tasks)
+    def tid_to_config(tuning_rows, tid):
+        contains_task = lambda tasks: any(task.split("_")[0] == str(tid) for task in tasks)
         matches = [row for row in tuning_rows if not contains_task(row['train_datasets'])]
         assert len(matches) >= 1
         return matches[0]
@@ -467,7 +472,7 @@ def evaluate_tuning(
             for method in ["zeroshot", "localsearch"]:
                 test_errors, ensemble_weights = repo.evaluate_ensemble(
                     tids=[tid],
-                    config_names=taskid_to_config(tuning_rows, tid)[method],
+                    config_names=tid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
                     rank=False,
                 )
@@ -476,7 +481,7 @@ def evaluate_tuning(
                     test_error = test_errors[0][fold]
                     task_name = repo.task_name(tid=tid, fold=fold)
                     rows.append(ResultRow(
-                        taskid=tid,
+                        tid=tid,
                         fold=fold,
                         method=f"{method}{suffix}".capitalize(),
                         test_error=test_error,

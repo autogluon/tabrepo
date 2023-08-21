@@ -17,6 +17,6 @@ search_space = {
 }
 
 
-def generate_configs_catboost(num_random_configs=100):
+def generate_configs_catboost(num_random_configs=200):
     config_generator = ConfigGenerator(name=name, manual_configs=manual_configs, search_space=search_space)
     return config_generator.generate_all_configs(num_random_configs=num_random_configs)
