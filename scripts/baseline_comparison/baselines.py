@@ -19,7 +19,7 @@ default_ensemble_size = 20
 
 @dataclass
 class ResultRow:
-    taskid: int  # OpenML taskid, also refered to "tid"
+    tid: int  # OpenML tid (task ID)
     fold: int
     method: str
     test_error: float
@@ -99,7 +99,7 @@ def evaluate_configs(
             runtime_col='time_infer_s',
         )
         rows.append(ResultRow(
-            taskid=tid,
+            tid=tid,
             fold=fold,
             method=method,
             test_error=metric_error,
@@ -266,7 +266,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
                 assert tid == v['tid']
                 metric_error = v['metric_error']
                 rows_automl.append(ResultRow(
-                    taskid=tid,
+                    tid=tid,
                     fold=v['fold'],
                     method=v['framework'],
                     test_error=metric_error,
@@ -413,7 +413,6 @@ def zeroshot_results(
     return [x for l in list_rows for x in l]
 
 
-
 def evaluate_tuning(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         expname="02-05-v2",
@@ -453,8 +452,8 @@ def evaluate_tuning(
             })
         return rows
 
-    def taskid_to_config(tuning_rows, taskid):
-        contains_task = lambda tasks: any(task.split("_")[0] == str(taskid) for task in tasks)
+    def tid_to_config(tuning_rows, tid):
+        contains_task = lambda tasks: any(task.split("_")[0] == str(tid) for task in tasks)
         matches = [row for row in tuning_rows if not contains_task(row['train_datasets'])]
         assert len(matches) >= 1
         return matches[0]
@@ -473,7 +472,7 @@ def evaluate_tuning(
             for method in ["zeroshot", "localsearch"]:
                 test_errors, ensemble_weights = repo.evaluate_ensemble(
                     tids=[tid],
-                    config_names=taskid_to_config(tuning_rows, tid)[method],
+                    config_names=tid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
                     rank=False,
                 )
@@ -482,7 +481,7 @@ def evaluate_tuning(
                     test_error = test_errors[0][fold]
                     task_name = repo.task_name(tid=tid, fold=fold)
                     rows.append(ResultRow(
-                        taskid=tid,
+                        tid=tid,
                         fold=fold,
                         method=f"{method}{suffix}".capitalize(),
                         test_error=test_error,
