@@ -1,4 +1,4 @@
-from typing import List, Callable
+from typing import List, Callable, Dict
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -88,7 +88,16 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
     plt.tight_layout()
     plt.savefig(fig_save_path)
     plt.show()
-
+def make_rename_dict(suffix: str) -> Dict[str, str]:
+    # return renaming of methods
+    rename_dict = {}
+    automl_frameworks = ["autosklearn", "autosklearn2", "flaml", "lightautoml"]
+    for hour in [1, 4]:
+        for automl_framework in automl_frameworks:
+            rename_dict[f"{automl_framework}_{hour}h{suffix}"] = f"{automl_framework} ({hour}h)".capitalize()
+        for preset in ["best", "high", "medium"]:
+            rename_dict[f"AutoGluon_{preset[0]}q_{hour}h{suffix}"] = f"AutoGluon {preset} ({hour}h)"
+    return rename_dict
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -195,31 +204,21 @@ if __name__ == "__main__":
     df = pd.concat([
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
     ])
-    rename_dict = {
-        "AutoGluon_bq_1h8c_2023_07_25": "AutoGluon best quality (ensemble)",
-        # "AutoGluon_bq_simple_1h8c_2023_07_25": "AutoGluon best quality",
-        "AutoGluon_hq_1h8c_2023_07_25": "AutoGluon high quality (ensemble)",
-        # # "Best of 10 (ensemble)": "Best of 10 frameworks (ensemble)",
-        # # "Best of 10 all framework": "Best of 10 frameworks",
-        "AutoGluon_mq_1h8c_2023_07_25": "AutoGluon medium quality (ensemble)",
-        # "AutoGluon_mq_1h8c_2023_03_19_zs_autogluon_single": "AutoGluon medium quality",
-        # "AutoGluon_mq_1h8c_2023_03_19_zs_LightGBM": "AutoGluon medium quality only LightGBM",
-    }
+    rename_dict = make_rename_dict(suffix="8c_2023_07_25")
     df["method"] = df["method"].replace(rename_dict)
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     print("all")
     show_latex_table(df)#, ["rank", "normalized_score", ])
     print(f"Total time of experiments: {df.time_train_s.sum() / 3600} hours")
-
     ag_styles = [
-        MethodStyle("AutoGluon best quality (ensemble)", color="black", linestyle="--", label_str="AG-best"),
+        # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
+        MethodStyle("AutoGluon best (4h)", color="black", linestyle="-.", label_str="AG best (4h)", linewidth=2.5),
         # MethodStyle("AutoGluon high quality (ensemble)", color="black", linestyle=":", label_str="AG-high"),
         # MethodStyle("localsearch (ensemble) (ST)", color="red", linestyle="-")
     ]
 
     method_styles = ag_styles.copy()
-
     for i, framework_type in enumerate(framework_types):
         method_styles.append(
             MethodStyle(

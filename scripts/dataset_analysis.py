@@ -59,7 +59,7 @@ sns.heatmap(
     df_rank, cmap="RdYlGn_r", vmin=0, vmax=1, ax=ax,
 )
 ax.set_xticks([])
-ax.set_xlabel("datasets", fontdict={'size': title_size})
+ax.set_xlabel("Datasets", fontdict={'size': title_size})
 ax.set_title("Ranks of models per dataset", fontdict={'size': title_size})
 
 # model-model correlation
@@ -78,6 +78,7 @@ for framework in df['framework_type'].unique():
     ax.set_yscale('log')
 ax.grid()
 ax.legend();
+ax.set_xlabel("Datasets", fontdict={'size': title_size})
 ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
 ax.set_title("Training runtime distribution", fontdict={'size': title_size})
 

@@ -14,6 +14,7 @@ class MethodStyle:
     name: str
     color: str
     linestyle: str = None  # linestyle of the method, default to plain
+    linewidth: float = None
     label: bool = True  # whether to show the method name as label
     label_str: str = None
 
@@ -74,7 +75,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
                     label=label,
                     color=method_style.color,
                     linestyle=method_style.linestyle,
-                    lw=1.5,
+                    lw=method_style.linewidth if method_style.linestyle else 1.5,
                 )
                 # axes[i].set_title(metric.replace("_", "-"))
                 axes[i].set_xlabel(metric.replace("_", "-"))
@@ -89,49 +90,47 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
 def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col):
     import seaborn as sns
 
-    n_frameworks = len(framework_types)
     df_metrics = compute_avg_metrics(df)
-    autogluon_methods = [
-        f"AutoGluon {preset} quality (ensemble)"
-        for preset in ["medium", "high", "best"]
-    ]
     zeroshot_methods = [
         zeroshot_name(max_runtime=max_runtime) for max_runtime in max_runtimes
     ]
+
+    colors = [sns.color_palette("bright")[j] for j in range(5)]
+    colors[1] = "black"
+    markers = ["*", 's', 'v', '^', "8", "D"]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
-    fig, axes = plt.subplots(1, 2, sharey=True, figsize=(8, 3))
+    fig, axes = plt.subplots(1, 2, sharey=True, figsize=(10, 3))
+
+    df_frameworks = {
+        "Zeroshot": df_metrics[df_metrics.index.isin(zeroshot_methods)],
+        "AutoGluon": df_metrics[df_metrics.index.str.contains("AutoGluon ")]
+    }
+    automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml"]
+    for automl_framework in automl_frameworks:
+        df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
+
     for i, metric in enumerate(
-        [
-            "time-train-s",
-            "time-infer-s",
-        ]
+            [
+                "time-train-s",
+                "time-infer-s",
+            ]
     ):
-        df_metrics[df_metrics.index.isin(zeroshot_methods)].plot(
-            kind="scatter",
-            x=metric,
-            y=metric_col,
-            label="Zeroshot + ensemble",
-            ax=axes[i],
-            color=sns.color_palette("bright")[n_frameworks + 1],
-            marker="*",
-            s=50.0,
-        )
-        df_metrics[df_metrics.index.isin(autogluon_methods)].plot(
-            kind="scatter",
-            x=metric,
-            y=metric_col,
-            label="AutoGluon + ensemble",
-            ax=axes[i],
-            color="black",
-            marker="^",
-        )
-        # df_metrics[cash_methods].plot(
-        #     kind="scatter",
-        #     x=metric,
-        #     y=metric_col,
-        #     label="All (N samples + ensemble)",
-        #     ax=axes[i],
-        #     marker="D",
-        #     color=sns.color_palette("bright")[n_frameworks],
-        # )
+        for j, (framework, df_framework) in enumerate(df_frameworks.items()):
+            axes[i].scatter(
+                df_framework[metric],
+                df_framework[metric_col],
+                label=framework,
+                color=colors[j],
+                marker=markers[j],
+                s=50.0 if markers[j] == "*" else None,
+            )
+            axes[i].set_xlabel(metric)
+            if i == 0:
+                axes[i].set_ylabel(metric_col)
+    # fig.legend(axes, df_frameworks.keys(), loc = "upper center", ncol=5)
+    handles, labels = axes[-1].get_legend_handles_labels()
+    fig.legend(handles, df_frameworks.keys(), loc='upper center', ncol=len(df_frameworks),)
+    fig.tight_layout()
+    # fig.legend(handles, df_frameworks.keys(), loc='right center', ncol=1)
+    # plt.legend(loc="upper center")
     return fig, axes
