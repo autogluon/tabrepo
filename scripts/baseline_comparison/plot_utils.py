@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from pathlib import Path
+from scripts import output_path
 
 import matplotlib.pyplot as plt
 from typing import List
@@ -26,9 +26,17 @@ def iqm(x):
     return np.mean(x[start:end])
 
 
-def show_latex_table(df: pd.DataFrame):
+def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False):
     df_metrics = compute_avg_metrics(df)
-    print(df_metrics.to_latex(float_format="%.2f"))
+    s = df_metrics.to_latex(float_format="%.2f")
+    latex_folder = output_path / "tables"
+    latex_folder.mkdir(exist_ok=True)
+    latex_file = latex_folder / f"{title}.tex"
+    print(f"Writing latex result in {latex_file}")
+    with open(latex_file, "w") as f:
+        f.write(s)
+    if show_table:
+        print(s)
 
 
 def compute_avg_metrics(df: pd.DataFrame):

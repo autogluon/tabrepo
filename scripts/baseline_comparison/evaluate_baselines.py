@@ -29,7 +29,7 @@ from scripts.baseline_comparison.plot_utils import (
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
-
+from scripts import output_path
 
 @dataclass
 class Experiment:
@@ -82,7 +82,7 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
     if title:
         fig.suptitle(title)
     if figname:
-        fig_save_path = Path(__file__).parent.parent / "figures" / f"{figname}.pdf"
+        fig_save_path = output_path / "figures" / f"{figname}.pdf"
         fig_save_path_dir = fig_save_path.parent
         fig_save_path_dir.mkdir(parents=True, exist_ok=True)
     plt.tight_layout()
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     print("all")
-    show_latex_table(df)#, ["rank", "normalized_score", ])
+    show_latex_table(df, "all", show_table=True)
     print(f"Total time of experiments: {df.time_train_s.sum() / 3600} hours")
     ag_styles = [
         # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
@@ -260,7 +260,7 @@ if __name__ == "__main__":
             linestyle=linestyle_ensemble,
             label=False,
         ))
-    show_latex_table(df[df.method.isin([m.name for m in method_styles])])#, ["rank", "normalized_score", ])
+    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "methods")#, ["rank", "normalized_score", ])
     plot_figure(
         df, method_styles, figname="cdf-frameworks",
         # title="Comparison of frameworks",
@@ -316,12 +316,12 @@ if __name__ == "__main__":
     ]
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
 
-    show_latex_table(df[(df.method.str.contains("Zeroshot") | (df.method.str.contains("AutoGluon best quality")))])
+    show_latex_table(df[(df.method.str.contains("Zeroshot") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
 
     for metric_col in ["rank", "normalized-score"]:
         fig, _ = show_scatter_performance_vs_time(df, max_runtimes=max_runtimes, metric_col=metric_col)
         fig_save_path = (
-            Path(__file__).parent.parent / "figures" / f"scatter-perf-vs-time-{metric_col}.pdf"
+            output_path / "figures" / f"scatter-perf-vs-time-{metric_col}.pdf"
         )
         fig_save_path_dir = fig_save_path.parent
         fig_save_path_dir.mkdir(parents=True, exist_ok=True)
