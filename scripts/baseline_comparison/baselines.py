@@ -11,10 +11,20 @@ from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
 from autogluon_zeroshot.repository import EvaluationRepository
-from autogluon_zeroshot.repository.time_utils import filter_configs_by_runtime, sort_by_runtime, get_runtime
+from autogluon_zeroshot.repository.time_utils import (
+    filter_configs_by_runtime,
+    sort_by_runtime,
+    get_runtime,
+)
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 default_ensemble_size = 20
+n_portfolios_default = 20
+
+framework_types = [
+    "CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"
+]
+
 
 
 @dataclass
@@ -28,7 +38,6 @@ class ResultRow:
     time_train_s: float
     time_infer_s: float
     config_selected: list = None
-
 
 def evaluate_configs(
         repo: EvaluationRepository,
@@ -192,12 +201,11 @@ def framework_name(framework_type, n_configs, ensemble_size) -> str:
         method += f" ({suffix})"
     return method
 
-
 def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         n_configs: int = [100],
         ensemble_size: int = default_ensemble_size,
-        framework_types=["CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"],
+        framework_types=framework_types,
         engine='ray',
         **kwargs) -> List[ResultRow]:
     """
@@ -280,7 +288,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
 
 
 def zeroshot_name(
-        n_portfolio: int = 20, n_ensemble: int = None, n_training_dataset: int = None, n_training_fold: int = None, n_training_config: int = None,
+        n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None, n_training_fold: int = None, n_training_config: int = None,
         max_runtime: float = None
 ):
     """
@@ -305,7 +313,7 @@ def zeroshot_results(
         normalized_scorer,
         n_eval_folds: int,
         n_ensembles: List[int] = [None],
-        n_portfolios: List[int] = [20],
+        n_portfolios: List[int] = [n_portfolios_default],
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
         n_training_configs: List[int] = [None],
@@ -401,7 +409,7 @@ def zeroshot_results(
 
     model_frameworks = {
         framework: [x for x in repo.list_models() if framework in x]
-        for framework in ["CatBoost", "NeuralNetFastAI", "LightGBM", "RandomForest", "ExtraTrees"]
+        for framework in framework_types
     }
 
     list_rows = parallel_for(
@@ -411,6 +419,7 @@ def zeroshot_results(
         engine=engine,
     )
     return [x for l in list_rows for x in l]
+
 
 
 def evaluate_tuning(
@@ -452,8 +461,8 @@ def evaluate_tuning(
             })
         return rows
 
-    def tid_to_config(tuning_rows, tid):
-        contains_task = lambda tasks: any(task.split("_")[0] == str(tid) for task in tasks)
+    def taskid_to_config(tuning_rows, taskid):
+        contains_task = lambda tasks: any(task.split("_")[0] == str(taskid) for task in tasks)
         matches = [row for row in tuning_rows if not contains_task(row['train_datasets'])]
         assert len(matches) >= 1
         return matches[0]
@@ -472,7 +481,7 @@ def evaluate_tuning(
             for method in ["zeroshot", "localsearch"]:
                 test_errors, ensemble_weights = repo.evaluate_ensemble(
                     tids=[tid],
-                    config_names=tid_to_config(tuning_rows, tid)[method],
+                    config_names=taskid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
                     rank=False,
                 )

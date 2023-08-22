@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from scripts.baseline_comparison.baselines import zeroshot_name
+from scripts.baseline_comparison.baselines import zeroshot_name, framework_types
 
 
 @dataclass
@@ -24,14 +24,21 @@ def iqm(x):
     end = len(x) * 3 // 4
     return np.mean(x[start:end])
 
+
 def show_latex_table(df: pd.DataFrame):
     df_metrics = compute_avg_metrics(df)
     print(df_metrics.to_latex(float_format="%.2f"))
 
+
 def compute_avg_metrics(df: pd.DataFrame):
     avg_metrics = {}
     for metric in ["normalized_score", "rank", "time_train_s", "time_infer_s"]:
-        avg_metric = df.groupby("method").agg(iqm)[metric]
+        # We use mean to aggregate runtimes as IQM does not make too much sense in this context,
+        # it makes only sense to aggregate y-metrics such as normalized scores or ranks.
+        if "time" in metric:
+            avg_metric = df.groupby("method").agg("mean")[metric]
+        else:
+            avg_metric = df.groupby("method").agg(iqm)[metric]
         avg_metric.sort_values().head(60)
         xx = avg_metric.sort_values()
         avg_metrics[metric] = xx
@@ -53,11 +60,16 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
             xx = df.loc[df.method == method_style.name, metric].sort_values()
             if len(xx) > 0:
                 if method_style.label:
-                    label = method_style.label_str if method_style.label_str else method_style.name
+                    label = (
+                        method_style.label_str
+                        if method_style.label_str
+                        else method_style.name
+                    )
                 else:
                     label = None
                 axes[i].plot(
-                    xx.values, np.arange(len(xx)) / len(xx),
+                    xx.values,
+                    np.arange(len(xx)) / len(xx),
                     # label=method_style.name if method_style.label else None,
                     label=label,
                     color=method_style.color,
@@ -74,35 +86,52 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
     return fig, axes
 
 
-def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes):
+def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col):
     import seaborn as sns
-    n_frameworks = 5
+
+    n_frameworks = len(framework_types)
     df_metrics = compute_avg_metrics(df)
     autogluon_methods = [
         f"AutoGluon {preset} quality (ensemble)"
         for preset in ["medium", "high", "best"]
     ]
-    zeroshot_methods = [zeroshot_name(max_runtime=max_runtime) for max_runtime in max_runtimes]
-    cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
+    zeroshot_methods = [
+        zeroshot_name(max_runtime=max_runtime) for max_runtime in max_runtimes
+    ]
+    # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(8, 3))
-    for i, metric in enumerate([
-        "time-train-s",
-        "time-infer-s",
-    ]):
+    for i, metric in enumerate(
+        [
+            "time-train-s",
+            "time-infer-s",
+        ]
+    ):
         df_metrics[df_metrics.index.isin(zeroshot_methods)].plot(
-            kind="scatter", x=metric, y="normalized-score", label="Zeroshot + ensemble", ax=axes[i],
-            color=sns.color_palette('bright')[n_frameworks + 1],
+            kind="scatter",
+            x=metric,
+            y=metric_col,
+            label="Zeroshot + ensemble",
+            ax=axes[i],
+            color=sns.color_palette("bright")[n_frameworks + 1],
             marker="*",
             s=50.0,
         )
         df_metrics[df_metrics.index.isin(autogluon_methods)].plot(
-            kind="scatter", x=metric, y="normalized-score", label="AutoGluon + ensemble", ax=axes[i],
+            kind="scatter",
+            x=metric,
+            y=metric_col,
+            label="AutoGluon + ensemble",
+            ax=axes[i],
             color="black",
             marker="^",
         )
-        df_metrics[cash_methods].plot(
-            kind="scatter", x=metric, y="normalized-score", label="All (N samples + ensemble)", ax=axes[i],
-            marker="D",
-            color=sns.color_palette('bright')[n_frameworks]
-        )
+        # df_metrics[cash_methods].plot(
+        #     kind="scatter",
+        #     x=metric,
+        #     y=metric_col,
+        #     label="All (N samples + ensemble)",
+        #     ax=axes[i],
+        #     marker="D",
+        #     color=sns.color_palette("bright")[n_frameworks],
+        # )
     return fig, axes

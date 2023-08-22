@@ -6,12 +6,26 @@ from pathlib import Path
 
 from matplotlib import cm
 
-from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
+from autogluon_zeroshot.repository.evaluation_repository import (
+    load,
+    EvaluationRepository,
+)
 from autogluon_zeroshot.utils.cache import cache_function, cache_function_dataframe
-from scripts.baseline_comparison.baselines import automl_results, framework_default_results, \
-    framework_best_results, zeroshot_results, zeroshot_name, ResultRow
-from scripts.baseline_comparison.plot_utils import MethodStyle, show_latex_table, show_cdf, \
-    show_scatter_performance_vs_time
+from scripts.baseline_comparison.baselines import (
+    automl_results,
+    framework_default_results,
+    framework_best_results,
+    zeroshot_results,
+    zeroshot_name,
+    ResultRow,
+    framework_types,
+)
+from scripts.baseline_comparison.plot_utils import (
+    MethodStyle,
+    show_latex_table,
+    show_cdf,
+    show_scatter_performance_vs_time,
+)
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
@@ -99,12 +113,12 @@ if __name__ == "__main__":
         expname += f"-{n_datasets}"
 
     n_eval_folds = args.n_folds
-    n_portfolios = [5, 10, 20, 40, 80]
+    n_portfolios = [5, 10, 20, 40, 80, 160]
     # n_ensembles=[5, 10, 20, 40, 80]
-    max_runtimes = [120, 240, 480, 960, 1920, 7200]
-    n_training_datasets = [1, 4, 16, 32, 64, 130]
+    max_runtimes = [120, 240, 480, 960, 1920, 7200, 72000]
+    n_training_datasets = [1, 4, 16, 32, 64, 128, 181]
     n_training_folds = [1, 2, 5, 10]
-    n_training_configs = [1, 2, 5, 50, 100]
+    n_training_configs = [1, 2, 5, 50, 100, 200]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
     linestyle_default = "dotted"
@@ -171,10 +185,10 @@ if __name__ == "__main__":
             expname=expname, name=f"zeroshot-{expname}-num-configs",
             run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
         ),
-        Experiment(
-            expname=expname, name=f"zeroshot-{expname}-num-caruana",
-            run_fun=lambda: zeroshot_results(n_ensembles=n_ensembles, **experiment_common_kwargs)
-        ),
+        # Experiment(
+        #     expname=expname, name=f"zeroshot-{expname}-num-caruana",
+        #     run_fun=lambda: zeroshot_results(n_ensembles=n_ensembles, **experiment_common_kwargs)
+        # ),
 
     ]
 
@@ -182,14 +196,14 @@ if __name__ == "__main__":
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
     ])
     rename_dict = {
-        "AutoGluon_bq_1h8c_2023_03_19_zs": "AutoGluon best quality (ensemble)",
-        "AutoGluon_bq_1h8c_2023_03_19_zs_autogluon_single": "AutoGluon best quality",
-        "AutoGluon_hq_1h8c_2023_03_19_zs": "AutoGluon high quality (ensemble)",
-        # "Best of 10 (ensemble)": "Best of 10 frameworks (ensemble)",
-        # "Best of 10 all framework": "Best of 10 frameworks",
-        "AutoGluon_mq_1h8c_2023_03_19_zs": "AutoGluon medium quality (ensemble)",
-        "AutoGluon_mq_1h8c_2023_03_19_zs_autogluon_single": "AutoGluon medium quality",
-        "AutoGluon_mq_1h8c_2023_03_19_zs_LightGBM": "AutoGluon medium quality only LightGBM",
+        "AutoGluon_bq_1h8c_2023_07_25": "AutoGluon best quality (ensemble)",
+        # "AutoGluon_bq_simple_1h8c_2023_07_25": "AutoGluon best quality",
+        "AutoGluon_hq_1h8c_2023_07_25": "AutoGluon high quality (ensemble)",
+        # # "Best of 10 (ensemble)": "Best of 10 frameworks (ensemble)",
+        # # "Best of 10 all framework": "Best of 10 frameworks",
+        "AutoGluon_mq_1h8c_2023_07_25": "AutoGluon medium quality (ensemble)",
+        # "AutoGluon_mq_1h8c_2023_03_19_zs_autogluon_single": "AutoGluon medium quality",
+        # "AutoGluon_mq_1h8c_2023_03_19_zs_LightGBM": "AutoGluon medium quality only LightGBM",
     }
     df["method"] = df["method"].replace(rename_dict)
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
@@ -205,9 +219,8 @@ if __name__ == "__main__":
     ]
 
     method_styles = ag_styles.copy()
-    frameworks = ["CatBoost", "NeuralNetFastAI", "LightGBM", "RandomForest", "ExtraTrees"]
 
-    for i, framework_type in enumerate(frameworks):
+    for i, framework_type in enumerate(framework_types):
         method_styles.append(
             MethodStyle(
                 f"{framework_type} (default)",
@@ -236,7 +249,7 @@ if __name__ == "__main__":
     method_styles.append(
         MethodStyle(
             f"All (100 samples)",
-            color=sns.color_palette('bright')[len(frameworks)],
+            color=sns.color_palette('bright')[len(framework_types)],
             linestyle=linestyle_tune,
             label=True,
             label_str="All"
@@ -244,7 +257,7 @@ if __name__ == "__main__":
     method_styles.append(
         MethodStyle(
             f"All (100 samples + ensemble)",
-            color=sns.color_palette('bright')[len(frameworks)],
+            color=sns.color_palette('bright')[len(framework_types)],
             linestyle=linestyle_ensemble,
             label=False,
         ))
@@ -304,23 +317,15 @@ if __name__ == "__main__":
     ]
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
 
-    # Plot effect of training time limit
-    method_styles = ag_styles + [
-        MethodStyle(
-            zeroshot_name(n_ensemble=size),
-            color=cm.get_cmap("viridis")(i / (len(n_ensembles) - 1)), linestyle="-", label_str=f"ZS-C{size}",
-        )
-        for i, size in enumerate(n_ensembles)
-    ]
-    plot_figure(df, method_styles, title="Effect of number of Caruana steps", figname="cdf-caruana")
-
     show_latex_table(df[(df.method.str.contains("Zeroshot") | (df.method.str.contains("AutoGluon best quality")))])
 
-    fig, _ = show_scatter_performance_vs_time(df, max_runtimes=max_runtimes)
-    fig_save_path = Path(__file__).parent.parent / "figures" / "scatter-perf-vs-time.pdf"
-    fig_save_path_dir = fig_save_path.parent
-    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
-    plt.tight_layout()
-    plt.savefig(fig_save_path)
-    plt.show()
-
+    for metric_col in ["rank", "normalized-score"]:
+        fig, _ = show_scatter_performance_vs_time(df, max_runtimes=max_runtimes, metric_col=metric_col)
+        fig_save_path = (
+            Path(__file__).parent.parent / "figures" / f"scatter-perf-vs-time-{metric_col}.pdf"
+        )
+        fig_save_path_dir = fig_save_path.parent
+        fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(fig_save_path)
+        plt.show()
