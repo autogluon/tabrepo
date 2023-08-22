@@ -11,10 +11,20 @@ from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
 from autogluon_zeroshot.repository import EvaluationRepository
-from autogluon_zeroshot.repository.time_utils import filter_configs_by_runtime, sort_by_runtime, get_runtime
+from autogluon_zeroshot.repository.time_utils import (
+    filter_configs_by_runtime,
+    sort_by_runtime,
+    get_runtime,
+)
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 default_ensemble_size = 20
+n_portfolios_default = 20
+
+framework_types = [
+    "CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"
+]
+
 
 
 @dataclass
@@ -28,7 +38,6 @@ class ResultRow:
     time_train_s: float
     time_infer_s: float
     config_selected: list = None
-
 
 def evaluate_configs(
         repo: EvaluationRepository,
@@ -192,12 +201,11 @@ def framework_name(framework_type, n_configs, ensemble_size) -> str:
         method += f" ({suffix})"
     return method
 
-
 def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         n_configs: int = [100],
         ensemble_size: int = default_ensemble_size,
-        framework_types=["CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"],
+        framework_types=framework_types,
         engine='ray',
         **kwargs) -> List[ResultRow]:
     """
@@ -280,7 +288,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
 
 
 def zeroshot_name(
-        n_portfolio: int = 20, n_ensemble: int = None, n_training_dataset: int = None, n_training_fold: int = None, n_training_config: int = None,
+        n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None, n_training_fold: int = None, n_training_config: int = None,
         max_runtime: float = None
 ):
     """
@@ -290,13 +298,30 @@ def zeroshot_name(
     """
     suffix = [
         f"-{letter}{x}" if x is not None else ""
-        for letter, x in [("N", n_portfolio), ("D", n_training_dataset), ("S", n_training_fold), ("T", max_runtime), ("M", n_training_config)]
+        for letter, x in [("N", n_portfolio), ("D", n_training_dataset), ("S", n_training_fold), ("M", n_training_config)]
     ]
     if n_ensemble:
         suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
+    if max_runtime:
+        str_num_hours = f"{int(max_runtime / 3600)}h" if max_runtime % 3600 == 0 else f"{max_runtime / 3600:0.2f}"
+        suffix += f" ({str_num_hours}h)"
     return f"Zeroshot{suffix}"
 
+
+def filter_configurations_above_budget(repo, test_tid, configs, max_runtime):
+    dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    dd = dd[dd.tid != test_tid]
+    df_configs_runtime = dd.pivot_table(
+        index="framework", columns="tid", values="time_train_s"
+    ).quantile(q=0.9, axis=1).sort_values()
+
+    n_initial_configs = len(configs)
+    configs_fast_enough = df_configs_runtime[df_configs_runtime < max_runtime].index.tolist()
+    configs = list(set(configs_fast_enough).intersection(configs))
+    print(f"kept only {len(configs)} from initial {n_initial_configs} for runtime {max_runtime}")
+    assert len(configs) > 0
+    return configs
 
 def zeroshot_results(
         repo: EvaluationRepository,
@@ -305,7 +330,7 @@ def zeroshot_results(
         normalized_scorer,
         n_eval_folds: int,
         n_ensembles: List[int] = [None],
-        n_portfolios: List[int] = [20],
+        n_portfolios: List[int] = [n_portfolios_default],
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
         n_training_configs: List[int] = [None],
@@ -349,14 +374,18 @@ def zeroshot_results(
         selected_tids = set(available_tids[:n_training_dataset])
 
         # restrict number of configurations available to fit
-        if n_training_config:
-            configs = []
-            for models_framework in model_frameworks.values():
-                if len(models_framework) <= n_training_config:
-                    configs += models_framework
-                else:
-                    configs += list(np.random.choice(models_framework, n_training_config, replace=False))
-            df_rank = df_rank.copy().loc[configs]
+        configs = []
+        for models_framework in model_frameworks.values():
+            if not(n_training_config) or len(models_framework) <= n_training_config:
+                configs += models_framework
+            else:
+                configs += list(np.random.choice(models_framework, n_training_config, replace=False))
+
+        # # exclude configurations from zeroshot selection whose runtime exceeds runtime budget by large amount
+        # if max_runtime:
+        #     configs = filter_configurations_above_budget(repo, test_tid, configs, max_runtime)
+
+        df_rank = df_rank.copy().loc[configs]
 
         # collects all tasks that are available
         train_tasks = []
@@ -379,8 +408,9 @@ def zeroshot_results(
             max_cumruntime=max_runtime if max_runtime else None,
         )
         if len(portfolio_configs) == 0:
-            # in case all configurations selected were above the budget, we evaluate a quick backup
-            portfolio_configs = ["LightGBM_c1_BAG_L1"]
+            # in case all configurations selected were above the budget, we evaluate a quick backup, we pick a configuration
+            # that takes <1s to be evaluated
+            portfolio_configs = ["ExtraTrees_c1_BAG_L1"]
 
         return evaluate_configs(
             repo=repo,
@@ -401,7 +431,7 @@ def zeroshot_results(
 
     model_frameworks = {
         framework: [x for x in repo.list_models() if framework in x]
-        for framework in ["CatBoost", "NeuralNetFastAI", "LightGBM", "RandomForest", "ExtraTrees"]
+        for framework in framework_types
     }
 
     list_rows = parallel_for(
@@ -411,6 +441,7 @@ def zeroshot_results(
         engine=engine,
     )
     return [x for l in list_rows for x in l]
+
 
 
 def evaluate_tuning(
