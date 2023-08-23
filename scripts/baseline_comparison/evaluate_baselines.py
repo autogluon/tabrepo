@@ -124,7 +124,7 @@ if __name__ == "__main__":
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80, 160]
     # n_ensembles=[5, 10, 20, 40, 80]
-    max_runtimes = [120, 240, 480, 960, 1920, 7200, 72000]
+    max_runtimes = [120, 240, 480, 960, 1920, 3600, 3600 * 4, 72000, 720000]
     n_training_datasets = [1, 4, 16, 32, 64, 128, 181]
     n_training_folds = [1, 2, 5, 10]
     n_training_configs = [1, 2, 5, 50, 100, 200]
@@ -260,7 +260,7 @@ if __name__ == "__main__":
             linestyle=linestyle_ensemble,
             label=False,
         ))
-    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "methods")#, ["rank", "normalized_score", ])
+    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks")#, ["rank", "normalized_score", ])
     plot_figure(
         df, method_styles, figname="cdf-frameworks",
         # title="Comparison of frameworks",

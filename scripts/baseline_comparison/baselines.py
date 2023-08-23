@@ -461,12 +461,12 @@ def evaluate_tuning(
             })
         return rows
 
-    def taskid_to_config(tuning_rows, taskid):
-        contains_task = lambda tasks: any(task.split("_")[0] == str(taskid) for task in tasks)
+    def tid_to_config(tuning_rows, tid):
+        contains_task = lambda tasks: any(task.split("_")[0] == str(tid) for task in tasks)
         matches = [row for row in tuning_rows if not contains_task(row['train_datasets'])]
         assert len(matches) >= 1
         return matches[0]
-
+    
     df_results = load_df_tuning(expname=expname)
     if len(df_results) == 0:
         print(f"No tuning result could be found from the experiment tag passed {expname}, please run run_method_comparison.py with this tag first.")
@@ -481,7 +481,7 @@ def evaluate_tuning(
             for method in ["zeroshot", "localsearch"]:
                 test_errors, ensemble_weights = repo.evaluate_ensemble(
                     tids=[tid],
-                    config_names=taskid_to_config(tuning_rows, tid)[method],
+                    config_names=tid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
                     rank=False,
                 )
