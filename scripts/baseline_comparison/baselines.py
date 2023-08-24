@@ -304,7 +304,7 @@ def zeroshot_name(
         suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
     if max_runtime:
-        str_num_hours = f"{int(max_runtime / 3600)}h" if max_runtime % 3600 == 0 else f"{max_runtime / 3600:0.2f}"
+        str_num_hours = f"{int(max_runtime / 3600)}" if max_runtime % 3600 == 0 else f"{max_runtime / 3600:0.2f}"
         suffix += f" ({str_num_hours}h)"
     return f"Zeroshot{suffix}"
 

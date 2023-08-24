@@ -314,7 +314,9 @@ if __name__ == "__main__":
     df["method"] = df["method"].replace(rename_dict)
     show_latex_table(
         df[
-            (df.method.str.endswith("1h)")) | (df.method.str.endswith("4h)")) | (df.method.str.endswith("20h)")) |(df.method.str.contains("Zeroshot-N160")) | (df.method.str.contains(".* (.*(samples|default).*)"))
+            (df.method.str.contains(".*(1|4|20)h.*")) |
+            (df.method.str.contains(".* (.*(samples|default).*)")) |
+            (df.method.str.contains("Zeroshot-N160"))
         ],
         "selected-methods",
         show_table=True,
