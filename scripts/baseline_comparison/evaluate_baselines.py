@@ -88,7 +88,7 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
     plt.tight_layout()
     plt.savefig(fig_save_path)
     plt.show()
-def make_rename_dict(suffix: str, max_runtimes) -> Dict[str, str]:
+def make_rename_dict(suffix: str) -> Dict[str, str]:
     # return renaming of methods
     rename_dict = {}
     automl_frameworks = ["autosklearn", "autosklearn2", "flaml", "lightautoml", "H2OAutoML"]
@@ -159,12 +159,12 @@ if __name__ == "__main__":
         ),
         Experiment(
             expname=expname, name=f"framework-best-{expname}",
-            run_fun=lambda: framework_best_results(**experiment_common_kwargs),
+            run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 20], **experiment_common_kwargs),
         ),
-        Experiment(
-            expname=expname, name=f"framework-all-best-{expname}",
-            run_fun=lambda: framework_best_results(framework_types=[None], n_configs=n_portfolios, **experiment_common_kwargs),
-        ),
+        # Experiment(
+        #     expname=expname, name=f"framework-all-best-{expname}",
+        #     run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 20], **experiment_common_kwargs),
+        # ),
         # Automl baselines such as Autogluon best, high, medium quality
         Experiment(
             expname=expname, name=f"automl-baselines-{expname}",
@@ -314,7 +314,7 @@ if __name__ == "__main__":
     df["method"] = df["method"].replace(rename_dict)
     show_latex_table(
         df[
-            (df.method.str.contains(".*(1|4|20)h.*")) |
+            (df.method.str.contains(".\(*(1|4|20)h\).*")) |
             (df.method.str.contains(".* (.*(samples|default).*)")) |
             (df.method.str.contains("Zeroshot-N160"))
         ],
