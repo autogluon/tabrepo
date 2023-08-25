@@ -438,7 +438,6 @@ def zeroshot_results(
         if len(portfolio_configs) == 0:
             # in case all configurations selected were above the budget, we evaluate a quick backup, we pick a
             # configuration that takes <1s to be evaluated
-            print(f"{tid} runtime exceeded, picking backup")
             portfolio_configs = [backup_fast_config]
 
         return evaluate_configs(

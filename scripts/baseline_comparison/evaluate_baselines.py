@@ -18,7 +18,7 @@ from scripts.baseline_comparison.baselines import (
     zeroshot_results,
     zeroshot_name,
     ResultRow,
-    framework_types,
+    framework_types, framework_name,
 )
 from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
@@ -225,7 +225,7 @@ if __name__ == "__main__":
         )
         method_styles.append(
             MethodStyle(
-                f"{framework_type} (100 samples)",
+                framework_name(framework_type, 4 * 3600, ensemble_size=1),
                 color=sns.color_palette('bright')[i],
                 linestyle=linestyle_tune,
                 label_str=framework_type,
