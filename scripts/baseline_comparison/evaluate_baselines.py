@@ -199,7 +199,7 @@ if __name__ == "__main__":
     df = pd.concat([
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
     ])
-    rename_dict = make_rename_dict(suffix="8c_2023_07_25", max_runtimes=max_runtimes)
+    rename_dict = make_rename_dict(suffix="8c_2023_07_25")
     df["method"] = df["method"].replace(rename_dict)
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
