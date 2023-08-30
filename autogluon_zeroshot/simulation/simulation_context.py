@@ -235,22 +235,32 @@ class ZeroshotSimulatorContext:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())
 
-    def load_groundtruth(self, path_gt: str) -> dict:
-        zeroshot_gt = load_pkl.load(path_gt)
+    def load_groundtruth(self, path_gt: List[str]) -> dict:
+        zeroshot_gt = dict()
+        for p in path_gt:
+            zeroshot_gt_cur = load_pkl.load(p)
+            for dataset in zeroshot_gt_cur:
+                if dataset not in zeroshot_gt:
+                    zeroshot_gt[dataset] = dict()
+                for fold in zeroshot_gt_cur[dataset]:
+                    if fold not in zeroshot_gt[dataset]:
+                        zeroshot_gt[dataset][fold] = zeroshot_gt_cur[dataset][fold]
+                    else:
+                        raise AssertionError(f'Duplicate zs_gt results exist for: dataset="{dataset}", fold={fold}')
         zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
         return zeroshot_gt
 
-    def load_pred(self, pred_pkl_path: Union[Path, str], lazy_format: bool = False) -> TabularModelPredictions:
-        pred_pkl_path = Path(pred_pkl_path)
-        assert pred_pkl_path.exists()
-        print('Loading zeroshot...')
+    def load_pred(self, pred_pkl_path: List[Union[Path, str]], lazy_format: bool = False) -> TabularModelPredictions:
+        pred_pkl_path = [Path(p) for p in pred_pkl_path]
+        for p in pred_pkl_path:
+            assert p.exists()
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         if lazy_format:
             # convert to lazy format if format not already available
             pred_path = self.convert_lazy_format(pred_pkl_path=pred_pkl_path)
         else:
-            pred_path = str(pred_pkl_path)
+            pred_path = str(pred_pkl_path[0])  # FIXME FIXME FIXME FIXME FIXME, NOT CORRECT HACK
         zeroshot_pred_proba = cls.load(pred_path)
 
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
@@ -263,17 +273,18 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     @staticmethod
-    def convert_lazy_format(pred_pkl_path: Path, override_if_already_exists: bool = False) -> str:
+    def convert_lazy_format(pred_pkl_path: List[Path], override_if_already_exists: bool = False) -> str:
         """
         :param pred_pkl_path:
         :param override_if_already_exists:
         :return: the path of the generated lazy format
         """
-        new_filename = Path(pred_pkl_path).parent / Path(pred_pkl_path).stem
+        # FIXME FIXME FIXME FIXME FIXME
+        new_filename = Path(pred_pkl_path[0]).parent / Path(pred_pkl_path[0]).stem
         if not new_filename.exists() or override_if_already_exists:
             print(f"lazy format folder {new_filename} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
-            preds_npy = TabularPicklePerTaskPredictions.from_path(path=str(pred_pkl_path), output_dir=str(new_filename))
+            preds_npy = TabularPicklePerTaskPredictions.from_paths(paths=pred_pkl_path, output_dir=str(new_filename))
         return new_filename
 
     @staticmethod

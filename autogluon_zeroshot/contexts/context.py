@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 from pathlib import Path
@@ -23,11 +25,15 @@ class BenchmarkPaths:
     raw: str
     comparison: str
     task_metadata: str = None
-    zs_pp: str = None
-    zs_gt: str = None
+    zs_pp: str | List[str] = None
+    zs_gt: str | List[str] = None
     configs: List[str] = None
 
     def __post_init__(self):
+        if self.zs_pp is not None and isinstance(self.zs_pp, str):
+            self.zs_pp = [self.zs_pp]
+        if self.zs_gt is not None and isinstance(self.zs_gt, str):
+            self.zs_gt = [self.zs_gt]
         if self.configs is None:
             configs_prefix = Paths.data_root / 'configs'
             configs = [
@@ -55,10 +61,8 @@ class BenchmarkPaths:
             self.task_metadata,
         ]
         if include_zs:
-            file_paths += [
-                self.zs_pp,
-                self.zs_gt,
-            ]
+            file_paths += self.zs_pp
+            file_paths += self.zs_gt
         file_paths = [f for f in file_paths if f is not None]
         return file_paths
 
@@ -70,9 +74,11 @@ class BenchmarkPaths:
             self._assert_exists(self.task_metadata, 'task_metadata')
         if check_zs:
             if self.zs_pp is not None:
-                self._assert_exists(self.zs_pp, 'zs_pp')
+                for f in self.zs_pp:
+                    self._assert_exists(f, f'zs_pp | {f}')
             if self.zs_gt is not None:
-                self._assert_exists(self.zs_gt, 'zs_gt')
+                for f in self.zs_gt:
+                    self._assert_exists(f, f'zs_gt | {f}')
 
     @staticmethod
     def _assert_exists(filepath: str, name: str = None):
@@ -136,8 +142,10 @@ class BenchmarkPaths:
     def load_predictions(self,
                          zsc: ZeroshotSimulatorContext,
                          lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
-        self._assert_exists(self.zs_pp, name='zs_pp')
-        self._assert_exists(self.zs_gt, name='zs_gt')
+        for f in self.zs_pp:
+            self._assert_exists(f, f'zs_pp | {f}')
+        for f in self.zs_gt:
+            self._assert_exists(f, name=f'zs_gt | {f}')
         zeroshot_pred_proba, zeroshot_gt, zsc = load_zeroshot_input(
             path_pred_proba=self.zs_pp,
             path_gt=self.zs_gt,

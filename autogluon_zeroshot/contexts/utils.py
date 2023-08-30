@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 from ..simulation.dense_utils import force_to_dense
 from ..simulation.simulation_context import ZeroshotSimulatorContext
@@ -27,13 +27,13 @@ def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
         for d in zs_gt_keys:
             for f in zpp_folds:
                 if f not in zsc.folds:
-                    zeroshot_gt[d].pop(f)
+                    zeroshot_gt[d].pop(f, None)
     datasets_in_zs = list(zeroshot_pred_proba.datasets)
     zsc.subset_datasets(datasets_in_zs)
 
 
-def load_zeroshot_input(path_pred_proba: str,
-                        path_gt: str,
+def load_zeroshot_input(path_pred_proba: List[str],
+                        path_gt: List[str],
                         zsc: ZeroshotSimulatorContext,
                         lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
     print(f'Loading ZS inputs:\n'
