@@ -273,9 +273,9 @@ class ZeroshotSimulatorContext:
         if not new_filename.exists() or override_if_already_exists:
             print(f"lazy format folder {new_filename} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
-            preds = TabularPicklePredictions.load(str(pred_pkl_path))
-            preds_npy = TabularPicklePerTaskPredictions.from_dict(preds.pred_dict, output_dir=str(new_filename))
+            preds_npy = TabularPicklePerTaskPredictions.from_path(path=str(pred_pkl_path), output_dir=str(new_filename))
         return new_filename
+
     @staticmethod
     def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):
         """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 from collections import defaultdict
 import json
@@ -218,6 +220,20 @@ class TabularPicklePredictions(TabularModelPredictions):
         return cls(pred_dict=load_pkl.load(filename))
 
     @classmethod
+    def from_paths(cls, paths: List[str]):
+        preds_final = dict()
+        for path in paths:
+            preds = cls.load(str(path))
+            for dataset in preds.datasets:
+                if dataset in preds_final:
+                    for fold in preds.pred_dict[dataset]:
+                        if fold not in preds_final[dataset]:
+                            preds_final[dataset][fold] = preds.pred_dict[dataset][fold]
+                else:
+                    preds_final[dataset] = preds.pred_dict[dataset]
+        return cls(pred_dict=preds_final)
+
+    @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
         return cls(pred_dict=pred_dict)
 
@@ -352,7 +368,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
             return []
 
     def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
-        pred_dict = self._load_dataset(dataset)
+        pred_dict = self._load_task(dataset=dataset, fold=fold)
         models_valid = self.list_models_available(datasets=[dataset], present_in_all=True)
         if models is None:
             models = models_valid
@@ -364,7 +380,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
 
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
-            model_results = pred_dict[fold][split_key]
+            model_results = pred_dict[split_key]
             return np.array([model_results[model] for model in models])
 
         available_model_mask = np.array([i for i, model in enumerate(models)])
@@ -378,10 +394,14 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def predict_dataset(self, dataset: str) -> DatasetPredictionsDict:
         return self._load_dataset(dataset=dataset)
 
+    def _load_task(self, dataset: str, fold: int) -> TaskPredictionsDict:
+        dataset_rename = self.rename_dict_inv.get(dataset, dataset)
+        filename = self.task_file_path(dataset=dataset_rename, fold=fold)
+        return load_pkl.load(filename)
+
     def _load_dataset(self, dataset: str, enforce_folds: bool = True) -> DatasetPredictionsDict:
-        dataset_file_name = self.rename_dict_inv.get(dataset, dataset)
-        filename = str(self.output_dir / f'{dataset_file_name}.pkl')
-        out = load_pkl.load(filename)
+        folds = self.folds_available_in_dataset(dataset=dataset)
+        out = {fold: self._load_task(dataset=dataset, fold=fold) for fold in folds}
         if enforce_folds:
             valid_folds = set(self.tasks_to_models[dataset])
             folds = list(out.keys())
@@ -389,6 +409,66 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
                 if f not in valid_folds:
                     out.pop(f)
         return out
+
+    @classmethod
+    def from_path(cls, path: str, output_dir: str):
+        preds = TabularPicklePredictions.load(str(path))
+        return cls.from_dict(preds.pred_dict, output_dir=output_dir)
+
+    @classmethod
+    def save_dataset(cls, dataset_pred_dict: DatasetPredictionsDict, dataset: str, output_dir: str | Path):
+        for fold in dataset_pred_dict:
+            cls.save_task(task_pred_dict=dataset_pred_dict[fold], dataset=dataset, fold=fold, output_dir=output_dir)
+
+    @classmethod
+    def save_task(cls, task_pred_dict: TaskPredictionsDict, dataset: str, fold: int, output_dir: str | Path):
+        filename = cls._task_file_path(dataset=dataset, fold=fold, output_dir=output_dir)
+        save_pkl(filename, task_pred_dict)
+
+    def task_file_path(self, dataset: str, fold: int) -> str:
+        return self._task_file_path(dataset=dataset, fold=fold, output_dir=self.output_dir)
+
+    @classmethod
+    def _task_file_path(cls, dataset: str, fold: int, output_dir: str | Path) -> str:
+        return str(Path(output_dir) / f'{dataset}' / f'{fold}.pkl')
+
+    @classmethod
+    def from_paths(cls, paths: List[str], output_dir: str):
+        rename_split = lambda split: 'test' if split == "pred_proba_dict_test" else 'val'
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        tasks_to_models_full = dict()
+        for path in paths:
+
+            pred_proba = TabularPicklePredictions.load(str(path))
+            datasets = pred_proba.datasets
+            pred_dict = pred_proba.pred_dict
+            tasks_to_models = {
+                dataset: {
+                    fold: {
+                        rename_split(split): list(models.keys())
+                        for split, models in splits.items()
+                    }
+                    for fold, splits in folds.items()
+                }
+                for dataset, folds in pred_dict.items()
+            }
+            print(f"saving .pkl files in folder {output_dir}")
+
+            for dataset in tasks_to_models:
+                if dataset not in tasks_to_models_full:
+                    tasks_to_models_full[dataset] = dict()
+                for fold in tasks_to_models[dataset]:
+                    if fold not in tasks_to_models_full[dataset]:
+                        tasks_to_models_full[dataset][fold] = tasks_to_models[dataset][fold]
+                    else:
+                        raise AssertionError(f'Found duplicate results for: dataset="{dataset}", fold={fold}')
+
+            for dataset in tqdm(datasets):
+                cls.save_dataset(dataset_pred_dict=pred_dict[dataset], dataset=dataset, output_dir=output_dir)
+
+        cls._save_metadata(output_dir=output_dir, tasks_to_models=tasks_to_models_full)
+        return cls(tasks_to_models=tasks_to_models_full, output_dir=output_dir)
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
@@ -409,8 +489,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         }
         print(f"saving .pkl files in folder {output_dir}")
         for dataset in tqdm(datasets):
-            filename = str(output_dir / f'{dataset}.pkl')
-            save_pkl(filename, pred_dict[dataset])
+            cls.save_dataset(dataset_pred_dict=pred_dict[dataset], dataset=dataset, output_dir=output_dir)
         cls._save_metadata(output_dir=output_dir, tasks_to_models=tasks_to_models)
         return cls(tasks_to_models=tasks_to_models, output_dir=output_dir)
 
