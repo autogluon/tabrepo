@@ -18,7 +18,7 @@ from scripts.baseline_comparison.baselines import (
     zeroshot_results,
     zeroshot_name,
     ResultRow,
-    framework_types,
+    framework_types, framework_name,
 )
 from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
@@ -42,7 +42,7 @@ class Experiment:
             lambda: pd.DataFrame(self.run_fun()),
             cache_name=self.name,
             ignore_cache=ignore_cache,
-            cache_path=Path(__file__).parent.parent.parent / "data" / "results-baseline-comparison" / self.expname,
+            cache_path=output_path.parent / "data" / "results-baseline-comparison" / self.expname,
         )
 
 
@@ -91,7 +91,7 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
 def make_rename_dict(suffix: str) -> Dict[str, str]:
     # return renaming of methods
     rename_dict = {}
-    automl_frameworks = ["autosklearn", "autosklearn2", "flaml", "lightautoml"]
+    automl_frameworks = ["autosklearn", "autosklearn2", "flaml", "lightautoml", "H2OAutoML"]
     for hour in [1, 4]:
         for automl_framework in automl_frameworks:
             rename_dict[f"{automl_framework}_{hour}h{suffix}"] = f"{automl_framework} ({hour}h)".capitalize()
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80, 160]
     # n_ensembles=[5, 10, 20, 40, 80]
-    max_runtimes = [120, 240, 480, 960, 1920, 3600, 3600 * 4, 72000, 720000]
+    max_runtimes = [240, 480, 900, 1800, 3600, 3600 * 4, 72000]
     n_training_datasets = [1, 4, 16, 32, 64, 128, 181]
     n_training_folds = [1, 2, 5, 10]
     n_training_configs = [1, 2, 5, 50, 100, 200]
@@ -159,12 +159,12 @@ if __name__ == "__main__":
         ),
         Experiment(
             expname=expname, name=f"framework-best-{expname}",
-            run_fun=lambda: framework_best_results(**experiment_common_kwargs),
+            run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 20], **experiment_common_kwargs),
         ),
-        Experiment(
-            expname=expname, name=f"framework-all-best-{expname}",
-            run_fun=lambda: framework_best_results(framework_types=[None], n_configs=n_portfolios, **experiment_common_kwargs),
-        ),
+        # Experiment(
+        #     expname=expname, name=f"framework-all-best-{expname}",
+        #     run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 20], **experiment_common_kwargs),
+        # ),
         # Automl baselines such as Autogluon best, high, medium quality
         Experiment(
             expname=expname, name=f"automl-baselines-{expname}",
@@ -194,11 +194,6 @@ if __name__ == "__main__":
             expname=expname, name=f"zeroshot-{expname}-num-configs",
             run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
         ),
-        # Experiment(
-        #     expname=expname, name=f"zeroshot-{expname}-num-caruana",
-        #     run_fun=lambda: zeroshot_results(n_ensembles=n_ensembles, **experiment_common_kwargs)
-        # ),
-
     ]
 
     df = pd.concat([
@@ -230,7 +225,7 @@ if __name__ == "__main__":
         )
         method_styles.append(
             MethodStyle(
-                f"{framework_type} (100 samples)",
+                framework_name(framework_type, 4 * 3600, ensemble_size=1),
                 color=sns.color_palette('bright')[i],
                 linestyle=linestyle_tune,
                 label_str=framework_type,
@@ -315,6 +310,17 @@ if __name__ == "__main__":
         for i, size in enumerate(max_runtimes)
     ]
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
+
+    df["method"] = df["method"].replace(rename_dict)
+    show_latex_table(
+        df[
+            (df.method.str.contains(".\(*(1|4|20)h\).*")) |
+            (df.method.str.contains(".* (.*(samples|default).*)")) |
+            (df.method.str.contains("Zeroshot-N160"))
+        ],
+        "selected-methods",
+        show_table=True,
+    )
 
     show_latex_table(df[(df.method.str.contains("Zeroshot") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
 

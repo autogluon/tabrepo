@@ -99,21 +99,18 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col)
     import seaborn as sns
 
     df_metrics = compute_avg_metrics(df)
-    zeroshot_methods = [
-        zeroshot_name(max_runtime=max_runtime) for max_runtime in max_runtimes
-    ]
-
-    colors = [sns.color_palette("bright")[j] for j in range(5)]
+    colors = [sns.color_palette("bright")[j] for j in range(10)]
     colors[1] = "black"
     markers = ["*", 's', 'v', '^', "8", "D"]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(10, 3))
 
     df_frameworks = {
-        "Zeroshot": df_metrics[df_metrics.index.isin(zeroshot_methods)],
+        # gets methods such as Zeroshot-N20 (1.0h), would be cleaner to use a regexp
+        "Zeroshot": df_metrics[df_metrics.index.str.contains("Zeroshot.*\(.*h\)")],
         "AutoGluon": df_metrics[df_metrics.index.str.contains("AutoGluon ")]
     }
-    automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml"]
+    automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     for automl_framework in automl_frameworks:
         df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
 
