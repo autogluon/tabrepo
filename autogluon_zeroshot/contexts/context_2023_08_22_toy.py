@@ -65,6 +65,7 @@ context_bag_2023_08_22_toy: BenchmarkContext = BenchmarkContext.from_paths(
     date='2023_08_22_toy',
     folds=[1, 2],
     s3_download_map=_s3_download_map,
+    output_dir=str(_path_bagged_root),
     **_result_paths,
     **_bag_zs_200_mb_path,
     **_task_metadata_path,

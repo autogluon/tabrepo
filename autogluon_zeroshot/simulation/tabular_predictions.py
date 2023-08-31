@@ -438,7 +438,8 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         tasks_to_models_full = dict()
-        for path in paths:
+        print(f"saving .pkl files in folder {output_dir}")
+        for path in tqdm(paths):
 
             pred_proba = TabularPicklePredictions.load(str(path))
             datasets = pred_proba.datasets
@@ -453,7 +454,6 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
                 }
                 for dataset, folds in pred_dict.items()
             }
-            print(f"saving .pkl files in folder {output_dir}")
 
             for dataset in tasks_to_models:
                 if dataset not in tasks_to_models_full:
@@ -464,7 +464,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
                     else:
                         raise AssertionError(f'Found duplicate results for: dataset="{dataset}", fold={fold}')
 
-            for dataset in tqdm(datasets):
+            for dataset in datasets:
                 cls.save_dataset(dataset_pred_dict=pred_dict[dataset], dataset=dataset, output_dir=output_dir)
 
         cls._save_metadata(output_dir=output_dir, tasks_to_models=tasks_to_models_full)

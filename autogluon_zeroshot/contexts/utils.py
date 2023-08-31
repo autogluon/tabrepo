@@ -34,6 +34,7 @@ def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
 
 def load_zeroshot_input(path_pred_proba: List[str],
                         path_gt: List[str],
+                        output_dir: str,
                         zsc: ZeroshotSimulatorContext,
                         lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
     print(f'Loading ZS inputs:\n'
@@ -43,6 +44,7 @@ def load_zeroshot_input(path_pred_proba: List[str],
     zeroshot_gt = zsc.load_groundtruth(path_gt=path_gt)
     zeroshot_pred_proba = zsc.load_pred(
         pred_pkl_path=path_pred_proba,
+        output_dir=output_dir,
         lazy_format=lazy_format,
     )
 

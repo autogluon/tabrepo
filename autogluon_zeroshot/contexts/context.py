@@ -141,6 +141,7 @@ class BenchmarkPaths:
 
     def load_predictions(self,
                          zsc: ZeroshotSimulatorContext,
+                         output_dir: str,
                          lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
         for f in self.zs_pp:
             self._assert_exists(f, f'zs_pp | {f}')
@@ -149,6 +150,7 @@ class BenchmarkPaths:
         zeroshot_pred_proba, zeroshot_gt, zsc = load_zeroshot_input(
             path_pred_proba=self.zs_pp,
             path_gt=self.zs_gt,
+            output_dir=output_dir,
             zsc=zsc,
             lazy_format=lazy_format,
         )
@@ -167,6 +169,7 @@ class BenchmarkContext:
                  description: str = None,
                  date: str = None,
                  s3_download_map: Dict[str, str] = None,
+                 output_dir: str = None
                  ):
         self.folds = folds
         self.benchmark_paths = benchmark_paths
@@ -174,6 +177,7 @@ class BenchmarkContext:
         self.description = description
         self.date = date
         self.s3_download_map = s3_download_map
+        self.output_dir = output_dir
 
     @classmethod
     def from_paths(cls,
@@ -183,12 +187,14 @@ class BenchmarkContext:
                    description: str = None,
                    date: str = None,
                    s3_download_map: Dict[str, str] = None,
+                   output_dir: str = None,
                    **paths):
         return cls(folds=folds,
                    name=name,
                    description=description,
                    date=date,
                    s3_download_map=s3_download_map,
+                   output_dir=output_dir,
                    benchmark_paths=BenchmarkPaths(**paths))
 
     def download(self,
@@ -329,8 +335,13 @@ class BenchmarkContext:
             print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
             configs_full = self._load_configs()
 
+            if self.output_dir is not None:
+                output_pred_proba = str(Path(self.output_dir) / "zs_pp")
+            else:
+                output_pred_proba = None
+
             if load_predictions:
-                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, lazy_format=lazy_format)
+                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, output_dir=output_pred_proba, lazy_format=lazy_format)
             else:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
@@ -347,8 +358,9 @@ class BenchmarkContext:
 
     def _load_predictions(self,
                           zsc: ZeroshotSimulatorContext,
+                          output_dir: str,
                           lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
-        return self.benchmark_paths.load_predictions(zsc=zsc, lazy_format=lazy_format)
+        return self.benchmark_paths.load_predictions(zsc=zsc, output_dir=output_dir, lazy_format=lazy_format)
 
     def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
         df_results_by_dataset, df_raw, df_metadata = self._load_results()
