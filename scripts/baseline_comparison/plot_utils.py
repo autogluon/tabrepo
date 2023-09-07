@@ -114,7 +114,7 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col)
 
     df_frameworks = {
         # gets methods such as Zeroshot-N20 (1.0h), would be cleaner to use a regexp
-        "Zeroshot": df_metrics[df_metrics.index.str.contains("Zeroshot.*\(.*h\)")],
+        "Zeroshot": df_metrics[df_metrics.index.str.contains(f"Zeroshot-N160 .*\(.*h\)")],
         "AutoGluon": df_metrics[df_metrics.index.str.contains("AutoGluon ")]
     }
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
