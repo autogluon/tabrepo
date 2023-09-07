@@ -18,8 +18,9 @@ from autogluon_zeroshot.repository.time_utils import (
 )
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
-default_ensemble_size = 20
-n_portfolios_default = 20
+default_ensemble_size = 40
+n_portfolios_default = 160
+default_runtime = 3600 * 4
 
 framework_types = [
     "CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"
@@ -314,7 +315,7 @@ def time_suffix(max_runtime: float) -> str:
 def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
-        max_runtime: float = None
+        max_runtime: float = default_runtime,
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
@@ -359,7 +360,7 @@ def zeroshot_results(
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
         n_training_configs: List[int] = [None],
-        max_runtimes: List[float] = [None],
+        max_runtimes: List[float] = [default_runtime],
         engine: str = "ray",
 ) -> List[ResultRow]:
     """
@@ -433,7 +434,7 @@ def zeroshot_results(
             tid=test_tid,
             fold=0,
             config_names=portfolio_configs,
-            max_cumruntime=max_runtime if max_runtime else None,
+            max_cumruntime=max_runtime if max_runtime else default_runtime, # TODO
         )
         if len(portfolio_configs) == 0:
             # in case all configurations selected were above the budget, we evaluate a quick backup, we pick a
