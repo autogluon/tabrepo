@@ -7,6 +7,7 @@ from .context_2023_03_19_bag_289 import context_bag_244_bench_50_mb, context_bag
 from .context_2022_12_11_bag import context_bag_104_bench, context_bag_104_bench_small
 from .context_2022_10_13 import context_104_bench
 from .context_2023_07_25 import context_bag_2023_07_25_50_mb
+from .context_2023_08_21 import context_bag_2023_08_21
 from .context_2023_08_22_toy import context_bag_2023_08_22_toy
 
 
@@ -37,6 +38,7 @@ for c in [
     context_bag_104_bench_small,
     context_104_bench,
     context_bag_2023_07_25_50_mb,
+    context_bag_2023_08_21,
     context_bag_2023_08_22_toy,
 ]:
     if c.name in _context_map:
