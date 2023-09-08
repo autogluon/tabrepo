@@ -92,17 +92,20 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
 def make_rename_dict(suffix: str) -> Dict[str, str]:
     # return renaming of methods
     rename_dict = {}
-    for hour in [1, 4]:
+    for hour in [1, 4, 24]:
         for automl_framework in ["autosklearn", "autosklearn2", "flaml", "lightautoml", "H2OAutoML"]:
             rename_dict[f"{automl_framework}_{hour}h{suffix}"] = f"{automl_framework} ({hour}h)".capitalize()
         for preset in ["best", "high", "medium"]:
             rename_dict[f"AutoGluon_{preset[0]}q_{hour}h{suffix}"] = f"AutoGluon {preset} ({hour}h)"
+    for minute in [5, 10, 30]:
+        for preset in ["best"]:
+            rename_dict[f"AutoGluon_{preset[0]}q_{minute}m{suffix}"] = f"AutoGluon {preset} ({minute}m)"
     return rename_dict
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="BAG_D244_F1_C1416")
+    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="BAG_D244_F3_C1416")
     parser.add_argument("--n_folds", type=int, default=-1, required=False,
                         help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
     parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
@@ -121,10 +124,16 @@ if __name__ == "__main__":
     if n_datasets:
         expname += f"-{n_datasets}"
 
+    if engine == "ray":
+        # FIXME: The large-scale 3-fold 244-dataset 1416-config runs OOM on m6i.32x without this limit
+        import ray
+        if not ray.is_initialized():
+            ray.init(num_cpus=64)
+
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80, 160]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
-    n_training_datasets = [1, 4, 16, 32, 64, 128, 181]
+    n_training_datasets = [1, 4, 16, 32, 64, 128, 211]
     n_training_folds = [1, 2, 5, 10]
     n_training_configs = [1, 2, 5, 50, 100, 200]
     n_ensembles = [10, 20, 40, 80]
@@ -140,7 +149,6 @@ if __name__ == "__main__":
     dataset_names = repo.dataset_names()
     if n_datasets:
         dataset_names = dataset_names[:n_datasets]
-    impute_missing(repo)
 
     experiment_common_kwargs = dict(
         repo=repo,
@@ -198,7 +206,7 @@ if __name__ == "__main__":
     df = pd.concat([
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
     ])
-    rename_dict = make_rename_dict(suffix="8c_2023_07_25")
+    rename_dict = make_rename_dict(suffix="8c_2023_08_21")
     df["method"] = df["method"].replace(rename_dict)
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
