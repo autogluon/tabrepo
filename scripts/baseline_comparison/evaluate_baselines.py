@@ -91,9 +91,8 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
 def make_rename_dict(suffix: str) -> Dict[str, str]:
     # return renaming of methods
     rename_dict = {}
-    automl_frameworks = ["autosklearn", "autosklearn2", "flaml", "lightautoml", "H2OAutoML"]
     for hour in [1, 4]:
-        for automl_framework in automl_frameworks:
+        for automl_framework in ["autosklearn", "autosklearn2", "flaml", "lightautoml", "H2OAutoML"]:
             rename_dict[f"{automl_framework}_{hour}h{suffix}"] = f"{automl_framework} ({hour}h)".capitalize()
         for preset in ["best", "high", "medium"]:
             rename_dict[f"AutoGluon_{preset[0]}q_{hour}h{suffix}"] = f"AutoGluon {preset} ({hour}h)"
@@ -123,7 +122,6 @@ if __name__ == "__main__":
 
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80, 160]
-    # n_ensembles=[5, 10, 20, 40, 80]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     n_training_datasets = [1, 4, 16, 32, 64, 128, 181]
     n_training_folds = [1, 2, 5, 10]
@@ -241,21 +239,6 @@ if __name__ == "__main__":
                 label_str=framework_type
             )
         )
-    method_styles.append(
-        MethodStyle(
-            f"All (100 samples)",
-            color=sns.color_palette('bright')[len(framework_types)],
-            linestyle=linestyle_tune,
-            label=True,
-            label_str="All"
-        ))
-    method_styles.append(
-        MethodStyle(
-            f"All (100 samples + ensemble)",
-            color=sns.color_palette('bright')[len(framework_types)],
-            linestyle=linestyle_ensemble,
-            label=False,
-        ))
     show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks")#, ["rank", "normalized_score", ])
 
     plot_figure(df, method_styles, figname="cdf-frameworks")
@@ -277,7 +260,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_dataset=size),
-            color=cm.get_cmap("viridis")(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=f"ZS-D{size}",
+            color=cm.get_cmap("viridis")(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=f"D{size}",
         )
         for i, size in enumerate(n_training_datasets)
     ]
@@ -287,7 +270,7 @@ if __name__ == "__main__":
     # method_styles = ag_styles + [
     #     MethodStyle(
     #         zeroshot_name(n_training_fold=size),
-    #         color=cm.get_cmap("viridis")(i / (len(n_training_folds) - 1)), linestyle="-", label_str=f"ZS-S{size}",
+    #         color=cm.get_cmap("viridis")(i / (len(n_training_folds) - 1)), linestyle="-", label_str=f"S{size}",
     #     )
     #     for i, size in enumerate(n_training_folds)
     # ]
@@ -297,7 +280,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_portfolio=size),
-            color=cm.get_cmap("viridis")(i / (len(n_portfolios) - 1)), linestyle="-", label_str=f"ZS-N{size}",
+            color=cm.get_cmap("viridis")(i / (len(n_portfolios) - 1)), linestyle="-", label_str=f"N{size}",
         )
         for i, size in enumerate(n_portfolios)
     ]
@@ -307,7 +290,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_config=size),
-            color=cm.get_cmap("viridis")(i / (len(n_training_configs) - 1)), linestyle="-", label_str=f"ZS-M{size}",
+            color=cm.get_cmap("viridis")(i / (len(n_training_configs) - 1)), linestyle="-", label_str=f"M{size}",
         )
         for i, size in enumerate(n_training_configs)
     ]
@@ -317,24 +300,30 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(max_runtime=size),
-            color=cm.get_cmap("viridis")(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"ZS {time_suffix(size)}",
+            color=cm.get_cmap("viridis")(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"{time_suffix(size)}",
         )
         for i, size in enumerate(max_runtimes)
     ]
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
 
     df["method"] = df["method"].replace(rename_dict)
+    automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     show_latex_table(
         df[
-            (df.method.str.contains(".\(*(1|4|20)h\).*")) |
-            (df.method.str.contains(".* (.*(samples|default).*)")) |
-            (df.method.str.contains("Zeroshot-N160"))
+            (df.method.str.contains("AutoGluon .*\(*(1|4|24)h\)")) |
+            (df.method.str.contains(".*(" + "|".join(automl_frameworks) + ").*")) |
+            (df.method.str.contains("Portfolio-N160 \(*(1|4|24)h\)")) |
+            (df.method.str.contains("Tuned All \+ ensemble")) |
+            (df.method.str.contains("Tuned .* \+ ensemble \(4h\)")) |
+            # default performance of all frameworks
+            # ((df.method.str.contains("default")) & ~(df.method.str.contains("All"))) |
+            (df.method.str.contains("Tuned CatBoost \+ ensemble \(24h\)"))
         ],
         "selected-methods",
         show_table=True,
     )
 
-    show_latex_table(df[(df.method.str.contains("Zeroshot") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
+    show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
 
     for metric_col in ["rank", "normalized-score"]:
         fig, _ = show_scatter_performance_vs_time(df, max_runtimes=max_runtimes, metric_col=metric_col)

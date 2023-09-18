@@ -107,19 +107,20 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col)
 
     df_metrics = compute_avg_metrics(df)
     colors = [sns.color_palette("bright")[j] for j in range(10)]
-    colors[1] = "black"
-    markers = ["*", 's', 'v', '^', "8", "D"]
+
+    # makes autogluon black to respect colors used in previous plots
+    colors[4] = "black"
+    markers = ['v', '^', "8", "D", "s", '*']
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(10, 3))
 
     df_frameworks = {
-        # gets methods such as Zeroshot-N20 (1.0h), would be cleaner to use a regexp
-        "Zeroshot": df_metrics[df_metrics.index.str.contains(f"Zeroshot-N160 .*\(.*h\)")],
-        "AutoGluon": df_metrics[df_metrics.index.str.contains("AutoGluon ")]
+        automl_framework: df_metrics[df_metrics.index.str.contains(automl_framework)]
+        for automl_framework in ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     }
-    automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
-    for automl_framework in automl_frameworks:
-        df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
+
+    df_frameworks["AutoGluon"] = df_metrics[df_metrics.index.str.contains("AutoGluon ")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*\(.*h\)")]
 
     for i, metric in enumerate(
             [

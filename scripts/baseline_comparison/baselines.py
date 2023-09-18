@@ -331,7 +331,7 @@ def zeroshot_name(
         suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
     suffix += time_suffix(max_runtime)
-    return f"Zeroshot{suffix}"
+    return f"Portfolio{suffix}"
 
 
 def filter_configurations_above_budget(repo, test_tid, configs, max_runtime):
