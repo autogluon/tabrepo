@@ -42,15 +42,22 @@ def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False):
 def compute_avg_metrics(df: pd.DataFrame):
     avg_metrics = {}
     for metric in ["normalized_score", "rank", "time_train_s", "time_infer_s"]:
-        # We use mean to aggregate runtimes as IQM does not make too much sense in this context,
-        # it makes only sense to aggregate y-metrics such as normalized scores or ranks.
-        if "time" in metric:
-            avg_metric = df.groupby("method").agg("mean")[metric]
-        else:
-            avg_metric = df.groupby("method").agg(iqm)[metric]
+        avg_metric = df.groupby("method").agg("mean")[metric]
+        #
+        # # We use mean to aggregate runtimes as IQM does not make too much sense in this context,
+        # # it makes only sense to aggregate y-metrics such as normalized scores or ranks.
+        # if "time" in metric:
+        #     avg_metric = df.groupby("method").agg("mean")[metric]
+        # else:
+        #     avg_metric = df.groupby("method").agg(iqm)[metric]
         avg_metric.sort_values().head(60)
         xx = avg_metric.sort_values()
         avg_metrics[metric] = xx
+
+    # avg_metric = df.groupby("method").agg("max")["time_train_s"]
+    # avg_metric.sort_values().head(60)
+    # avg_metrics["time_train_s (max)"] = avg_metric.sort_values()
+
     df_metrics = pd.DataFrame(avg_metrics).sort_values(by="normalized_score")
     df_metrics.columns = [x.replace("_", "-") for x in df_metrics.columns]
     return df_metrics
@@ -100,19 +107,20 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col)
 
     df_metrics = compute_avg_metrics(df)
     colors = [sns.color_palette("bright")[j] for j in range(10)]
-    colors[1] = "black"
-    markers = ["*", 's', 'v', '^', "8", "D"]
+
+    # makes autogluon black to respect colors used in previous plots
+    colors[4] = "black"
+    markers = ['v', '^', "8", "D", "s", '*']
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(10, 3))
 
     df_frameworks = {
-        # gets methods such as Zeroshot-N20 (1.0h), would be cleaner to use a regexp
-        "Zeroshot": df_metrics[df_metrics.index.str.contains("Zeroshot.*\(.*h\)")],
-        "AutoGluon": df_metrics[df_metrics.index.str.contains("AutoGluon ")]
+        automl_framework: df_metrics[df_metrics.index.str.contains(automl_framework)]
+        for automl_framework in ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     }
-    automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
-    for automl_framework in automl_frameworks:
-        df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
+
+    df_frameworks["AutoGluon"] = df_metrics[df_metrics.index.str.contains("AutoGluon ")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*\(.*h\)")]
 
     for i, metric in enumerate(
             [

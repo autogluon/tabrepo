@@ -33,9 +33,9 @@ n_automl = len(automl_frameworks)
 n_cpus = 8
 
 realnumhourstabrepo = int(repo._zeroshot_context.df_results_by_dataset_vs_automl['time_train_s'].sum() / 3600)
-realnumcpuhourstabrepo = realnumhourstabrepo * 8
+realnumcpuhourstabrepo = realnumhourstabrepo * n_cpus
 numhoursnosimu = 24034 # % shown with "Total time of experiments:" when running evaluations
-numcpuhoursnosimu = numhoursnosimu * 8
+numcpuhoursnosimu = numhoursnosimu * n_cpus
 
 stats = {
     "realnumdatasets": n_datasets,
@@ -47,7 +47,7 @@ stats = {
     "realnumframeworks": len(framework_types),
     "realnumevaluations": n_datasets * (n_hps + n_automl) * n_seeds,
     "realnumhourstabrepo": realnumhourstabrepo,
-    "realnumcpuhourstabrepo": realnumcpuhourstabrepo * n_cpus,
+    "realnumcpuhourstabrepo": realnumcpuhourstabrepo,
     "numhoursnosimu": numhoursnosimu,
     "numcpuhoursnosimu": numcpuhoursnosimu * n_cpus,
 }
