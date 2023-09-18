@@ -124,7 +124,7 @@ if __name__ == "__main__":
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80, 160]
     # n_ensembles=[5, 10, 20, 40, 80]
-    max_runtimes = [1800, 3600, 3600 * 2, 3600 * 4, 24 * 3600]
+    max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     n_training_datasets = [1, 4, 16, 32, 64, 128, 181]
     n_training_folds = [1, 2, 5, 10]
     n_training_configs = [1, 2, 5, 50, 100, 200]
@@ -159,11 +159,11 @@ if __name__ == "__main__":
         ),
         Experiment(
             expname=expname, name=f"framework-best-{expname}",
-            run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 20], **experiment_common_kwargs),
+            run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
         ),
         Experiment(
             expname=expname, name=f"framework-all-best-{expname}",
-            run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 20], **experiment_common_kwargs),
+            run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
         ),
         # Automl baselines such as Autogluon best, high, medium quality
         Experiment(
@@ -234,10 +234,11 @@ if __name__ == "__main__":
         )
         method_styles.append(
             MethodStyle(
-                f"Tuned {framework_type} + ensemble-top (4h)",
+                f"Tuned {framework_type} + ensemble (4h)",
                 color=sns.color_palette('bright')[i],
                 linestyle=linestyle_ensemble,
                 label=False,
+                label_str=framework_type
             )
         )
     method_styles.append(
