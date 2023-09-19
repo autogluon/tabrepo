@@ -5,6 +5,7 @@ import seaborn as sns
 
 from autogluon_zeroshot.repository.evaluation_repository import load
 from autogluon_zeroshot.utils.cache import cache_function
+from scripts import load_context
 
 
 def order_clustermap(df):
@@ -28,7 +29,8 @@ num_models_to_plot = 20
 title_size = 20
 figsize = (20, 7)
 
-repo = cache_function(lambda: load(version="BAG_D244_F10_C608_FULL"), cache_name="repo")
+repo = load_context()
+
 zsc = repo._zeroshot_context
 
 # remove tasks with some lightGBM models missing, todo fix
