@@ -14,11 +14,10 @@
 \newcommand{\numhoursnosimu}{73403} % shown with "Total time of experiments:" when running evaluations
 \newcommand{\numcpuhoursnosimu}{587224} % numhoursnosimu x 8
 """
-from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
-from autogluon_zeroshot.utils.cache import cache_function
+from scripts import load_context, output_path
 from scripts.baseline_comparison.baselines import framework_types
 
-repo: EvaluationRepository = cache_function(lambda: load(version="BAG_D244_F10_C608_FULL"), cache_name="repo")
+repo = load_context()
 
 automl_frameworks = repo._zeroshot_context.df_results_by_dataset_automl.framework.unique().tolist()
 
@@ -42,7 +41,6 @@ stats = {
     "realnumbagged": n_bagged,
     "realnumhps": n_hps,
     "realnumseeds": n_seeds,
-    "realnumensemble": 10,
     "realnumautomlbaseline": n_automl,
     "realnumframeworks": len(framework_types),
     "realnumevaluations": n_datasets * (n_hps + n_automl) * n_seeds,
@@ -52,11 +50,12 @@ stats = {
     "numcpuhoursnosimu": numcpuhoursnosimu * n_cpus,
 }
 
-for name, value in stats.items():
-    bracket = lambda s: "{" + str(s) + "}"
-    make_latex_command = lambda name, value: "{\\" + str(name) + "}" + "{" + str(value) + "}"
-    print(f"\\newcommand{make_latex_command(name, value)}")
+with open(output_path / "tables" / "tab_repo_constants.tex", "w") as f:
 
-
+    for name, value in stats.items():
+        bracket = lambda s: "{" + str(s) + "}"
+        make_latex_command = lambda name, value: "{\\" + str(name) + "}" + "{" + str(value) + "}"
+        print(f"\\newcommand{make_latex_command(name, value)}")
+        f.write(f"\\newcommand{make_latex_command(name, value)}\n")
 
 

@@ -18,7 +18,7 @@ from scripts.baseline_comparison.baselines import (
     zeroshot_results,
     zeroshot_name,
     ResultRow,
-    framework_types, framework_name, time_suffix,
+    framework_types, framework_name, time_suffix, default_ensemble_size,
 )
 from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
@@ -29,7 +29,8 @@ from scripts.baseline_comparison.plot_utils import (
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
-from scripts import output_path
+from scripts import output_path, load_context
+
 
 @dataclass
 class Experiment:
@@ -131,7 +132,7 @@ if __name__ == "__main__":
     linestyle_default = "-"
     linestyle_tune = "dotted"
 
-    repo: EvaluationRepository = cache_function(lambda: load(version=repo_version), cache_name=f"repo_{repo_version}")
+    repo = load_context(version=repo_version)
     if n_eval_folds == -1:
         n_eval_folds = repo.n_folds()
 
@@ -186,7 +187,7 @@ if __name__ == "__main__":
         # ),
         Experiment(
             expname=expname, name=f"zeroshot-{expname}-num-portfolios",
-            run_fun=lambda: zeroshot_results(n_portfolios=n_portfolios, **experiment_common_kwargs)
+            run_fun=lambda: zeroshot_results(n_portfolios=n_portfolios, n_ensembles=[1, default_ensemble_size], **experiment_common_kwargs)
         ),
         Experiment(
             expname=expname, name=f"zeroshot-{expname}-num-configs",
@@ -308,17 +309,19 @@ if __name__ == "__main__":
 
     df["method"] = df["method"].replace(rename_dict)
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
+    four_hour_suffix = "\(4h\)"
+    df_selected = df[
+        (df.method.str.contains(f"AutoGluon .*{four_hour_suffix}")) |
+        (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{four_hour_suffix}")) |
+        (df.method.str.contains(f"Portfolio-N160 .*{four_hour_suffix}")) |
+        (df.method.str.contains("(" + "|".join(framework_types) + ").*(default)")) |
+        (df.method.str.contains(f"Tuned All \+ ensemble{four_hour_suffix}")) |
+        # (df.method.str.contains(f"Tuned .* \+ ensemble.*{four_hour_suffix}")) |
+        (df.method.str.contains(f"Tuned .*{four_hour_suffix}"))
+        ]
+    df_selected.method = df_selected.method.str.replace(" \(4h\)", "")
     show_latex_table(
-        df[
-            (df.method.str.contains("AutoGluon .*\(*(1|4|24)h\)")) |
-            (df.method.str.contains(".*(" + "|".join(automl_frameworks) + ").*")) |
-            (df.method.str.contains("Portfolio-N160 \(*(1|4|24)h\)")) |
-            (df.method.str.contains("Tuned All \+ ensemble")) |
-            (df.method.str.contains("Tuned .* \+ ensemble \(4h\)")) |
-            # default performance of all frameworks
-            # ((df.method.str.contains("default")) & ~(df.method.str.contains("All"))) |
-            (df.method.str.contains("Tuned CatBoost \+ ensemble \(24h\)"))
-        ],
+        df_selected,
         "selected-methods",
         show_table=True,
     )

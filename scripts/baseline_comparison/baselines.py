@@ -23,7 +23,7 @@ n_portfolios_default = 160
 default_runtime = 3600 * 4
 
 framework_types = [
-    "CatBoost", "NeuralNetFastAI", "NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"
+    "CatBoost","NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"
 ]
 backup_fast_config = "ExtraTrees_c1_BAG_L1"
 
@@ -144,13 +144,10 @@ def framework_default_results(repo: EvaluationRepository, dataset_names: List[st
 
     default_models = [x for x in repo.list_models() if "_c" in x]
     defaults = [
-        ('CatBoost (default)', ['CatBoost_c1_BAG_L1'], 1),
-        ('ExtraTrees (default)', ['ExtraTrees_c1_BAG_L1'], 1),
-        ('LightGBM (default)', ['LightGBM_c1_BAG_L1'], 1),
-        ('NeuralNetFastAI (default)', ['NeuralNetFastAI_c1_BAG_L1'], 1),
-        ('NeuralNetTorch (default)', ['NeuralNetTorch_c1_BAG_L1'], 1),
-        ('RandomForest (default)', ['RandomForest_c1_BAG_L1'], 1),
-        ('XGBoost (default)', ['XGBoost_c1_BAG_L1'], 1),
+        (f'{framework_type} (default)', [f'{framework_type}_c1_BAG_L1'], 1)
+        for framework_type in framework_types
+    ]
+    defaults += [
         ('All (default)', default_models, 1),
         ('All (default + ensemble)', default_models, 20),
     ]
@@ -327,9 +324,11 @@ def zeroshot_name(
         for letter, x in
         [("N", n_portfolio), ("D", n_training_dataset), ("S", n_training_fold), ("M", n_training_config)]
     ]
-    if n_ensemble:
-        suffix += f"-C{n_ensemble}"
+    # if n_ensemble:
+    #     suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
+    if n_ensemble is None or n_ensemble > 1:
+        suffix += " + ensemble"
     suffix += time_suffix(max_runtime)
     return f"Portfolio{suffix}"
 
