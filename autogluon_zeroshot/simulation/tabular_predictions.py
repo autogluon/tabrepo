@@ -412,8 +412,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def _load_task(self, dataset: str, fold: int) -> TaskPredictionsDict:
         assert dataset in self.tasks_to_models
         assert fold in self.tasks_to_models[dataset]
-        dataset_rename = self.rename_dict_inv.get(dataset, dataset)
-        filename = self.task_file_path(dataset=dataset_rename, fold=fold)
+        filename = self._task_file_path(dataset=dataset, fold=fold)
         return load_pkl.load(filename)
 
     def _load_dataset(self, dataset: str, enforce_folds: bool = True) -> DatasetPredictionsDict:
@@ -434,14 +433,17 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
 
     @classmethod
     def _save_task(cls, task_pred_dict: TaskPredictionsDict, dataset: str, fold: int, output_dir: str | Path):
-        filename = cls._task_file_path(dataset=dataset, fold=fold, output_dir=output_dir)
+        filename = cls._task_file_path_generic(dataset=dataset, fold=fold, output_dir=output_dir)
         save_pkl(filename, task_pred_dict)
 
-    def task_file_path(self, dataset: str, fold: int) -> str:
-        return self._task_file_path(dataset=dataset, fold=fold, output_dir=self.output_dir)
+    def _task_file_path(self, dataset: str, fold: int) -> str:
+        """Returns the file path to the given task pickle file"""
+        return self._task_file_path_generic(dataset=dataset, fold=fold, output_dir=self.output_dir, rename_dict_inv=self.rename_dict_inv)
 
     @classmethod
-    def _task_file_path(cls, dataset: str, fold: int, output_dir: str | Path) -> str:
+    def _task_file_path_generic(cls, dataset: str, fold: int, output_dir: str | Path, rename_dict_inv: dict = None) -> str:
+        if rename_dict_inv:
+            dataset = rename_dict_inv.get(dataset, dataset)
         return str(Path(output_dir) / f'{dataset}' / f'{fold}.pkl')
 
     @classmethod
@@ -511,9 +513,8 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         output_dir.mkdir(parents=True, exist_ok=True)
         print(f"copy .pkl files from {self.output_dir} to {output_dir}")
         for dataset, fold in self.tasks:
-            dataset_rename = self.rename_dict_inv.get(dataset, dataset)
-            task_path = self.task_file_path(dataset=dataset_rename, fold=fold)
-            new_task_path = self._task_file_path(dataset=dataset_rename, fold=fold, output_dir=output_dir)
+            task_path = self._task_file_path(dataset=dataset, fold=fold)
+            new_task_path = self._task_file_path_generic(dataset=dataset, fold=fold, output_dir=output_dir, rename_dict_inv=self.rename_dict_inv)
             if new_task_path != task_path:
                 Path(new_task_path).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(task_path, new_task_path)
