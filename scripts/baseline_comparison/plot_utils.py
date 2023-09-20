@@ -42,7 +42,7 @@ def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False):
 def compute_avg_metrics(df: pd.DataFrame):
     avg_metrics = {}
     for metric in ["normalized_score", "rank", "time_train_s", "time_infer_s"]:
-        avg_metric = df.groupby("method").agg("mean")[metric]
+        avg_metric = df.loc[:, ["method", metric]].groupby("method").agg("mean")[metric]
         #
         # # We use mean to aggregate runtimes as IQM does not make too much sense in this context,
         # # it makes only sense to aggregate y-metrics such as normalized scores or ranks.
@@ -102,7 +102,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
     return fig, axes
 
 
-def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col):
+def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     import seaborn as sns
 
     df_metrics = compute_avg_metrics(df)
@@ -112,38 +112,43 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, max_runtimes, metric_col)
     colors[4] = "black"
     markers = ['v', '^', "8", "D", "s", '*']
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
-    fig, axes = plt.subplots(1, 2, sharey=True, figsize=(10, 3))
+    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3))
 
     df_frameworks = {
         automl_framework: df_metrics[df_metrics.index.str.contains(automl_framework)]
         for automl_framework in ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     }
 
-    df_frameworks["AutoGluon"] = df_metrics[df_metrics.index.str.contains("AutoGluon ")]
-    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*\(.*h\)")]
+    df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*ensemble.*\(.*h\)")]
 
-    for i, metric in enumerate(
-            [
-                "time-train-s",
-                "time-infer-s",
-            ]
-    ):
+    for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
+            # ugly way to get hour Portfolio-N160 + ensemble (0.17h) -> 0.17
+            fitting_budget_hour = [float(s.split("(")[-1][:-2]) for s in df_framework.index]
+
             axes[i].scatter(
-                df_framework[metric],
+                fitting_budget_hour,
                 df_framework[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                s=50.0 if markers[j] == "*" else None,
+                s=100.0 if markers[j] == "*" else 70.0,
             )
-            axes[i].set_xlabel(metric)
-            if i == 0:
-                axes[i].set_ylabel(metric_col)
+            axes[i].set_xlabel("Fitting budget (hour)")
+            axes[i].set_ylabel(metric_col)
+            axes[i].set_xscale("log")
+            axes[i].grid('on')
+
     # fig.legend(axes, df_frameworks.keys(), loc = "upper center", ncol=5)
     handles, labels = axes[-1].get_legend_handles_labels()
-    fig.legend(handles, df_frameworks.keys(), loc='upper center', ncol=len(df_frameworks),)
-    fig.tight_layout()
-    # fig.legend(handles, df_frameworks.keys(), loc='right center', ncol=1)
-    # plt.legend(loc="upper center")
-    return fig, axes
+    # fig.legend(handles, df_frameworks.keys(), loc='center right'), #ncol=len(df_frameworks),)
+
+    # used https://stackoverflow.com/questions/25068384/bbox-to-anchor-and-loc-in-matplotlib
+    # to be able to save figure with legend outside of bbox
+    lgd = fig.legend(handles, df_frameworks.keys(), loc='upper center', ncol=len(df_frameworks),
+                     bbox_to_anchor=(0.5, 1.1))
+    text = fig.text(-0.2, 1.05, "", transform=axes[0].transAxes)
+    bbox_extra_artists = (lgd, text)
+
+    return fig, axes, bbox_extra_artists

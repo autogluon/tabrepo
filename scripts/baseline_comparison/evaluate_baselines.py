@@ -338,11 +338,9 @@ if __name__ == "__main__":
         (df.method.str.contains(f"AutoGluon .*{four_hour_suffix}")) |
         (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{four_hour_suffix}")) |
         (df.method.str.contains(f"Portfolio-N160 .*{four_hour_suffix}")) |
-        (df.method.str.contains("(" + "|".join(framework_types) + ").*(default)")) |
-        (df.method.str.contains(f"Tuned All \+ ensemble{four_hour_suffix}")) |
-        # (df.method.str.contains(f"Tuned .* \+ ensemble.*{four_hour_suffix}")) |
-        (df.method.str.contains(f"Tuned .*{four_hour_suffix}"))
-        ]
+        (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{four_hour_suffix}")) |
+        (df.method.str.contains(".*default.*"))
+    ]
     df_selected.method = df_selected.method.str.replace(" \(4h\)", "")
     show_latex_table(
         df_selected,
@@ -352,13 +350,13 @@ if __name__ == "__main__":
 
     show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
 
-    for metric_col in ["rank", "normalized-score"]:
-        fig, _ = show_scatter_performance_vs_time(df, max_runtimes=max_runtimes, metric_col=metric_col)
-        fig_save_path = (
-            output_path / "figures" / f"scatter-perf-vs-time-{metric_col}.pdf"
-        )
-        fig_save_path_dir = fig_save_path.parent
-        fig_save_path_dir.mkdir(parents=True, exist_ok=True)
-        plt.tight_layout()
-        plt.savefig(fig_save_path)
-        plt.show()
+
+    fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["rank", "normalized-score"])
+    fig_save_path = (
+        output_path / "figures" / f"scatter-perf-vs-time.pdf"
+    )
+    fig_save_path_dir = fig_save_path.parent
+    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    fig.savefig(fig_save_path, bbox_extra_artists=bbox_extra_artists, bbox_inches='tight')
+    fig.show()
+
