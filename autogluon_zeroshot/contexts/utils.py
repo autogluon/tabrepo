@@ -43,7 +43,7 @@ def load_zeroshot_input(path_pred_proba: List[str],
           f'\tlazy_format: {lazy_format}')
     zeroshot_gt = zsc.load_groundtruth(path_gt=path_gt)
     zeroshot_pred_proba = zsc.load_pred(
-        pred_pkl_path=path_pred_proba,
+        pred_pkl_paths=path_pred_proba,
         output_dir=output_dir,
         lazy_format=lazy_format,
     )
