@@ -125,6 +125,23 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset_automl['dataset'].isin(unique_dataset_folds_set)]
 
         unique_dataset_folds_set = set(list(df_results_by_dataset_automl['dataset'].unique()))
+
+        config_task_counts_raw = df_raw[['model', 'fold', 'tid']].value_counts()
+        config_task_counts_results_by_dataset = df_results_by_dataset[['framework', 'dataset']].value_counts()
+        config_task_counts_results_by_dataset_automl = df_results_by_dataset_automl[['framework', 'dataset']].value_counts()
+
+        for source, config_task_counts in [
+            ("df_raw", config_task_counts_raw),
+            ("df_results_by_dataset", config_task_counts_results_by_dataset),
+            ("df_results_by_dataset_automl", config_task_counts_results_by_dataset_automl),
+        ]:
+            if config_task_counts.max() > 1:
+                raise AssertionError(f'Multiple rows in `{source}` exist for a config task pair! '
+                                     f'There should only ever be one row per config task pair. '
+                                     f'You might have multiple results from re-runs or other bugs that have not been de-duplicated.\n'
+                                     f'Config Task Counts:\n'
+                                     f'{config_task_counts}')
+
         df_results_by_dataset, df_raw = filter_datasets(df_results_by_dataset=df_results_by_dataset,
                                                         df_raw=df_raw,
                                                         datasets=unique_dataset_folds_set)
@@ -235,23 +252,33 @@ class ZeroshotSimulatorContext:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())
 
-    def load_groundtruth(self, path_gt: str) -> dict:
-        zeroshot_gt = load_pkl.load(path_gt)
+    def load_groundtruth(self, path_gt: List[str]) -> dict:
+        zeroshot_gt = dict()
+        for p in path_gt:
+            zeroshot_gt_cur = load_pkl.load(p)
+            for dataset in zeroshot_gt_cur:
+                if dataset not in zeroshot_gt:
+                    zeroshot_gt[dataset] = dict()
+                for fold in zeroshot_gt_cur[dataset]:
+                    if fold not in zeroshot_gt[dataset]:
+                        zeroshot_gt[dataset][fold] = zeroshot_gt_cur[dataset][fold]
+                    else:
+                        raise AssertionError(f'Duplicate zs_gt results exist for: dataset="{dataset}", fold={fold}')
         zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
         return zeroshot_gt
 
-    def load_pred(self, pred_pkl_path: Union[Path, str], lazy_format: bool = False) -> TabularModelPredictions:
-        pred_pkl_path = Path(pred_pkl_path)
-        assert pred_pkl_path.exists()
-        print('Loading zeroshot...')
+    def load_pred(self, pred_pkl_paths: List[Union[Path, str]], output_dir: str, lazy_format: bool = False) -> TabularModelPredictions:
+        pred_pkl_paths = [Path(p) for p in pred_pkl_paths]
+        for p in pred_pkl_paths:
+            assert p.exists()
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         if lazy_format:
             # convert to lazy format if format not already available
-            pred_path = self.convert_lazy_format(pred_pkl_path=pred_pkl_path)
+            pred_path = self.convert_lazy_format(pred_pkl_paths=pred_pkl_paths, output_dir=output_dir)
+            zeroshot_pred_proba = cls.load(pred_path)
         else:
-            pred_path = str(pred_pkl_path)
-        zeroshot_pred_proba = cls.load(pred_path)
+            zeroshot_pred_proba = cls.from_paths(pred_pkl_paths)
 
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
@@ -263,19 +290,19 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     @staticmethod
-    def convert_lazy_format(pred_pkl_path: Path, override_if_already_exists: bool = False) -> str:
+    def convert_lazy_format(pred_pkl_paths: List[Path], output_dir: str, override_if_already_exists: bool = False) -> str:
         """
-        :param pred_pkl_path:
+        :param pred_pkl_paths:
+        :param output_dir:
         :param override_if_already_exists:
         :return: the path of the generated lazy format
         """
-        new_filename = Path(pred_pkl_path).parent / Path(pred_pkl_path).stem
-        if not new_filename.exists() or override_if_already_exists:
-            print(f"lazy format folder {new_filename} not found or override option set to True, "
+        if not Path(output_dir).exists() or override_if_already_exists:
+            print(f"lazy format folder {output_dir} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
-            preds = TabularPicklePredictions.load(str(pred_pkl_path))
-            preds_npy = TabularPicklePerTaskPredictions.from_dict(preds.pred_dict, output_dir=str(new_filename))
-        return new_filename
+            preds_npy = TabularPicklePerTaskPredictions.from_paths(paths=pred_pkl_paths, output_dir=output_dir)
+        return output_dir
+
     @staticmethod
     def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):
         """

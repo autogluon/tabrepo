@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
+import os
 from pathlib import Path
 
 import boto3
@@ -23,11 +26,15 @@ class BenchmarkPaths:
     raw: str
     comparison: str
     task_metadata: str = None
-    zs_pp: str = None
-    zs_gt: str = None
+    zs_pp: List[str] = None
+    zs_gt: List[str] = None
     configs: List[str] = None
 
     def __post_init__(self):
+        if self.zs_pp is not None and isinstance(self.zs_pp, str):
+            self.zs_pp = [self.zs_pp]
+        if self.zs_gt is not None and isinstance(self.zs_gt, str):
+            self.zs_gt = [self.zs_gt]
         if self.configs is None:
             configs_prefix = Paths.data_root / 'configs'
             configs = [
@@ -55,10 +62,8 @@ class BenchmarkPaths:
             self.task_metadata,
         ]
         if include_zs:
-            file_paths += [
-                self.zs_pp,
-                self.zs_gt,
-            ]
+            file_paths += self.zs_pp
+            file_paths += self.zs_gt
         file_paths = [f for f in file_paths if f is not None]
         return file_paths
 
@@ -70,9 +75,11 @@ class BenchmarkPaths:
             self._assert_exists(self.task_metadata, 'task_metadata')
         if check_zs:
             if self.zs_pp is not None:
-                self._assert_exists(self.zs_pp, 'zs_pp')
+                for f in self.zs_pp:
+                    self._assert_exists(f, f'zs_pp | {f}')
             if self.zs_gt is not None:
-                self._assert_exists(self.zs_gt, 'zs_gt')
+                for f in self.zs_gt:
+                    self._assert_exists(f, f'zs_gt | {f}')
 
     @staticmethod
     def _assert_exists(filepath: str, name: str = None):
@@ -135,12 +142,16 @@ class BenchmarkPaths:
 
     def load_predictions(self,
                          zsc: ZeroshotSimulatorContext,
+                         output_dir: str,
                          lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
-        self._assert_exists(self.zs_pp, name='zs_pp')
-        self._assert_exists(self.zs_gt, name='zs_gt')
+        for f in self.zs_pp:
+            self._assert_exists(f, f'zs_pp | {f}')
+        for f in self.zs_gt:
+            self._assert_exists(f, name=f'zs_gt | {f}')
         zeroshot_pred_proba, zeroshot_gt, zsc = load_zeroshot_input(
             path_pred_proba=self.zs_pp,
             path_gt=self.zs_gt,
+            output_dir=output_dir,
             zsc=zsc,
             lazy_format=lazy_format,
         )
@@ -159,6 +170,7 @@ class BenchmarkContext:
                  description: str = None,
                  date: str = None,
                  s3_download_map: Dict[str, str] = None,
+                 output_dir: str = None
                  ):
         self.folds = folds
         self.benchmark_paths = benchmark_paths
@@ -166,6 +178,7 @@ class BenchmarkContext:
         self.description = description
         self.date = date
         self.s3_download_map = s3_download_map
+        self.output_dir = output_dir
 
     @classmethod
     def from_paths(cls,
@@ -175,12 +188,14 @@ class BenchmarkContext:
                    description: str = None,
                    date: str = None,
                    s3_download_map: Dict[str, str] = None,
+                   output_dir: str = None,
                    **paths):
         return cls(folds=folds,
                    name=name,
                    description=description,
                    date=date,
                    s3_download_map=s3_download_map,
+                   output_dir=output_dir,
                    benchmark_paths=BenchmarkPaths(**paths))
 
     def download(self,
@@ -321,8 +336,13 @@ class BenchmarkContext:
             print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
             configs_full = self._load_configs()
 
+            if self.output_dir is not None:
+                output_pred_proba = str(Path(self.output_dir) / "zs_pp")
+            else:
+                output_pred_proba = None
+
             if load_predictions:
-                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, lazy_format=lazy_format)
+                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, output_dir=output_pred_proba, lazy_format=lazy_format)
             else:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
@@ -339,8 +359,9 @@ class BenchmarkContext:
 
     def _load_predictions(self,
                           zsc: ZeroshotSimulatorContext,
+                          output_dir: str,
                           lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
-        return self.benchmark_paths.load_predictions(zsc=zsc, lazy_format=lazy_format)
+        return self.benchmark_paths.load_predictions(zsc=zsc, output_dir=output_dir, lazy_format=lazy_format)
 
     def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
         df_results_by_dataset, df_raw, df_metadata = self._load_results()
@@ -357,3 +378,70 @@ class BenchmarkContext:
             df_metadata=df_metadata,
         )
         return zsc
+
+
+def construct_context(
+        name: str,
+        description: str,
+        date: str,
+        datasets: List[str],
+        folds: List[int],
+        local_prefix: str,
+        s3_prefix: str,
+        task_metadata: str = "task_metadata_244.csv"):
+    path_context = str(Paths.results_root / local_prefix) + os.sep
+
+    split_key = str(Path(path_context) / "zeroshot_metadata") + os.sep
+    split_value = f"{s3_prefix}zeroshot_metadata/"
+
+    _s3_download_map = {
+        "evaluation/compare/results_ranked_by_dataset_valid.csv": "evaluation/compare/results_ranked_by_dataset_valid.csv",
+        "evaluation/configs/results_ranked_by_dataset_all.csv": "evaluation/configs/results_ranked_by_dataset_all.csv",
+        "leaderboard_preprocessed_configs.csv": "leaderboard_preprocessed_configs.csv",
+    }
+    _s3_download_map = {f'{path_context}{k}': f'{s3_prefix}{v}' for k, v in _s3_download_map.items()}
+
+    _files_pp = [f"{dataset}/{fold}/zeroshot_pred_proba.pkl" for dataset in datasets for fold in folds]
+    _files_gt = [f"{dataset}/{fold}/zeroshot_gt.pkl" for dataset in datasets for fold in folds]
+
+    _s3_download_map_metadata_pp = {f"{split_key}{f}": f"{split_value}{f}" for f in _files_pp}
+    _s3_download_map_metadata_gt = {f"{split_key}{f}": f"{split_value}{f}" for f in _files_gt}
+    _s3_download_map.update(_s3_download_map_metadata_pp)
+    _s3_download_map.update(_s3_download_map_metadata_gt)
+
+    zs_pp = [f"{split_key}{f}" for f in _files_pp]
+    zs_pp = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_pp]
+
+    zs_gt = [f"{split_key}{f}" for f in _files_gt]
+    zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
+
+    _s3_download_map = {Paths.rel_to_abs(k, relative_to=Paths.data_root): v for k, v in _s3_download_map.items()}
+
+    _result_paths = dict(
+        results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
+        comparison=str(Path(path_context) / "evaluation/compare/results_ranked_by_dataset_valid.csv"),
+        raw=str(Path(path_context) / "leaderboard_preprocessed_configs.csv"),
+    )
+
+    _task_metadata_path = dict(
+        task_metadata=str(Paths.data_root / "metadata" / task_metadata),
+    )
+
+    _bag_zs_path = dict(
+        zs_pp=zs_pp,
+        zs_gt=zs_gt,
+    )
+
+    context: BenchmarkContext = BenchmarkContext.from_paths(
+        name=name,
+        description=description,
+        date=date,
+        folds=folds,
+        s3_download_map=_s3_download_map,
+        output_dir=str(path_context),
+        **_result_paths,
+        **_bag_zs_path,
+        **_task_metadata_path,
+    )
+    return context
+

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 from collections import defaultdict
 import json
@@ -202,10 +204,24 @@ class TabularModelPredictions:
     def load(cls, filename: str):
         raise NotImplementedError()
 
+    @classmethod
+    def load_pred_dict(cls, filename: str) -> dict:
+        pred_dict = load_pkl.load(filename)
+        assert isinstance(pred_dict, dict)
+        return pred_dict
+
     def save(self, filename: str):
         raise NotImplementedError()
 
     def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
+        raise NotImplementedError()
+
+    @classmethod
+    def from_path(cls, path: str, output_dir: str = None):
+        return cls.from_paths(paths=[path], output_dir=output_dir)
+
+    @classmethod
+    def from_paths(cls, paths: List[str], output_dir: str = None):
         raise NotImplementedError()
 
 
@@ -215,7 +231,24 @@ class TabularPicklePredictions(TabularModelPredictions):
 
     @classmethod
     def load(cls, filename: str):
-        return cls(pred_dict=load_pkl.load(filename))
+        return cls(pred_dict=cls.load_pred_dict(filename=filename))
+
+    @classmethod
+    def from_paths(cls, paths: List[str], output_dir: str = None):
+        if len(paths) == 1:
+            preds = cls.load(str(paths[0]))
+            return cls.from_dict(pred_dict=preds.pred_dict, output_dir=output_dir)
+        preds_final = dict()
+        for path in paths:
+            preds = cls.load(str(path))
+            for dataset in preds.datasets:
+                if dataset in preds_final:
+                    for fold in preds.pred_dict[dataset]:
+                        if fold not in preds_final[dataset]:
+                            preds_final[dataset][fold] = preds.pred_dict[dataset][fold]
+                else:
+                    preds_final[dataset] = preds.pred_dict[dataset]
+        return cls.from_dict(pred_dict=preds_final, output_dir=output_dir)
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
@@ -261,7 +294,6 @@ class TabularPicklePredictions(TabularModelPredictions):
         agg_fun = set.intersection if present_in_all else set.union
         return sorted(list(agg_fun(*map(set, all_folds)))) if all_folds else []
 
-
     def _restrict_models(self, models: List[str]):
         models_to_keep = set(models)
         for (dataset, folds) in self.pred_dict.items():
@@ -271,7 +303,6 @@ class TabularPicklePredictions(TabularModelPredictions):
 
         # remove collections that may now be empty
         self.pred_dict = filter_empty(self.pred_dict)
-
 
     def _restrict_folds(self, folds: List[int]):
         folds_cur = self.folds
@@ -352,7 +383,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
             return []
 
     def _predict(self, dataset: str, fold: int, splits: List[str] = None, models: List[str] = None) -> List[np.array]:
-        pred_dict = self._load_dataset(dataset)
+        pred_dict = self._load_task(dataset=dataset, fold=fold)
         models_valid = self.list_models_available(datasets=[dataset], present_in_all=True)
         if models is None:
             models = models_valid
@@ -364,7 +395,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
 
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
-            model_results = pred_dict[fold][split_key]
+            model_results = pred_dict[split_key]
             return np.array([model_results[model] for model in models])
 
         available_model_mask = np.array([i for i, model in enumerate(models)])
@@ -378,10 +409,15 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
     def predict_dataset(self, dataset: str) -> DatasetPredictionsDict:
         return self._load_dataset(dataset=dataset)
 
+    def _load_task(self, dataset: str, fold: int) -> TaskPredictionsDict:
+        assert dataset in self.tasks_to_models
+        assert fold in self.tasks_to_models[dataset]
+        filename = self._task_file_path(dataset=dataset, fold=fold)
+        return load_pkl.load(filename)
+
     def _load_dataset(self, dataset: str, enforce_folds: bool = True) -> DatasetPredictionsDict:
-        dataset_file_name = self.rename_dict_inv.get(dataset, dataset)
-        filename = str(self.output_dir / f'{dataset_file_name}.pkl')
-        out = load_pkl.load(filename)
+        folds = self.folds_available_in_dataset(dataset=dataset)
+        out = {fold: self._load_task(dataset=dataset, fold=fold) for fold in folds}
         if enforce_folds:
             valid_folds = set(self.tasks_to_models[dataset])
             folds = list(out.keys())
@@ -389,6 +425,64 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
                 if f not in valid_folds:
                     out.pop(f)
         return out
+
+    @classmethod
+    def _save_dataset(cls, dataset_pred_dict: DatasetPredictionsDict, dataset: str, output_dir: str | Path):
+        for fold in dataset_pred_dict:
+            cls._save_task(task_pred_dict=dataset_pred_dict[fold], dataset=dataset, fold=fold, output_dir=output_dir)
+
+    @classmethod
+    def _save_task(cls, task_pred_dict: TaskPredictionsDict, dataset: str, fold: int, output_dir: str | Path):
+        filename = cls._task_file_path_generic(dataset=dataset, fold=fold, output_dir=output_dir)
+        save_pkl(filename, task_pred_dict)
+
+    def _task_file_path(self, dataset: str, fold: int) -> str:
+        """Returns the file path to the given task pickle file"""
+        return self._task_file_path_generic(dataset=dataset, fold=fold, output_dir=self.output_dir, rename_dict_inv=self.rename_dict_inv)
+
+    @classmethod
+    def _task_file_path_generic(cls, dataset: str, fold: int, output_dir: str | Path, rename_dict_inv: dict = None) -> str:
+        if rename_dict_inv:
+            dataset = rename_dict_inv.get(dataset, dataset)
+        return str(Path(output_dir) / f'{dataset}' / f'{fold}.pkl')
+
+    @classmethod
+    def from_paths(cls, paths: List[str], output_dir: str):
+        rename_split = lambda split: 'test' if split == "pred_proba_dict_test" else 'val'
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        tasks_to_models_full = dict()
+        print(f"saving .pkl files in folder {output_dir}")
+        for path in tqdm(paths):
+
+            pred_proba = TabularPicklePredictions.load(str(path))
+            datasets = pred_proba.datasets
+            pred_dict = pred_proba.pred_dict
+            tasks_to_models = {
+                dataset: {
+                    fold: {
+                        rename_split(split): list(models.keys())
+                        for split, models in splits.items()
+                    }
+                    for fold, splits in folds.items()
+                }
+                for dataset, folds in pred_dict.items()
+            }
+
+            for dataset in tasks_to_models:
+                if dataset not in tasks_to_models_full:
+                    tasks_to_models_full[dataset] = dict()
+                for fold in tasks_to_models[dataset]:
+                    if fold not in tasks_to_models_full[dataset]:
+                        tasks_to_models_full[dataset][fold] = tasks_to_models[dataset][fold]
+                    else:
+                        raise AssertionError(f'Found duplicate results for: dataset="{dataset}", fold={fold}')
+
+            for dataset in datasets:
+                cls._save_dataset(dataset_pred_dict=pred_dict[dataset], dataset=dataset, output_dir=output_dir)
+
+        cls._save_metadata(output_dir=output_dir, tasks_to_models=tasks_to_models_full)
+        return cls(tasks_to_models=tasks_to_models_full, output_dir=output_dir)
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None):
@@ -409,8 +503,7 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         }
         print(f"saving .pkl files in folder {output_dir}")
         for dataset in tqdm(datasets):
-            filename = str(output_dir / f'{dataset}.pkl')
-            save_pkl(filename, pred_dict[dataset])
+            cls._save_dataset(dataset_pred_dict=pred_dict[dataset], dataset=dataset, output_dir=output_dir)
         cls._save_metadata(output_dir=output_dir, tasks_to_models=tasks_to_models)
         return cls(tasks_to_models=tasks_to_models, output_dir=output_dir)
 
@@ -419,17 +512,19 @@ class TabularPicklePerTaskPredictions(TabularModelPredictions):
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         print(f"copy .pkl files from {self.output_dir} to {output_dir}")
-        # FIXME: Only copy the required files, not all files
-        for file in self.output_dir.glob("*.pkl"):
-            shutil.copyfile(file, output_dir / file.name)
+        for dataset, fold in self.tasks:
+            task_path = self._task_file_path(dataset=dataset, fold=fold)
+            new_task_path = self._task_file_path_generic(dataset=dataset, fold=fold, output_dir=output_dir, rename_dict_inv=self.rename_dict_inv)
+            if new_task_path != task_path:
+                Path(new_task_path).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(task_path, new_task_path)
         self._save_metadata(output_dir=output_dir,
                             tasks_to_models=self.tasks_to_models,
                             rename_dict_inv=self.rename_dict_inv)
 
     @classmethod
     def load(cls, filename: str):
-        filename = Path(filename)
-        metadata = cls._load_metadata(filename)
+        metadata = cls._load_metadata(Path(filename))
         tasks_to_models = metadata["tasks_to_models"]
         rename_dict_inv = metadata["rename_dict_inv"]
 
@@ -549,7 +644,7 @@ class TabularPicklePredictionsOpt(TabularPicklePredictions):
 
     @classmethod
     def load(cls, filename: str):
-        return cls(pred_dict_opt=load_pkl.load(filename))
+        return cls(pred_dict_opt=cls.load_pred_dict(filename=filename))
 
     def save(self, filename: str):
         save_pkl(filename, self.pred_dict)
