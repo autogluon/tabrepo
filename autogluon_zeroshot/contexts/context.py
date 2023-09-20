@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
+import os
 from pathlib import Path
 
 import boto3
@@ -377,3 +378,70 @@ class BenchmarkContext:
             df_metadata=df_metadata,
         )
         return zsc
+
+
+def construct_context(
+        name: str,
+        description: str,
+        date: str,
+        datasets: List[str],
+        folds: List[int],
+        local_prefix: str,
+        s3_prefix: str,
+        task_metadata: str = "task_metadata_244.csv"):
+    path_context = str(Paths.results_root / local_prefix) + os.sep
+
+    split_key = str(Path(path_context) / "zeroshot_metadata") + os.sep
+    split_value = f"{s3_prefix}zeroshot_metadata/"
+
+    _s3_download_map = {
+        "evaluation/compare/results_ranked_by_dataset_valid.csv": "evaluation/compare/results_ranked_by_dataset_valid.csv",
+        "evaluation/configs/results_ranked_by_dataset_all.csv": "evaluation/configs/results_ranked_by_dataset_all.csv",
+        "leaderboard_preprocessed_configs.csv": "leaderboard_preprocessed_configs.csv",
+    }
+    _s3_download_map = {f'{path_context}{k}': f'{s3_prefix}{v}' for k, v in _s3_download_map.items()}
+
+    _files_pp = [f"{dataset}/{fold}/zeroshot_pred_proba.pkl" for dataset in datasets for fold in folds]
+    _files_gt = [f"{dataset}/{fold}/zeroshot_gt.pkl" for dataset in datasets for fold in folds]
+
+    _s3_download_map_metadata_pp = {f"{split_key}{f}": f"{split_value}{f}" for f in _files_pp}
+    _s3_download_map_metadata_gt = {f"{split_key}{f}": f"{split_value}{f}" for f in _files_gt}
+    _s3_download_map.update(_s3_download_map_metadata_pp)
+    _s3_download_map.update(_s3_download_map_metadata_gt)
+
+    zs_pp = [f"{split_key}{f}" for f in _files_pp]
+    zs_pp = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_pp]
+
+    zs_gt = [f"{split_key}{f}" for f in _files_gt]
+    zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
+
+    _s3_download_map = {Paths.rel_to_abs(k, relative_to=Paths.data_root): v for k, v in _s3_download_map.items()}
+
+    _result_paths = dict(
+        results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
+        comparison=str(Path(path_context) / "evaluation/compare/results_ranked_by_dataset_valid.csv"),
+        raw=str(Path(path_context) / "leaderboard_preprocessed_configs.csv"),
+    )
+
+    _task_metadata_path = dict(
+        task_metadata=str(Paths.data_root / "metadata" / task_metadata),
+    )
+
+    _bag_zs_path = dict(
+        zs_pp=zs_pp,
+        zs_gt=zs_gt,
+    )
+
+    context: BenchmarkContext = BenchmarkContext.from_paths(
+        name=name,
+        description=description,
+        date=date,
+        folds=folds,
+        s3_download_map=_s3_download_map,
+        output_dir=str(path_context),
+        **_result_paths,
+        **_bag_zs_path,
+        **_task_metadata_path,
+    )
+    return context
+
