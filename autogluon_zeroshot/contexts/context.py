@@ -25,8 +25,8 @@ class BenchmarkPaths:
     raw: str
     comparison: str
     task_metadata: str = None
-    zs_pp: str | List[str] = None
-    zs_gt: str | List[str] = None
+    zs_pp: List[str] = None
+    zs_gt: List[str] = None
     configs: List[str] = None
 
     def __post_init__(self):
