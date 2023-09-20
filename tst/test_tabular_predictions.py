@@ -4,11 +4,11 @@ import copy
 from math import prod
 from typing import List
 
+from autogluon.common.savers import save_pkl
 import numpy as np
 from pathlib import Path
 
 import pytest
-
 from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredictions, TabularPredictionsDict, \
     TabularPicklePerTaskPredictions, TabularPicklePredictionsOpt, filter_empty
 from autogluon_zeroshot.simulation.dense_utils import is_dense_folds, force_to_dense_folds, \
@@ -82,6 +82,22 @@ def test_save_load_equivalence(cls):
 
     with tempfile.TemporaryDirectory() as tmpdirname:
 
+        pred_dict_path = str(Path(tmpdirname) / "pred_dict.pkl")
+        pred_dict_path_part_1 = str(Path(tmpdirname) / "pred_dict_part_1.pkl")
+        pred_dict_path_part_2 = str(Path(tmpdirname) / "pred_dict_part_2.pkl")
+
+        # Test single file input
+        save_pkl.save(path=pred_dict_path, object=pred_dict)
+
+        # Test multi-file input
+        pred_dict_part_1 = copy.deepcopy(pred_dict)
+        pred_dict_part_1.pop("d1")
+        save_pkl.save(path=pred_dict_path_part_1, object=pred_dict_part_1)
+        pred_dict_part_2 = copy.deepcopy(pred_dict)
+        pred_dict_part_2.pop("d2")
+        pred_dict_part_2.pop(3)
+        save_pkl.save(path=pred_dict_path_part_2, object=pred_dict_part_2)
+
         # 1) construct pred proba from dictionary
         pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
 
@@ -91,26 +107,33 @@ def test_save_load_equivalence(cls):
 
         # 2) save it and reload it
         pred_proba.save(filename)
-        pred_proba_load = cls.load(filename)
 
-        assert pred_proba.folds == pred_proba_load.folds
-        assert pred_proba.datasets == pred_proba_load.datasets
-        assert pred_proba.tasks == pred_proba_load.tasks
-        assert pred_proba.models == pred_proba_load.models
+        pred_proba_load_direct = cls.load(filename)
+        pred_proba_from_path = cls.from_path(path=pred_dict_path, output_dir=str(Path(tmpdirname) / "from_path"))
+        pred_proba_from_paths = cls.from_paths(paths=[pred_dict_path], output_dir=str(Path(tmpdirname) / "from_paths"))
+        pred_proba_from_paths_multi = cls.from_paths(paths=[pred_dict_path_part_1, pred_dict_path_part_2], output_dir=str(Path(tmpdirname) / "from_paths_multi"))
 
-        # Ensure can load from int dataset names still
-        assert set(pred_proba.list_models_available(datasets=[3])) == set(models)
+        for pred_proba_load in [pred_proba_load_direct, pred_proba_from_path, pred_proba_from_paths, pred_proba_from_paths_multi]:
+            assert pred_proba.folds == pred_proba_load.folds
+            assert len(pred_proba.datasets) == len(pred_proba_load.datasets)
+            assert set(pred_proba.datasets) == set(pred_proba_load.datasets)
+            assert len(pred_proba.tasks) == len(pred_proba_load.tasks)
+            assert set(pred_proba.tasks) == set(pred_proba_load.tasks)
+            assert pred_proba.models == pred_proba_load.models
 
-        # 3) checks that output is as expected after serializing/deserializing
-        assert pred_proba_load.datasets == list(dataset_shapes.keys())
-        for cur_pred_proba in [pred_proba, pred_proba_load]:
-            for dataset, (val_shape, test_shape) in dataset_shapes.items():
-                val_pred_proba, test_pred_proba = cur_pred_proba.predict(dataset=dataset, fold=2, models=models, splits=["val", "test"])
-                assert val_pred_proba.shape == tuple([num_models] + list(val_shape))
-                assert test_pred_proba.shape == tuple([num_models] + list(test_shape))
-                for i, model in enumerate(models):
-                    assert np.allclose(val_pred_proba[i], generate_dummy(val_shape, models)[model])
-                    assert np.allclose(test_pred_proba[i], generate_dummy(test_shape, models)[model])
+            # Ensure can load from int dataset names still
+            assert set(pred_proba.list_models_available(datasets=[3])) == set(models)
+
+            # 3) checks that output is as expected after serializing/deserializing
+            assert set(pred_proba_load.datasets) == set(list(dataset_shapes.keys()))
+            for cur_pred_proba in [pred_proba, pred_proba_load]:
+                for dataset, (val_shape, test_shape) in dataset_shapes.items():
+                    val_pred_proba, test_pred_proba = cur_pred_proba.predict(dataset=dataset, fold=2, models=models, splits=["val", "test"])
+                    assert val_pred_proba.shape == tuple([num_models] + list(val_shape))
+                    assert test_pred_proba.shape == tuple([num_models] + list(test_shape))
+                    for i, model in enumerate(models):
+                        assert np.allclose(val_pred_proba[i], generate_dummy(val_shape, models)[model])
+                        assert np.allclose(test_pred_proba[i], generate_dummy(test_shape, models)[model])
 
 
 @pytest.mark.parametrize("cls", [
