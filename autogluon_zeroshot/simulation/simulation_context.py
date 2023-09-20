@@ -126,26 +126,21 @@ class ZeroshotSimulatorContext:
 
         unique_dataset_folds_set = set(list(df_results_by_dataset_automl['dataset'].unique()))
 
-        config_task_counts = df_raw[['model', 'fold', 'tid']].value_counts()
-        if config_task_counts.max() > 1:
-            print(config_task_counts)
-            raise AssertionError(f'Multiple rows in `df_raw` exist for a config task pair! '
-                                 f'There should only ever be one row per config task pair. '
-                                 f'You might have multiple results from re-runs or other bugs that have not been de-duplicated.')
+        config_task_counts_raw = df_raw[['model', 'fold', 'tid']].value_counts()
+        config_task_counts_results_by_dataset = df_results_by_dataset[['framework', 'dataset']].value_counts()
+        config_task_counts_results_by_dataset_automl = df_results_by_dataset_automl[['framework', 'dataset']].value_counts()
 
-        config_task_counts = df_results_by_dataset[['framework', 'dataset']].value_counts()
-        if config_task_counts.max() > 1:
-            print(config_task_counts)
-            raise AssertionError(f'Multiple rows in `df_results_by_dataset` exist for a config task pair! '
-                                 f'There should only ever be one row per config task pair. '
-                                 f'You might have multiple results from re-runs or other bugs that have not been de-duplicated.')
-
-        config_task_counts = df_results_by_dataset_automl[['framework', 'dataset']].value_counts()
-        if config_task_counts.max() > 1:
-            print(config_task_counts)
-            raise AssertionError(f'Multiple rows in `df_results_by_dataset_automl` exist for a config task pair! '
-                                 f'There should only ever be one row per config task pair. '
-                                 f'You might have multiple results from re-runs or other bugs that have not been de-duplicated.')
+        for source, config_task_counts in [
+            ("df_raw", config_task_counts_raw),
+            ("df_results_by_dataset", config_task_counts_results_by_dataset),
+            ("df_results_by_dataset_automl", config_task_counts_results_by_dataset_automl),
+        ]:
+            if config_task_counts.max() > 1:
+                raise AssertionError(f'Multiple rows in `{source}` exist for a config task pair! '
+                                     f'There should only ever be one row per config task pair. '
+                                     f'You might have multiple results from re-runs or other bugs that have not been de-duplicated.\n'
+                                     f'Config Task Counts:\n'
+                                     f'{config_task_counts}')
 
         df_results_by_dataset, df_raw = filter_datasets(df_results_by_dataset=df_results_by_dataset,
                                                         df_raw=df_raw,
