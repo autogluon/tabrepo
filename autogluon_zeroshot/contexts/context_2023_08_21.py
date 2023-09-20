@@ -1,19 +1,6 @@
 from .context import BenchmarkContext, construct_context
 
 
-result_prefix = 'results/2023_08_21/'
-result_s3_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2023_08_21/'
-_s3_download_map = {
-    "evaluation/compare/results_ranked_by_dataset_valid.csv": "evaluation/compare/results_ranked_by_dataset_valid.csv",
-    "evaluation/configs/results_ranked_by_dataset_all.csv": "evaluation/configs/results_ranked_by_dataset_all.csv",
-    "leaderboard_preprocessed_configs.csv": "leaderboard_preprocessed_configs.csv",
-}
-_s3_download_map = {f'{result_prefix}{k}': f'{result_s3_prefix}{v}' for k, v in _s3_download_map.items()}
-
-split_key = "results/2023_08_21/zeroshot_metadata/"
-split_value = "s3://automl-benchmark-ag/aggregated/ec2/2023_08_21/zeroshot_metadata/"
-
-
 s3_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2023_08_21/'
 
 # 244 datasets sorted largest to smallest
