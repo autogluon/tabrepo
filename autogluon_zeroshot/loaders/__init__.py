@@ -16,8 +16,6 @@ class Paths:
     bagged_208_results_root: Path = results_root / "bagged_208"
     bagged_289_results_root: Path = results_root / "bagged_289"
     bagged_2023_07_25_results_root: Path = results_root / "2023_07_25"
-    bagged_2023_08_21_results_root: Path = results_root / "2023_08_21"
-    bagged_2023_08_22_toy_results_root: Path = results_root / "2023_08_22_toy"
     automl_289_results_root: Path = results_root / "automl_289"
 
     @staticmethod
