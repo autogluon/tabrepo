@@ -113,6 +113,7 @@ def test_save_load_equivalence(cls):
         pred_proba_from_paths = cls.from_paths(paths=[pred_dict_path], output_dir=str(Path(tmpdirname) / "from_paths"))
         pred_proba_from_paths_multi = cls.from_paths(paths=[pred_dict_path_part_1, pred_dict_path_part_2], output_dir=str(Path(tmpdirname) / "from_paths_multi"))
 
+        # TODO: parameterize to keep style consistency of the unit-test
         for pred_proba_load in [pred_proba_load_direct, pred_proba_from_path, pred_proba_from_paths, pred_proba_from_paths_multi]:
             assert pred_proba.folds == pred_proba_load.folds
             assert len(pred_proba.datasets) == len(pred_proba_load.datasets)
