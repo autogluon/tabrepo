@@ -273,17 +273,17 @@ class ZeroshotSimulatorContext:
         zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
         return zeroshot_gt
 
-    def load_pred(self, pred_pkl_path: List[Union[Path, str]], output_dir: str, lazy_format: bool = False) -> TabularModelPredictions:
-        pred_pkl_path = [Path(p) for p in pred_pkl_path]
-        for p in pred_pkl_path:
+    def load_pred(self, pred_pkl_paths: List[Union[Path, str]], output_dir: str, lazy_format: bool = False) -> TabularModelPredictions:
+        pred_pkl_paths = [Path(p) for p in pred_pkl_paths]
+        for p in pred_pkl_paths:
             assert p.exists()
         cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
         if lazy_format:
             # convert to lazy format if format not already available
-            pred_path = self.convert_lazy_format(pred_pkl_path=pred_pkl_path, output_dir=output_dir)
+            pred_path = self.convert_lazy_format(pred_pkl_paths=pred_pkl_paths, output_dir=output_dir)
             zeroshot_pred_proba = cls.load(pred_path)
         else:
-            zeroshot_pred_proba = cls.from_paths(pred_pkl_path)
+            zeroshot_pred_proba = cls.from_paths(pred_pkl_paths)
 
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
@@ -295,9 +295,9 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     @staticmethod
-    def convert_lazy_format(pred_pkl_path: List[Path], output_dir: str, override_if_already_exists: bool = False) -> str:
+    def convert_lazy_format(pred_pkl_paths: List[Path], output_dir: str, override_if_already_exists: bool = False) -> str:
         """
-        :param pred_pkl_path:
+        :param pred_pkl_paths:
         :param output_dir:
         :param override_if_already_exists:
         :return: the path of the generated lazy format
@@ -305,7 +305,7 @@ class ZeroshotSimulatorContext:
         if not Path(output_dir).exists() or override_if_already_exists:
             print(f"lazy format folder {output_dir} not found or override option set to True, "
                   f"converting to lazy format. It should take less than 3 min.")
-            preds_npy = TabularPicklePerTaskPredictions.from_paths(paths=pred_pkl_path, output_dir=output_dir)
+            preds_npy = TabularPicklePerTaskPredictions.from_paths(paths=pred_pkl_paths, output_dir=output_dir)
         return output_dir
 
     @staticmethod
