@@ -1,3 +1,5 @@
+import os
+import math
 from typing import List, Callable, Dict
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -89,6 +91,8 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
         plt.tight_layout()
         plt.savefig(fig_save_path)
     plt.show()
+
+
 def make_rename_dict(suffix: str) -> Dict[str, str]:
     # return renaming of methods
     rename_dict = {}
@@ -102,6 +106,7 @@ def make_rename_dict(suffix: str) -> Dict[str, str]:
             rename_dict[f"AutoGluon_{preset[0]}q_{minute}m{suffix}"] = f"AutoGluon {preset} ({minute}m)"
     return rename_dict
 
+
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
@@ -113,11 +118,15 @@ if __name__ == "__main__":
     parser.add_argument("--expname", type=str, help="Name of the experiment", default="dummy")
     parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
                         help="Engine used for embarrassingly parallel loop.")
+    parser.add_argument("--ray_process_ratio", type=float,
+                        help="The ratio of ray processes to logical cpu cores. Use lower values to reduce memory usage. Only used if engine == 'ray'",
+                        default=0.25)
     args = parser.parse_args()
     print(args.__dict__)
 
     repo_version = args.repo
     ignore_cache = args.ignore_cache
+    ray_process_ratio = args.ray_process_ratio
     engine = args.engine
     expname = args.expname
     n_datasets = args.n_datasets
@@ -125,10 +134,17 @@ if __name__ == "__main__":
         expname += f"-{n_datasets}"
 
     if engine == "ray":
+        assert (ray_process_ratio <= 1) and (ray_process_ratio > 0)
+        num_cpus = os.cpu_count()
+        num_ray_processes = math.ceil(num_cpus*ray_process_ratio)
+
+        print(f'NOTE: To avoid OOM, we are limiting ray processes to {num_ray_processes} (Total Logical Cores: {num_cpus})\n'
+              f'\tThis is based on ray_process_ratio={ray_process_ratio}')
+
         # FIXME: The large-scale 3-fold 244-dataset 1416-config runs OOM on m6i.32x without this limit
         import ray
         if not ray.is_initialized():
-            ray.init(num_cpus=64)
+            ray.init(num_cpus=num_ray_processes)
 
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 20, 40, 80, 160]
@@ -141,7 +157,7 @@ if __name__ == "__main__":
     linestyle_default = "-"
     linestyle_tune = "dotted"
 
-    repo = load_context(version=repo_version)
+    repo: EvaluationRepository = load_context(version=repo_version)
     if n_eval_folds == -1:
         n_eval_folds = repo.n_folds()
 
