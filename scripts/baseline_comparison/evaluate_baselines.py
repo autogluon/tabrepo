@@ -4,9 +4,8 @@ from typing import List, Callable, Dict
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib
 from pathlib import Path
-
-from matplotlib import cm
 
 from autogluon_zeroshot.repository.evaluation_repository import (
     load,
@@ -281,11 +280,12 @@ if __name__ == "__main__":
         # title="Comparison of frameworks",
     )
 
+    cmap = matplotlib.colormaps["viridis"]
     # Plot effect number of training datasets
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_dataset=size),
-            color=cm.get_cmap("viridis")(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=f"D{size}",
+            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=f"D{size}",
         )
         for i, size in enumerate(n_training_datasets)
     ]
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     # method_styles = ag_styles + [
     #     MethodStyle(
     #         zeroshot_name(n_training_fold=size),
-    #         color=cm.get_cmap("viridis")(i / (len(n_training_folds) - 1)), linestyle="-", label_str=f"S{size}",
+    #         color=cmap(i / (len(n_training_folds) - 1)), linestyle="-", label_str=f"S{size}",
     #     )
     #     for i, size in enumerate(n_training_folds)
     # ]
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_portfolio=size),
-            color=cm.get_cmap("viridis")(i / (len(n_portfolios) - 1)), linestyle="-", label_str=f"N{size}",
+            color=cmap(i / (len(n_portfolios) - 1)), linestyle="-", label_str=f"N{size}",
         )
         for i, size in enumerate(n_portfolios)
     ]
@@ -315,7 +315,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_config=size),
-            color=cm.get_cmap("viridis")(i / (len(n_training_configs) - 1)), linestyle="-", label_str=f"M{size}",
+            color=cmap(i / (len(n_training_configs) - 1)), linestyle="-", label_str=f"M{size}",
         )
         for i, size in enumerate(n_training_configs)
     ]
@@ -325,7 +325,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(max_runtime=size),
-            color=cm.get_cmap("viridis")(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"{time_suffix(size)}",
+            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"{time_suffix(size)}",
         )
         for i, size in enumerate(max_runtimes)
     ]
