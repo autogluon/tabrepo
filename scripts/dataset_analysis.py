@@ -33,11 +33,13 @@ repo = load_context()
 
 zsc = repo._zeroshot_context
 
-# remove tasks with some lightGBM models missing, todo fix
 df = zsc.df_results_by_dataset_vs_automl.copy()
-missing_tids = [359932, 359944, 359933, 359946]
-df = df[~df.tid.isin(missing_tids)]
+# # remove tasks with some lightGBM models missing, todo fix
+# missing_tids = [359932, 359944, 359933, 359946]
+# df = df[~df.tid.isin(missing_tids)]
 
+config_regexp = "(" + "|".join([str(x) for x in range(6)]) + ")"
+df = df[df.framework.str.contains(f"r{config_regexp}_BAG_L1")]
 metric = "metric_error"
 df_pivot = df.pivot_table(
     index="framework", columns="tid", values=metric
@@ -72,6 +74,7 @@ sns.heatmap(
 ax.set_title("Model rank correlation", fontdict={'size': title_size})
 
 # runtime figure
+df = zsc.df_results_by_dataset_vs_automl
 ax = axes[2]
 df['framework_type'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
 for framework in df['framework_type'].unique():
