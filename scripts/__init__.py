@@ -5,7 +5,7 @@ from autogluon_zeroshot.repository.evaluation_repository import load, Evaluation
 
 output_path = Path(__file__).parent
 
-def load_context(version: str = "BAG_D244_F1_C1416") -> EvaluationRepository:
+def load_context(version: str = "BAG_D244_F3_C1416") -> EvaluationRepository:
     def _load_fun():
         repo = load(version=version)
         repo = repo.subset(models=[m for m in repo.list_models() if not "NeuralNetFastAI" in m])

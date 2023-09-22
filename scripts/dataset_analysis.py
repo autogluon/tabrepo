@@ -55,7 +55,7 @@ df_rank = df_rank[ordered_cols]
 df_rank.columns.name = "dataset"
 
 # task-model rank
-fig, axes = plt.subplots(1, 3, figsize=figsize)
+fig, axes = plt.subplots(1, 3, figsize=figsize, dpi=300)
 ax = axes[0]
 sns.heatmap(
     df_rank, cmap="RdYlGn_r", vmin=0, vmax=1, ax=ax,

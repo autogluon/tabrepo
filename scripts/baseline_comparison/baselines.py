@@ -303,8 +303,12 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
 
 def time_suffix(max_runtime: float) -> str:
     if max_runtime:
-        str_num_hours = f"{int(max_runtime / 3600)}" if max_runtime % 3600 == 0 else f"{max_runtime / 3600:0.2f}"
-        return f" ({str_num_hours}h)"
+        if max_runtime >= 3600:
+            str_num_hours = f"{int(max_runtime / 3600)}" if max_runtime % 3600 == 0 else f"{max_runtime / 3600:0.2f}"
+            return f" ({str_num_hours}h)"
+        else:
+            str_num_mins = f"{int(max_runtime / 60)}" if max_runtime % 60 == 0 else f"{max_runtime / 60:0.2f}"
+            return f" ({str_num_mins}m)"
     else:
         return ""
 

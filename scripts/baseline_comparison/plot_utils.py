@@ -110,9 +110,9 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
 
     # makes autogluon black to respect colors used in previous plots
     colors[4] = "black"
-    markers = ['v', '^', "8", "D", "s", '*']
+    markers = ['v', '^', "8", "D", "s", '*', 'v']
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
-    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3))
+    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(14, 4), dpi=300)
 
     df_frameworks = {
         automl_framework: df_metrics[df_metrics.index.str.contains(automl_framework)]
@@ -120,12 +120,17 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     }
 
     df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best")]
-    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*ensemble.*\(.*h\)")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*ensemble.*\(.*\)")]
+
+    df_frameworks["Autosklearn"] = df_metrics[df_metrics.index.str.startswith("Autosklearn ")]
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
             # ugly way to get hour Portfolio-N160 + ensemble (0.17h) -> 0.17
             fitting_budget_hour = [float(s.split("(")[-1][:-2]) for s in df_framework.index]
+
+            # Convert minutes to hours
+            fitting_budget_hour = [f/60 if s.rsplit(")")[0][-1] == 'm' else f for s, f in zip(df_framework.index, fitting_budget_hour)]
 
             axes[i].scatter(
                 fitting_budget_hour,
@@ -135,9 +140,10 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
                 marker=markers[j],
                 s=100.0 if markers[j] == "*" else 70.0,
             )
-            axes[i].set_xlabel("Fitting budget (hour)")
+            axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
             axes[i].set_xscale("log")
+            axes[i].set_xticks([5/60, 10/60, 30/60, 1, 4, 24], ["5m", "10m", "30m", "1h", "4h", "24h"])
             axes[i].grid('on')
 
     # fig.legend(axes, df_frameworks.keys(), loc = "upper center", ncol=5)
