@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 import numpy as np
 from dataclasses import dataclass
 
-from syne_tune.experiments import load_experiments_df
 from tqdm import tqdm
 
 from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
@@ -337,18 +336,19 @@ def zeroshot_name(
     return f"Portfolio{suffix}"
 
 
-def filter_configurations_above_budget(repo, test_tid, configs, max_runtime):
+def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, quantile: float = 0.95):
+    # Filter configurations which respects the constrain less than `quantile` fraction of the time
+    assert 0<= quantile <= 1
     dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
     dd = dd[dd.tid != test_tid]
     df_configs_runtime = dd.pivot_table(
         index="framework", columns="tid", values="time_train_s"
-    ).quantile(q=0.9, axis=1).sort_values()
+    ).quantile(q=quantile, axis=1).sort_values()
 
     n_initial_configs = len(configs)
     configs_fast_enough = df_configs_runtime[df_configs_runtime < max_runtime].index.tolist()
     configs = list(set(configs_fast_enough).intersection(configs))
     print(f"kept only {len(configs)} from initial {n_initial_configs} for runtime {max_runtime}")
-    assert len(configs) > 0
     return configs
 
 
@@ -414,8 +414,8 @@ def zeroshot_results(
                 configs += list(np.random.choice(models_framework, n_training_config, replace=False))
 
         # # exclude configurations from zeroshot selection whose runtime exceeds runtime budget by large amount
-        # if max_runtime:
-        #     configs = filter_configurations_above_budget(repo, test_tid, configs, max_runtime)
+        if max_runtime:
+            configs = filter_configurations_above_budget(repo, test_tid, configs, max_runtime)
 
         df_rank = df_rank.copy().loc[configs]
 
@@ -431,7 +431,8 @@ def zeroshot_results(
         portfolio_configs = [df_rank.index[i] for i in indices]
         # TODO: Technically we should exclude data from the fold when computing the average runtime and also pass the
         #  current fold when filtering by runtime.
-        portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
+        # portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
+
         portfolio_configs = filter_configs_by_runtime(
             repo=repo,
             tid=test_tid,
@@ -489,6 +490,7 @@ def evaluate_tuning(
     """
 
     def load_df_tuning(expname):
+        from syne_tune.experiments import load_experiments_df
         name_filter = lambda path: expname in str(path)
         df_results = load_experiments_df(path_filter=name_filter)
         df_results["fold"] = df_results.apply(lambda row: int(row['tuner_name'].split("fold-")[1].split("-")[0]),
