@@ -118,8 +118,7 @@ if __name__ == "__main__":
     parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
                         help="Engine used for embarrassingly parallel loop.")
     parser.add_argument("--ray_process_ratio", type=float,
-                        help="The ratio of ray processes to logical cpu cores. Use lower values to reduce memory usage. Only used if engine == 'ray'",
-                        default=0.25)
+                        help="The ratio of ray processes to logical cpu cores. Use lower values to reduce memory usage. Only used if engine == 'ray'",)
     args = parser.parse_args()
     print(args.__dict__)
 
@@ -132,7 +131,7 @@ if __name__ == "__main__":
     if n_datasets:
         expname += f"-{n_datasets}"
 
-    if engine == "ray":
+    if engine == "ray" and args.ray_process_ratio is not None:
         assert (ray_process_ratio <= 1) and (ray_process_ratio > 0)
         num_cpus = os.cpu_count()
         num_ray_processes = math.ceil(num_cpus*ray_process_ratio)
