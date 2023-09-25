@@ -145,11 +145,11 @@ if __name__ == "__main__":
             ray.init(num_cpus=num_ray_processes)
 
     n_eval_folds = args.n_folds
-    n_portfolios = [5, 10, 40, 160]
+    n_portfolios = [5, 10, 50, 160]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
-    n_training_datasets = [16, 32, 64, 128, 200]
+    n_training_datasets = [5, 10, 50, 100, 200]
     n_training_folds = [1, 2, 5, 10]
-    n_training_configs = [5, 50, 100, 200]
+    n_training_configs = [5, 10, 50, 100, 200]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
     linestyle_default = "-"
@@ -324,7 +324,8 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(max_runtime=size),
-            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"{time_suffix(size)}"[1:-1],
+            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-",
+            label_str=time_suffix(size).replace("(", "").replace(")", "").strip(),
         )
         for i, size in enumerate(max_runtimes)
     ]
