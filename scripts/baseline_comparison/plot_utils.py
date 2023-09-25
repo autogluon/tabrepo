@@ -6,7 +6,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from scripts.baseline_comparison.baselines import zeroshot_name, framework_types
+from scripts.baseline_comparison.baselines import zeroshot_name, framework_types, n_portfolios_default
 
 
 @dataclass
@@ -94,6 +94,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
                 )
                 # axes[i].set_title(metric.replace("_", "-"))
                 axes[i].set_xlabel(metric.replace("_", "-"))
+                axes[i].grid('on')
                 if i == 0:
                     axes[i].set_ylabel(f"CDF")
             else:
@@ -112,7 +113,7 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     colors[4] = "black"
     markers = ['v', '^', "8", "D", "s", '*', 'v']
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
-    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(14, 4), dpi=300)
+    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3), dpi=300)
 
     df_frameworks = {
         automl_framework: df_metrics[df_metrics.index.str.contains(automl_framework)]
@@ -120,7 +121,7 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     }
 
     df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best")]
-    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N160 .*ensemble.*\(.*\)")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N{n_portfolios_default} .*ensemble.*\(.*\)")]
 
     df_frameworks["Autosklearn"] = df_metrics[df_metrics.index.str.startswith("Autosklearn ")]
 

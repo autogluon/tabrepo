@@ -33,7 +33,7 @@ n_cpus = 8
 
 realnumhourstabrepo = int(repo._zeroshot_context.df_results_by_dataset_vs_automl['time_train_s'].sum() / 3600)
 realnumcpuhourstabrepo = realnumhourstabrepo * n_cpus
-numhoursnosimu = 24034 # % shown with "Total time of experiments:" when running evaluations
+numhoursnosimu = 96698  # % shown with "Total time of experiments:" when running evaluations
 numcpuhoursnosimu = numhoursnosimu * n_cpus
 
 stats = {
@@ -43,11 +43,13 @@ stats = {
     "realnumseeds": n_seeds,
     "realnumautomlbaseline": n_automl,
     "realnumframeworks": len(framework_types),
-    "realnumevaluations": n_datasets * (n_hps + n_automl) * n_seeds,
+    # "realnumevaluations": n_datasets * (n_hps + n_automl) * n_seeds,
+    "realnumevaluations": n_datasets * n_hps * n_seeds,  # drop automl systems as we dont store their predictions
     "realnumhourstabrepo": realnumhourstabrepo,
     "realnumcpuhourstabrepo": realnumcpuhourstabrepo,
     "numhoursnosimu": numhoursnosimu,
     "numcpuhoursnosimu": numcpuhoursnosimu * n_cpus,
+    "ratiosaving": "{:.1f}".format(round(numhoursnosimu / realnumhourstabrepo, 1)),
 }
 
 with open(output_path / "tables" / "tab_repo_constants.tex", "w") as f:
@@ -57,5 +59,3 @@ with open(output_path / "tables" / "tab_repo_constants.tex", "w") as f:
         make_latex_command = lambda name, value: "{\\" + str(name) + "}" + "{" + str(value) + "}"
         print(f"\\newcommand{make_latex_command(name, value)}")
         f.write(f"\\newcommand{make_latex_command(name, value)}\n")
-
-
