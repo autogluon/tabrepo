@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from scripts import output_path
 
@@ -28,7 +30,14 @@ def iqm(x):
 
 def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False):
     df_metrics = compute_avg_metrics(df)
-    s = df_metrics.to_latex(float_format="%.2f")
+    latex_kwargs = dict(float_format="%.2f")
+    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs)
+
+
+def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None):
+    if latex_kwargs is None:
+        latex_kwargs = dict()
+    s = df.to_latex(**latex_kwargs)
     latex_folder = output_path / "tables"
     latex_folder.mkdir(exist_ok=True)
     latex_file = latex_folder / f"{title}.tex"
