@@ -50,7 +50,7 @@ def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, lat
 
 def compute_avg_metrics(df: pd.DataFrame):
     avg_metrics = {}
-    for metric in ["normalized_score", "rank", "time_train_s", "time_infer_s"]:
+    for metric in ["normalized-error", "rank", "time fit (s)", "time infer (s)"]:
         avg_metric = df.loc[:, ["method", metric]].groupby("method").agg("mean")[metric]
         #
         # # We use mean to aggregate runtimes as IQM does not make too much sense in this context,
@@ -67,7 +67,7 @@ def compute_avg_metrics(df: pd.DataFrame):
     # avg_metric.sort_values().head(60)
     # avg_metrics["time_train_s (max)"] = avg_metric.sort_values()
 
-    df_metrics = pd.DataFrame(avg_metrics).sort_values(by="normalized_score")
+    df_metrics = pd.DataFrame(avg_metrics).sort_values(by="normalized-error")
     df_metrics.columns = [x.replace("_", "-") for x in df_metrics.columns]
     return df_metrics
 
@@ -79,7 +79,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
             for method in df.method.unique()
         ]
     fig, axes = plt.subplots(1, 2, figsize=(8, 3), sharey=True)
-    metrics = ["normalized_score", "rank"]
+    metrics = ["normalized-error", "rank"]
     for i, metric in enumerate(metrics):
         for j, method_style in enumerate(method_styles):
             xx = df.loc[df.method == method_style.name, metric].sort_values()
@@ -120,6 +120,7 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
 
     # makes autogluon black to respect colors used in previous plots
     colors[5] = "black"
+    colors[6] = "yellow"
     markers = ['v', '^', "8", "D", 'v', "s", '*', ]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
     fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3), dpi=300)
