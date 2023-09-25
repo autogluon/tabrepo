@@ -1,10 +1,13 @@
+import math
 from pathlib import Path
+import warnings
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from autogluon_zeroshot.repository.evaluation_repository import load
+from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
 from autogluon_zeroshot.utils.cache import cache_function
+from baseline_comparison.plot_utils import save_latex_table
 from scripts import load_context
 
 
@@ -25,11 +28,51 @@ def index(name):
         return int(config_number)
 
 
+def generate_dataset_info_latex(repo: EvaluationRepository):
+    metadata = repo._df_metadata.copy()
+    assert len(metadata) == len(repo.tids())
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore')
+        metadata['problem_type'] = ''
+        metadata['problem_type'][metadata['NumberOfClasses'] == 2] = 'binary'
+        metadata['problem_type'][metadata['NumberOfClasses'] > 2] = 'multiclass'
+        metadata['problem_type'][metadata['NumberOfClasses'] == 0] = 'regression'
+
+    metadata_min = metadata[["tid", "name", "NumberOfInstances", "NumberOfFeatures", "NumberOfClasses", 'problem_type']]
+    metadata_min_sorted = metadata_min.sort_values(by=["name"])
+    metadata_latex = metadata_min_sorted.copy()
+
+    metadata_latex.columns = ['Task ID', 'name', 'n', 'f', 'C', 'Problem Type']
+    metadata_latex['n'] = metadata_latex['n'].astype(int)
+    metadata_latex['f'] = metadata_latex['f'].astype(int)
+    metadata_latex['C'] = metadata_latex['C'].astype(int)
+    metadata_latex['name'] = metadata_latex['name'].apply(lambda x: x[:25])
+
+    problem_types = ['binary', 'multiclass', 'regression']
+    latex_kwargs = dict(
+        index=False,
+    )
+
+    # Separate by problem types and into batches to ensure each table fits on one page
+    for p in problem_types:
+        metadata_latex_p = metadata_latex[metadata_latex['Problem Type'] == p]
+        num_datasets = len(metadata_latex_p)
+        batch_size = 40
+        num_batches = math.ceil(num_datasets / batch_size)
+        for batch in range(num_batches):
+            save_latex_table(df=metadata_latex_p.iloc[batch * batch_size:(batch + 1) * batch_size], title=f"dataset_info_{p}_{batch + 1}", show_table=True,
+                             latex_kwargs=latex_kwargs)
+
+
 num_models_to_plot = 20
 title_size = 20
 figsize = (20, 7)
 
-repo = load_context()
+repo_version = "BAG_D244_F3_C1416"
+repo: EvaluationRepository = load_context(version=repo_version)
+
+generate_dataset_info_latex(repo=repo)
 
 zsc = repo._zeroshot_context
 
