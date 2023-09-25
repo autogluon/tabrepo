@@ -38,6 +38,7 @@ numcpuhoursnosimu = numhoursnosimu * n_cpus
 
 stats = {
     "realnumdatasets": n_datasets,
+    "realnumtasks": n_datasets * n_seeds,
     "realnumbagged": n_bagged,
     "realnumhps": n_hps,
     "realnumseeds": n_seeds,

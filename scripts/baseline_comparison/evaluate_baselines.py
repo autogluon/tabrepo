@@ -145,11 +145,11 @@ if __name__ == "__main__":
             ray.init(num_cpus=num_ray_processes)
 
     n_eval_folds = args.n_folds
-    n_portfolios = [5, 10, 20, 40, 80, 160]
+    n_portfolios = [5, 10, 40, 160]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
-    n_training_datasets = [1, 4, 16, 32, 64, 128, 211]
+    n_training_datasets = [16, 32, 64, 128, 200]
     n_training_folds = [1, 2, 5, 10]
-    n_training_configs = [1, 2, 5, 50, 100, 200]
+    n_training_configs = [5, 50, 100, 200]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
     linestyle_default = "-"
@@ -284,11 +284,11 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_dataset=size),
-            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=f"D{size}",
+            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}~=~" + f"{size}$",
         )
         for i, size in enumerate(n_training_datasets)
     ]
-    plot_figure(df, method_styles, title="Effect of number of training datasets", figname="cdf-n-training-datasets")
+    plot_figure(df, method_styles, title="Effect of number of training tasks", figname="cdf-n-training-datasets")
 
     # # Plot effect number of training fold
     # method_styles = ag_styles + [
@@ -304,7 +304,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_portfolio=size),
-            color=cmap(i / (len(n_portfolios) - 1)), linestyle="-", label_str=f"N{size}",
+            color=cmap(i / (len(n_portfolios) - 1)), linestyle="-", label_str=r"$\mathcal{N}~=~" + f"{size}$",
         )
         for i, size in enumerate(n_portfolios)
     ]
@@ -314,7 +314,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_config=size),
-            color=cmap(i / (len(n_training_configs) - 1)), linestyle="-", label_str=f"M{size}",
+            color=cmap(i / (len(n_training_configs) - 1)), linestyle="-", label_str=r"$\mathcal{M}'~=~" + f"{size}$",
         )
         for i, size in enumerate(n_training_configs)
     ]
@@ -324,7 +324,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(max_runtime=size),
-            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"{time_suffix(size)}",
+            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-", label_str=f"{time_suffix(size)}"[1:-1],
         )
         for i, size in enumerate(max_runtimes)
     ]
