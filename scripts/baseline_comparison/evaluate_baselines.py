@@ -222,11 +222,20 @@ if __name__ == "__main__":
     ])
     rename_dict = make_rename_dict(suffix="8c_2023_08_21")
     df["method"] = df["method"].replace(rename_dict)
+    df.rename({
+        "normalized_score": "normalized-error",
+        "time_train_s": "time fit (s)",
+        "time_infer_s": "time infer (s)",
+    },
+        inplace=True, axis=1
+    )
+
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
-    print("all")
+    total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
+    print(f"Total time of experiments: {total_time_h} hours")
+
     show_latex_table(df, "all", show_table=True)
-    print(f"Total time of experiments: {df.time_train_s.sum() / 3600} hours")
     ag_styles = [
         # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
         MethodStyle("AutoGluon best (4h)", color="black", linestyle="-.", label_str="AG best (4h)", linewidth=2.5),
@@ -351,7 +360,7 @@ if __name__ == "__main__":
     show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
 
 
-    fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["rank", "normalized-score"])
+    fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["rank", "normalized-error"])
     fig_save_path = (
         output_path / "figures" / f"scatter-perf-vs-time.pdf"
     )
