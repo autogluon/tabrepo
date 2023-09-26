@@ -238,9 +238,11 @@ if __name__ == "__main__":
     n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 50, 100, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
-    n_training_datasets = list(range(10, 210, 10))
+    # n_training_datasets = list(range(10, 210, 10))
+    # n_training_configs = list(range(10, 210, 10))
+    n_training_datasets = [5, 10, 50, 100, 200]
+    n_training_configs = [5, 10, 50, 100, 200]
     n_training_folds = [1, 2, 5, 10]
-    n_training_configs = list(range(10, 210, 10))
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
     linestyle_default = "-"
