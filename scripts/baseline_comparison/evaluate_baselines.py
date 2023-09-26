@@ -25,7 +25,7 @@ from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
     show_latex_table,
     show_cdf,
-    show_scatter_performance_vs_time,
+    show_scatter_performance_vs_time, iqm,
 )
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
@@ -79,7 +79,7 @@ def impute_missing(repo: EvaluationRepository):
     repo._zeroshot_context.df_results_by_dataset_vs_automl = df
 
 
-def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname: str = None):
+def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname: str = None, show: bool = False):
     fig, _ = show_cdf(df[df.method.isin([m.name for m in method_styles])], method_styles=method_styles)
     if title:
         fig.suptitle(title)
@@ -89,7 +89,8 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
         fig_save_path_dir.mkdir(parents=True, exist_ok=True)
         plt.tight_layout()
         plt.savefig(fig_save_path)
-    plt.show()
+    if show:
+        plt.show()
 
 
 def make_rename_dict(suffix: str) -> Dict[str, str]:
@@ -104,6 +105,96 @@ def make_rename_dict(suffix: str) -> Dict[str, str]:
         for preset in ["best"]:
             rename_dict[f"AutoGluon_{preset[0]}q_{minute}m{suffix}"] = f"AutoGluon {preset} ({minute}m)"
     return rename_dict
+
+
+def time_cutoff_baseline(df, rel_tol = 0.1):
+    df = df.copy()
+    # TODO Portfolio excess are due to just using one fold to simulate runtimes, fix it
+    mask = (df["time fit (s)"] > df["fit budget"] * (1 + rel_tol)) & (~df.method.str.contains("Portfolio"))
+
+    # gets performance of Extra-trees baseline on all tasks
+    dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    dd = dd[dd.framework == "ExtraTrees_c1_BAG_L1"]
+    dd["tid"] = dd.dataset.apply(lambda s: int(s.split("_")[0]))
+    dd["fold"] = dd.dataset.apply(lambda s: int(s.split("_")[1]))
+    dd["rank"] = dd.apply(lambda row: rank_scorer.rank(dataset=row["dataset"], error=row["metric_error"]), axis=1)
+    dd["normalized-score"] = dd.apply(
+        lambda row: normalized_scorer.rank(dataset=row["dataset"], error=row["metric_error"]), axis=1)
+    df_baseline = dd[["tid", "fold", "rank", "normalized-score"]]
+
+    df.loc[mask, ["normalized_score", "rank"]] = df.loc[mask, ["tid", "fold"]].merge(df_baseline, on=["tid", "fold"])[
+        ["normalized-score", "rank"]].values
+
+    return df
+
+
+def rename_dataframe(df):
+    rename_dict = make_rename_dict(suffix="8c_2023_08_21")
+    df["method"] = df["method"].replace(rename_dict)
+    df.rename({
+        "normalized_score": "normalized-error",
+        "time_train_s": "time fit (s)",
+        "time_infer_s": "time infer (s)",
+    },
+        inplace=True, axis=1
+    )
+
+    def convert_timestamp(s):
+        if "h)" in s:
+            return float(s.split("(")[-1].replace("h)", "")) * 3600
+        elif "m)" in s:
+            return float(s.split("(")[-1].replace("m)", "")) * 60
+        else:
+            return None
+
+    df["fit budget"] = df.method.apply(convert_timestamp)
+
+    return df
+
+def generate_sentitivity_plots(df, show: bool = False):
+    # show stds
+
+    # show stds
+    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(10, 6))
+
+    dimensions = [
+        ("M", "Number of configuration per family"),
+        ("D", "Number of training datasets to fit portfolios"),
+    ]
+    for i, (dimension, legend) in enumerate(dimensions):
+
+        for j, metric in enumerate(["normalized-error", "rank"]):
+            df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :]
+            df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric]
+
+            df_portfolio.loc[:, dimension] = df_portfolio.loc[:, "method"].apply(lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
+
+            dim, mean, sem = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
+                ["mean", "sem"]).reset_index().values.T
+            mean = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
+                iqm).reset_index().loc[:, metric].values
+            ax = axes[j][i]
+            ax.errorbar(
+                dim, mean, sem,
+                label="Portfolio",
+                linestyle="",
+                marker="o",
+            )
+            ax.set_xlim([0, None])
+            if j == 1:
+                ax.set_xlabel(legend)
+            if i == 0:
+                ax.set_ylabel(f"Avg {metric}")
+            ax.grid()
+            ax.hlines(iqm(df_ag), xmin=min(dim), xmax=max(dim), color="black", label="AutoGluon", ls="--")
+            if j == 1:
+                ax.legend()
+    fig_save_path = output_path / "figures" / f"sensitivity.pdf"
+    fig_save_path_dir = fig_save_path.parent
+    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(fig_save_path)
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -145,15 +236,24 @@ if __name__ == "__main__":
             ray.init(num_cpus=num_ray_processes)
 
     n_eval_folds = args.n_folds
-    n_portfolios = [5, 10, 50, n_portfolios_default]
+    n_portfolios = [5, 10, 50, 100, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
-    n_training_datasets = [5, 10, 50, 100, 200]
+    n_training_datasets = list(range(10, 210, 10))
     n_training_folds = [1, 2, 5, 10]
-    n_training_configs = [5, 10, 50, 100, 200]
+    n_training_configs = list(range(10, 210, 10))
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
     linestyle_default = "-"
     linestyle_tune = "dotted"
+
+    # Number of digits to show in table
+    n_digits = {
+        "normalized-error": 3,
+        "rank": 1,
+        "time fit (s)": 1,
+        "time infer (s)": 3,
+    }
+
 
     repo: EvaluationRepository = load_context(version=repo_version)
     if n_eval_folds == -1:
@@ -220,22 +320,19 @@ if __name__ == "__main__":
     df = pd.concat([
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
     ])
-    rename_dict = make_rename_dict(suffix="8c_2023_08_21")
-    df["method"] = df["method"].replace(rename_dict)
-    df.rename({
-        "normalized_score": "normalized-error",
-        "time_train_s": "time fit (s)",
-        "time_infer_s": "time infer (s)",
-    },
-        inplace=True, axis=1
-    )
+
+    df = rename_dataframe(df)
+
+    # df = time_cutoff_baseline(df)
 
     print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
     print(f"Total time of experiments: {total_time_h} hours")
 
-    show_latex_table(df, "all", show_table=True)
+    generate_sentitivity_plots(df)
+
+    show_latex_table(df, "all", show_table=True, n_digits=n_digits)
     ag_styles = [
         # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
         MethodStyle("AutoGluon best (4h)", color="black", linestyle="-.", label_str="AG best (4h)", linewidth=2.5),
@@ -247,7 +344,7 @@ if __name__ == "__main__":
     for i, framework_type in enumerate(framework_types):
         method_styles.append(
             MethodStyle(
-                f"{framework_type} (default)",
+                framework_name(framework_type, tuned=False),
                 color=sns.color_palette('bright')[i],
                 linestyle=linestyle_default,
                 label=True,
@@ -256,7 +353,7 @@ if __name__ == "__main__":
         )
         method_styles.append(
             MethodStyle(
-                framework_name(framework_type, 4 * 3600, ensemble_size=1),
+                framework_name(framework_type, max_runtime=4 * 3600, ensemble_size=1, tuned=True),
                 color=sns.color_palette('bright')[i],
                 linestyle=linestyle_tune,
                 label=False,
@@ -264,14 +361,14 @@ if __name__ == "__main__":
         )
         method_styles.append(
             MethodStyle(
-                f"Tuned {framework_type} + ensemble (4h)",
+                framework_name(framework_type, max_runtime=4 * 3600, tuned=True),
                 color=sns.color_palette('bright')[i],
                 linestyle=linestyle_ensemble,
                 label=False,
                 label_str=framework_type
             )
         )
-    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks")#, ["rank", "normalized_score", ])
+    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits)#, ["rank", "normalized_score", ])
 
     plot_figure(df, method_styles, figname="cdf-frameworks")
 
@@ -282,7 +379,7 @@ if __name__ == "__main__":
 
     plot_figure(
         df,
-        [x for x in method_styles if any(pattern in x.name for pattern in ["Tuned", "AutoGluon"])],
+        [x for x in method_styles if any(pattern in x.name for pattern in ["tuned", "AutoGluon"])],
         figname="cdf-frameworks-ensemble",
         title="Effect of tuning & ensembling",
         # title="Comparison of frameworks",
@@ -340,7 +437,6 @@ if __name__ == "__main__":
     ]
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
 
-    df["method"] = df["method"].replace(rename_dict)
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     four_hour_suffix = "\(4h\)"
     df = df[~df.method.str.contains("All")]
@@ -356,9 +452,9 @@ if __name__ == "__main__":
         df_selected,
         "selected-methods",
         show_table=True,
+        n_digits = n_digits,
     )
-
-    show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
+    show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot", n_digits=n_digits)
 
 
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])

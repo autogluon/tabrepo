@@ -18,7 +18,7 @@ from autogluon_zeroshot.repository.time_utils import (
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 default_ensemble_size = 40
-n_portfolios_default = 100
+n_portfolios_default = 200
 default_runtime = 3600 * 4
 
 framework_types = [
@@ -122,6 +122,17 @@ def evaluate_configs(
     return rows
 
 
+def framework_name(framework_type, max_runtime=None, ensemble_size=default_ensemble_size, tuned: bool=True) -> str:
+    method = framework_type if framework_type else "All"
+    if not tuned:
+        return method + " (default)"
+    else:
+        suffix = " (tuned + ensemble)" if ensemble_size > 1 else " (tuned)"
+        suffix += time_suffix(max_runtime=max_runtime)
+        method += suffix
+    return method
+
+
 def framework_default_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer,
                               normalized_scorer, engine: str, **kwargs) -> List[ResultRow]:
     """
@@ -141,14 +152,9 @@ def framework_default_results(repo: EvaluationRepository, dataset_names: List[st
             method=name,
         )
 
-    default_models = [x for x in repo.list_models() if "_c" in x]
     defaults = [
-        (f'{framework_type} (default)', [f'{framework_type}_c1_BAG_L1'], 1)
+        (framework_name(framework_type, tuned=False), [f'{framework_type}_c1_BAG_L1'], 1)
         for framework_type in framework_types
-    ]
-    defaults += [
-        ('All (default)', default_models, 1),
-        ('All (default + ensemble)', default_models, 20),
     ]
 
     list_rows = parallel_for(
@@ -199,19 +205,6 @@ def sample_and_pick_best(
     return df_sub["framework"].tolist(), best_configs
 
 
-def framework_name(framework_type, max_runtime, ensemble_size) -> str:
-    method = "Tuned "
-    method += framework_type if framework_type else "All"
-    if not max_runtime and not ensemble_size:
-        return method
-    else:
-        suffix = " + ensemble" if ensemble_size and ensemble_size > 1 else ""
-        suffix += time_suffix(max_runtime=max_runtime)
-        method += suffix
-
-    return method
-
-
 def framework_best_results(
         repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
         max_runtimes: float = [3600],
@@ -248,7 +241,7 @@ def framework_best_results(
                 ensemble_size=ensemble_size,
                 tid=tid,
                 folds=[fold],
-                method=framework_name(framework_type, max_runtime, ensemble_size),
+                method=framework_name(framework_type, max_runtime, ensemble_size, tuned=True),
             )
             rows
         return rows
@@ -331,7 +324,7 @@ def zeroshot_name(
     #     suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
     if n_ensemble is None or n_ensemble > 1:
-        suffix += " + ensemble"
+        suffix += " (ensemble)"
     suffix += time_suffix(max_runtime)
     return f"Portfolio{suffix}"
 

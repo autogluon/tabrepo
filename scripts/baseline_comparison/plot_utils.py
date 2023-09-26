@@ -28,13 +28,20 @@ def iqm(x):
     return np.mean(x[start:end])
 
 
-def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False):
-    df_metrics = compute_avg_metrics(df)
-    latex_kwargs = dict(float_format="%.2f")
-    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs)
+def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs=None, n_digits=None):
+    metrics = ["normalized-error", "rank", "time fit (s)", "time infer (s)"]
+    df_metrics = compute_avg_metrics(df, metrics)
+    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs, n_digits=n_digits)
 
 
-def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None):
+def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None, n_digits = None):
+    if not n_digits:
+        n_digits = {}
+
+    for col in df.columns:
+        n_digit = n_digits.get(col, 2)
+        df.loc[:, col] = df.loc[:, col].apply(lambda s: f'{s:.{n_digit}f}')
+
     if latex_kwargs is None:
         latex_kwargs = dict()
     s = df.to_latex(**latex_kwargs)
@@ -48,9 +55,9 @@ def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, lat
         print(s)
 
 
-def compute_avg_metrics(df: pd.DataFrame):
+def compute_avg_metrics(df: pd.DataFrame, metrics):
     avg_metrics = {}
-    for metric in ["normalized-error", "rank", "time fit (s)", "time infer (s)"]:
+    for metric in metrics:
         avg_metric = df.loc[:, ["method", metric]].groupby("method").agg("mean")[metric]
         #
         # # We use mean to aggregate runtimes as IQM does not make too much sense in this context,
@@ -115,12 +122,12 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
 def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     import seaborn as sns
 
-    df_metrics = compute_avg_metrics(df)
+    df_metrics = compute_avg_metrics(df, ["normalized-error", "rank", "time fit (s)", "time infer (s)", "fit budget"])
     colors = [sns.color_palette("bright")[j] for j in range(10)]
 
     # makes autogluon black to respect colors used in previous plots
     colors[5] = "black"
-    colors[6] = "yellow"
+    # colors[6] = "yellow"
     markers = ['v', '^', "8", "D", 'v', "s", '*', ]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
     fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3), dpi=300)
@@ -131,16 +138,11 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
         df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
 
     df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best")]
-    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N{n_portfolios_default} .*ensemble.*\(.*\)")]
-
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains( f"Portfolio-N{n_portfolios_default} .*ens.*")]
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
-            # ugly way to get hour Portfolio-N160 + ensemble (0.17h) -> 0.17
-            fitting_budget_hour = [float(s.split("(")[-1][:-2]) for s in df_framework.index]
-
-            # Convert minutes to hours
-            fitting_budget_hour = [f/60 if s.rsplit(")")[0][-1] == 'm' else f for s, f in zip(df_framework.index, fitting_budget_hour)]
+            fitting_budget_hour = df_framework["fit budget"] / 3600
 
             axes[i].scatter(
                 fitting_budget_hour,
