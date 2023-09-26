@@ -19,7 +19,7 @@ from scripts.baseline_comparison.baselines import (
     zeroshot_results,
     zeroshot_name,
     ResultRow,
-    framework_types, framework_name, time_suffix, default_ensemble_size,
+    framework_types, framework_name, time_suffix, default_ensemble_size, n_portfolios_default,
 )
 from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
@@ -145,7 +145,7 @@ if __name__ == "__main__":
             ray.init(num_cpus=num_ray_processes)
 
     n_eval_folds = args.n_folds
-    n_portfolios = [5, 10, 50, 160]
+    n_portfolios = [5, 10, 50, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     n_training_datasets = [5, 10, 50, 100, 200]
     n_training_folds = [1, 2, 5, 10]
@@ -182,10 +182,10 @@ if __name__ == "__main__":
             expname=expname, name=f"framework-best-{expname}",
             run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
         ),
-        Experiment(
-            expname=expname, name=f"framework-all-best-{expname}",
-            run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
-        ),
+        # Experiment(
+        #     expname=expname, name=f"framework-all-best-{expname}",
+        #     run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
+        # ),
         # Automl baselines such as Autogluon best, high, medium quality
         Experiment(
             expname=expname, name=f"automl-baselines-{expname}",
@@ -343,10 +343,11 @@ if __name__ == "__main__":
     df["method"] = df["method"].replace(rename_dict)
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     four_hour_suffix = "\(4h\)"
+    df = df[~df.method.str.contains("All")]
     df_selected = df[
         (df.method.str.contains(f"AutoGluon .*{four_hour_suffix}")) |
         (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{four_hour_suffix}")) |
-        (df.method.str.contains(f"Portfolio-N160 .*{four_hour_suffix}")) |
+        (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{four_hour_suffix}")) |
         (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{four_hour_suffix}")) |
         (df.method.str.contains(".*default.*"))
     ]
@@ -360,7 +361,7 @@ if __name__ == "__main__":
     show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot")
 
 
-    fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["rank", "normalized-error"])
+    fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])
     fig_save_path = (
         output_path / "figures" / f"scatter-perf-vs-time.pdf"
     )

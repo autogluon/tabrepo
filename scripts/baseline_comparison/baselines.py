@@ -18,7 +18,7 @@ from autogluon_zeroshot.repository.time_utils import (
 from autogluon_zeroshot.utils.parallel_for import parallel_for
 
 default_ensemble_size = 40
-n_portfolios_default = 160
+n_portfolios_default = 100
 default_runtime = 3600 * 4
 
 framework_types = [
