@@ -1,4 +1,5 @@
 from __future__ import annotations
+from autorank import autorank, plot_stats, create_report, latex_table
 
 from dataclasses import dataclass
 from scripts import output_path
@@ -33,6 +34,11 @@ def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, lat
     df_metrics = compute_avg_metrics(df, metrics)
     save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs, n_digits=n_digits)
 
+
+def figure_path():
+    fig_save_path_dir = output_path / "figures"
+    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    return fig_save_path_dir
 
 def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None, n_digits = None):
     if not n_digits:
@@ -120,6 +126,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
 
 
 def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
+    # show performance over time for 1h, 4h and 24h budgets for AG, PF and other frameworks
     import seaborn as sns
 
     df_metrics = compute_avg_metrics(df, ["normalized-error", "rank", "time fit (s)", "time infer (s)", "fit budget"])
@@ -137,8 +144,8 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     for automl_framework in ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]:
         df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
 
-    df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best")]
-    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains( f"Portfolio-N{n_portfolios_default} .*ens.*")]
+    df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best.*h")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains( f"Portfolio-N{n_portfolios_default} .*ens.*h")]
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
@@ -155,7 +162,8 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
             axes[i].set_xscale("log")
-            axes[i].set_xticks([5/60, 10/60, 30/60, 1, 4, 24], ["5m", "10m", "30m", "1h", "4h", "24h"])
+            # axes[i].set_xticks([5/60, 10/60, 30/60, 1, 4, 24], ["5m", "10m", "30m", "1h", "4h", "24h"])
+            axes[i].set_xticks([1, 4, 24], ["1h", "4h", "24h"])
             axes[i].grid('on')
 
     # fig.legend(axes, df_frameworks.keys(), loc = "upper center", ncol=5)
@@ -170,3 +178,93 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     bbox_extra_artists = (lgd, text)
 
     return fig, axes, bbox_extra_artists
+
+
+def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols):
+    # show performance over time for all budgets for AG and PF where evaluations are available
+    import seaborn as sns
+    from scripts.baseline_comparison.plot_utils import compute_avg_metrics
+    n_portfolios_default = 200
+    metric_cols = ["normalized-error", "rank"]
+    df_metrics = compute_avg_metrics(df, ["normalized-error", "rank", "time fit (s)", "time infer (s)", "fit budget"])
+
+    # makes autogluon black to respect colors used in previous plots
+    colors = ["black", sns.color_palette("bright")[6]]
+    # colors[6] = "yellow"
+    markers = ["s", '*', ]
+    # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
+    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3), dpi=300)
+
+    df_frameworks = {}
+    df_frameworks["AutoGluon best"] = df_metrics[df_metrics.index.str.contains("AutoGluon best")]
+    df_frameworks["Portfolio"] = df_metrics[df_metrics.index.str.contains(f"Portfolio-N{n_portfolios_default} .*ens")]
+
+    for i, metric_col in enumerate(metric_cols):
+        for j, (framework, df_framework) in enumerate(df_frameworks.items()):
+            fitting_budget_hour = df_framework["fit budget"] / 3600
+
+            axes[i].scatter(
+                fitting_budget_hour,
+                df_framework[metric_col],
+                label=framework,
+                color=colors[j],
+                marker=markers[j],
+                s=100.0 if markers[j] == "*" else 70.0,
+            )
+            axes[i].set_xlabel("Fitting budget (time)")
+            axes[i].set_ylabel(metric_col)
+            axes[i].set_xscale("log")
+            axes[i].set_xticks([5 / 60, 10 / 60, 30 / 60, 1, 4, 24], ["5m", "10m", "30m", "1h", "4h", "24h"])
+            axes[i].grid('on')
+            if i == 1:
+                axes[i].legend()
+
+    # fig.legend(axes, df_frameworks.keys(), loc = "upper center", ncol=5)
+    handles, labels = axes[-1].get_legend_handles_labels()
+    # fig.legend(handles, df_frameworks.keys(), loc='center right'), #ncol=len(df_frameworks),)
+
+    # used https://stackoverflow.com/questions/25068384/bbox-to-anchor-and-loc-in-matplotlib
+    # to be able to save figure with legend outside of bbox
+    lgd = fig.legend(handles, df_frameworks.keys(), loc='upper center', ncol=len(df_frameworks),
+                     bbox_to_anchor=(0.5, 1.1))
+    text = fig.text(-0.2, 1.05, "", transform=axes[0].transAxes)
+    bbox_extra_artists = (lgd, text)
+
+    return fig, axes, bbox_extra_artists
+
+
+def plot_critical_diagrams(df):
+    plt.rcParams.update({'font.size': 11})
+    # fig, axes = plt.subplots(1, 3, figsize=(20, 2))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 2))
+    for i, budget in enumerate(["1h", "4h"]):  # , "24h"]):
+        df_sub = df[df.method.str.contains(budget)].copy()
+        df_sub.loc[:, "method"] = df_sub.loc[:, "method"].apply(
+            lambda s: s.replace("-N200", "").replace(f" ({budget})", ""))
+        df_sub.loc[:, "method"] = df_sub.loc[:, "method"].apply(
+            lambda s: s.replace("CatBoost (tuned + ensemble)", "CB (tuned + ens)"))
+        df_sub.loc[:, "method"] = df_sub.loc[:, "method"].apply(
+            lambda s: s.replace(f'Portfolio (ensemble)', f'Portfolio (ens)'))
+
+        df_sub = df_sub[df_sub.method.isin([
+            f'Portfolio (ens)',
+            f'AutoGluon best',
+            f'H2oautoml',
+            f'Autosklearn2',
+            f'Autosklearn',
+            f'Flaml',
+            f'Lightautoml',
+            f'CB (tuned + ens)',
+        ])]
+        data = df_sub.pivot_table(index="tid", columns="method", values="rank")
+        result = autorank(data, alpha=0.05, verbose=False, order="ascending")
+        ax = axes[i]
+        ax.set_title(budget)
+        plot_stats(result, ax=ax, width=4)
+
+    plt.rcParams.update({'font.size': 9})
+
+    fig_save_path = figure_path() / f"critical-diagram.pdf"
+    plt.tight_layout()
+    plt.savefig(fig_save_path)
+    plt.show()
