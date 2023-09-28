@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib
 from pathlib import Path
 
+from autogluon.common.savers import save_pd
 from autogluon_zeroshot.repository.evaluation_repository import (
     load,
     EvaluationRepository,
@@ -27,6 +28,7 @@ from scripts.baseline_comparison.plot_utils import (
     show_cdf,
     show_scatter_performance_vs_time, iqm,
 )
+from autogluon_zeroshot.loaders import Paths
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
@@ -325,6 +327,9 @@ if __name__ == "__main__":
     # De-duplicate in case we ran a config multiple times
     df = df.drop_duplicates(subset=["method", "tid", "fold"])
     df = rename_dataframe(df)
+
+    # Save results
+    save_pd.save(path=str(Paths.data_root / "simulation" / "results.csv"), df=df)
 
     # df = time_cutoff_baseline(df)
 
