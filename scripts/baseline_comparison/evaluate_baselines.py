@@ -26,7 +26,8 @@ from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
     show_latex_table,
     show_cdf,
-    show_scatter_performance_vs_time, iqm,
+    show_scatter_performance_vs_time, iqm, show_scatter_performance_vs_time_lower_budgets, figure_path,
+    plot_critical_diagrams,
 )
 from autogluon_zeroshot.loaders import Paths
 from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
@@ -86,9 +87,7 @@ def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname
     if title:
         fig.suptitle(title)
     if figname:
-        fig_save_path = output_path / "figures" / f"{figname}.pdf"
-        fig_save_path_dir = fig_save_path.parent
-        fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+        fig_save_path = figure_path() / f"{figname}.pdf"
         plt.tight_layout()
         plt.savefig(fig_save_path)
     if show:
@@ -150,14 +149,14 @@ def rename_dataframe(df):
             return None
 
     df["fit budget"] = df.method.apply(convert_timestamp)
-
+    df.method = df.method.str.replace("NeuralNetTorch", "MLP")
     return df
 
 def generate_sentitivity_plots(df, show: bool = False):
     # show stds
 
     # show stds
-    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(10, 6))
+    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(9, 4))
 
     dimensions = [
         ("M", "Number of configuration per family"),
@@ -166,15 +165,15 @@ def generate_sentitivity_plots(df, show: bool = False):
     for i, (dimension, legend) in enumerate(dimensions):
 
         for j, metric in enumerate(["normalized-error", "rank"]):
-            df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :]
-            df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric]
+            df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :].copy()
+            df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
 
-            df_portfolio.loc[:, dimension] = df_portfolio.loc[:, "method"].apply(lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
+            df_portfolio.loc[:, dimension] = df_portfolio.loc[:, "method"].apply(
+                lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
+            df_portfolio = df_portfolio[df_portfolio[dimension] > 1]
 
             dim, mean, sem = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
                 ["mean", "sem"]).reset_index().values.T
-            mean = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
-                iqm).reset_index().loc[:, metric].values
             ax = axes[j][i]
             ax.errorbar(
                 dim, mean, sem,
@@ -186,17 +185,23 @@ def generate_sentitivity_plots(df, show: bool = False):
             if j == 1:
                 ax.set_xlabel(legend)
             if i == 0:
-                ax.set_ylabel(f"Avg {metric}")
+                ax.set_ylabel(f"{metric}")
             ax.grid()
-            ax.hlines(iqm(df_ag), xmin=min(dim), xmax=max(dim), color="black", label="AutoGluon", ls="--")
-            if j == 1:
+            ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
+            if i == 1 and j == 0:
                 ax.legend()
-    fig_save_path = output_path / "figures" / f"sensitivity.pdf"
-    fig_save_path_dir = fig_save_path.parent
-    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    fig_save_path = figure_path() / f"sensitivity.pdf"
     plt.tight_layout()
     plt.savefig(fig_save_path)
-    plt.show()
+    if show:
+        plt.show()
+
+
+def save_total_runtime_to_file(total_time_h):
+    # Save total runtime so that "show_repository_stats.py" can show the ratio of saved time
+    with open(output_path / "tables" / "runtime.txt", "w") as f:
+        f.write(str(total_time_h))
+
 
 
 if __name__ == "__main__":
@@ -242,8 +247,9 @@ if __name__ == "__main__":
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
-    n_training_datasets = [5, 10, 50, 100, 200]
-    n_training_configs = [5, 10, 50, 100, 200]
+    n_training_datasets = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
+    n_training_configs = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
+    n_seeds = 20
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
@@ -303,10 +309,6 @@ if __name__ == "__main__":
             expname=expname, name=f"zeroshot-{expname}-maxruntimes",
             run_fun=lambda: zeroshot_results(max_runtimes=max_runtimes, **experiment_common_kwargs)
         ),
-        Experiment(
-            expname=expname, name=f"zeroshot-{expname}-num-training-datasets",
-            run_fun=lambda: zeroshot_results(n_training_datasets=n_training_datasets, **experiment_common_kwargs)
-        ),
         # Experiment(
         #     expname=expname, name=f"zeroshot-{expname}-num-folds",
         #     run_fun=lambda: zeroshot_results(n_training_folds=n_training_folds, ** experiment_common_kwargs)
@@ -315,11 +317,20 @@ if __name__ == "__main__":
             expname=expname, name=f"zeroshot-{expname}-num-portfolios",
             run_fun=lambda: zeroshot_results(n_portfolios=n_portfolios, n_ensembles=[1, default_ensemble_size], **experiment_common_kwargs)
         ),
-        Experiment(
-            expname=expname, name=f"zeroshot-{expname}-num-configs",
-            run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
-        ),
     ]
+
+    # Use more seeds
+    for seed in range(n_seeds):
+        experiments.append(Experiment(
+            expname=expname, name=f"zeroshot-{expname}-num-configs-{seed}",
+            run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
+        ))
+
+        experiments.append(Experiment(
+            expname=expname, name=f"zeroshot-{expname}-num-training-datasets-{seed}",
+            run_fun=lambda: zeroshot_results(n_training_datasets=n_training_datasets, **experiment_common_kwargs)
+        ))
+
 
     df = pd.concat([
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
@@ -337,8 +348,10 @@ if __name__ == "__main__":
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
     print(f"Total time of experiments: {total_time_h} hours")
+    save_total_runtime_to_file(total_time_h)
 
-    generate_sentitivity_plots(df)
+
+    generate_sentitivity_plots(df, show=False)
 
     show_latex_table(df, "all", show_table=True, n_digits=n_digits)
     ag_styles = [
@@ -349,6 +362,9 @@ if __name__ == "__main__":
     ]
 
     method_styles = ag_styles.copy()
+    framework_types.remove("NeuralNetTorch")
+    framework_types.append("MLP")
+
     for i, framework_type in enumerate(framework_types):
         method_styles.append(
             MethodStyle(
@@ -398,7 +414,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_dataset=size),
-            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}~=~" + f"{size}$",
+            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}'~=~" + f"{size}$",
         )
         for i, size in enumerate(n_training_datasets)
     ]
@@ -446,31 +462,34 @@ if __name__ == "__main__":
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
 
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
-    four_hour_suffix = "\(4h\)"
-    df = df[~df.method.str.contains("All")]
-    df_selected = df[
-        (df.method.str.contains(f"AutoGluon .*{four_hour_suffix}")) |
-        (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{four_hour_suffix}")) |
-        (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{four_hour_suffix}")) |
-        (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{four_hour_suffix}")) |
-        (df.method.str.contains(".*default.*"))
-    ]
-    df_selected.method = df_selected.method.str.replace(" \(4h\)", "")
-    show_latex_table(
-        df_selected,
-        "selected-methods",
-        show_table=True,
-        n_digits = n_digits,
-    )
+    for budget in ["1h", "4h"]:
+        budget_suffix = f"\({budget}\)"
+        # df = df[~df.method.str.contains("All")]
+        df_selected = df[
+            (df.method.str.contains(f"AutoGluon .*{budget_suffix}")) |
+            (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
+            (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{budget_suffix}")) |
+            (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
+            (df.method.str.contains(".*default.*"))
+        ].copy()
+        df_selected.method = df_selected.method.str.replace(f" {budget_suffix}", "").str.replace(f"\-N{n_portfolios_default}", "")
+        show_latex_table(
+            df_selected,
+            f"selected-methods-{budget}",
+            show_table=True,
+            n_digits=n_digits,
+        )
+
     show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot", n_digits=n_digits)
 
-
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])
-    fig_save_path = (
-        output_path / "figures" / f"scatter-perf-vs-time.pdf"
-    )
-    fig_save_path_dir = fig_save_path.parent
-    fig_save_path_dir.mkdir(parents=True, exist_ok=True)
+    fig_save_path = figure_path() / f"scatter-perf-vs-time.pdf"
     fig.savefig(fig_save_path, bbox_extra_artists=bbox_extra_artists, bbox_inches='tight')
     fig.show()
 
+    fig, _, bbox_extra_artists = show_scatter_performance_vs_time_lower_budgets(df, metric_cols=["normalized-error", "rank"])
+    fig_save_path = figure_path() / f"scatter-perf-vs-time-lower-budget.pdf"
+    fig.savefig(fig_save_path, bbox_extra_artists=bbox_extra_artists, bbox_inches='tight')
+    fig.show()
+
+    plot_critical_diagrams(df)

@@ -72,6 +72,7 @@ figsize = (20, 7)
 repo_version = "BAG_D244_F3_C1416"
 repo: EvaluationRepository = load_context(version=repo_version)
 
+# Fails with: ValueError: Unknown format code 'f' for object of type 'str'
 generate_dataset_info_latex(repo=repo)
 
 zsc = repo._zeroshot_context
@@ -83,12 +84,14 @@ df = zsc.df_results_by_dataset_vs_automl.copy()
 
 config_regexp = "(" + "|".join([str(x) for x in range(6)]) + ")"
 df = df[df.framework.str.contains(f"r{config_regexp}_BAG_L1")]
+df.framework = df.framework.str.replace("NeuralNetTorch", "MLP")
+
 metric = "metric_error"
 df_pivot = df.pivot_table(
     index="framework", columns="tid", values=metric
 )
 df_rank = df_pivot.rank() / len(df_pivot)
-df_rank.index = [x.replace("NeuralNetFastAI", "MLP").replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
+df_rank.index = [x.replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
 # shorten framework names
 #df_rank.index = [x.replace("ExtraTrees", "ET").replace("CatBoost", "CB").replace("LightGBM", "LGBM").replace("NeuralNetFastAI", "MLP").replace("RandomForest", "RF").replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
 
