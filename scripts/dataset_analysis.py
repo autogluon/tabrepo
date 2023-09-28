@@ -73,7 +73,7 @@ repo_version = "BAG_D244_F3_C1416"
 repo: EvaluationRepository = load_context(version=repo_version)
 
 # Fails with: ValueError: Unknown format code 'f' for object of type 'str'
-# generate_dataset_info_latex(repo=repo)
+generate_dataset_info_latex(repo=repo)
 
 zsc = repo._zeroshot_context
 

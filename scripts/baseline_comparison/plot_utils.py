@@ -41,12 +41,10 @@ def figure_path():
     return fig_save_path_dir
 
 def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None, n_digits = None):
-    if not n_digits:
-        n_digits = {}
-
-    for col in df.columns:
-        n_digit = n_digits.get(col, 2)
-        df.loc[:, col] = df.loc[:, col].apply(lambda s: f'{s:.{n_digit}f}')
+    if n_digits:
+        for col in df.columns:
+            n_digit = n_digits.get(col, 2)
+            df.loc[:, col] = df.loc[:, col].apply(lambda s: f'{s:.{n_digit}f}')
 
     if latex_kwargs is None:
         latex_kwargs = dict()
@@ -244,9 +242,7 @@ def plot_critical_diagrams(df):
         df_sub.loc[:, "method"] = df_sub.loc[:, "method"].apply(
             lambda s: s.replace("-N200", "").replace(f" ({budget})", ""))
         df_sub.loc[:, "method"] = df_sub.loc[:, "method"].apply(
-            lambda s: s.replace("CatBoost (tuned + ensemble)", "CB (tuned + ens)"))
-        df_sub.loc[:, "method"] = df_sub.loc[:, "method"].apply(
-            lambda s: s.replace(f'Portfolio (ensemble)', f'Portfolio (ens)'))
+            lambda s: s.replace("ensemble", "ens"))
 
         df_sub = df_sub[df_sub.method.isin([
             f'Portfolio (ens)',
@@ -256,7 +252,7 @@ def plot_critical_diagrams(df):
             f'Autosklearn',
             f'Flaml',
             f'Lightautoml',
-            f'CB (tuned + ens)',
+            f'CatBoost (tuned + ens)',
         ])]
         data = df_sub.pivot_table(index="tid", columns="method", values="rank")
         result = autorank(data, alpha=0.05, verbose=False, order="ascending")
