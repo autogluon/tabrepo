@@ -34,6 +34,7 @@ from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
 from autogluon_zeroshot.utils.rank_utils import RankScorer
 from dataclasses import dataclass
 from scripts import output_path, load_context
+from scripts.baseline_comparison.compare_results import winrate_comparison
 
 
 @dataclass
@@ -493,3 +494,5 @@ if __name__ == "__main__":
     fig.show()
 
     plot_critical_diagrams(df)
+
+    winrate_comparison(df=df, repo=repo)
