@@ -236,7 +236,7 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
 
 
 def plot_critical_diagrams(df):
-    plt.rcParams.update({'font.size': 11})
+    plt.rcParams.update({'font.size': 12})
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 2))
     for i, budget in enumerate(["1h", "4h"]):  # , "24h"]):

@@ -156,7 +156,7 @@ def generate_sentitivity_plots(df, show: bool = False):
     # show stds
 
     # show stds
-    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(9, 3))
+    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(9, 4))
 
     dimensions = [
         ("M", "Number of configuration per family"),
@@ -249,7 +249,7 @@ if __name__ == "__main__":
     # n_training_configs = list(range(10, 210, 10))
     n_training_datasets = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
     n_training_configs = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
-    n_seeds = 10
+    n_seeds = 20
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
