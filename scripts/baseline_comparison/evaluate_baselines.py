@@ -239,8 +239,9 @@ if __name__ == "__main__":
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
-    n_training_datasets = [5, 10, 50, 100, 150, 200]
-    n_training_configs = [5, 10, 50, 100, 150, 200]
+    n_training_datasets = [1, 5, 10, 25, 50, 100, 150, 199]
+    n_training_configs = [1, 5, 10, 25, 50, 100, 150, 200]
+    n_seeds = 10
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
@@ -311,7 +312,7 @@ if __name__ == "__main__":
     ]
 
     # Use more seeds
-    for seed in range(10):
+    for seed in range(n_seeds):
         experiments.append(Experiment(
             expname=expname, name=f"zeroshot-{expname}-num-configs-{seed}",
             run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
@@ -319,7 +320,7 @@ if __name__ == "__main__":
 
         experiments.append(Experiment(
             expname=expname, name=f"zeroshot-{expname}-num-training-datasets-{seed}",
-            run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
+            run_fun=lambda: zeroshot_results(n_training_datasets=n_training_datasets, **experiment_common_kwargs)
         ))
 
 
