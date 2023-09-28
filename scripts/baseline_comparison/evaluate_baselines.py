@@ -322,7 +322,8 @@ if __name__ == "__main__":
     df = pd.concat([
         experiment.data(ignore_cache=ignore_cache) for experiment in experiments
     ])
-
+    # De-duplicate in case we ran a config multiple times
+    df = df.drop_duplicates(subset=["method", "tid", "fold"])
     df = rename_dataframe(df)
 
     # df = time_cutoff_baseline(df)
