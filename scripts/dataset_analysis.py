@@ -2,6 +2,7 @@ import math
 from pathlib import Path
 import warnings
 
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -43,11 +44,24 @@ def generate_dataset_info_latex(repo: EvaluationRepository):
     metadata_min_sorted = metadata_min.sort_values(by=["name"])
     metadata_latex = metadata_min_sorted.copy()
 
+    max_name_length = 20
+
     metadata_latex.columns = ['Task ID', 'name', 'n', 'f', 'C', 'Problem Type']
+    metadata_latex['Task ID'] = metadata_latex['Task ID'].astype(str)
     metadata_latex['n'] = metadata_latex['n'].astype(int)
     metadata_latex['f'] = metadata_latex['f'].astype(int)
+    metadata_latex['f'] = metadata_latex['f'] - 1  # Original counts the label column, remove to get the feature count
     metadata_latex['C'] = metadata_latex['C'].astype(int)
-    metadata_latex['name'] = metadata_latex['name'].apply(lambda x: x[:25])
+
+    datasets_statistics = metadata_latex.describe(percentiles=[.05, .1, .25, .5, .75, .9, .95])
+    datasets_statistics = datasets_statistics.drop(columns='C')
+    datasets_statistics = datasets_statistics.drop(index='count')
+    datasets_statistics = datasets_statistics.round()
+    datasets_statistics = datasets_statistics.astype(int)
+
+    save_latex_table(df=datasets_statistics, title=f"datasets_statistics", show_table=True)
+
+    metadata_latex['name'] = metadata_latex['name'].apply(lambda x: x[:max_name_length])
 
     problem_types = ['binary', 'multiclass', 'regression']
     latex_kwargs = dict(
@@ -58,11 +72,27 @@ def generate_dataset_info_latex(repo: EvaluationRepository):
     for p in problem_types:
         metadata_latex_p = metadata_latex[metadata_latex['Problem Type'] == p]
         num_datasets = len(metadata_latex_p)
-        batch_size = 40
-        num_batches = math.ceil(num_datasets / batch_size)
-        for batch in range(num_batches):
-            save_latex_table(df=metadata_latex_p.iloc[batch * batch_size:(batch + 1) * batch_size], title=f"dataset_info_{p}_{batch + 1}", show_table=True,
-                             latex_kwargs=latex_kwargs)
+
+        metadata_latex_v2 = metadata_latex_p.drop(columns='Problem Type')
+
+        vertical = math.ceil(num_datasets / 2)
+        metadata_left = metadata_latex_v2.iloc[:vertical].reset_index(drop=True)
+        metadata_right = metadata_latex_v2.iloc[vertical:].reset_index(drop=True)
+        metadata_left['n'] = metadata_left['n'].astype(str)
+        metadata_left['f'] = metadata_left['f'].astype(str)
+        metadata_left['C'] = metadata_left['C'].astype(str)
+
+        metadata_right['n'] = metadata_right['n'].astype(str)
+        metadata_right['f'] = metadata_right['f'].astype(str)
+        metadata_right['C'] = metadata_right['C'].astype(str)
+        if p == 'regression':
+            metadata_left = metadata_left.drop(columns='C')
+            metadata_right = metadata_right.drop(columns='C')
+
+        metadata_combined = pd.concat([metadata_left, metadata_right], axis=1)
+        metadata_combined = metadata_combined.fillna('')
+        save_latex_table(df=metadata_combined, title=f"datasets_{p}", show_table=True,
+                         latex_kwargs=latex_kwargs)
 
 
 num_models_to_plot = 20

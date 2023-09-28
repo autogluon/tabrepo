@@ -43,8 +43,9 @@ def figure_path():
 def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None, n_digits = None):
     if n_digits:
         for col in df.columns:
-            n_digit = n_digits.get(col, 2)
-            df.loc[:, col] = df.loc[:, col].apply(lambda s: f'{s:.{n_digit}f}')
+            if (not df[col].dtype == "object") and (not df[col].dtype == "int64"):
+                n_digit = n_digits.get(col, 2)
+                df.loc[:, col] = df.loc[:, col].apply(lambda s: f'{s:.{n_digit}f}')
 
     if latex_kwargs is None:
         latex_kwargs = dict()
