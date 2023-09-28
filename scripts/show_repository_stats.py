@@ -33,7 +33,16 @@ n_cpus = 8
 
 realnumhourstabrepo = int(repo._zeroshot_context.df_results_by_dataset_vs_automl['time_train_s'].sum() / 3600)
 realnumcpuhourstabrepo = realnumhourstabrepo * n_cpus
-numhoursnosimu = 96698  # % shown with "Total time of experiments:" when running evaluations
+
+
+runtime_file = output_path / "tables" / "runtime.txt"
+assert runtime_file.exists(), "You should run `evaluate_baselines.py` first to compute total time of experiments"
+
+print(f"read runtime from {runtime_file}")
+with open(runtime_file, "r") as f:
+    # % shown with "Total time of experiments:" when running evaluations
+    numhoursnosimu = int(float(f.readline().strip()))
+
 numcpuhoursnosimu = numhoursnosimu * n_cpus
 
 stats = {

@@ -128,18 +128,20 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
 def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     # show performance over time for 1h, 4h and 24h budgets for AG, PF and other frameworks
     import seaborn as sns
+    plt.rcParams.update({'font.size': 16})
 
     df_metrics = compute_avg_metrics(df, ["normalized-error", "rank", "time fit (s)", "time infer (s)", "fit budget"])
     colors = [sns.color_palette("bright")[j] for j in range(10)]
 
     # makes autogluon black to respect colors used in previous plots
-    colors[5] = "black"
+    colors[6] = "black"
     # colors[6] = "yellow"
-    markers = ['v', '^', "8", "D", 'v', "s", '*', ]
+    markers = ['x', 'v', '^', "8", "D", 'v', "s", '*', ]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
-    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(10, 3), dpi=300)
+    fig, axes = plt.subplots(1, 2, sharey=False, sharex=True, figsize=(14, 3), dpi=300)
 
     df_frameworks = {}
+    df_frameworks["CatBoost (tuned + ens)"] = df_metrics[df_metrics.index.str.startswith("CatBoost (tuned + ensemble)")]
     df_frameworks["Autosklearn"] = df_metrics[df_metrics.index.str.startswith("Autosklearn ")]
     for automl_framework in ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]:
         df_frameworks[automl_framework] = df_metrics[df_metrics.index.str.contains(automl_framework)]
@@ -172,8 +174,8 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
 
     # used https://stackoverflow.com/questions/25068384/bbox-to-anchor-and-loc-in-matplotlib
     # to be able to save figure with legend outside of bbox
-    lgd = fig.legend(handles, df_frameworks.keys(), loc='upper center', ncol=len(df_frameworks),
-                     bbox_to_anchor=(0.5, 1.1))
+    lgd = fig.legend(handles, df_frameworks.keys(), loc='upper center', ncol=4,
+                     bbox_to_anchor=(0.5, 1.2))
     text = fig.text(-0.2, 1.05, "", transform=axes[0].transAxes)
     bbox_extra_artists = (lgd, text)
 
@@ -235,7 +237,7 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
 
 def plot_critical_diagrams(df):
     plt.rcParams.update({'font.size': 11})
-    # fig, axes = plt.subplots(1, 3, figsize=(20, 2))
+
     fig, axes = plt.subplots(1, 2, figsize=(12, 2))
     for i, budget in enumerate(["1h", "4h"]):  # , "24h"]):
         df_sub = df[df.method.str.contains(budget)].copy()
@@ -261,8 +263,6 @@ def plot_critical_diagrams(df):
         ax = axes[i]
         ax.set_title(budget)
         plot_stats(result, ax=ax, width=4)
-
-    plt.rcParams.update({'font.size': 9})
 
     fig_save_path = figure_path() / f"critical-diagram.pdf"
     plt.tight_layout()

@@ -149,14 +149,14 @@ def rename_dataframe(df):
             return None
 
     df["fit budget"] = df.method.apply(convert_timestamp)
-
+    df.method = df.method.str.replace("NeuralNetTorch", "MLP")
     return df
 
 def generate_sentitivity_plots(df, show: bool = False):
     # show stds
 
     # show stds
-    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(10, 6))
+    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(9, 3))
 
     dimensions = [
         ("M", "Number of configuration per family"),
@@ -168,12 +168,12 @@ def generate_sentitivity_plots(df, show: bool = False):
             df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :].copy()
             df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
 
-            df_portfolio.loc[:, dimension] = df_portfolio.loc[:, "method"].apply(lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
+            df_portfolio.loc[:, dimension] = df_portfolio.loc[:, "method"].apply(
+                lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
+            df_portfolio = df_portfolio[df_portfolio[dimension] > 1]
 
             dim, mean, sem = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
                 ["mean", "sem"]).reset_index().values.T
-            mean = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
-                iqm).reset_index().loc[:, metric].values
             ax = axes[j][i]
             ax.errorbar(
                 dim, mean, sem,
@@ -185,15 +185,23 @@ def generate_sentitivity_plots(df, show: bool = False):
             if j == 1:
                 ax.set_xlabel(legend)
             if i == 0:
-                ax.set_ylabel(f"Avg {metric}")
+                ax.set_ylabel(f"{metric}")
             ax.grid()
-            ax.hlines(iqm(df_ag), xmin=min(dim), xmax=max(dim), color="black", label="AutoGluon", ls="--")
-            if j == 1:
+            ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
+            if i == 1 and j == 0:
                 ax.legend()
     fig_save_path = figure_path() / f"sensitivity.pdf"
     plt.tight_layout()
     plt.savefig(fig_save_path)
-    plt.show()
+    if show:
+        plt.show()
+
+
+def save_total_runtime_to_file(total_time_h):
+    # Save total runtime so that "show_repository_stats.py" can show the ratio of saved time
+    with open(output_path / "tables" / "runtime.txt", "w") as f:
+        f.write(str(total_time_h))
+
 
 
 if __name__ == "__main__":
@@ -239,8 +247,8 @@ if __name__ == "__main__":
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
-    n_training_datasets = [1, 5, 10, 25, 50, 100, 150, 199]
-    n_training_configs = [1, 5, 10, 25, 50, 100, 150, 200]
+    n_training_datasets = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
+    n_training_configs = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
     n_seeds = 10
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
@@ -340,8 +348,10 @@ if __name__ == "__main__":
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
     print(f"Total time of experiments: {total_time_h} hours")
+    save_total_runtime_to_file(total_time_h)
 
-    generate_sentitivity_plots(df, show=True)
+
+    generate_sentitivity_plots(df, show=False)
 
     show_latex_table(df, "all", show_table=True, n_digits=n_digits)
     ag_styles = [
@@ -352,6 +362,9 @@ if __name__ == "__main__":
     ]
 
     method_styles = ag_styles.copy()
+    framework_types.remove("NeuralNetTorch")
+    framework_types.append("MLP")
+
     for i, framework_type in enumerate(framework_types):
         method_styles.append(
             MethodStyle(
@@ -401,7 +414,7 @@ if __name__ == "__main__":
     method_styles = ag_styles + [
         MethodStyle(
             zeroshot_name(n_training_dataset=size),
-            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}~=~" + f"{size}$",
+            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}'~=~" + f"{size}$",
         )
         for i, size in enumerate(n_training_datasets)
     ]
