@@ -43,8 +43,6 @@ with open(runtime_file, "r") as f:
     # % shown with "Total time of experiments:" when running evaluations
     numhoursnosimu = int(float(f.readline().strip()))
 
-numcpuhoursnosimu = numhoursnosimu * n_cpus
-
 stats = {
     "realnumdatasets": n_datasets,
     "realnumtasks": n_datasets * n_seeds,
@@ -58,7 +56,7 @@ stats = {
     "realnumhourstabrepo": realnumhourstabrepo,
     "realnumcpuhourstabrepo": realnumcpuhourstabrepo,
     "numhoursnosimu": numhoursnosimu,
-    "numcpuhoursnosimu": numcpuhoursnosimu * n_cpus,
+    "numcpuhoursnosimu": numhoursnosimu * n_cpus,
     "ratiosaving": "{:.1f}".format(round(numhoursnosimu / realnumhourstabrepo, 1)),
 }
 
