@@ -1,4 +1,4 @@
-# TODO Fix me
+# TODO Fix me (fails because of roc auc compilation)
 # import copy
 #
 # import numpy as np

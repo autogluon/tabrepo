@@ -52,7 +52,7 @@ def load_context_artificial(**kwargs):
      )
     df_raw = pd.DataFrame({
          "dataset": dataset_name,
-         "framework": baseline,
+         "model": baseline,
          "problem_type": "regression",
          "fold": fold,
          "tid": dataset_id,
