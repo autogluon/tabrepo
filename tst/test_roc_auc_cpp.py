@@ -17,4 +17,4 @@ def test_cpp_auc_compilation():
         ),
         0.5
     )
-#
+8
