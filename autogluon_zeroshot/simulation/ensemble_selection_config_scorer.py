@@ -18,7 +18,7 @@ from ..metrics import _fast_log_loss, _fast_roc_auc
 
 @ray.remote
 def compute_error_ray(config_scorer, configs: List[str], task: str) -> (float, dict):
-    error, ensemble_weights = config_scorer.run_task(task=task, models=configs)
+    error, ensemble_weights = config_scorer.evaluate_task(task=task, models=configs)
     return error, ensemble_weights
 
 
@@ -102,7 +102,7 @@ class EnsembleScorer:
     def get_task_metadata(self, dataset: str, fold: int) -> TaskMetadata:
         return TaskMetadata(self.zeroshot_gt[dataset][fold])
 
-    def run_task(self, dataset: str, fold: int, models: List[str]) -> Tuple[float, np.array]:
+    def evaluate_task(self, dataset: str, fold: int, models: List[str]) -> Tuple[float, np.array]:
         task_metadata = self.get_task_metadata(dataset=dataset, fold=fold)
 
         metric_name = task_metadata.metric_name
@@ -152,12 +152,12 @@ class EnsembleScorer:
 # FIXME: Add temperature scaling!!
 class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def __init__(self,
-                 datasets: list,
-                 zeroshot_gt: dict,
+                 datasets: List[str],
+                 zeroshot_gt: Dict[str, Dict[int, Dict[str, Any]]],
                  zeroshot_pred_proba: TabularModelPredictions,
                  ranker: RankScorer,
-                 dataset_name_to_tid_dict: dict,
-                 dataset_name_to_fold_dict: dict,
+                 dataset_name_to_tid_dict: Dict[str, int],
+                 dataset_name_to_fold_dict: Dict[str, List[int]],
                  ensemble_size=100,
                  ensemble_selection_kwargs=None,
                  max_fold: Optional[float] = None,
@@ -166,7 +166,16 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  proxy_fit_metric_map: Optional[Union[dict, str]] = None,  # TODO: Add unit test
                  ):
         """
-        TODO: Add docstring
+        :param datasets: The list of datasets to consider for scoring.
+        :param zeroshot_gt: The ground truth information and task metadata for all tasks.
+        :param zeroshot_pred_proba: The TabularModelPredictions object that contains the predictions of all configs on all tasks.
+        :param ranker: The ranking object used to compute scores on each task.
+        :param dataset_name_to_tid_dict: Mapping of dataset names to corresponding TIDs. TODO: Remove?
+        :param dataset_name_to_fold_dict: Mapping of dataset names to available folds. TODO: Remove?
+        :param ensemble_size: The maximum ensemble selection iterations when fitting the ensemble. TODO: Remove?
+        :param ensemble_selection_kwargs: kwargs to pass to the init of the ensemble selection model.
+        :param max_fold: The maximum number of folds to consider for each dataset. TODO: Remove?
+        :param backend: Options include ["native", "ray"].
         :param use_fast_metrics: If True, will leverage optimized eval metrics to speed up config scoring.
         :param proxy_fit_metric_map:
             If eval_metric is among the keys in the `proxy_fit_metric_map` dictionary,
@@ -221,10 +230,10 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **kwargs,
         )
 
-    def run_task(self, task: str, models: List[str]) -> Tuple[float, np.array]:
+    def evaluate_task(self, task: str, models: List[str]) -> Tuple[float, np.array]:
         fold = self.dataset_name_to_fold_dict[task]
         tid = self.dataset_name_to_tid_dict[task]
-        return self.ensemble_scorer.run_task(dataset=tid, fold=fold, models=models)
+        return self.ensemble_scorer.evaluate_task(dataset=tid, fold=fold, models=models)
 
     def compute_errors(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
         """
@@ -244,7 +253,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             fold = self.dataset_name_to_fold_dict[task]
             if self.max_fold and fold >= self.max_fold:
                 continue
-            errors[task], ensemble_weights[task] = self.run_task(task=task, models=configs)
+            errors[task], ensemble_weights[task] = self.evaluate_task(task=task, models=configs)
         return errors, ensemble_weights
 
     # speedup can be obtained by only sending minimum zeroshot pred proba info for each task by using lazy format
