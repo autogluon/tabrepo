@@ -6,7 +6,7 @@ from autogluon_zeroshot.simulation.sim_runner import run_zs_sim_end_to_end
 
 
 if __name__ == '__main__':
-    subcontext_name = 'BAG_D244_F10_C608_FULL'
+    subcontext_name = 'BAG_D244_F3_C1416_small'
     results_cv, repo = run_zs_sim_end_to_end(subcontext_name=subcontext_name,
                                              config_scorer_type='single')
 
