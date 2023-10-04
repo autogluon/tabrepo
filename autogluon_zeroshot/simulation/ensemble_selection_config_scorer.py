@@ -166,6 +166,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  proxy_fit_metric_map: Optional[Union[dict, str]] = None,  # TODO: Add unit test
                  ):
         """
+        A scorer object to evaluate configs via simulating ensemble selection.
+
         :param datasets: The list of datasets to consider for scoring.
         :param zeroshot_gt: The ground truth information and task metadata for all tasks.
         :param zeroshot_pred_proba: The TabularModelPredictions object that contains the predictions of all configs on all tasks.
