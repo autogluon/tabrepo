@@ -29,7 +29,8 @@ class EvaluationRepository(SaveLoadMixin):
         self._tabular_predictions: TabularModelPredictions = tabular_predictions
         self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
         self._ground_truth: dict = ground_truth
-        assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
+        if self._tabular_predictions is not None:
+            assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
 
     def to_zeroshot(self) -> repository.EvaluationRepositoryZeroshot:
         """
@@ -293,6 +294,10 @@ class EvaluationRepository(SaveLoadMixin):
             **kwargs,
         )
         return config_scorer
+
+    @classmethod
+    def from_context(cls, version: str = None, lazy_format: bool = True):
+        return load(version=version, lazy_format=lazy_format)
 
 
 def load(version: str = None, lazy_format=True) -> EvaluationRepository:

@@ -3,19 +3,16 @@ from autogluon_zeroshot.contexts import get_context
 from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation_debug
 
 
+# TODO: Refactor to use EvaluationRepository, this is old code
 if __name__ == '__main__':
-    # context_name = 'BAG_D244_F10_C608_FULL'
-    context_name = 'BAG_D279_F10_C608_FULL'
+    context_name = 'BAG_D244_F3_C1416_small'
     benchmark_context = get_context(context_name)
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load()
     zsc.print_info()
 
     # NOTE: For speed of simulation, it is recommended backend='ray'
     backend = 'ray'
-
-    # configs = get_configs_small()
     configs = None
-
     datasets = zsc.get_dataset_folds()
     # datasets = zsc.get_dataset_folds(problem_type=['binary', 'multiclass'])
 
