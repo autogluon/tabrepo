@@ -6,10 +6,17 @@ from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredi
 
 np.random.seed(0)
 
-def make_random_metric():
+def make_random_metric(model):
     output_cols = ['time_train_s', 'time_infer_s', 'bestdiff', 'loss_rescaled', 'time_train_s_rescaled',
                    'time_infer_s_rescaled', 'metric_error', 'score_val']
-    return {output_col: np.random.rand() for output_col in output_cols}
+    metric_value_dict = {
+        "NeuralNetFastAI_r1": 1.0,
+        "NeuralNetFastAI_r2": 2.0,
+        "b1": -1.0,
+        "b2": -2.0
+    }
+    metric_value = metric_value_dict[model]
+    return {output_col: (i + 1) * metric_value for i, output_col in enumerate(output_cols)}
 
 
 def load_context_artificial(**kwargs):
@@ -37,7 +44,7 @@ def load_context_artificial(**kwargs):
          "problem_type": "regression",
          "fold": fold,
          "tid": dataset_id,
-         **make_random_metric()
+         **make_random_metric(model)
      } for fold in range(n_folds) for model in models for (dataset_id, dataset_name) in zip(dataset_ids, dataset_names)
      )
 
@@ -47,17 +54,17 @@ def load_context_artificial(**kwargs):
          "problem_type": "regression",
          "fold": fold,
          "tid": dataset_id,
-        **make_random_metric()
+        **make_random_metric(baseline)
      } for fold in range(n_folds) for baseline in baselines for (dataset_id, dataset_name) in zip(dataset_ids, dataset_names)
      )
     df_raw = pd.DataFrame({
          "dataset": dataset_name,
-         "framework": baseline,
+         "model": baseline,
          "problem_type": "regression",
          "fold": fold,
          "tid": dataset_id,
          "tid_new": f"{dataset_id}_{fold}",
-          **make_random_metric()
+          **make_random_metric(baseline)
      } for fold in range(n_folds) for baseline in baselines for (dataset_id, dataset_name) in zip(dataset_ids, dataset_names)
      )
     zsc = ZeroshotSimulatorContext(

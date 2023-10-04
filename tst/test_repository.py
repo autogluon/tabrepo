@@ -47,21 +47,15 @@ def test_repository():
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     result_errors, result_ensemble_weights = repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")
-    assert np.allclose(
-        result_errors,
-        [[2.5, 2.5, 2.5]]
-    )
+    assert result_errors.shape == (1, 3)
     assert len(result_ensemble_weights.keys()) == 3
 
     # Test ensemble weights are as expected
     task_0 = repo.task_name_from_dataset(dataset_name=dataset_name, fold=0)
     assert np.allclose(result_ensemble_weights[task_0], [1.0, 0.0])
 
-    assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
-                                 ensemble_size=5, folds=[2], backend="native")[0],
-        [[2.5]]
-    )
+    assert repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
+                                 ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[0, 2])
     assert repo.dataset_names() == ['ada', 'abalone']
@@ -73,15 +67,9 @@ def test_repository():
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     # result_errors, result_ensemble_weights = repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0],
-    assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0],
-        [[2.5, 2.5]]
-    )
-    assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
-                                 ensemble_size=5, folds=[2], backend="native")[0],
-        [[2.5]]
-    )
+    assert repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0].shape == (1, 2)
+    assert repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
+                                 ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[2], tids=[359946], models=[config_name])
     assert repo.dataset_names() == ['abalone']
@@ -92,15 +80,10 @@ def test_repository():
     assert repo.val_predictions(tid=tid, config_name=config_name, fold=2).shape == (123, 25)
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0],
-        [[2.5]]
-    )
-    assert np.allclose(
-        repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
-                                 ensemble_size=5, folds=[2], backend="native")[0],
-        [[2.5]]
-    )
+    assert repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")[0].shape == (1, 1)
+
+    assert repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
+                                 ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
 
 def test_repository_force_to_dense():

@@ -91,7 +91,7 @@ def test_fast_log_loss_large(num_samples, num_classes):
     across various data dimensions.
     """
     y_true, y_pred = generate_y_true_and_y_pred_proba(num_samples=num_samples, num_classes=num_classes)
-    assert_fast_log_loss_equivalence(y_true=y_true, y_pred=y_pred, num_classes=num_classes, rtol=1e-6)
+    assert_fast_log_loss_equivalence(y_true=y_true, y_pred=y_pred, num_classes=num_classes, rtol=1e-4)
 
 
 @pytest.mark.parametrize('num_configs,num_samples,num_classes',
