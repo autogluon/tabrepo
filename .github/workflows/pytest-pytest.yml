@@ -23,11 +23,15 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: "3.10"
-    - name: install cppunit
-      run: sudo apt install -y libcppunit-dev
-    - name: configure
-      run: ./configure
-    - name: Install dependencies
+    - name: Install common gcc dependencies
+      run: |
+        apt update
+        apt install libcppunit-dev cmake -y
+        cmake --version
+    - name: Install gcc
+      run: |
+        gcc --version
+    - name: Install dependencies and runt test
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest
