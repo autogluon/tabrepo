@@ -3,7 +3,7 @@ from typing import List, Union
 
 import pandas as pd
 
-from autogluon_zeroshot.portfolio import Portfolio, PortfolioCV
+from tabrepo.portfolio import Portfolio, PortfolioCV
 
 
 # FIXME: Ideally this should be easier, but not really possible with current logic.
@@ -60,7 +60,7 @@ class SimulationOutputGenerator:
         else:
             config_scorer_kwargs = copy.deepcopy(config_scorer_kwargs)
 
-        from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
+        from tabrepo.repository import EvaluationRepositoryZeroshot
         self.repo: EvaluationRepositoryZeroshot = repo
 
         self.config_scorer_type = config_scorer_type

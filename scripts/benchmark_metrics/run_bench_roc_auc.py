@@ -1,8 +1,8 @@
 from sklearn.metrics import roc_auc_score
 
 from autogluon.core.metrics import roc_auc
-from autogluon_zeroshot.metrics._fast_roc_auc import fast_roc_auc_cpp
-from autogluon_zeroshot.metrics.bench_utils import benchmark_metrics_speed, generate_y_true_and_y_pred_binary
+from tabrepo.metrics._fast_roc_auc import fast_roc_auc_cpp
+from tabrepo.metrics.bench_utils import benchmark_metrics_speed, generate_y_true_and_y_pred_binary
 
 
 def benchmark_root_mean_squared_error(num_samples: int, num_repeats: int):

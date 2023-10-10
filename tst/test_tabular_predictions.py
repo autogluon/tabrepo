@@ -9,9 +9,9 @@ import numpy as np
 from pathlib import Path
 
 import pytest
-from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredictions, TabularPredictionsDict, \
+from tabrepo.simulation.tabular_predictions import TabularPicklePredictions, TabularPredictionsDict, \
     TabularPicklePerTaskPredictions, TabularPicklePredictionsOpt, filter_empty
-from autogluon_zeroshot.simulation.dense_utils import is_dense_folds, force_to_dense_folds, \
+from tabrepo.simulation.dense_utils import is_dense_folds, force_to_dense_folds, \
     get_folds_dense, is_dense_models, force_to_dense, print_summary, get_models_dense
 
 

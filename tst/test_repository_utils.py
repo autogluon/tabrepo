@@ -1,8 +1,8 @@
 import numpy as np
 
-from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-from autogluon_zeroshot.repository.evaluation_repository import EvaluationRepository
-from autogluon_zeroshot.repository.time_utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
+from tabrepo.contexts.context_artificial import load_context_artificial
+from tabrepo.repository.evaluation_repository import EvaluationRepository
+from tabrepo.repository.time_utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
 
 zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
 repo = EvaluationRepository(

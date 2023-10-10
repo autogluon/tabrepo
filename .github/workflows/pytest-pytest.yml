@@ -33,7 +33,7 @@ jobs:
         gcc --version
 #    - name: Compile roc
 #      run: |
-#        pushd autogluon_zeroshot/metrics/_roc_auc_cpp
+#        pushd tabrepo/metrics/_roc_auc_cpp
 #        g++ -std=c++17 -fPIC -shared -O3 -march=native cpp_auc.cpp -o cpp_auc.so
 #        popd
     - name: Install python dependencies and run tests

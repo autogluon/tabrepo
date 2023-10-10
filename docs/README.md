@@ -1,4 +1,4 @@
-# AutoGluon-Zeroshot Docs
+# TabRepo Docs
 
 ## Cheatsheet
 

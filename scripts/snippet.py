@@ -1,4 +1,4 @@
-from autogluon_zeroshot.repository.evaluation_repository import load
+from tabrepo.repository.evaluation_repository import load
 
 # load TabRepo with 200 datasets, 3 folds and 1206 configurations
 repository = load(version="BAG_D200_F3_C1206")

@@ -1,6 +1,6 @@
-from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
-from autogluon_zeroshot.contexts import get_context
-from autogluon_zeroshot.simulation.sim_runner import run_zs_simulation_debug
+from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
+from tabrepo.contexts import get_context
+from tabrepo.simulation.sim_runner import run_zs_simulation_debug
 
 
 # TODO: Refactor to use EvaluationRepository, this is old code

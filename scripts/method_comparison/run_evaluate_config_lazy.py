@@ -1,6 +1,6 @@
 # File to check that we get the same error as run_evaluate_config.py. It can be removed.
-from autogluon_zeroshot.contexts import get_context
-from autogluon_zeroshot.utils import catchtime
+from tabrepo.contexts import get_context
+from tabrepo.utils import catchtime
 from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
 
 if __name__ == '__main__':

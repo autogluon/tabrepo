@@ -6,8 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
-from autogluon_zeroshot.utils.cache import cache_function
+from tabrepo.repository.evaluation_repository import load, EvaluationRepository
+from tabrepo.utils.cache import cache_function
 from baseline_comparison.plot_utils import save_latex_table
 from scripts import load_context
 

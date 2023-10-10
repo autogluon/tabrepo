@@ -2,8 +2,8 @@ import pandas as pd
 
 import pytest
 
-from autogluon_zeroshot.contexts import get_subcontext
-from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
+from tabrepo.contexts import get_subcontext
+from tabrepo.repository import EvaluationRepositoryZeroshot
 
 
 def verify_result_df(repo: EvaluationRepositoryZeroshot, result_df: pd.DataFrame, name: str):

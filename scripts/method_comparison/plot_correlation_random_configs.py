@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn
 
-from autogluon_zeroshot.loaders import Paths
+from tabrepo.loaders import Paths
 
 expname = "0lG55"
 csv_filename = Paths.results_root / f"random-evals-{expname}.csv"

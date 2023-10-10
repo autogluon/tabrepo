@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from autogluon_zeroshot.utils.normalized_scorer import NormalizedScorer
+from tabrepo.utils.normalized_scorer import NormalizedScorer
 
 dataset_col = "dataset"
 metric_col = "metric"

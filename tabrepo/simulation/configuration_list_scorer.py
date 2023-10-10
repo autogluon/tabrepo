@@ -1,6 +1,6 @@
 from typing import List
 
-from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
+from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 
 
 class ConfigurationListScorer:

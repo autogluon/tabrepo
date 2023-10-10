@@ -1,6 +1,6 @@
 import numpy as np
 
-from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
+from tabrepo.portfolio.zeroshot_selection import zeroshot_configs
 
 
 def test_zeroshot_configs():

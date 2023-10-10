@@ -8,14 +8,14 @@ from dataclasses import dataclass
 
 from tqdm import tqdm
 
-from autogluon_zeroshot.portfolio.zeroshot_selection import zeroshot_configs
-from autogluon_zeroshot.repository import EvaluationRepository
-from autogluon_zeroshot.repository.time_utils import (
+from tabrepo.portfolio.zeroshot_selection import zeroshot_configs
+from tabrepo.repository import EvaluationRepository
+from tabrepo.repository.time_utils import (
     filter_configs_by_runtime,
     sort_by_runtime,
     get_runtime,
 )
-from autogluon_zeroshot.utils.parallel_for import parallel_for
+from tabrepo.utils.parallel_for import parallel_for
 
 default_ensemble_size = 40
 n_portfolios_default = 200

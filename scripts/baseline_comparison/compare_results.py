@@ -2,7 +2,7 @@ import copy
 
 import pandas as pd
 
-from autogluon_zeroshot.repository.evaluation_repository import EvaluationRepository
+from tabrepo.repository.evaluation_repository import EvaluationRepository
 
 from scripts.baseline_comparison.plot_utils import save_latex_table
 
