@@ -45,13 +45,13 @@ from syne_tune import Tuner, StoppingCriterion
 from syne_tune.backend import LocalBackend
 from syne_tune.experiments import load_experiment
 
-from autogluon_zeroshot.contexts import get_context
-from autogluon_zeroshot.loaders import Paths
-from autogluon_zeroshot.simulation.config_generator import ZeroshotConfigGenerator
-from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
-from autogluon_zeroshot.simulation.synetune_wrapper.synetune_search import RandomSearch, LocalSearch
-from autogluon_zeroshot.utils import catchtime
+from tabrepo.contexts import get_context
+from tabrepo.loaders import Paths
+from tabrepo.simulation.config_generator import ZeroshotConfigGenerator
+from tabrepo.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
+from tabrepo.simulation.synetune_wrapper.synetune_search import RandomSearch, LocalSearch
+from tabrepo.utils import catchtime
 from scripts.method_comparison.evaluate_ensemble import evaluate_ensemble
 
 

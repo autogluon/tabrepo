@@ -2,8 +2,8 @@ import copy
 import random
 from typing import Callable, List
 
-from autogluon_zeroshot.repository import EvaluationRepository
-from autogluon_zeroshot.utils.cache import cache_function
+from tabrepo.repository import EvaluationRepository
+from tabrepo.utils.cache import cache_function
 
 
 def gen_sample_repo_exact(

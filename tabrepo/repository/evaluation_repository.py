@@ -5,14 +5,14 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from autogluon_zeroshot.simulation.configuration_list_scorer import ConfigurationListScorer
-from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
-from autogluon_zeroshot.simulation.single_best_config_scorer import SingleBestConfigScorer
-from autogluon_zeroshot.simulation.tabular_predictions import TabularModelPredictions
-from autogluon_zeroshot.utils.cache import SaveLoadMixin
-from autogluon_zeroshot.utils import catchtime
-from autogluon_zeroshot import repository
+from tabrepo.simulation.configuration_list_scorer import ConfigurationListScorer
+from tabrepo.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
+from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
+from tabrepo.simulation.tabular_predictions import TabularModelPredictions
+from tabrepo.utils.cache import SaveLoadMixin
+from tabrepo.utils import catchtime
+from tabrepo import repository
 
 
 class EvaluationRepository(SaveLoadMixin):
@@ -38,7 +38,7 @@ class EvaluationRepository(SaveLoadMixin):
 
         :return: EvaluationRepositoryZeroshot object
         """
-        from autogluon_zeroshot.repository import EvaluationRepositoryZeroshot
+        from tabrepo.repository import EvaluationRepositoryZeroshot
         self_zeroshot = copy.copy(self)  # Shallow copy so that the class update does not alter self
         self_zeroshot.__class__ = EvaluationRepositoryZeroshot
         return self_zeroshot
@@ -95,7 +95,7 @@ class EvaluationRepository(SaveLoadMixin):
         :return: Return self after in-place updates in this call.
         """
         # TODO: Move these util functions to simulations or somewhere else to avoid circular imports
-        from autogluon_zeroshot.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
+        from tabrepo.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(self._zeroshot_context, self._tabular_predictions, self._ground_truth)
         force_to_dense(self._tabular_predictions,
@@ -301,7 +301,7 @@ class EvaluationRepository(SaveLoadMixin):
 
 
 def load(version: str = None, lazy_format=True) -> EvaluationRepository:
-    from autogluon_zeroshot.contexts import get_context
+    from tabrepo.contexts import get_context
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True,
                                                                                     lazy_format=lazy_format)
     r = EvaluationRepository(
@@ -315,7 +315,7 @@ def load(version: str = None, lazy_format=True) -> EvaluationRepository:
 
 # TODO: git shelve ADD BACK
 if __name__ == '__main__':
-    from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
+    from tabrepo.contexts.context_artificial import load_context_artificial
     with catchtime("loading repo and evaluating one ensemble config"):
         dataset_name = "abalone"
         config_name = "NeuralNetFastAI_r1"

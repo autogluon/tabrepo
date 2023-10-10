@@ -9,7 +9,7 @@ from typing import Callable, Optional
 from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
 
-from autogluon_zeroshot.utils import catchtime
+from tabrepo.utils import catchtime
 
 default_cache_path = Path("~/cache-zeroshot/").expanduser()
 default_cache_path.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from autogluon_zeroshot.utils.rank_utils import RankScorer
+from tabrepo.utils.rank_utils import RankScorer
 
 dataset_col = "dataset"
 metric_col = "metric"

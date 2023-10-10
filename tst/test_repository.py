@@ -3,8 +3,8 @@ import copy
 import numpy as np
 import pytest
 
-from autogluon_zeroshot.contexts.context_artificial import load_context_artificial
-from autogluon_zeroshot.repository import EvaluationRepository
+from tabrepo.contexts.context_artificial import load_context_artificial
+from tabrepo.repository import EvaluationRepository
 
 
 def verify_equivalent_repository(repo1: EvaluationRepository, repo2: EvaluationRepository):

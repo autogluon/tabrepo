@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from autogluon_zeroshot.utils.cache import cache_function
-from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
+from tabrepo.utils.cache import cache_function
+from tabrepo.repository.evaluation_repository import load, EvaluationRepository
 
 output_path = Path(__file__).parent
 
@@ -14,7 +14,7 @@ def load_context(version: str = "BAG_D244_F3_C1416", filter_very_large_dataset: 
 
     if filter_very_large_dataset:
         # For some reason, only 184 datasets are found from this list
-        # from autogluon_zeroshot.contexts.context_2023_08_21 import datasets
+        # from tabrepo.contexts.context_2023_08_21 import datasets
         # filtered_datasets = datasets[-200:]
         # tids = [repo.dataset_to_tid(d) for d in filtered_datasets if d in repo.dataset_names()]
         # return repo.subset(tids=[tid for tid in repo.tids() if tid in tids])

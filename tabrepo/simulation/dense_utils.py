@@ -1,6 +1,6 @@
 from typing import List
 
-from autogluon_zeroshot.simulation.tabular_predictions import TabularModelPredictions
+from tabrepo.simulation.tabular_predictions import TabularModelPredictions
 
 
 def is_dense_folds(tabular_predictions: TabularModelPredictions) -> bool:

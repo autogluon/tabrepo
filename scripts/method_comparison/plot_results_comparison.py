@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
-from autogluon_zeroshot.loaders import Paths
+from tabrepo.loaders import Paths
 
 
 if __name__ == '__main__':

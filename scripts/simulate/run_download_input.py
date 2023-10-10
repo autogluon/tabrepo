@@ -1,4 +1,4 @@
-from autogluon_zeroshot.contexts import get_context
+from tabrepo.contexts import get_context
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from autogluon.common.savers import save_pkl
 
-from autogluon_zeroshot.simulation.sim_runner import run_zs_sim_end_to_end
+from tabrepo.simulation.sim_runner import run_zs_sim_end_to_end
 
 
 if __name__ == '__main__':

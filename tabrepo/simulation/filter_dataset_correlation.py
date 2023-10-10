@@ -1,8 +1,8 @@
 from typing import List
 import seaborn as sns
 
-from autogluon_zeroshot.contexts import get_context
-from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
+from tabrepo.contexts import get_context
+from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 
 
 def sort_datasets_linkage(zsc: ZeroshotSimulatorContext, datasets: List[float] = None) -> List[float]:

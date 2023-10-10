@@ -1,5 +1,5 @@
 import pandas as pd
-from autogluon_zeroshot.utils.cache import cache_function, cache_function_dataframe
+from tabrepo.utils.cache import cache_function, cache_function_dataframe
 
 
 def test_cache_pickle():

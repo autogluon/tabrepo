@@ -12,9 +12,9 @@ import numpy as np
 from sklearn.model_selection import KFold
 from syne_tune import Reporter
 
-from autogluon_zeroshot.contexts import get_context
-from autogluon_zeroshot.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from autogluon_zeroshot.utils import catchtime
+from tabrepo.contexts import get_context
+from tabrepo.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from tabrepo.utils import catchtime
 
 
 def evaluate_ensemble(

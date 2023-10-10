@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-from autogluon_zeroshot.simulation.simulation_context import ZeroshotSimulatorContext
-from autogluon_zeroshot.simulation.tabular_predictions import TabularPicklePredictions
+from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
+from tabrepo.simulation.tabular_predictions import TabularPicklePredictions
 
 np.random.seed(0)
 

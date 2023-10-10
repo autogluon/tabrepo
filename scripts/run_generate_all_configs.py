@@ -1,15 +1,15 @@
 from pathlib import Path
 from autogluon.common.savers import save_json
 
-from autogluon_zeroshot.models.lightgbm.generate import generate_configs_lightgbm
-from autogluon_zeroshot.models.catboost.generate import generate_configs_catboost
-from autogluon_zeroshot.models.xgboost.generate import generate_configs_xgboost
-from autogluon_zeroshot.models.fastai.generate import generate_configs_fastai
-from autogluon_zeroshot.models.nn_torch.generate import generate_configs_nn_torch
-from autogluon_zeroshot.models.knn.generate import generate_configs_knn
-from autogluon_zeroshot.models.random_forest.generate import generate_configs_random_forest
-from autogluon_zeroshot.models.extra_trees.generate import generate_configs_extra_trees
-from autogluon_zeroshot.models.tabpfn.generate import generate_configs_tabpfn
+from tabrepo.models.lightgbm.generate import generate_configs_lightgbm
+from tabrepo.models.catboost.generate import generate_configs_catboost
+from tabrepo.models.xgboost.generate import generate_configs_xgboost
+from tabrepo.models.fastai.generate import generate_configs_fastai
+from tabrepo.models.nn_torch.generate import generate_configs_nn_torch
+from tabrepo.models.knn.generate import generate_configs_knn
+from tabrepo.models.random_forest.generate import generate_configs_random_forest
+from tabrepo.models.extra_trees.generate import generate_configs_extra_trees
+from tabrepo.models.tabpfn.generate import generate_configs_tabpfn
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict
 import numpy as np
 import pandas as pd
-from autogluon_zeroshot.repository.evaluation_repository import load, EvaluationRepository
+from tabrepo.repository.evaluation_repository import load, EvaluationRepository
 
 
 def get_runtime(
