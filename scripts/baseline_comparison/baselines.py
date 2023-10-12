@@ -341,7 +341,7 @@ def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, qua
     n_initial_configs = len(configs)
     configs_fast_enough = set(df_configs_runtime[df_configs_runtime < max_runtime].index.tolist())
     configs = [c for c in configs if c in configs_fast_enough]
-    print(f"kept only {len(configs)} from initial {n_initial_configs} for runtime {max_runtime}")
+    # print(f"kept only {len(configs)} from initial {n_initial_configs} for runtime {max_runtime}")
     return configs
 
 

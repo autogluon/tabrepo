@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Tuple
 
 from tabrepo.simulation.tabular_predictions import TabularModelPredictions
 
@@ -30,7 +30,7 @@ def get_models_dense(tabular_predictions: TabularModelPredictions) -> List[str]:
     """
     Returns models that appears in all lists, eg that are available for all tasks and splits
     """
-    return sorted(tabular_predictions.list_models_available(present_in_all=True))
+    return sorted(list_models_available(tabular_predictions, present_in_all=True))
 
 def get_models(tabular_predictions: TabularModelPredictions, present_in_all=False) -> List[str]:
     """
@@ -80,7 +80,7 @@ def get_datasets_with_folds(tabular_predictions: TabularModelPredictions, folds:
     datasets = tabular_predictions.datasets
     valid_datasets = []
     for dataset in datasets:
-        folds_in_dataset = tabular_predictions.list_folds_available(datasets=[dataset])
+        folds_in_dataset = list_folds_available(tabular_predictions, datasets=[dataset])
         if all(f in folds_in_dataset for f in folds):
             valid_datasets.append(dataset)
     return valid_datasets
@@ -120,7 +120,7 @@ def force_to_dense_folds(tabular_predictions: TabularModelPredictions,
         print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
     assert is_dense_folds(tabular_predictions)
     if assert_not_empty:
-        assert not tabular_predictions.is_empty()
+        assert not is_empty(tabular_predictions)
 
 
 def force_to_dense_models(tabular_predictions: TabularModelPredictions,
@@ -145,14 +145,12 @@ def force_to_dense_models(tabular_predictions: TabularModelPredictions,
     pre_num_folds = len(tabular_predictions.folds)
     if prune_method == 'task':
         valid_tasks = []
-        for task in tabular_predictions.tasks:
-            dataset = task[0]
-            fold = task[1]
-            models_in_task = tabular_predictions.list_models_available(datasets=[dataset], folds=[fold], present_in_all=True)
+        for dataset, fold in list_tasks_available(tabular_predictions):
+            models_in_task = list_models_available(tabular_predictions, datasets=[dataset], folds=[fold], present_in_all=True)
             models_in_task_set = set(models_in_task)
             if all(m in models_in_task_set for m in valid_models):
-                valid_tasks.append(task)
-        tabular_predictions.restrict_tasks(tasks=valid_tasks)
+                valid_tasks.append((dataset, fold))
+        restrict_tasks(tabular_predictions, tasks=valid_tasks)
     elif prune_method == 'model':
         valid_models = get_models(tabular_predictions, present_in_all=True)
         tabular_predictions.restrict_models(models=valid_models)
@@ -167,19 +165,61 @@ def force_to_dense_models(tabular_predictions: TabularModelPredictions,
         print(f'\tPost: datasets={post_num_datasets} | models={post_num_models} | folds={post_num_folds}')
     assert is_dense_models(tabular_predictions)
     if assert_not_empty:
-        assert not tabular_predictions.is_empty()
+        assert not is_empty(tabular_predictions)
 
+def list_models_available(
+        tabular_predictions: TabularModelPredictions,
+        datasets: Optional[List[str]] = None,
+        folds: Optional[List[int]] = None,
+        present_in_all: bool = False,
+) -> List[int]:
+    model_available_dict = tabular_predictions.model_available_dict()
+    datasets = datasets if datasets else tabular_predictions.datasets
+    res = []
+    for dataset in datasets:
+        for fold in folds if folds else list_folds_available(tabular_predictions, datasets=[dataset], present_in_all=False):
+            # for split in splits if splits else splits:
+            res.append(model_available_dict[dataset][fold])
+    agg_fun = set.intersection if present_in_all else set.union
+    return sorted(list(agg_fun(*map(set, res)))) if res else []
+
+def list_tasks_available(tabular_predictions: TabularModelPredictions) -> List[Tuple[str, int]]:
+    model_available_dict = tabular_predictions.model_available_dict()
+    all_tasks = []
+    for dataset, fold_dict in model_available_dict.items():
+        for fold in fold_dict.keys():
+            all_tasks.append((dataset, fold))
+    return list(sorted(all_tasks))
+
+def list_folds_available(tabular_predictions: TabularModelPredictions, datasets: List[str] = None, present_in_all: bool = True) -> List[int]:
+    model_available_dict = tabular_predictions.model_available_dict()
+    datasets = datasets if datasets else tabular_predictions.datasets
+    all_folds = []
+    for dataset in datasets:
+        if dataset in model_available_dict:
+            all_folds.append(model_available_dict[dataset].keys())
+    agg_fun = set.intersection if present_in_all else set.union
+    return sorted(list(agg_fun(*map(set, all_folds)))) if all_folds else []
+
+
+def restrict_tasks(tabular_predictions: TabularModelPredictions, tasks: List[Tuple[str, int]]):
+    datasets = set(dataset for dataset, _ in tasks)
+    folds = set(fold for _, fold in tasks)
+    tabular_predictions.restrict_datasets(datasets)
+    tabular_predictions.restrict_folds(folds)
 
 def get_folds_dense(tabular_predictions: TabularModelPredictions) -> List[int]:
     """
     Returns folds that appear in all datasets
     """
-    return tabular_predictions.list_folds_available(present_in_all=True)
+    return list_folds_available(tabular_predictions, present_in_all=True)
 
+def is_empty(tabular_predictions: TabularModelPredictions):
+    return len(tabular_predictions.models) == 0
 def print_summary(tabular_predictions: TabularModelPredictions):
     folds = tabular_predictions.folds
     datasets = tabular_predictions.datasets
-    tasks = tabular_predictions.tasks
+    tasks = list_tasks_available(tabular_predictions)
     models = tabular_predictions.models
 
     num_folds = len(folds)
@@ -199,3 +239,4 @@ def print_summary(tabular_predictions: TabularModelPredictions):
           f'\tis_dense={is_dense(tabular_predictions)} | '
           f'is_dense_folds={is_dense_folds(tabular_predictions)} | '
           f'is_dense_models={is_dense_models(tabular_predictions)}')
+

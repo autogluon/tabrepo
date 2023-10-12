@@ -9,9 +9,9 @@ from pathlib import Path
 
 from autogluon.common.savers import save_pd
 from tabrepo.repository.evaluation_repository import (
-    load,
     EvaluationRepository,
 )
+from tabrepo.utils import catchtime
 from tabrepo.utils.cache import cache_function, cache_function_dataframe
 from scripts.baseline_comparison.baselines import (
     automl_results,
@@ -250,7 +250,7 @@ if __name__ == "__main__":
     # n_training_configs = list(range(10, 210, 10))
     n_training_datasets = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
     n_training_configs = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
-    n_seeds = 20
+    n_seeds = 1
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
@@ -333,9 +333,10 @@ if __name__ == "__main__":
         ))
 
 
-    df = pd.concat([
-        experiment.data(ignore_cache=ignore_cache) for experiment in experiments
-    ])
+    with catchtime("total time to generate evaluations"):
+        df = pd.concat([
+            experiment.data(ignore_cache=ignore_cache) for experiment in experiments
+        ])
     # De-duplicate in case we ran a config multiple times
     df = df.drop_duplicates(subset=["method", "tid", "fold"])
     df = rename_dataframe(df)

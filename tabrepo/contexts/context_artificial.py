@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 
+from tabrepo.repository import EvaluationRepository
+from tabrepo.simulation.ground_truth import GroundTruth
 from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
-from tabrepo.simulation.tabular_predictions import TabularPicklePredictions
+from tabrepo.simulation.tabular_predictions import TabularPredictionsInMemory
 
 np.random.seed(0)
+
 
 def make_random_metric(model):
     output_cols = ['time_train_s', 'time_infer_s', 'bestdiff', 'loss_rescaled', 'time_train_s_rescaled',
@@ -31,6 +34,12 @@ def load_context_artificial(**kwargs):
 
     configs_full = {model: {} for model in models}
 
+    df_task_metrics = pd.DataFrame([
+        ["ada", "roc_auc", "binary"],
+        ["abalone", "root_mean_squared_error", "regression"],
+    ],
+        columns=["dataset", "eval_metric", "problem_type"]
+    )
     df_metadata = pd.DataFrame([{
         'tid': dataset_id,
         'name': dataset_name,
@@ -73,9 +82,10 @@ def load_context_artificial(**kwargs):
         df_raw=df_raw,
         folds=list(range(n_folds)),
         df_metadata=df_metadata,
+        df_task_metrics=df_task_metrics,
     )
     pred_dict = {
-        dataset_id: {
+        dataset_name: {
             fold: {
                 "pred_proba_dict_val": {
                     m: np.random.rand(123, 25)
@@ -88,27 +98,29 @@ def load_context_artificial(**kwargs):
             }
             for fold in range(n_folds)
         }
-        for dataset_id in dataset_ids
+        for dataset_name in dataset_names
     }
-    zeroshot_pred_proba = TabularPicklePredictions.from_dict(pred_dict)
+    zeroshot_pred_proba = TabularPredictionsInMemory.from_dict(pred_dict)
 
-    zeroshot_gt = {
+    make_dict = lambda size: {
         dataset_id: {
-            fold: {
-                'y_val': pd.Series(np.random.randint(low=0, high=25, size=123)),
-                'y_test': pd.Series(np.random.randint(low=0, high=25, size=13)),
-                'eval_metric': 'root_mean_squared_error',
-                'problem_type': 'regression',
-                'problem_type_transform': 'regression',
-                'task': 'abalone',
-            }
+            fold: pd.Series(np.random.randint(low=0, high=25, size=size))
             for fold in range(n_folds)
         }
         for dataset_id in dataset_ids
     }
 
-    return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+    zeroshot_gt = GroundTruth(label_val_dict=make_dict(123), label_test_dict=make_dict(13))
 
+    return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt, df_task_metrics
+
+def load_repo_artificial():
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt, df_task_metrics = load_context_artificial()
+    return EvaluationRepository(
+        zeroshot_context=zsc,
+        tabular_predictions=zeroshot_pred_proba,
+        ground_truth=zeroshot_gt,
+    )
 
 if __name__ == '__main__':
     load_context_artificial()

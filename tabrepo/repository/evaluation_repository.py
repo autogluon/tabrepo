@@ -7,6 +7,7 @@ import pandas as pd
 
 from tabrepo.simulation.configuration_list_scorer import ConfigurationListScorer
 from tabrepo.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from tabrepo.simulation.ground_truth import GroundTruth
 from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
 from tabrepo.simulation.tabular_predictions import TabularModelPredictions
@@ -24,13 +25,13 @@ class EvaluationRepository(SaveLoadMixin):
             self,
             zeroshot_context: ZeroshotSimulatorContext,
             tabular_predictions: TabularModelPredictions,
-            ground_truth: dict,
+            ground_truth: GroundTruth,
     ):
         self._tabular_predictions: TabularModelPredictions = tabular_predictions
         self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
-        self._ground_truth: dict = ground_truth
+        self._ground_truth = ground_truth
         if self._tabular_predictions is not None:
-            assert all(x in self._tid_to_name for x in self._tabular_predictions.datasets)
+            assert all(self._zeroshot_context.dataset_to_tid_dict[x] in self._tid_to_name for x in self._tabular_predictions.datasets)
 
     def to_zeroshot(self) -> repository.EvaluationRepositoryZeroshot:
         """
@@ -98,17 +99,20 @@ class EvaluationRepository(SaveLoadMixin):
         from tabrepo.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(self._zeroshot_context, self._tabular_predictions, self._ground_truth)
+
         force_to_dense(self._tabular_predictions,
                        first_prune_method='task',
                        second_prune_method='dataset',
                        verbose=verbose)
 
         self._zeroshot_context.subset_models(self._tabular_predictions.models)
-        self._zeroshot_context.subset_datasets(self._tabular_predictions.datasets)
+        tids = [self.dataset_to_tid(d) for d in self._tabular_predictions.datasets if d in self._name_to_tid]
+        self._zeroshot_context.subset_datasets(tids)
         self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
         self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
                                                zeroshot_gt=self._ground_truth,
-                                               verbose=verbose)
+                                               dataset_to_tid_dict=self._name_to_tid,
+                                               verbose=verbose,)
         return self
 
     @property
@@ -177,20 +181,18 @@ class EvaluationRepository(SaveLoadMixin):
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
     def val_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
-        val_predictions, _ = self._tabular_predictions.predict(
-            dataset=tid,
+        return self._tabular_predictions.predict_val(
+            dataset=self.tid_to_dataset(tid),
             fold=fold,
             models=[config_name]
         )
-        return val_predictions[0]
 
     def test_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
-        _, test_predictions = self._tabular_predictions.predict(
-            dataset=tid,
+        return self._tabular_predictions.predict_test(
+            dataset=self.tid_to_dataset(tid),
             fold=fold,
             models=[config_name]
         )
-        return test_predictions[0]
 
     def dataset_metadata(self, tid: int) -> dict:
         metadata = self._df_metadata[self._df_metadata.tid == tid]
@@ -300,10 +302,9 @@ class EvaluationRepository(SaveLoadMixin):
         return load(version=version, lazy_format=lazy_format)
 
 
-def load(version: str = None, lazy_format=True) -> EvaluationRepository:
+def load(version: str = None) -> EvaluationRepository:
     from tabrepo.contexts import get_context
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True,
-                                                                                    lazy_format=lazy_format)
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True)
     r = EvaluationRepository(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,
@@ -315,18 +316,14 @@ def load(version: str = None, lazy_format=True) -> EvaluationRepository:
 
 # TODO: git shelve ADD BACK
 if __name__ == '__main__':
-    from tabrepo.contexts.context_artificial import load_context_artificial
+    from tabrepo.contexts.context_artificial import load_repo_artificial
+
     with catchtime("loading repo and evaluating one ensemble config"):
         dataset_name = "abalone"
         config_name = "NeuralNetFastAI_r1"
         # repo = EvaluationRepository.load(version="2022_10_13")
 
-        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
-        repo = EvaluationRepository(
-            zeroshot_context=zsc,
-            tabular_predictions=zeroshot_pred_proba,
-            ground_truth=zeroshot_gt,
-        )
+        repo = load_repo_artificial()
         tid = repo.dataset_to_tid(dataset_name=dataset_name)
         print(repo.dataset_names()[:3])  # ['abalone', 'ada', 'adult']
         print(repo.tids()[:3])  # [2073, 3945, 7593]
