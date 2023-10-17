@@ -6,7 +6,7 @@ import pytest
 from tabrepo.simulation.dense_utils import get_folds_dense, get_models_dense, is_dense_models, is_dense_folds, \
     force_to_dense, print_summary, list_folds_available, list_models_available, is_empty
 from tabrepo.simulation.tabular_predictions import TabularPredictionsMemmap, TabularPredictionsInMemory
-from tst.test_tabular_predictions import generate_artificial_dict, generate_dummy
+from tabrepo.utils.test_utils import generate_artificial_dict
 
 num_models = 13
 num_folds = 3
