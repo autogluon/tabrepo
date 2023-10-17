@@ -304,5 +304,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             dataset_name_to_fold_dict=self.dataset_name_to_fold_dict,
             ensemble_size=self.ensemble_size,
             ensemble_selection_kwargs=self.ensemble_selection_kwargs,
+            tid_to_dataset_name_dict=self.tid_to_dataset_name_dict,
+            task_metrics_metadata=self.ensemble_scorer.task_metrics_metadata,
             max_fold=self.max_fold,
         )
