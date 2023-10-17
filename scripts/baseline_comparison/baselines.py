@@ -190,7 +190,7 @@ def sample_and_pick_best(
         print(f"missing data {tid} {fold} {framework_type}")
 
     # shuffle the rows
-    df_sub = df_sub.sample(frac=1).reset_index(drop=True)
+    df_sub = df_sub.sample(frac=1, random_state=0).reset_index(drop=True)
 
     # pick only configurations up to max_runtime
     if max_runtime:
@@ -339,8 +339,8 @@ def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, qua
     ).quantile(q=quantile, axis=1).sort_values()
 
     n_initial_configs = len(configs)
-    configs_fast_enough = df_configs_runtime[df_configs_runtime < max_runtime].index.tolist()
-    configs = list(set(configs_fast_enough).intersection(configs))
+    configs_fast_enough = set(df_configs_runtime[df_configs_runtime < max_runtime].index.tolist())
+    configs = [c for c in configs if c in configs_fast_enough]
     print(f"kept only {len(configs)} from initial {n_initial_configs} for runtime {max_runtime}")
     return configs
 
@@ -406,6 +406,10 @@ def zeroshot_results(
             else:
                 configs += list(np.random.choice(models_framework, n_training_config, replace=False))
 
+        # Randomly shuffle the config order with seed 0
+        rng = np.random.default_rng(seed=0)
+        configs = list(rng.choice(configs, len(configs), replace=False))
+
         # # exclude configurations from zeroshot selection whose runtime exceeds runtime budget by large amount
         if max_runtime:
             configs = filter_configurations_above_budget(repo, test_tid, configs, max_runtime)
@@ -457,7 +461,7 @@ def zeroshot_results(
     assert not any(df_rank.isna().values.reshape(-1))
 
     model_frameworks = {
-        framework: [x for x in repo.list_models() if framework in x]
+        framework: sorted([x for x in repo.list_models() if framework in x])
         for framework in framework_types
     }
 
