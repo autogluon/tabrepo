@@ -26,7 +26,7 @@ def compute_error_ray(config_scorer, configs: List[str], task: str) -> (float, d
 
 class EnsembleScorer:
     def __init__(self,
-                 zeroshot_pp: TabularModelPredictions | dict,
+                 zeroshot_pp: TabularModelPredictions,
                  tid_to_dataset_dict: dict,
                  zeroshot_gt: GroundTruth,
                  task_metrics_metadata,

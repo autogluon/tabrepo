@@ -42,6 +42,12 @@ class TabularModelPredictions:
         """
         raise NotImplementedError()
 
+    def to_dict(self) -> TabularPredictionsDict:
+        """
+        :return: the whole dictionary of predictions
+        """
+        raise NotImplementedError()
+
     def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         """
         Obtains validation predictions on a given dataset and fold for a list of models
@@ -128,6 +134,9 @@ class TabularPredictionsInMemory(TabularModelPredictions):
         pred_dict = copy.deepcopy(pred_dict)
         return cls(pred_dict=pred_dict, datasets=datasets)
 
+    def to_dict(self) -> TabularPredictionsDict:
+        return self.pred_dict
+
     def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
 
@@ -202,7 +211,7 @@ class TabularPredictionsMemmap(TabularModelPredictions):
                 target_folder = path_memmap(output_dir, dataset, fold)
                 target_folder.mkdir(exist_ok=True, parents=True)
 
-                print(f"Converting {dataset} fold {fold} to {target_folder}")
+                # print(f"Converting {dataset} fold {fold} to {target_folder}")
 
                 models = list(folds["pred_proba_dict_val"].keys())
                 assert set(list(folds["pred_proba_dict_test"].keys())) == set(models), \
@@ -233,10 +242,27 @@ class TabularPredictionsMemmap(TabularModelPredictions):
                 # slower in cases when only some models are loaded
                 fp = np.memmap(str(target_folder / "pred-val.dat"), dtype=dtype, mode='w+', shape=pred_val.shape)
                 fp[:] = pred_val[:]
+                fp.flush()
                 fp = np.memmap(str(target_folder / "pred-test.dat"), dtype=dtype, mode='w+', shape=pred_test.shape)
                 fp[:] = pred_test[:]
+                fp.flush()
 
         return cls(data_dir=output_dir, datasets=datasets)
+
+    def to_dict(self) -> TabularPredictionsDict:
+        model_available_dict = self.model_available_dict()
+        return {
+            dataset: {
+                fold: {
+                    "pred_proba_dict_val": {
+                        model: self.predict_val(dataset, fold, [model]) for model in models
+                    },
+                    "pred_proba_dict_test": {
+                        model: self.predict_test(dataset, fold, [model]) for model in models
+                    }
+                } for fold, models in fold_dict.items()
+            } for dataset, fold_dict in model_available_dict.items()
+        }
 
     @staticmethod
     def _load_metadatas(data_dir):

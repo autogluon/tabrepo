@@ -82,3 +82,21 @@ def test_restrict_folds(cls):
         assert sorted(preds.datasets) == []
         assert sorted(preds.models) == []
         assert sorted(preds.folds) == []
+
+@pytest.mark.parametrize("cls", [
+    TabularPredictionsMemmap,
+    TabularPredictionsInMemory,
+])
+def test_to_dict(cls):
+    # Checks that to_dict returns the same dictionary as the original input
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        preds = cls.from_dict(pred_dict, output_dir=tmpdirname)
+        pred_dict2 = preds.to_dict()
+        assert sorted(pred_dict.keys()) == sorted(pred_dict2.keys())
+        for dataset in pred_dict.keys():
+            assert sorted(pred_dict[dataset].keys()) == sorted(pred_dict2[dataset].keys())
+            for fold, fold_dict in pred_dict[dataset].items():
+                assert sorted(pred_dict[dataset][fold].keys()) == sorted(pred_dict2[dataset][fold].keys())
+                for split, model_dict in fold_dict.items():
+                    for model, model_value in model_dict.items():
+                        assert np.allclose(pred_dict[dataset][fold][split][model], pred_dict2[dataset][fold][split][model])
