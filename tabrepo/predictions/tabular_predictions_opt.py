@@ -20,26 +20,23 @@ class TabularPredictionsInMemoryOpt(TabularPredictionsInMemory):
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None, datasets: List[str] = None):
-        pred_dict_opt = cls.stack_pred_dict(pred_dict=pred_dict)
+        pred_dict_opt = cls._stack_pred_dict(pred_dict=pred_dict)
         return cls(pred_dict_opt=pred_dict_opt, datasets=datasets)
 
-    @classmethod
-    def stack_pred_dict(cls, pred_dict: TabularPredictionsDict) -> Dict[str, Dict[int, Dict[str, TaskModelPredictionsOpt]]]:
-        pred_dict = copy.deepcopy(pred_dict)  # TODO: Avoid the deep copy, create from scratch to min mem usage
-        datasets = list(pred_dict.keys())
-        for dataset in datasets:
-            folds = list(pred_dict[dataset].keys())
-            for fold in folds:
-                splits = list(pred_dict[dataset][fold].keys())
-                for split in splits:
-                    model_pred_probas: ConfigPredictionsDict = pred_dict[dataset][fold][split]
-                    pred_dict[dataset][fold][split] = TaskModelPredictionsOpt.from_config_predictions(
-                        config_predictions=model_pred_probas
-                    )
-        return pred_dict
-
-    def _get_model_results(self, model: str, model_pred_probas: TaskModelPredictionsOpt) -> np.array:
-        return model_pred_probas.get_model_predictions(model=model)
+    def to_dict(self) -> TabularPredictionsDict:
+        model_available_dict = self.model_available_dict()
+        return {
+            dataset: {
+                fold: {
+                    "pred_proba_dict_val": {
+                        model: self.predict_val(dataset, fold, [model]).squeeze() for model in models
+                    },
+                    "pred_proba_dict_test": {
+                        model: self.predict_test(dataset, fold, [model]).squeeze() for model in models
+                    }
+                } for fold, models in fold_dict.items()
+            } for dataset, fold_dict in model_available_dict.items()
+        }
 
     def restrict_models(self, models: List[str]):
         task_names = self.datasets
@@ -57,25 +54,28 @@ class TabularPredictionsInMemoryOpt(TabularPredictionsInMemory):
                 # If no folds, then pop the entire dataset
                 self.pred_dict.pop(t)
 
+    @classmethod
+    def _stack_pred_dict(cls, pred_dict: TabularPredictionsDict) -> Dict[str, Dict[int, Dict[str, TaskModelPredictionsOpt]]]:
+        pred_dict = copy.deepcopy(pred_dict)  # TODO: Avoid the deep copy, create from scratch to min mem usage
+        datasets = list(pred_dict.keys())
+        for dataset in datasets:
+            folds = list(pred_dict[dataset].keys())
+            for fold in folds:
+                splits = list(pred_dict[dataset][fold].keys())
+                for split in splits:
+                    model_pred_probas: ConfigPredictionsDict = pred_dict[dataset][fold][split]
+                    pred_dict[dataset][fold][split] = TaskModelPredictionsOpt.from_config_predictions(
+                        config_predictions=model_pred_probas
+                    )
+        return pred_dict
+
+    def _get_model_results(self, model: str, model_pred_probas: TaskModelPredictionsOpt) -> np.array:
+        return model_pred_probas.get_model_predictions(model=model)
+
     def _model_available_dict(self) -> Dict[str, Dict[int, List[str]]]:
         return {
             dataset: {
                 fold: list(fold_info['pred_proba_dict_val'].models) for fold, fold_info in fold_dict.items()
             }
             for dataset, fold_dict in self.pred_dict.items()
-        }
-
-    def to_dict(self) -> TabularPredictionsDict:
-        model_available_dict = self.model_available_dict()
-        return {
-            dataset: {
-                fold: {
-                    "pred_proba_dict_val": {
-                        model: self.predict_val(dataset, fold, [model]).squeeze() for model in models
-                    },
-                    "pred_proba_dict_test": {
-                        model: self.predict_test(dataset, fold, [model]).squeeze() for model in models
-                    }
-                } for fold, models in fold_dict.items()
-            } for dataset, fold_dict in model_available_dict.items()
         }
