@@ -1,15 +1,9 @@
 import numpy as np
 
-from tabrepo.contexts.context_artificial import load_context_artificial
-from tabrepo.repository.evaluation_repository import EvaluationRepository
+from tabrepo.contexts.context_artificial import load_repo_artificial
 from tabrepo.repository.time_utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
 
-zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
-repo = EvaluationRepository(
-    zeroshot_context=zsc,
-    tabular_predictions=zeroshot_pred_proba,
-    ground_truth=zeroshot_gt,
-)
+repo = load_repo_artificial()
 
 
 def test_get_runtime():

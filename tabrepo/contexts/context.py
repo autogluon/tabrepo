@@ -26,6 +26,8 @@ class BenchmarkPaths:
     raw: str
     comparison: str
     task_metadata: str = None
+    path_pred_proba: str = None
+    datasets: List[str] = None
     zs_pp: List[str] = None
     zs_gt: List[str] = None
     configs: List[str] = None
@@ -142,18 +144,16 @@ class BenchmarkPaths:
 
     def load_predictions(self,
                          zsc: ZeroshotSimulatorContext,
-                         output_dir: str,
-                         lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
+                         ) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
         for f in self.zs_pp:
             self._assert_exists(f, f'zs_pp | {f}')
         for f in self.zs_gt:
             self._assert_exists(f, name=f'zs_gt | {f}')
         zeroshot_pred_proba, zeroshot_gt, zsc = load_zeroshot_input(
-            path_pred_proba=self.zs_pp,
-            path_gt=self.zs_gt,
-            output_dir=output_dir,
+            path_pred_proba=self.path_pred_proba,
+            paths_gt=self.zs_gt,
             zsc=zsc,
-            lazy_format=lazy_format,
+            datasets=self.datasets,
         )
         return zeroshot_pred_proba, zeroshot_gt, zsc
 
@@ -280,7 +280,6 @@ class BenchmarkContext:
     def load(self,
              folds: List[int] = None,
              load_predictions: bool = True,
-             lazy_format: bool = False,
              download_files: bool = True,
              exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
         """
@@ -288,8 +287,6 @@ class BenchmarkContext:
             If specified, must be a subset of `self.folds`. This will filter the results to only the specified folds.
             Restricting folds can be useful to speed up experiments.
         :param load_predictions: If True, loads zpp and gt files.
-        :param lazy_format: If True, returns model predictions in lazy format, else returns them in memory.
-            Ignored if load_predictions=False
         :param download_files: If True, will download required files from s3 if they don't already exist locally.
         :param exists: If download_files=True, this determines the behavior of the file download.
             Options: ['ignore', 'raise', 'overwrite']
@@ -322,12 +319,12 @@ class BenchmarkContext:
                   f'\tdescription: {self.description}\n'
                   f'\tdate: {self.date}\n'
                   f'\tfolds: {folds}')
-            self.benchmark_paths.print_summary()
             if download_files and exists == 'ignore':
                 if self.benchmark_paths.exists_all(check_zs=load_predictions):
                     print(f'All required files are present...')
                     download_files = False
             if download_files:
+                self.benchmark_paths.print_summary()
                 print(f'Downloading input files from s3...')
                 self.download(include_zs=load_predictions, exists=exists)
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
@@ -342,7 +339,7 @@ class BenchmarkContext:
                 output_pred_proba = None
 
             if load_predictions:
-                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, output_dir=output_pred_proba, lazy_format=lazy_format)
+                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, output_dir=output_pred_proba)
             else:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
@@ -359,9 +356,12 @@ class BenchmarkContext:
 
     def _load_predictions(self,
                           zsc: ZeroshotSimulatorContext,
-                          output_dir: str,
-                          lazy_format: bool = False) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
-        return self.benchmark_paths.load_predictions(zsc=zsc, output_dir=output_dir, lazy_format=lazy_format)
+                          output_dir: str) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
+        return self.benchmark_paths.load_predictions(zsc=zsc)
+
+    def _load_task_metrics(self) -> pd.DataFrame:
+        root = Path(__file__).parent.parent.parent
+        return pd.read_csv(root / "data/metadata/task_metric_names.csv.zip")
 
     def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
         df_results_by_dataset, df_raw, df_metadata = self._load_results()
@@ -369,13 +369,14 @@ class BenchmarkContext:
         # Load in real framework results to score against
         print(f'Loading comparison_frameworks: {self.benchmark_paths.comparison}')
         df_results_by_dataset_automl = self.benchmark_paths.load_comparison()
-
+        df_task_metrics = self._load_task_metrics()
         zsc = ZeroshotSimulatorContext(
             df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
             folds=folds,
             df_metadata=df_metadata,
+            df_task_metrics=df_task_metrics,
         )
         return zsc
 
@@ -391,8 +392,8 @@ def construct_context(
         task_metadata: str = "task_metadata_244.csv"):
     path_context = str(Paths.results_root / local_prefix) + os.sep
 
-    split_key = str(Path(path_context) / "zeroshot_metadata") + os.sep
-    split_value = f"{s3_prefix}zeroshot_metadata/"
+    split_key = str(Path(path_context) / "model_predictions") + os.sep
+    split_value = f"{s3_prefix}model_predictions/"
 
     _s3_download_map = {
         "evaluation/compare/results_ranked_by_dataset_valid.csv": "evaluation/compare/results_ranked_by_dataset_valid.csv",
@@ -401,8 +402,11 @@ def construct_context(
     }
     _s3_download_map = {f'{path_context}{k}': f'{s3_prefix}{v}' for k, v in _s3_download_map.items()}
 
-    _files_pp = [f"{dataset}/{fold}/zeroshot_pred_proba.pkl" for dataset in datasets for fold in folds]
-    _files_gt = [f"{dataset}/{fold}/zeroshot_gt.pkl" for dataset in datasets for fold in folds]
+
+    files_pred = ["metadata.json", "pred-test.dat", "pred-val.dat"]
+    _files_pp = [f"{dataset}/{fold}/{f}" for dataset in datasets for fold in folds for f in files_pred]
+    files_label = ["label-test.csv.zip", "label-val.csv.zip"]
+    _files_gt = [f"{dataset}/{fold}/{f}" for dataset in datasets for fold in folds for f in files_label]
 
     _s3_download_map_metadata_pp = {f"{split_key}{f}": f"{split_value}{f}" for f in _files_pp}
     _s3_download_map_metadata_gt = {f"{split_key}{f}": f"{split_value}{f}" for f in _files_gt}
@@ -428,8 +432,9 @@ def construct_context(
     )
 
     _bag_zs_path = dict(
-        zs_pp=zs_pp,
         zs_gt=zs_gt,
+        zs_pp=zs_pp,
+        path_pred_proba=split_key,
     )
 
     context: BenchmarkContext = BenchmarkContext.from_paths(
@@ -439,6 +444,7 @@ def construct_context(
         folds=folds,
         s3_download_map=_s3_download_map,
         output_dir=str(path_context),
+        datasets=datasets,
         **_result_paths,
         **_bag_zs_path,
         **_task_metadata_path,

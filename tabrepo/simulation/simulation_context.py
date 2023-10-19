@@ -1,24 +1,32 @@
+from collections import defaultdict
 import pickle
+import json
 import sys
 from pathlib import Path
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Tuple
 
 import pandas as pd
 from autogluon.common.loaders import load_pkl
 
+from .convert_memmap import convert_memmap_pred_from_pickle
+from .ground_truth import GroundTruth
 from ..loaders import Paths
 
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
-from .tabular_predictions import TabularPicklePredictions, TabularPicklePerTaskPredictions, TabularModelPredictions
+from .tabular_predictions import TabularModelPredictions, TabularPredictionsMemmap
 from ..utils.rank_utils import RankScorer
 
 
+def _default_dict():
+    # this free function is added as `defaultdict(lambda: defaultdict(dict))` cant be pickled
+    return defaultdict(dict)
 class ZeroshotSimulatorContext:
     def __init__(
             self, 
             df_results_by_dataset: pd.DataFrame,
             df_results_by_dataset_automl: pd.DataFrame,
-            df_raw: pd.DataFrame, 
+            df_raw: pd.DataFrame,
+            df_task_metrics: pd.DataFrame,
             folds: List[int],
             df_metadata: pd.DataFrame = None,
             pct: bool = False,
@@ -40,6 +48,9 @@ class ZeroshotSimulatorContext:
         self.pct = pct
         self.df_results_by_dataset_automl = df_results_by_dataset_automl
         self.df_metadata = df_metadata
+        self.df_task_metrics = df_task_metrics
+        # TODO align_valid_folds returns 8 values and does many different things, it would help to break down to more
+        #  modular functions
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.dataset_name_to_tid_dict, \
@@ -252,80 +263,26 @@ class ZeroshotSimulatorContext:
         """Return all valid configs"""
         return list(self.df_results_by_dataset_vs_automl['framework'].unique())
 
-    def load_groundtruth(self, path_gt: List[str]) -> dict:
-        zeroshot_gt = dict()
-        for p in path_gt:
-            zeroshot_gt_cur = load_pkl.load(p)
-            for dataset in zeroshot_gt_cur:
-                if dataset not in zeroshot_gt:
-                    zeroshot_gt[dataset] = dict()
-                for fold in zeroshot_gt_cur[dataset]:
-                    if fold not in zeroshot_gt[dataset]:
-                        zeroshot_gt[dataset][fold] = zeroshot_gt_cur[dataset][fold]
-                    else:
-                        raise AssertionError(f'Duplicate zs_gt results exist for: dataset="{dataset}", fold={fold}')
-        zeroshot_gt = {k: v for k, v in zeroshot_gt.items() if k in self.dataset_to_tid_dict}
-        zeroshot_gt = {self.dataset_to_tid_dict[k]: v for k, v in zeroshot_gt.items()}
-        return zeroshot_gt
+    def load_groundtruth(self, paths_gt: List[str]) -> Tuple[dict, dict]:
+        gt_val = defaultdict(_default_dict)
+        gt_test = defaultdict(_default_dict)
+        for p in paths_gt:
+            with open(Path(p).parent / "metadata.json", "r") as f:
+                metadata = json.load(f)
+            if metadata["dataset"] in self.dataset_to_tid_dict:
+                tid = self.dataset_to_tid_dict[metadata["dataset"]]
+                fold = metadata["fold"]
+                if Path(p).stem.startswith("label-test"):
+                    gt_test[tid][fold] = pd.read_csv(p, index_col=0)
+                else:
+                    gt_val[tid][fold] = pd.read_csv(p, index_col=0)
+        return GroundTruth(gt_val, gt_test)
 
-    def load_pred(self, pred_pkl_paths: List[Union[Path, str]], output_dir: str, lazy_format: bool = False) -> TabularModelPredictions:
-        pred_pkl_paths = [Path(p) for p in pred_pkl_paths]
-        for p in pred_pkl_paths:
-            assert p.exists()
-        cls = TabularPicklePerTaskPredictions if lazy_format else TabularPicklePredictions
-        if lazy_format:
-            # convert to lazy format if format not already available
-            pred_path = self.convert_lazy_format(pred_pkl_paths=pred_pkl_paths, output_dir=output_dir)
-            zeroshot_pred_proba = cls.load(pred_path)
-        else:
-            zeroshot_pred_proba = cls.from_paths(pred_pkl_paths)
-
+    def load_pred(self, path_pred_proba: Union[Path, str], datasets: List[str]) -> TabularModelPredictions:
+        path_pred_proba = Path(path_pred_proba)
+        zeroshot_pred_proba = TabularPredictionsMemmap(data_dir=path_pred_proba, datasets=datasets)
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
-        # rename dataset to dataset-ids, eg. 'abalone' is mapped to 359944.0
-        zeroshot_pred_proba.rename_datasets({
-            k: self.dataset_to_tid_dict[k]
-            for k in zeroshot_pred_proba.datasets
-        })
-        return zeroshot_pred_proba
-
-    @staticmethod
-    def convert_lazy_format(pred_pkl_paths: List[Path], output_dir: str, override_if_already_exists: bool = False) -> str:
-        """
-        :param pred_pkl_paths:
-        :param output_dir:
-        :param override_if_already_exists:
-        :return: the path of the generated lazy format
-        """
-        if not Path(output_dir).exists() or override_if_already_exists:
-            print(f"lazy format folder {output_dir} not found or override option set to True, "
-                  f"converting to lazy format. It should take less than 3 min.")
-            preds_npy = TabularPicklePerTaskPredictions.from_paths(paths=pred_pkl_paths, output_dir=output_dir)
-        return output_dir
-
-    @staticmethod
-    def minimize_memory_zeroshot_pred_proba(zeroshot_pred_proba: dict, configs: list):
-        """
-        Minimizes memory usage of zeroshot_pred_proba by popping all model keys not in the input configs list.
-
-        Note: Performs inplace edits.
-        """
-        if configs is None:
-            return zeroshot_pred_proba
-        size_bytes = sys.getsizeof(pickle.dumps(zeroshot_pred_proba, protocol=4))
-        print(f'OLD zeroshot_pred_proba Size: {round(size_bytes / 1e6, 3)} MB')
-        task_names = list(zeroshot_pred_proba.keys())
-        configs = set(configs)
-        for t in task_names:
-            available_folds = list(zeroshot_pred_proba[t].keys())
-            for f in available_folds:
-                model_keys = list(zeroshot_pred_proba[t][f]['pred_proba_dict_val'].keys())
-                for k in model_keys:
-                    if k not in configs:
-                        zeroshot_pred_proba[t][f]['pred_proba_dict_val'].pop(k)
-                        zeroshot_pred_proba[t][f]['pred_proba_dict_test'].pop(k)
-        size_bytes = sys.getsizeof(pickle.dumps(zeroshot_pred_proba, protocol=4))
-        print(f'NEW zeroshot_pred_proba Size: {round(size_bytes / 1e6, 3)} MB')
         return zeroshot_pred_proba
 
     def subset_datasets(self, datasets):

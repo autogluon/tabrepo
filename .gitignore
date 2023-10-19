@@ -128,7 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-data/results/
+data/results/*
 .DS_Store
 autogluon/
 .pkl
