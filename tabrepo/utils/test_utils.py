@@ -3,7 +3,7 @@ from typing import List
 
 import numpy as np
 
-from tabrepo.simulation.tabular_predictions import TabularPredictionsDict
+from tabrepo.predictions.tabular_predictions import TabularPredictionsDict
 
 
 def generate_dummy(shape, models):

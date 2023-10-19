@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 
+from tabrepo.predictions import TabularPredictionsInMemory
 from tabrepo.repository import EvaluationRepository
 from tabrepo.simulation.ground_truth import GroundTruth
 from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
-from tabrepo.simulation.tabular_predictions import TabularPredictionsInMemory
+
 
 np.random.seed(0)
 

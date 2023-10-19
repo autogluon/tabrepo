@@ -3,7 +3,7 @@ from typing import List, Tuple
 from ..simulation.dense_utils import force_to_dense
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.tabular_predictions import TabularModelPredictions
+from ..predictions.tabular_predictions import TabularModelPredictions
 
 
 def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,

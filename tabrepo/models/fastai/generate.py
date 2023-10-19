@@ -8,7 +8,7 @@ manual_configs = [
     {},
 ]
 search_space = {
-    # See docs: https://docs.fast.ai/tabular.models.html
+    # See docs: https://docs.fast.ai/tabular.learner.html
     'layers': Categorical([200], [400], [200, 100], [400, 200], [800, 400], [200, 100, 50], [400, 200, 100]),  # FIXME: None crashes when saved to json, turns to null
     'emb_drop': Real(0.0, 0.7, default=0.1),
     'ps': Real(0.0, 0.7, default=0.1),

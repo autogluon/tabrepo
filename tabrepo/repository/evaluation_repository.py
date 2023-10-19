@@ -10,7 +10,7 @@ from tabrepo.simulation.ensemble_selection_config_scorer import EnsembleSelectio
 from tabrepo.simulation.ground_truth import GroundTruth
 from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
-from tabrepo.simulation.tabular_predictions import TabularModelPredictions
+from tabrepo.predictions.tabular_predictions import TabularModelPredictions
 from tabrepo.utils.cache import SaveLoadMixin
 from tabrepo.utils import catchtime
 from tabrepo import repository

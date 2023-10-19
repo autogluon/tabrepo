@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from tabrepo.simulation.tabular_predictions import path_memmap
+from tabrepo.predictions.tabular_predictions import path_memmap
 from tabrepo.utils.parallel_for import parallel_for
 
 

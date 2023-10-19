@@ -3,9 +3,9 @@ import tempfile
 
 import pytest
 
+from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory
 from tabrepo.simulation.dense_utils import get_folds_dense, get_models_dense, is_dense_models, is_dense_folds, \
     force_to_dense, print_summary, list_folds_available, list_models_available, is_empty
-from tabrepo.simulation.tabular_predictions import TabularPredictionsMemmap, TabularPredictionsInMemory
 from tabrepo.utils.test_utils import generate_artificial_dict
 
 num_models = 13

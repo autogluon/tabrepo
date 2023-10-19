@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-from tabrepo.simulation.tabular_predictions import TabularModelPredictions
+from ..predictions.tabular_predictions import TabularModelPredictions
 
 
 def is_dense_folds(tabular_predictions: TabularModelPredictions) -> bool:

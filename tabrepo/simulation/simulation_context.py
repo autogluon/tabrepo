@@ -13,7 +13,7 @@ from .ground_truth import GroundTruth
 from ..loaders import Paths
 
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
-from .tabular_predictions import TabularModelPredictions, TabularPredictionsMemmap
+from ..predictions.tabular_predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory
 from ..utils.rank_utils import RankScorer
 
 

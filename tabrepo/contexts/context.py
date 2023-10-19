@@ -16,7 +16,7 @@ from autogluon.common.utils.s3_utils import is_s3_url, s3_path_to_bucket_prefix
 from .utils import load_zeroshot_input
 from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
 from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.tabular_predictions import TabularModelPredictions
+from ..predictions.tabular_predictions import TabularModelPredictions
 from ..utils import catchtime
 
 

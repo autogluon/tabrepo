@@ -3,8 +3,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from tabrepo.simulation.tabular_predictions import TabularPredictionsMemmap, \
-    TabularPredictionsInMemory
+from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory
 from tabrepo.utils.test_utils import generate_artificial_dict, generate_dummy
 
 num_models = 13
