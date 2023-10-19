@@ -17,46 +17,6 @@ class AbstractTaskModelPredictions:
         raise NotImplementedError
 
 
-# TODO: Currently unused, probably would be nice to use in TabularPicklePredictions
-class TaskModelPredictions(AbstractTaskModelPredictions):
-    """
-    Simple unoptimized storage of all model predictions for a given task.
-    Each model has its own numpy array for predictions.
-    """
-    def __init__(self, config_predictions: ConfigPredictionsDict):
-        self.config_predictions = config_predictions
-
-    @property
-    def models(self) -> List[str]:
-        return list(self.config_predictions.keys())
-
-    def subset(self, models: List[str], inplace: bool = False):
-        """
-        Subset available models to `models`.
-        If `inplace=True`, alters and returns self, otherwise returns a new TaskModelPredictions object.
-        Raises an AssertionError if a model in `models` is missing from `self.models`.
-        """
-        cur_models = self.models
-        cur_models_set = set(cur_models)
-        valid_models = set(models)
-        for m in models:
-            assert m in cur_models_set, f"cannot restrict {m} which is not in available models {cur_models}."
-        if inplace:
-            for m in cur_models:
-                if m not in valid_models:
-                    self.config_predictions[m].pop()
-            return self
-        else:
-            subset_config_predictions = dict()
-            for m in cur_models:
-                if m in valid_models:
-                    subset_config_predictions[m] = self.get_model_predictions(model=m)
-            return TaskModelPredictions(config_predictions=subset_config_predictions)
-
-    def get_model_predictions(self, model: str) -> np.array:
-        return self.config_predictions[model]
-
-
 class TaskModelPredictionsEmpty(AbstractTaskModelPredictions):
     """
     Empty task with no models
