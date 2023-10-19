@@ -137,25 +137,28 @@ class TabularPredictionsInMemory(TabularModelPredictions):
     def to_dict(self) -> TabularPredictionsDict:
         return self.pred_dict
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
-        return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+        return self._load_pred(dataset=dataset, fold=fold, models=models, split="val", as_single=as_single)
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
-        return self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+        return self._load_pred(dataset=dataset, fold=fold, models=models, split="test", as_single=as_single)
 
-    def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):
+    def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None, as_single=False):
         if models is None:
             models = self.models
 
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
-            if len(models) == 1:
-                return np.array(self.pred_dict[dataset][fold][split_key][models[0]])
+            model_results = self.pred_dict[dataset][fold][split_key]
+            if as_single and (len(models) == 1):
+                return np.array(self._get_model_results(model=models[0], model_pred_probas=model_results))
             else:
-                model_results = self.pred_dict[dataset][fold][split_key]
-                return np.array([model_results[model] for model in models])
+                return np.array([self._get_model_results(model=model, model_pred_probas=model_results) for model in models])
 
         return get_split(split, models)
+
+    def _get_model_results(self, model: str, model_pred_probas: dict) -> np.array:
+        return model_pred_probas[model]
 
     def restrict_datasets(self, datasets: List[str]):
         self.pred_dict = {
@@ -255,10 +258,10 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             dataset: {
                 fold: {
                     "pred_proba_dict_val": {
-                        model: self.predict_val(dataset, fold, [model]) for model in models
+                        model: self.predict_val(dataset, fold, [model], as_single=True) for model in models
                     },
                     "pred_proba_dict_test": {
-                        model: self.predict_test(dataset, fold, [model]) for model in models
+                        model: self.predict_test(dataset, fold, [model], as_single=True) for model in models
                     }
                 } for fold, models in fold_dict.items()
             } for dataset, fold_dict in model_available_dict.items()
@@ -276,11 +279,17 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             res[dataset][fold] = metadata
         return res
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
-        return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+        pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
+        if as_single:
+            pred = pred.squeeze()
+        return pred
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
-        return self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+        pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
+        if as_single:
+            pred = pred.squeeze()
+        return pred
 
     def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):
         assert dataset in self.metadata_dict, f"{dataset} not available."
