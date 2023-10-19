@@ -3,8 +3,6 @@ from typing import Dict, List
 
 import numpy as np
 
-from autogluon.common.savers import save_pkl
-
 from .task_predictions import TaskModelPredictionsOpt, ConfigPredictionsDict
 from .tabular_predictions import TabularPredictionsInMemory, TabularPredictionsDict
 
