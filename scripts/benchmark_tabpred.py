@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from scripts import load_context
 from tabrepo.simulation.convert_memmap import convert_memmap_pred_from_pickle
 from tabrepo.predictions import TabularPredictionsMemmap
 from tabrepo.simulation.tabular_predictions_old import TabularPicklePerTaskPredictions
