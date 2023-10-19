@@ -3,7 +3,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory
+from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
 from tabrepo.utils.test_utils import generate_artificial_dict, generate_dummy
 
 num_models = 13
@@ -19,6 +19,7 @@ pred_dict = generate_artificial_dict(num_folds, models, dataset_shapes)
 @pytest.mark.parametrize("cls", [
     TabularPredictionsMemmap,
     TabularPredictionsInMemory,
+    TabularPredictionsInMemoryOpt,
 ])
 def test_predictions_shape(cls):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -43,6 +44,7 @@ def test_predictions_shape(cls):
 @pytest.mark.parametrize("cls", [
     TabularPredictionsMemmap,
     TabularPredictionsInMemory,
+    TabularPredictionsInMemoryOpt
 ])
 def test_restrict_datasets(cls):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -59,6 +61,7 @@ def test_restrict_datasets(cls):
 @pytest.mark.parametrize("cls", [
     TabularPredictionsMemmap,
     TabularPredictionsInMemory,
+    TabularPredictionsInMemoryOpt,
 ])
 def test_restrict_models(cls):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -88,6 +91,7 @@ def test_restrict_folds(cls):
 @pytest.mark.parametrize("cls", [
     TabularPredictionsMemmap,
     TabularPredictionsInMemory,
+    TabularPredictionsInMemoryOpt,
 ])
 def test_to_dict(cls):
     # Checks that to_dict returns the same dictionary as the original input

@@ -9,7 +9,7 @@ from .task_predictions import TaskModelPredictionsOpt, ConfigPredictionsDict
 from .tabular_predictions import TabularPredictionsInMemory, TabularPredictionsDict
 
 
-class TabularPicklePredictionsOpt(TabularPredictionsInMemory):
+class TabularPredictionsInMemoryOpt(TabularPredictionsInMemory):
     """
     A model predictions data representation optimized for `ray.put(self)` operations to minimize overhead.
     Ray has a large overhead when using a shared object with many numpy arrays (such as 500,000).
@@ -39,13 +39,6 @@ class TabularPicklePredictionsOpt(TabularPredictionsInMemory):
                         config_predictions=model_pred_probas
                     )
         return pred_dict
-
-    def models_available_for_dataset_fold_split(self, dataset, fold, split) -> List[str]:
-        split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
-        try:
-            return self.pred_dict[dataset][fold][split_key].model_index.keys()
-        except KeyError:
-            return []
 
     def _get_model_results(self, model: str, model_pred_probas: TaskModelPredictionsOpt) -> np.array:
         return model_pred_probas.get_model_predictions(model=model)
