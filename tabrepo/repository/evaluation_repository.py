@@ -184,14 +184,16 @@ class EvaluationRepository(SaveLoadMixin):
         return self._tabular_predictions.predict_val(
             dataset=self.tid_to_dataset(tid),
             fold=fold,
-            models=[config_name]
+            models=[config_name],
+            as_single=True,
         )
 
     def test_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
         return self._tabular_predictions.predict_test(
             dataset=self.tid_to_dataset(tid),
             fold=fold,
-            models=[config_name]
+            models=[config_name],
+            as_single=True,
         )
 
     def dataset_metadata(self, tid: int) -> dict:

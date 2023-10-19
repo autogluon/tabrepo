@@ -48,7 +48,7 @@ class TabularModelPredictions:
         """
         raise NotImplementedError()
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
         """
         Obtains validation predictions on a given dataset and fold for a list of models
         :return: predictions with shape (num_models, num_rows, num_classes) for classification and
@@ -56,7 +56,7 @@ class TabularModelPredictions:
         """
         raise NotImplementedError()
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
         """
         Obtains test predictions on a given dataset and fold for a list of models
         :return: predictions with shape (num_models, num_rows, num_classes) for classification and
