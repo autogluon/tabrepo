@@ -8,7 +8,7 @@ import pandas as pd
 from .ground_truth import GroundTruth
 
 from .sim_utils import get_dataset_to_tid_dict, get_dataset_name_to_tid_dict, filter_datasets
-from ..predictions.tabular_predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory
+from ..predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
 from ..utils.rank_utils import RankScorer
 
 
@@ -273,9 +273,23 @@ class ZeroshotSimulatorContext:
                     gt_val[tid][fold] = pd.read_csv(p, index_col=0)
         return GroundTruth(gt_val, gt_test)
 
-    def load_pred(self, path_pred_proba: Union[Path, str], datasets: List[str]) -> TabularModelPredictions:
+    def load_pred(self, path_pred_proba: Union[Path, str], datasets: List[str], prediction_format: str = "memmap") -> TabularModelPredictions:
+        """
+        :param prediction_format: Determines the format of the loaded tabular_predictions. Default = "memmap".
+            "memmap": Fast and low memory usage.
+            "memopt": Very fast and high memory usage.
+            "mem": Slow and high memory usage, simplest format to debug.
+        """
+        assert prediction_format in ["memmap", "memopt", "mem"]
+
+        class_map = {
+            "memmap": TabularPredictionsMemmap,
+            "memopt": TabularPredictionsInMemoryOpt,
+            "mem": TabularPredictionsInMemory
+        }
+
         path_pred_proba = Path(path_pred_proba)
-        zeroshot_pred_proba = TabularPredictionsMemmap(data_dir=path_pred_proba, datasets=datasets)
+        zeroshot_pred_proba = class_map[prediction_format].from_data_dir(data_dir=path_pred_proba, datasets=datasets)
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in self.dataset_to_tid_dict]
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
         return zeroshot_pred_proba

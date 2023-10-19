@@ -46,7 +46,7 @@ class BenchmarkSubcontext:
             path = path_prefix / (path_main + path_suffix)
         self.path = path
 
-    def download(self, exists: str = 'raise') -> EvaluationRepository:
+    def download(self, exists: str = 'raise', **kwargs) -> EvaluationRepository:
         assert exists in ['ignore', 'raise', 'overwrite'], f'Invalid exists value: {exists}'
         _exists = self.exists()
         if exists == 'ignore':
@@ -55,16 +55,16 @@ class BenchmarkSubcontext:
         elif exists == 'raise':
             if _exists:
                 raise AssertionError(f'{self.path} already exists, but exists="{exists}"')
-        return self._download()
+        return self._download(**kwargs)
 
-    def _download(self) -> EvaluationRepository:
-        repo = self.load_from_parent()
+    def _download(self, **kwargs) -> EvaluationRepository:
+        repo = self.load_from_parent(**kwargs)
         repo.save(self.path)
         return repo
 
-    def load_from_parent(self) -> EvaluationRepository:
+    def load_from_parent(self, **kwargs) -> EvaluationRepository:
         # TODO: Consider adding configs_full to Repo
-        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = self.parent.load(load_predictions=True)
+        zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = self.parent.load(**kwargs)
 
         repo = EvaluationRepository(
             zeroshot_context=zsc,
