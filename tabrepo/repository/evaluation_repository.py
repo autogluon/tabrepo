@@ -39,7 +39,7 @@ class EvaluationRepository(SaveLoadMixin):
 
         :return: EvaluationRepositoryZeroshot object
         """
-        from tabrepo.repository import EvaluationRepositoryZeroshot
+        from .evaluation_repository_zeroshot import EvaluationRepositoryZeroshot
         self_zeroshot = copy.copy(self)  # Shallow copy so that the class update does not alter self
         self_zeroshot.__class__ = EvaluationRepositoryZeroshot
         return self_zeroshot
