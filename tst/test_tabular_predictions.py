@@ -28,14 +28,17 @@ def test_predictions_shape(cls):
         assert sorted(preds.models) == sorted(models)
         assert preds.folds == list(range(num_folds))
 
-        for dataset, (val_shape, test_shape) in dataset_shapes.items():
-            val_pred_proba = preds.predict_val(dataset=dataset, fold=2, models=models)
-            test_pred_proba = preds.predict_test(dataset=dataset, fold=2, models=models)
-            assert val_pred_proba.shape == tuple([num_models] + list(val_shape))
-            assert test_pred_proba.shape == tuple([num_models] + list(test_shape))
-            for i, model in enumerate(models):
-                assert np.allclose(val_pred_proba[i], generate_dummy(val_shape, models)[model])
-                assert np.allclose(test_pred_proba[i], generate_dummy(test_shape, models)[model])
+        single_models = models[0:1]
+        # we test the shape and values obtained when querying predictions when querying 13 and 1 models
+        for test_models in [models, single_models]:
+            for dataset, (val_shape, test_shape) in dataset_shapes.items():
+                val_pred_proba = preds.predict_val(dataset=dataset, fold=2, models=test_models)
+                test_pred_proba = preds.predict_test(dataset=dataset, fold=2, models=test_models)
+                assert val_pred_proba.shape == tuple([len(test_models)] + list(val_shape))
+                assert test_pred_proba.shape == tuple([len(test_models)] + list(test_shape))
+                for i, model in enumerate(test_models):
+                    assert np.allclose(val_pred_proba[i], generate_dummy(val_shape, test_models)[model])
+                    assert np.allclose(test_pred_proba[i], generate_dummy(test_shape, test_models)[model])
 
 
 @pytest.mark.parametrize("cls", [

@@ -48,7 +48,7 @@ class TabularModelPredictions:
         """
         raise NotImplementedError()
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         """
         Obtains validation predictions on a given dataset and fold for a list of models
         :return: predictions with shape (num_models, num_rows, num_classes) for classification and
@@ -56,7 +56,7 @@ class TabularModelPredictions:
         """
         raise NotImplementedError()
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         """
         Obtains test predictions on a given dataset and fold for a list of models
         :return: predictions with shape (num_models, num_rows, num_classes) for classification and
@@ -137,23 +137,20 @@ class TabularPredictionsInMemory(TabularModelPredictions):
     def to_dict(self) -> TabularPredictionsDict:
         return self.pred_dict
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
-        return self._load_pred(dataset=dataset, fold=fold, models=models, split="val", as_single=as_single)
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+        return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
-        return self._load_pred(dataset=dataset, fold=fold, models=models, split="test", as_single=as_single)
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+        return self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
 
-    def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None, as_single=False):
+    def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):
         if models is None:
             models = self.models
 
         def get_split(split, models):
             split_key = 'pred_proba_dict_test' if split == "test" else 'pred_proba_dict_val'
             model_results = self.pred_dict[dataset][fold][split_key]
-            if as_single and (len(models) == 1):
-                return np.array(self._get_model_results(model=models[0], model_pred_probas=model_results))
-            else:
-                return np.array([self._get_model_results(model=model, model_pred_probas=model_results) for model in models])
+            return np.array([self._get_model_results(model=model, model_pred_probas=model_results) for model in models])
 
         return get_split(split, models)
 
@@ -258,10 +255,10 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             dataset: {
                 fold: {
                     "pred_proba_dict_val": {
-                        model: self.predict_val(dataset, fold, [model], as_single=True) for model in models
+                        model: self.predict_val(dataset, fold, [model]).squeeze() for model in models
                     },
                     "pred_proba_dict_test": {
-                        model: self.predict_test(dataset, fold, [model], as_single=True) for model in models
+                        model: self.predict_test(dataset, fold, [model]).squeeze() for model in models
                     }
                 } for fold, models in fold_dict.items()
             } for dataset, fold_dict in model_available_dict.items()
@@ -279,16 +276,12 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             res[dataset][fold] = metadata
         return res
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
-        if as_single:
-            pred = pred.squeeze()
         return pred
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None, as_single=False) -> np.array:
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
-        if as_single:
-            pred = pred.squeeze()
         return pred
 
     def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):

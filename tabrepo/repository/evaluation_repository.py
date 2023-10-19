@@ -181,20 +181,26 @@ class EvaluationRepository(SaveLoadMixin):
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
     def val_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
+        """
+        Returns the predictions on the validation set for a given configuration on a given dataset and fold
+        :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
+        """
         return self._tabular_predictions.predict_val(
             dataset=self.tid_to_dataset(tid),
             fold=fold,
             models=[config_name],
-            as_single=True,
-        )
+        ).squeeze()
 
     def test_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
+        """
+        Returns the predictions on a test set for a given configuration on a given dataset and fold
+        :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
+        """
         return self._tabular_predictions.predict_test(
             dataset=self.tid_to_dataset(tid),
             fold=fold,
             models=[config_name],
-            as_single=True,
-        )
+        ).squeeze()
 
     def dataset_metadata(self, tid: int) -> dict:
         metadata = self._df_metadata[self._df_metadata.tid == tid]
