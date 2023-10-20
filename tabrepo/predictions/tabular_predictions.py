@@ -298,9 +298,9 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         for dataset in res:
             for fold in res[dataset]:
                 metadata_task = res[dataset][fold]
-                models_available = {m: i for i, m in enumerate(metadata_task["models"])}
+                model_indices = {m: i for i, m in enumerate(metadata_task["models"])}
                 # This is required to keep track of the indices of models after `restrict_models` is called.
-                metadata_task["model_indices"] = models_available
+                metadata_task["model_indices"] = model_indices
         return res
 
     def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
@@ -318,9 +318,9 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         assert split in ["val", "test"]
         task_folder = path_memmap(self.data_dir, dataset, fold)
         metadata = self.metadata_dict[dataset][fold]
-        model_indices = metadata["model_indices"]
-        models_available = {m: model_indices[m] for m in metadata['models']}
-        models_indices = [models_available[m] for m in models]
+        model_indices_all = metadata["model_indices"]
+        model_indices_available = {m: model_indices_all[m] for m in metadata['models']}
+        model_indices = [model_indices_available[m] for m in models]
         dtype = metadata["dtype"]
         pred = np.memmap(
             str(task_folder / f"pred-{split}.dat"),
@@ -328,7 +328,7 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             mode='r',
             shape=tuple(metadata[f"pred_{split}_shape"])
         )
-        pred = pred[models_indices]
+        pred = pred[model_indices]
         return pred
 
     def restrict_datasets(self, datasets: List[str]):

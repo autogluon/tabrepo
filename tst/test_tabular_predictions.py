@@ -164,21 +164,21 @@ def test_to_data_dir(cls):
     # Checks that to_dict returns the same dictionary as the original input
     with tempfile.TemporaryDirectory() as tmpdirname:
         preds = cls.from_dict(pred_dict, output_dir=tmpdirname)
-        new_data_dir = os.path.join(tmpdirname, "cache_v2")
-        preds.to_data_dir(data_dir=new_data_dir)
-        pred_dict2 = cls.from_data_dir(data_dir=new_data_dir).to_dict()
-        assert sorted(pred_dict.keys()) == sorted(pred_dict2.keys())
-        for dataset in pred_dict.keys():
-            assert sorted(pred_dict[dataset].keys()) == sorted(pred_dict2[dataset].keys())
-            for fold, fold_dict in pred_dict[dataset].items():
-                assert sorted(pred_dict[dataset][fold].keys()) == sorted(pred_dict2[dataset][fold].keys())
-                for split, model_dict in fold_dict.items():
-                    for model, model_value in model_dict.items():
-                        assert np.allclose(pred_dict[dataset][fold][split][model], pred_dict2[dataset][fold][split][model])
+        with tempfile.TemporaryDirectory() as new_data_dir:
+            preds.to_data_dir(data_dir=new_data_dir)
+            pred_dict2 = cls.from_data_dir(data_dir=new_data_dir).to_dict()
+            assert sorted(pred_dict.keys()) == sorted(pred_dict2.keys())
+            for dataset in pred_dict.keys():
+                assert sorted(pred_dict[dataset].keys()) == sorted(pred_dict2[dataset].keys())
+                for fold, fold_dict in pred_dict[dataset].items():
+                    assert sorted(pred_dict[dataset][fold].keys()) == sorted(pred_dict2[dataset][fold].keys())
+                    for split, model_dict in fold_dict.items():
+                        for model, model_value in model_dict.items():
+                            assert np.allclose(pred_dict[dataset][fold][split][model], pred_dict2[dataset][fold][split][model])
 
 
-def test_predictions():
-    # Checks that all TabularPredictions objects behave identically
+def test_predictions_after_restrict():
+    # Checks that all TabularPredictions objects behave identically after performing restriction operations
     preds_cls_list = [
         TabularPredictionsInMemory,
         TabularPredictionsInMemoryOpt,
