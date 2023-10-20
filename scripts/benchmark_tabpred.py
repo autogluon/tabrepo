@@ -12,7 +12,7 @@ def compute_all_with_load(data_dir, predictions_class, name: str):
         preds = predictions_class.from_data_dir(data_dir=data_dir)
     with catchtime(f"Compute sum with {name}"):
         res = compute_all(preds=preds)
-    print(f"Sum obtained with {name}: {res}")
+    print(f"Sum obtained with {name}: {res}\n")
     return res
 
 
@@ -31,14 +31,23 @@ def compute_all(preds):
 if __name__ == '__main__':
 
     """
-    start: Compute sum with memmap
-    Sum obtained with memmap: 1176878.8741704822
-    Time for Compute sum with memmap: 0.0547 secs
-        
-    start: Compute sum with pickle per task
-    Sum obtained with pickle per task: 1176878.874170535
-    Time for Compute sum with pickle per task: 7.5385 secs
+    start: Load time with   mem
+    Time for Load time with   mem: 31.5422 secs
+    start: Compute sum with mem
+    Time for Compute sum with mem: 0.0350 secs
+    Sum obtained with mem: 1176878.8741704822
 
+    start: Load time with   memopt
+    Time for Load time with   memopt: 31.7551 secs
+    start: Compute sum with memopt
+    Time for Compute sum with memopt: 0.0435 secs
+    Sum obtained with memopt: 1176878.8741704822
+
+    start: Load time with   memmap
+    Time for Load time with   memmap: 0.0241 secs
+    start: Compute sum with memmap
+    Time for Compute sum with memmap: 0.0294 secs
+    Sum obtained with memmap: 1176878.8741704822
     """
     models = [f"CatBoost_r{i}_BAG_L1" for i in range(1, 10)]
     repeats = 1
