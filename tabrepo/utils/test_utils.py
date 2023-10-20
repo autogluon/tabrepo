@@ -3,7 +3,7 @@ from typing import List
 
 import numpy as np
 
-from tabrepo.simulation.tabular_predictions import TabularPredictionsDict
+from tabrepo.predictions.tabular_predictions import TabularPredictionsDict
 
 
 def generate_dummy(shape, models):
@@ -17,7 +17,7 @@ def generate_artificial_dict(
         num_folds: int,
         models: List[str],
         dataset_shapes: dict = None,
-):
+) -> TabularPredictionsDict:
     if dataset_shapes is None:
         dataset_shapes = {
             "d1": ((20,), (50,)),

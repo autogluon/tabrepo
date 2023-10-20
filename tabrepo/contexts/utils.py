@@ -3,7 +3,7 @@ from typing import List, Tuple
 from ..simulation.dense_utils import force_to_dense
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.tabular_predictions import TabularModelPredictions
+from ..predictions.tabular_predictions import TabularModelPredictions
 
 
 def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
@@ -35,6 +35,7 @@ def load_zeroshot_input(path_pred_proba: str,
                         paths_gt: List[str],
                         datasets: List[str],
                         zsc: ZeroshotSimulatorContext,
+                        prediction_format: str = "memmap",
                         ) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
     print(f'Loading ZS inputs:\n'
           f'\tpred_proba:  {path_pred_proba}\n'
@@ -43,6 +44,7 @@ def load_zeroshot_input(path_pred_proba: str,
     zeroshot_pred_proba = zsc.load_pred(
         path_pred_proba=path_pred_proba,
         datasets=datasets,
+        prediction_format=prediction_format,
     )
 
     # keep only dataset whose folds are all present

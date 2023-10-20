@@ -33,10 +33,11 @@ class TabularModelPredictions:
             self.restrict_datasets(datasets)
 
     @classmethod
-    def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None, **kwargs):
+    def from_dict(cls, pred_dict: TabularPredictionsDict, datasets: Optional[List[str]] = None, output_dir: str = None):
         """
         Instantiates from a dictionary of predictions
         :param pred_dict:
+        :param datasets: if specified, only consider the given list of dataset
         :param output_dir: directory where files are written (used for `TabularPredictionsMemmap`)
         :return:
         """
@@ -47,6 +48,61 @@ class TabularModelPredictions:
         :return: the whole dictionary of predictions
         """
         raise NotImplementedError()
+
+    @classmethod
+    def from_data_dir(cls, data_dir: Union[str, Path], datasets: Optional[List[str]] = None):
+        raise NotImplementedError()
+
+    def to_data_dir(self, data_dir: Union[str, Path], dtype: str = "float32"):
+        # TODO: No need to convert to dict for TabularPredictionsMemmap, can just clone the files to the new directory instead to be more efficient.
+        self._cache_data(pred_dict=self.to_dict(), data_dir=data_dir, dtype=dtype)
+
+    @staticmethod
+    def _cache_data(pred_dict: TabularPredictionsDict, data_dir: str, dtype: str = "float32"):
+        assert dtype in ["float16", "float32"]
+        data_dir = Path(data_dir)
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+        for dataset, folds_dict in pred_dict.items():
+            for fold, folds in folds_dict.items():
+                target_folder = path_memmap(data_dir, dataset, fold)
+                target_folder.mkdir(exist_ok=True, parents=True)
+
+                # print(f"Converting {dataset} fold {fold} to {target_folder}")
+
+                models = list(folds["pred_proba_dict_val"].keys())
+                assert set(list(folds["pred_proba_dict_test"].keys())) == set(models), \
+                    "different models available on validation and testing"
+
+                def get_split(split_key, models):
+                    model_results = pred_dict[dataset][fold][split_key]
+                    return np.array([model_results[model] for model in models])
+
+                pred_val = get_split("pred_proba_dict_val", models)
+                pred_test = get_split("pred_proba_dict_test", models)
+
+                # Save metadata that are required to retrieve the predictions, in particular the shape of model
+                # predictions and the model list
+                with open(target_folder / "metadata.json", "w") as f:
+                    metadata_dict = {
+                        "models": models,
+                        "dataset": dataset,
+                        "fold": fold,
+                        "pred_val_shape": pred_val.shape,
+                        "pred_test_shape": pred_test.shape,
+                        "dtype": dtype,
+                    }
+
+                    f.write(json.dumps(metadata_dict))
+
+                # Dumps data to memmap tensors, alternatively could use .npy but it would make model loading much
+                # slower in cases when only some models are loaded
+                fp = np.memmap(str(target_folder / "pred-val.dat"), dtype=dtype, mode='w+', shape=pred_val.shape)
+                fp[:] = pred_val[:]
+                fp.flush()
+                fp = np.memmap(str(target_folder / "pred-test.dat"), dtype=dtype, mode='w+', shape=pred_test.shape)
+                fp[:] = pred_test[:]
+                fp.flush()
 
     def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         """
@@ -69,7 +125,7 @@ class TabularModelPredictions:
         """
         :return: list of datasets that are present in the collection
         """
-        return list(self.model_available_dict().keys())
+        return sorted(list(self.model_available_dict().keys()))
 
     def restrict_datasets(self, datasets: List[str]):
         raise NotImplementedError()
@@ -129,13 +185,18 @@ class TabularPredictionsInMemory(TabularModelPredictions):
         super(TabularPredictionsInMemory, self).__init__(datasets=datasets)
 
     @classmethod
-    def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None, datasets: Optional[List[str]] = None):
+    def from_dict(cls, pred_dict: TabularPredictionsDict, datasets: Optional[List[str]] = None, output_dir: str = None):
         # Optional, avoids changing passed object
         pred_dict = copy.deepcopy(pred_dict)
         return cls(pred_dict=pred_dict, datasets=datasets)
 
     def to_dict(self) -> TabularPredictionsDict:
         return self.pred_dict
+
+    @classmethod
+    def from_data_dir(cls, data_dir: Union[str, Path], datasets: Optional[List[str]] = None):
+        memmap = TabularPredictionsMemmap.from_data_dir(data_dir=data_dir, datasets=datasets)
+        return cls.from_dict(pred_dict=memmap.to_dict(), datasets=datasets)
 
     def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
         return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
@@ -201,52 +262,12 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         super(TabularPredictionsMemmap, self).__init__(datasets=datasets)
 
     @classmethod
+    def from_data_dir(cls, data_dir: Union[str, Path], datasets: Optional[List[str]] = None):
+        return cls(data_dir=data_dir, datasets=datasets)
+
+    @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None, datasets: Optional[List[str]] = None, dtype: str = "float32"):
-        assert dtype in ["float16", "float32"]
-        output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        for dataset, folds_dict in pred_dict.items():
-            for fold, folds in folds_dict.items():
-                target_folder = path_memmap(output_dir, dataset, fold)
-                target_folder.mkdir(exist_ok=True, parents=True)
-
-                # print(f"Converting {dataset} fold {fold} to {target_folder}")
-
-                models = list(folds["pred_proba_dict_val"].keys())
-                assert set(list(folds["pred_proba_dict_test"].keys())) == set(models), \
-                    "different models available on validation and testing"
-
-                def get_split(split_key, models):
-                    model_results = pred_dict[dataset][fold][split_key]
-                    return np.array([model_results[model] for model in models])
-
-                pred_val = get_split("pred_proba_dict_val", models)
-                pred_test = get_split("pred_proba_dict_test", models)
-
-                # Save metadata that are required to retrieve the predictions, in particular the shape of model
-                # predictions and the model list
-                with open(target_folder / "metadata.json", "w") as f:
-                    metadata_dict = {
-                        "models": models,
-                        "dataset": dataset,
-                        "fold": fold,
-                        "pred_val_shape": pred_val.shape,
-                        "pred_test_shape": pred_test.shape,
-                        "dtype": dtype,
-                    }
-
-                    f.write(json.dumps(metadata_dict))
-
-                # Dumps data to memmap tensors, alternatively could use .npy but it would make model loading much
-                # slower in cases when only some models are loaded
-                fp = np.memmap(str(target_folder / "pred-val.dat"), dtype=dtype, mode='w+', shape=pred_val.shape)
-                fp[:] = pred_val[:]
-                fp.flush()
-                fp = np.memmap(str(target_folder / "pred-test.dat"), dtype=dtype, mode='w+', shape=pred_test.shape)
-                fp[:] = pred_test[:]
-                fp.flush()
-
+        cls._cache_data(pred_dict=pred_dict, data_dir=output_dir, dtype=dtype)
         return cls(data_dir=output_dir, datasets=datasets)
 
     def to_dict(self) -> TabularPredictionsDict:
@@ -274,6 +295,12 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             dataset = metadata.pop("dataset")
             fold = metadata.pop("fold")
             res[dataset][fold] = metadata
+        for dataset in res:
+            for fold in res[dataset]:
+                metadata_task = res[dataset][fold]
+                model_indices = {m: i for i, m in enumerate(metadata_task["models"])}
+                # This is required to keep track of the indices of models after `restrict_models` is called.
+                metadata_task["model_indices"] = model_indices
         return res
 
     def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
@@ -291,8 +318,9 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         assert split in ["val", "test"]
         task_folder = path_memmap(self.data_dir, dataset, fold)
         metadata = self.metadata_dict[dataset][fold]
-        models_available = {m: i for i, m in enumerate(metadata['models'])}
-        models_indices = [models_available[m] for m in models]
+        model_indices_all = metadata["model_indices"]
+        model_indices_available = {m: model_indices_all[m] for m in metadata['models']}
+        model_indices = [model_indices_available[m] for m in models]
         dtype = metadata["dtype"]
         pred = np.memmap(
             str(task_folder / f"pred-{split}.dat"),
@@ -300,7 +328,7 @@ class TabularPredictionsMemmap(TabularModelPredictions):
             mode='r',
             shape=tuple(metadata[f"pred_{split}_shape"])
         )
-        pred = pred[models_indices]
+        pred = pred[model_indices]
         return pred
 
     def restrict_datasets(self, datasets: List[str]):

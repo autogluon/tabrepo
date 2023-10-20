@@ -16,7 +16,7 @@ from autogluon.common.utils.s3_utils import is_s3_url, s3_path_to_bucket_prefix
 from .utils import load_zeroshot_input
 from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
 from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.tabular_predictions import TabularModelPredictions
+from ..predictions.tabular_predictions import TabularModelPredictions
 from ..utils import catchtime
 
 
@@ -144,7 +144,14 @@ class BenchmarkPaths:
 
     def load_predictions(self,
                          zsc: ZeroshotSimulatorContext,
+                         prediction_format: str = "memmap",
                          ) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
+        """
+        :param prediction_format: Determines the format of the loaded tabular_predictions. Default = "memmap".
+            "memmap": Fast and low memory usage.
+            "memopt": Very fast and high memory usage.
+            "mem": Slow and high memory usage, simplest format to debug.
+        """
         for f in self.zs_pp:
             self._assert_exists(f, f'zs_pp | {f}')
         for f in self.zs_gt:
@@ -154,6 +161,7 @@ class BenchmarkPaths:
             paths_gt=self.zs_gt,
             zsc=zsc,
             datasets=self.datasets,
+            prediction_format=prediction_format,
         )
         return zeroshot_pred_proba, zeroshot_gt, zsc
 
@@ -281,6 +289,7 @@ class BenchmarkContext:
              folds: List[int] = None,
              load_predictions: bool = True,
              download_files: bool = True,
+             prediction_format: str = "memmap",
              exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
         """
         :param folds: If None, uses self.folds as default.
@@ -288,6 +297,10 @@ class BenchmarkContext:
             Restricting folds can be useful to speed up experiments.
         :param load_predictions: If True, loads zpp and gt files.
         :param download_files: If True, will download required files from s3 if they don't already exist locally.
+        :param prediction_format: Determines the format of the loaded tabular_predictions. Default = "memmap".
+            "memmap": Fast and low memory usage.
+            "memopt": Very fast and high memory usage.
+            "mem": Slow and high memory usage, simplest format to debug.
         :param exists: If download_files=True, this determines the behavior of the file download.
             Options: ['ignore', 'raise', 'overwrite']
             Refer to `self.download` for details.
@@ -308,6 +321,7 @@ class BenchmarkContext:
                 The target ground truth for both validation and test samples for all tasks.
                 Will be None if `load_predictions=False`.
         """
+        assert prediction_format in ["memmap", "memopt", "mem"]
         if folds is None:
             folds = self.folds
         for f in folds:
@@ -339,7 +353,7 @@ class BenchmarkContext:
                 output_pred_proba = None
 
             if load_predictions:
-                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, output_dir=output_pred_proba)
+                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format, output_dir=output_pred_proba)
             else:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
@@ -356,8 +370,9 @@ class BenchmarkContext:
 
     def _load_predictions(self,
                           zsc: ZeroshotSimulatorContext,
+                          prediction_format: str,
                           output_dir: str) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
-        return self.benchmark_paths.load_predictions(zsc=zsc)
+        return self.benchmark_paths.load_predictions(zsc=zsc, prediction_format=prediction_format)
 
     def _load_task_metrics(self) -> pd.DataFrame:
         root = Path(__file__).parent.parent.parent
