@@ -7,16 +7,17 @@ from tabrepo.utils import catchtime
 filepath = Path(__file__)
 
 
-def compute_all_with_load(data_dir, predictions_class, name: str):
+def compute_all_with_load(data_dir, predictions_class, name: str, models: list, repeats: int = 1):
     with catchtime(f"Load time with   {name}"):
         preds = predictions_class.from_data_dir(data_dir=data_dir)
-    with catchtime(f"Compute sum with {name}"):
-        res = compute_all(preds=preds)
+    with catchtime(f"Compute sum with repeats={repeats} : {name}"):
+        for _ in range(repeats):
+            res = compute_all(preds=preds, models=models)
     print(f"Sum obtained with {name}: {res}\n")
     return res
 
 
-def compute_all(preds):
+def compute_all(preds, models):
     datasets = preds.datasets
     res = 0
     for dataset in datasets:
@@ -32,25 +33,25 @@ if __name__ == '__main__':
 
     """
     start: Load time with   mem
-    Time for Load time with   mem: 31.5422 secs
-    start: Compute sum with mem
-    Time for Compute sum with mem: 0.0350 secs
-    Sum obtained with mem: 1176878.8741704822
-
+    Time for Load time with   mem: 31.4967 secs
+    start: Compute sum with repeats=100 : mem
+    Time for Compute sum with repeats=100 : mem: 3.5681 secs
+    Sum obtained with mem: 1177631.0633783638
+    
     start: Load time with   memopt
-    Time for Load time with   memopt: 31.7551 secs
-    start: Compute sum with memopt
-    Time for Compute sum with memopt: 0.0435 secs
-    Sum obtained with memopt: 1176878.8741704822
-
+    Time for Load time with   memopt: 31.6524 secs
+    start: Compute sum with repeats=100 : memopt
+    Time for Compute sum with repeats=100 : memopt: 4.7095 secs
+    Sum obtained with memopt: 1177631.0633783638
+    
     start: Load time with   memmap
-    Time for Load time with   memmap: 0.0241 secs
-    start: Compute sum with memmap
-    Time for Compute sum with memmap: 0.0294 secs
-    Sum obtained with memmap: 1176878.8741704822
+    Time for Load time with   memmap: 0.0245 secs
+    start: Compute sum with repeats=100 : memmap
+    Time for Compute sum with repeats=100 : memmap: 3.1743 secs
+    Sum obtained with memmap: 1177631.0633783638
     """
-    models = [f"CatBoost_r{i}_BAG_L1" for i in range(1, 10)]
-    repeats = 1
+    models = [f"CatBoost_r{i}_BAG_L1" for i in range(1, 50)]
+    repeats = 100
 
     # Download predictions locally
     # load_context("BAG_D244_F3_C1416_micro", ignore_cache=False)
@@ -68,4 +69,4 @@ if __name__ == '__main__':
     ]
 
     for (predictions_class, name) in class_method_tuples:
-        compute_all_with_load(data_dir=memmap_dir, predictions_class=predictions_class, name=name)
+        compute_all_with_load(data_dir=memmap_dir, predictions_class=predictions_class, name=name, repeats=repeats, models=models)
