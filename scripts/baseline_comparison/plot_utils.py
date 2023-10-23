@@ -259,7 +259,7 @@ def plot_critical_diagrams(df):
         result = autorank(data, alpha=0.05, verbose=False, order="ascending")
         ax = axes[i]
         ax.set_title(budget)
-        plot_stats(result, ax=ax, width=4)
+        plot_stats(result, ax=ax, width=4, allow_insignificant=True)
 
     fig_save_path = figure_path() / f"critical-diagram.pdf"
     plt.tight_layout()

@@ -270,7 +270,7 @@ if __name__ == "__main__":
     configs = zsc.get_configs()
 
     # configs = get_configs_small()
-    datasets = zsc.get_datasets()
+    datasets = zsc.get_tids()
     all_datasets = np.array(datasets)
     np.random.shuffle(all_datasets)
     n_splits = input_args.n_splits

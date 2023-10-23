@@ -91,7 +91,7 @@ if __name__ == "__main__":
     with catchtime("load"):
         zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(load_predictions=False)
     configs = zsc.get_configs()
-    datasets = np.array(zsc.get_datasets())
+    datasets = np.array(zsc.get_tids())
 
     results = []
 

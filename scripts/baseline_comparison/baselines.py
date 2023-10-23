@@ -199,7 +199,7 @@ def sample_and_pick_best(
         return [backup_fast_config], [backup_fast_config]
 
     # pick top `n_output` configurations with the best validation loss
-    top_config_indices = df_sub["score_val"].argsort().values[-n_output:][::-1]
+    top_config_indices = df_sub["metric_error_val"].argsort().values[:n_output][::-1]
     best_configs = df_sub.loc[top_config_indices, "framework"].tolist()
 
     return df_sub["framework"].tolist(), best_configs
@@ -262,11 +262,6 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
     :return: evaluation of AutoGluon medium/high/best quality.
     """
     automl_df = copy.deepcopy(repo._zeroshot_context.df_results_by_dataset_automl)
-    automl_df['fold'] = automl_df['dataset'].map(repo._zeroshot_context.dataset_name_to_fold_dict)
-    automl_df['tid'] = automl_df['dataset'].map(repo._zeroshot_context.dataset_name_to_tid_dict)
-    automl_df['task'] = automl_df['dataset']
-    # FIXME: Instead of returning list of "ResultRow", return this dataframe
-    automl_df['dataset'] = automl_df['tid'].map(repo._zeroshot_context.tid_to_dataset_dict)
 
     rows_automl = []
     for dataset in tqdm(dataset_names):
@@ -456,7 +451,7 @@ def zeroshot_results(
     dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
     # df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()
     # TODO use normalized scores
-    df_rank = dd.pivot_table(index="framework", columns="dataset", values="bestdiff").rank(ascending=False)
+    df_rank = dd.pivot_table(index="framework", columns="task", values="metric_error").rank(ascending=False)
     df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
     assert not any(df_rank.isna().values.reshape(-1))
 
