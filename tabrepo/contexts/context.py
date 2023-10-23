@@ -376,7 +376,7 @@ class BenchmarkContext:
 
     def _load_task_metrics(self) -> pd.DataFrame:
         root = Path(__file__).parent.parent.parent
-        return pd.read_csv(root / "data/metadata/task_metric_names.csv.zip")
+        return pd.read_csv(root / "data/metadata/task_metric_names.csv")
 
     def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
         df_results_by_dataset, df_raw, df_metadata = self._load_results()
