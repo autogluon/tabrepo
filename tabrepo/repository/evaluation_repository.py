@@ -170,9 +170,8 @@ class EvaluationRepository(SaveLoadMixin):
         """
         df = self._zeroshot_context.df_results_by_dataset_vs_automl
         task = self.task_name(tid=tid, fold=fold)
-        mask = (df.dataset == task) & (df.framework.isin(config_names))
-        output_cols = ["framework", "time_train_s", "metric_error", "time_infer_s", "bestdiff", "loss_rescaled",
-                       "time_train_s_rescaled", "time_infer_s_rescaled", "rank", "score_val"]
+        mask = (df["task"] == task) & (df["framework"].isin(config_names))
+        output_cols = ["framework", "metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank",]
         if check_all_found:
             assert sum(mask) == len(config_names), \
                 f"expected one evaluation occurence for each configuration {config_names} for {tid}, " \

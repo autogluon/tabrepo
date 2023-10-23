@@ -11,8 +11,7 @@ np.random.seed(0)
 
 
 def make_random_metric(model):
-    output_cols = ['time_train_s', 'time_infer_s', 'bestdiff', 'loss_rescaled', 'time_train_s_rescaled',
-                   'time_infer_s_rescaled', 'metric_error', 'score_val']
+    output_cols = ['time_train_s', 'time_infer_s', 'metric_error', 'metric_error_val']
     metric_value_dict = {
         "NeuralNetFastAI_r1": 1.0,
         "NeuralNetFastAI_r2": 2.0,
@@ -43,7 +42,6 @@ def load_context_artificial(**kwargs):
         for dataset_id, dataset_name in zip(dataset_ids, dataset_names)
     ])
     df_results_by_dataset = pd.DataFrame({
-         "dataset": f"{dataset_id}_{fold}",
          "framework": model,
          "problem_type": "regression",
          "fold": fold,
@@ -53,18 +51,18 @@ def load_context_artificial(**kwargs):
      )
 
     df_results_by_dataset_automl = pd.DataFrame({
-         "dataset": f"{dataset_id}_{fold}",
          "framework": baseline,
          "problem_type": "regression",
          "fold": fold,
          "tid": dataset_id,
-        **make_random_metric(baseline)
+         **make_random_metric(baseline)
      } for fold in range(n_folds) for baseline in baselines for (dataset_id, dataset_name) in zip(dataset_ids, dataset_names)
      )
     df_raw = pd.DataFrame({
          "dataset": dataset_name,
-         "model": baseline,
+         "framework": baseline,
          "problem_type": "regression",
+         "metric": "root_mean_squared_error",
          "fold": fold,
          "tid": dataset_id,
          "tid_new": f"{dataset_id}_{fold}",

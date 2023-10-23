@@ -138,9 +138,9 @@ class ZeroshotSimulatorContext:
         assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
 
-        df_results_by_dataset = df_results_by_dataset.merge(dataset_tid, on=["tid"])
+        df_results_by_dataset = df_results_by_dataset.drop(columns=["dataset"], errors="ignore").merge(dataset_tid, on=["tid"])
         if df_results_by_dataset_automl is not None:
-            df_results_by_dataset_automl = df_results_by_dataset_automl.merge(dataset_tid, on=["tid"])
+            df_results_by_dataset_automl = df_results_by_dataset_automl.drop(columns=["dataset"], errors="ignore").merge(dataset_tid, on=["tid"])
 
         df_results_by_dataset = df_results_by_dataset.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["tid"])
         if df_results_by_dataset_automl is not None:

@@ -30,8 +30,8 @@ def test_repository():
     assert tid == 359946
     config_name = "NeuralNetFastAI_r1"  # TODO accessor
 
-    assert repo.dataset_names() == ['ada', 'abalone']
-    assert repo.tids() == [359944, 359946]
+    assert repo.dataset_names() == ['abalone', 'ada']
+    assert repo.tids() == [359946, 359944]
     assert repo.n_folds() == 3
     assert repo.folds == [0, 1, 2]
     assert repo.dataset_to_tid(dataset_name) == 359946
@@ -53,10 +53,10 @@ def test_repository():
                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[0, 2])
-    assert repo.dataset_names() == ['ada', 'abalone']
+    assert repo.dataset_names() == ['abalone', 'ada']
     assert repo.n_folds() == 2
     assert repo.folds == [0, 2]
-    assert repo.tids() == [359944, 359946]
+    assert repo.tids() == [359946, 359944]
     assert repo.list_models() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
     assert repo.val_predictions(tid=tid, config_name=config_name, fold=2).shape == (123, 25)
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
