@@ -35,12 +35,6 @@ def load_context_artificial(**kwargs):
 
     configs_full = {model: {} for model in models}
 
-    df_task_metrics = pd.DataFrame([
-        ["ada", "roc_auc", "binary"],
-        ["abalone", "root_mean_squared_error", "regression"],
-    ],
-        columns=["dataset", "eval_metric", "problem_type"]
-    )
     df_metadata = pd.DataFrame([{
         'tid': dataset_id,
         'name': dataset_name,
@@ -83,7 +77,6 @@ def load_context_artificial(**kwargs):
         df_raw=df_raw,
         folds=list(range(n_folds)),
         df_metadata=df_metadata,
-        df_task_metrics=df_task_metrics,
     )
     pred_dict = {
         dataset_name: {
@@ -113,15 +106,17 @@ def load_context_artificial(**kwargs):
 
     zeroshot_gt = GroundTruth(label_val_dict=make_dict(123), label_test_dict=make_dict(13))
 
-    return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt, df_task_metrics
+    return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+
 
 def load_repo_artificial():
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt, df_task_metrics = load_context_artificial()
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
     return EvaluationRepository(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,
         ground_truth=zeroshot_gt,
     )
+
 
 if __name__ == '__main__':
     load_context_artificial()

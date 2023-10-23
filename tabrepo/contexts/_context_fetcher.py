@@ -2,7 +2,7 @@ from typing import Dict, List
 
 from .context import BenchmarkContext
 from .subcontext import BenchmarkSubcontext
-from .context_2023_08_21 import context_bag_2023_08_21, context_bag_2023_08_21_medium, context_bag_2023_08_21_small, context_bag_2023_08_21_micro
+from .context_2023_08_21 import context_bag_2023_08_21, context_bag_2023_08_21_paper, context_bag_2023_08_21_medium, context_bag_2023_08_21_small, context_bag_2023_08_21_micro, context_bag_2023_08_21_toy, context_bag_2023_08_21_dummy
 
 
 __all__ = [
@@ -25,9 +25,12 @@ def _add_subcontext(subcontext: BenchmarkSubcontext):
 
 for c in [
     context_bag_2023_08_21,
+    context_bag_2023_08_21_paper,
     context_bag_2023_08_21_medium,
     context_bag_2023_08_21_small,
     context_bag_2023_08_21_micro,
+    context_bag_2023_08_21_toy,
+    context_bag_2023_08_21_dummy,
 ]:
     if c.name in _context_map:
         raise AssertionError(f'ERROR: Multiple contexts have the same name: {c.name}')

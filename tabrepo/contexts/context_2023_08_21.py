@@ -23,7 +23,7 @@ datasets = [
     # "GTSRB-HOG03",
     # "GTSRB-HueHist",
 
-    "porto-seguro",  # Cumulative Size: 455 GB (228 datasets)
+    "porto-seguro",  # Cumulative Size: 455 GB (228 datasets)  # 212 datasets (succeeded)
     "airlines",
     "ldpa",
     "albert",
@@ -34,9 +34,9 @@ datasets = [
     "Fashion-MNIST",
     "Kuzushiji-MNIST",
     "mnist_784",
-    "CIFAR_10",
+    # "CIFAR_10",  # Failed
     "volkert",
-    "Yolanda",
+    "Yolanda",  # 200 datasets (succeeded)
     "letter",
     "kr-vs-k",
     "kropt",
@@ -57,13 +57,13 @@ datasets = [
     "okcupid-stem",
     "electricity",
     "bank-marketing",
-    "KDDCup09-Upselling",
-    "one-hundred-plants-margin",
+    # "KDDCup09-Upselling",  # Failed
+    # "one-hundred-plants-margin",  # Failed
     "KDDCup09_appetency",
     "jungle_chess_2pcs_raw_endgame_complete",
     "2dplanes",
     "fried",
-    "Click_prediction_small",
+    "Click_prediction_small",  # 175 datasets (succeeded)
     "nomao",
     "Amazon_employee_access",
     "pendigits",
@@ -73,10 +73,10 @@ datasets = [
     "houses",
     "Indian_pines",
     "diamonds",
-    "guillermo",
-    "riccardo",
-    "MagicTelescope",
-    "nursery",  # Cumulative Size: 50 GB (175 datasets)
+    # "guillermo",  # Failed
+    # "riccardo",  # Failed
+    # "MagicTelescope",  # Failed
+    # "nursery",  # Failed  # Cumulative Size: 50 GB (175 datasets)
     "har",
     "texture",
     "fabert",
@@ -127,7 +127,7 @@ datasets = [
     "philippine",
     "pc2",
     "mfeat-factors",
-    "christine",
+    # "christine",  # Failed
     "phoneme",
     "sylvine",
     "Satellite",
@@ -137,15 +137,15 @@ datasets = [
     "spambase",
     "segment",
     "waveform-5000",
-    "hypothyroid",
+    # "hypothyroid",  # Failed
     "semeion",
     "hiva_agnostic",
     "ada",
-    "yeast",
+    # "yeast",  # Failed
     "Brazilian_houses",
     "steel-plates-fault",
     "pollen",
-    "Bioresponse",
+    "Bioresponse",  # 100 datasets (succeeded)
     "soybean",
     "Internet-Advertisements",
     "topo_2_1",
@@ -169,14 +169,14 @@ datasets = [
     "wine_quality",
     "volcanoes-a4",
     "kc1",
-    "eating",
+    # "eating",  # Failed
     "car",
-    "QSAR-TID-10980",
-    "QSAR-TID-11",
+    # "QSAR-TID-10980",  # Failed
+    # "QSAR-TID-11",  # Failed
     "pbcseq",
     "volcanoes-e1",
     "autoUniv-au6-750",
-    "Santander_transaction_value",
+    # "Santander_transaction_value",  # Failed
     "SAT11-HAND-runtime-regression",
     "GAMETES_Epistasis_2-Way_20atts_0_1H_EDM-1_1",
     "GAMETES_Epistasis_2-Way_1000atts_0_4H_EDM-1_EDM-1_1",
@@ -193,14 +193,14 @@ datasets = [
     "OVA_Lung",
     "OVA_Ovary",
     "pc4",
-    "OVA_Breast",
+    # "OVA_Breast",  # Failed
     "OVA_Colon",
     "abalone",
     "LED-display-domain-7digit",
     "analcatdata_dmft",
     "cmc",
     "colleges_usnews",
-    "anneal",
+    # "anneal",  # Failed
     "baseball",
     "hill-valley",
     "space_ga",
@@ -253,47 +253,67 @@ datasets = [
     "tecator",
 ]
 folds = [0, 1, 2]
+local_prefix = "2023_08_21"
+date = "2023_08_21",
+kwargs = dict(
+    local_prefix=local_prefix,
+    s3_prefix=s3_prefix,
+    folds=folds,
+    date=date,
+)
 
 
 context_bag_2023_08_21: BenchmarkContext = construct_context(
     name="BAG_D244_F3_C1416",
-    description="Large-scale Benchmark on 244 datasets and 3 folds (455 GB, 228 smallest datasets)",
-    date="2023_08_21",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (455 GB, 212 datasets)",
     datasets=datasets,
-    folds=folds,
-    s3_prefix=s3_prefix,
-    local_prefix='2023_08_21',
+    **kwargs,
+)
+
+
+context_bag_2023_08_21_paper: BenchmarkContext = construct_context(
+    name="BAG_D244_F3_C1416_paper",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (107 GB, 200 smallest datasets)",
+    datasets=datasets[-200:],
+    **kwargs,
 )
 
 
 context_bag_2023_08_21_medium: BenchmarkContext = construct_context(
     name="BAG_D244_F3_C1416_medium",
     description="Large-scale Benchmark on 244 datasets and 3 folds (50 GB, 175 smallest datasets)",
-    date="2023_08_21",
     datasets=datasets[-175:],
-    folds=folds,
-    s3_prefix=s3_prefix,
-    local_prefix='2023_08_21_medium',
+    **kwargs,
 )
 
 
 context_bag_2023_08_21_small: BenchmarkContext = construct_context(
     name="BAG_D244_F3_C1416_small",
     description="Large-scale Benchmark on 244 datasets and 3 folds (8.7 GB, 100 smallest datasets)",
-    date="2023_08_21",
     datasets=datasets[-100:],
-    folds=folds,
-    s3_prefix=s3_prefix,
-    local_prefix='2023_08_21_small',
+    **kwargs,
 )
 
 
 context_bag_2023_08_21_micro: BenchmarkContext = construct_context(
     name="BAG_D244_F3_C1416_micro",
     description="Large-scale Benchmark on 244 datasets and 3 folds (1.0 GB, 30 smallest datasets)",
-    date="2023_08_21",
     datasets=datasets[-30:],
-    folds=folds,
-    s3_prefix=s3_prefix,
-    local_prefix='2023_08_21_micro',
+    **kwargs,
+)
+
+
+context_bag_2023_08_21_toy: BenchmarkContext = construct_context(
+    name="BAG_D244_F3_C1416_toy",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (10 smallest datasets)",
+    datasets=datasets[-10:],
+    **kwargs,
+)
+
+
+context_bag_2023_08_21_dummy: BenchmarkContext = construct_context(
+    name="BAG_D244_F3_C1416_dummy",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (3 smallest datasets)",
+    datasets=datasets[-3:],
+    **kwargs,
 )

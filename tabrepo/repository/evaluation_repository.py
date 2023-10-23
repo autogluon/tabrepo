@@ -78,7 +78,7 @@ class EvaluationRepository(SaveLoadMixin):
             self._zeroshot_context.subset_models(models=models)
         if tids:
             # TODO: Align `_zeroshot_context` naming of datasets -> tids
-            self._zeroshot_context.subset_datasets(datasets=tids)
+            self._zeroshot_context.subset_tids(tids=tids)
         if problem_types:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         self.force_to_dense(verbose=verbose)
@@ -106,8 +106,8 @@ class EvaluationRepository(SaveLoadMixin):
                        verbose=verbose)
 
         self._zeroshot_context.subset_models(self._tabular_predictions.models)
-        tids = [self.dataset_to_tid(d) for d in self._tabular_predictions.datasets if d in self._name_to_tid]
-        self._zeroshot_context.subset_datasets(tids)
+        datasets = [d for d in self._tabular_predictions.datasets if d in self._name_to_tid]
+        self._zeroshot_context.subset_datasets(datasets)
         self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
         self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
                                                zeroshot_gt=self._ground_truth,
@@ -125,12 +125,11 @@ class EvaluationRepository(SaveLoadMixin):
 
         :param problem_type: If specified, only datasets with the given problem_type are returned.
         """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type)
+        return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    def dataset_names(self) -> List[str]:
-        tids = self.tids()
-        dataset_names = [self._tid_to_name[tid] for tid in tids]
-        return dataset_names
+    # TODO: Rename to `datasets`
+    def dataset_names(self, problem_type: str = None) -> List[str]:
+        return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
     def list_models_available(self, tid: int) -> List[str]:
         # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
