@@ -469,8 +469,8 @@ def construct_context(
     zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
 
     _result_paths = dict(
-        # FIXME: Remove comment
-        # results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
+        # FIXME: Remove results_by_dataset
+        results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
         comparison=str(Path(path_context) / "evaluation/compare/results_ranked_by_dataset_valid.csv"),
         raw=str(Path(path_context) / "leaderboard_preprocessed_configs.csv"),
     )
