@@ -75,7 +75,7 @@ def evaluate_configs(
 
     metric_errors, ensemble_weights = repo.evaluate_ensemble(
         tids=[tid],
-        config_names=config_selected,
+        configs=config_selected,
         ensemble_size=ensemble_size,
         backend='native',
         folds=folds,
@@ -533,7 +533,7 @@ def evaluate_tuning(
             for method in ["zeroshot", "localsearch"]:
                 test_errors, ensemble_weights = repo.evaluate_ensemble(
                     tids=[tid],
-                    config_names=tid_to_config(tuning_rows, tid)[method],
+                    configs=tid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
                     rank=False,
                 )

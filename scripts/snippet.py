@@ -7,6 +7,6 @@ repository = load(version="BAG_D200_F3_C1206")
 metrics = repository.evaluate_ensemble(
     tids=[11, 30],  # OpenML dataset to report results on
     folds=[0, 1, 2],  # which task to consider for each dataset
-    config_names=["CatBoost_r42_BAG_L1", "RandomForest_r12_BAG_L1", "NeuralNetTorch_r40_BAG_L1"],  # configs that are ensembled
+    configs=["CatBoost_r42_BAG_L1", "RandomForest_r12_BAG_L1", "NeuralNetTorch_r40_BAG_L1"],  # configs that are ensembled
     ensemble_size=40,  # maximum number of Caruana steps
 )
