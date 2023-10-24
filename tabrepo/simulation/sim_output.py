@@ -82,7 +82,7 @@ class SimulationOutputGenerator:
                 datasets = portfolio.test_datasets_fold
             portfolio = portfolio.configs
         if datasets is None:
-            datasets = self.repo._zeroshot_context.get_dataset_folds()
+            datasets = self.repo._zeroshot_context.get_tasks()
 
         repo = copy.deepcopy(self.repo)
 

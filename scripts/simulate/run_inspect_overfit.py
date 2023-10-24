@@ -13,7 +13,7 @@ if __name__ == '__main__':
     # NOTE: For speed of simulation, it is recommended backend='ray'
     backend = 'ray'
     configs = None
-    datasets = zsc.get_dataset_folds()
+    datasets = zsc.get_tasks()
     # datasets = zsc.get_dataset_folds(problem_type=['binary', 'multiclass'])
 
     config_scorer = SingleBestConfigScorer.from_zsc(

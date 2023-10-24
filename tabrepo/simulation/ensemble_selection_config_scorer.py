@@ -204,9 +204,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
         if 'datasets' not in kwargs:
-            kwargs['datasets'] = zeroshot_simulator_context.get_dataset_folds()
+            kwargs['datasets'] = zeroshot_simulator_context.get_tasks()
 
-        dataset_to_tid_dict = {v: k for k, v in zeroshot_simulator_context.tid_to_dataset_dict.items()}
+        dataset_to_tid_dict = zeroshot_simulator_context.dataset_to_tid_dict
         task_metrics_metadata = zeroshot_simulator_context.df_metrics
         task_metrics_metadata = {
             dataset_to_tid_dict[dataset]: task_metrics_metadata.loc[dataset].to_dict()

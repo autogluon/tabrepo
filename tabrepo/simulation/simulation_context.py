@@ -53,7 +53,7 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
         self.unique_datasets, \
-        self.rank_scorer_vs_automl = self.align_valid_folds(
+        self.rank_scorer_vs_automl = self._align_valid_folds(
             df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
@@ -99,7 +99,7 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
         self.unique_datasets, \
-        self.rank_scorer_vs_automl = self.align_valid_folds(
+        self.rank_scorer_vs_automl = self._align_valid_folds(
             df_results_by_dataset=self.df_results_by_dataset_vs_automl,
             df_results_by_dataset_automl=self.df_results_by_dataset_automl,
             df_raw=self.df_raw,
@@ -113,13 +113,13 @@ class ZeroshotSimulatorContext:
             'dataset').squeeze().to_dict()
 
     @staticmethod
-    def align_valid_folds(*,
-                          df_raw: pd.DataFrame,
-                          df_results_by_dataset: pd.DataFrame,
-                          df_results_by_dataset_automl: pd.DataFrame,
-                          folds: List[int],
-                          score_against_only_automl: bool,
-                          pct: bool):
+    def _align_valid_folds(*,
+                           df_raw: pd.DataFrame,
+                           df_results_by_dataset: pd.DataFrame,
+                           df_results_by_dataset_automl: pd.DataFrame,
+                           folds: List[int],
+                           score_against_only_automl: bool,
+                           pct: bool):
         # assert that each dataset contains only one problem type
         dataset_problem_types = df_raw[["tid", "problem_type"]].drop_duplicates()
         assert len(dataset_problem_types) == len(dataset_problem_types["tid"].unique())
@@ -232,7 +232,7 @@ class ZeroshotSimulatorContext:
         out += '=============================================\n'
         print(out)
 
-    def get_datasets(self, problem_type=None) -> list:
+    def get_datasets(self, problem_type=None) -> List[str]:
         datasets = self.unique_datasets
         if problem_type is not None:
             if isinstance(problem_type, list):
@@ -241,33 +241,31 @@ class ZeroshotSimulatorContext:
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
         return datasets
 
-    def get_tids(self, problem_type=None) -> list:
+    def get_tids(self, problem_type=None) -> List[int]:
         datasets = self.get_datasets(problem_type=problem_type)
         tids = [self.dataset_to_tid_dict[dataset] for dataset in datasets]
         return tids
 
-    def get_dataset_folds(self,
-                          datasets: Optional[List[str]] = None,
-                          problem_type: Optional[Union[str, List[str]]] = None) -> List[str]:
+    def get_tasks(self,
+                  datasets: Optional[List[str]] = None,
+                  problem_type: Optional[Union[str, List[str]]] = None) -> List[str]:
         """
         :param datasets: a list of dataset parent names, only return folds that have a parent in this list
         :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ... or list of problem types
         :return: List of datasets-folds formatted as `['359987_8', '359933_3', ...]` where the dataset is encoded before
         the "_" and the fold after.
-        # Todo/Note it might be clearer to add a column fold in the dataframe and return List[Tuple[str, int]] with
-        tuples of dataset/fold.
         """
         if datasets is not None:
-            dataset_folds = self._get_dataset_folds_from_datasets(datasets=datasets)
+            tasks = self._get_tasks_from_datasets(datasets=datasets)
         else:
-            dataset_folds = self.unique_tasks
+            tasks = self.unique_tasks
         if problem_type is not None:
             if not isinstance(problem_type, list):
                 problem_type = [problem_type]
-            dataset_folds = [dataset for dataset in dataset_folds if self.dataset_to_problem_type_dict[dataset] in problem_type]
-        return dataset_folds
+            tasks = [task for task in tasks if self.dataset_to_problem_type_dict[self.task_to_dataset_dict[task]] in problem_type]
+        return tasks
 
-    def _get_dataset_folds_from_datasets(self, datasets: List[str]):
+    def _get_tasks_from_datasets(self, datasets: List[str]):
         dataset_folds = []
         for d in datasets:
             dataset_folds += self.dataset_to_tasks_dict[d]

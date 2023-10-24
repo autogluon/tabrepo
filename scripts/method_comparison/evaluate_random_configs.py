@@ -42,8 +42,8 @@ def eval_randomconfig(
         configs,
         num_base_models,
 ):
-    train_datasets_folds = zsc.get_dataset_folds(train_datasets)
-    test_datasets_folds = zsc.get_dataset_folds(test_datasets)
+    train_datasets_folds = zsc.get_tasks(train_datasets)
+    test_datasets_folds = zsc.get_tasks(test_datasets)
     random_perm = np.random.permutation(len(configs))
     random_configs = [configs[i] for i in random_perm[:num_base_models]]
     train_error, _ = evaluate_ensemble(
