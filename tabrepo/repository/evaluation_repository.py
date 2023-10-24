@@ -128,7 +128,7 @@ class EvaluationRepository(SaveLoadMixin):
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
     # TODO: Rename to `datasets`
-    def dataset_names(self, problem_type: str = None) -> List[str]:
+    def datasets(self, problem_type: str = None) -> List[str]:
         return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
     def list_models_available(self, tid: int) -> List[str]:
@@ -331,7 +331,7 @@ if __name__ == '__main__':
 
         repo = load_repo_artificial()
         tid = repo.dataset_to_tid(dataset_name=dataset_name)
-        print(repo.dataset_names()[:3])  # ['abalone', 'ada', 'adult']
+        print(repo.datasets()[:3])  # ['abalone', 'ada', 'adult']
         print(repo.tids()[:3])  # [2073, 3945, 7593]
 
         print(tid)  # 360945

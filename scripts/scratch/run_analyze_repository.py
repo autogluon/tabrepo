@@ -13,7 +13,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
 
     # models = ["CatBoost_r35_BAG_L1"]
 
-    datasets = repo.dataset_names()
+    datasets = repo.datasets()
     fold = 0
     n_datasets = len(datasets)
     print(f'n_models={len(models)} | models={models}')

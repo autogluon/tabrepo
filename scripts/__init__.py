@@ -35,7 +35,7 @@ def load_context(version: str = "BAG_D244_F3_C1416", filter_very_large_dataset: 
             "ldpa",
             "porto-seguro",
         ]
-        very_large_datasets_tids = [repo.dataset_to_tid(d) for d in very_large_datasets if d in repo.dataset_names()]
+        very_large_datasets_tids = [repo.dataset_to_tid(d) for d in very_large_datasets if d in repo.datasets()]
 
         # only pick models that have suffix rXX or c1
         models = repo.list_models()

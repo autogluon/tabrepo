@@ -11,7 +11,7 @@ def verify_equivalent_repository(repo1: EvaluationRepository, repo2: EvaluationR
     assert repo1.folds == repo2.folds
     assert repo1.tids() == repo2.tids()
     assert repo1.list_models() == repo2.list_models()
-    assert repo1.dataset_names() == repo2.dataset_names()
+    assert repo1.datasets() == repo2.datasets()
     for tid in repo1.tids():
         for c in repo1.list_models():
             for f in repo1.folds:
@@ -30,7 +30,7 @@ def test_repository():
     assert tid == 359946
     config_name = "NeuralNetFastAI_r1"  # TODO accessor
 
-    assert repo.dataset_names() == ['abalone', 'ada']
+    assert repo.datasets() == ['abalone', 'ada']
     assert repo.tids() == [359946, 359944]
     assert repo.n_folds() == 3
     assert repo.folds == [0, 1, 2]
@@ -53,7 +53,7 @@ def test_repository():
                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[0, 2])
-    assert repo.dataset_names() == ['abalone', 'ada']
+    assert repo.datasets() == ['abalone', 'ada']
     assert repo.n_folds() == 2
     assert repo.folds == [0, 2]
     assert repo.tids() == [359946, 359944]
@@ -67,7 +67,7 @@ def test_repository():
                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[2], tids=[359946], models=[config_name])
-    assert repo.dataset_names() == ['abalone']
+    assert repo.datasets() == ['abalone']
     assert repo.n_folds() == 1
     assert repo.folds == [2]
     assert repo.tids() == [359946]

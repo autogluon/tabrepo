@@ -59,7 +59,7 @@ def make_scorers(repo: EvaluationRepository):
     ], ignore_index=True)
     unique_dataset_folds = [
         f"{repo.dataset_to_tid(dataset)}_{fold}"
-        for dataset in repo.dataset_names()
+        for dataset in repo.datasets()
         for fold in range(repo.n_folds())
     ]
     rank_scorer = RankScorer(df_results_baselines, datasets=unique_dataset_folds, pct=False)
@@ -271,7 +271,7 @@ if __name__ == "__main__":
         n_eval_folds = repo.n_folds()
 
     rank_scorer, normalized_scorer = make_scorers(repo)
-    dataset_names = repo.dataset_names()
+    dataset_names = repo.datasets()
     if n_datasets:
         dataset_names = dataset_names[:n_datasets]
 
