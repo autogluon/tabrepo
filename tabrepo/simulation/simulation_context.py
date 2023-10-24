@@ -317,7 +317,8 @@ class ZeroshotSimulatorContext:
         return zeroshot_pred_proba
 
     def subset_tids(self, tids: List[int]):
-        datasets = [self.tid_to_dataset_dict[tid] for tid in tids]
+        tid_to_dataset_dict = self.tid_to_dataset_dict
+        datasets = [tid_to_dataset_dict[tid] for tid in tids]
         self.subset_datasets(datasets=datasets)
 
     def subset_datasets(self, datasets: List[str]):

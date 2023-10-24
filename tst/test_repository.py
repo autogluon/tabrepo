@@ -40,13 +40,21 @@ def test_repository():
     print(repo.eval_metrics(tid=tid, config_names=[config_name], fold=2))
     assert repo.val_predictions(tid=tid, config_name=config_name, fold=2).shape == (123, 25)
     assert repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape == (13, 25)
+    assert repo.predict_val(tid=tid, fold=2, configs=[config_name]).shape == (1, 123, 25)
+    assert repo.predict_test(tid=tid, fold=2, configs=[config_name]).shape == (1, 13, 25)
+    assert repo.labels_val(tid=tid, fold=2).shape == (123,)
+    assert repo.labels_test(tid=tid, fold=2).shape == (13,)
     assert repo.dataset_metadata(tid=tid) == {'tid': 359946, 'name': dataset_name, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     result_errors, result_ensemble_weights = repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native")
     assert result_errors.shape == (1, 3)
     assert len(result_ensemble_weights.keys()) == 3
 
+    dataset_info = repo.dataset_info(tid=tid)
+    assert dataset_info["metric"] == "root_mean_squared_error"
+    assert dataset_info["problem_type"] == "regression"
+
     # Test ensemble weights are as expected
-    task_0 = repo.task_name_from_dataset(dataset_name=dataset_name, fold=0)
+    task_0 = repo.task_name_from_dataset(dataset=dataset_name, fold=0)
     assert np.allclose(result_ensemble_weights[task_0], [1.0, 0.0])
 
     assert repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],

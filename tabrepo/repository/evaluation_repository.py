@@ -177,31 +177,62 @@ class EvaluationRepository(SaveLoadMixin):
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
+    # FIXME: Rename
     def val_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
         """
         Returns the predictions on the validation set for a given configuration on a given dataset and fold
         :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
         """
-        return self._tabular_predictions.predict_val(
-            dataset=self.tid_to_dataset(tid),
-            fold=fold,
-            models=[config_name],
-        ).squeeze()
+        return self.predict_val(tid=tid, fold=fold, configs=[config_name]).squeeze()
 
+    # FIXME: Rename
     def test_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
         """
         Returns the predictions on a test set for a given configuration on a given dataset and fold
         :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
         """
+        return self.predict_test(tid=tid, fold=fold, configs=[config_name]).squeeze()
+
+    def predict_test(self, tid: int, fold: int, configs: List[str] = None) -> np.ndarray:
+        dataset = self.tid_to_dataset(tid)
         return self._tabular_predictions.predict_test(
-            dataset=self.tid_to_dataset(tid),
+            dataset=dataset,
             fold=fold,
-            models=[config_name],
-        ).squeeze()
+            models=configs,
+        )
+
+    def predict_val(self, tid: int, fold: int, configs: List[str] = None) -> np.ndarray:
+        dataset = self.tid_to_dataset(tid)
+        return self._tabular_predictions.predict_val(
+            dataset=dataset,
+            fold=fold,
+            models=configs,
+        )
+
+    def labels_test(self, tid: int, fold: int) -> np.array:
+        return self._ground_truth.labels_test(tid=tid, fold=fold)
+
+    def labels_val(self, tid: int, fold: int) -> np.array:
+        return self._ground_truth.labels_val(tid=tid, fold=fold)
 
     def dataset_metadata(self, tid: int) -> dict:
         metadata = self._df_metadata[self._df_metadata.tid == tid]
         return dict(zip(metadata.columns, metadata.values[0]))
+
+    def dataset_info(self, tid: int) -> dict:
+        """
+        Parameters
+        ----------
+        tid
+
+        Returns
+        -------
+        Dictionary with two keys:
+            "metric": The evaluation metric name used for scoring on the dataset
+            "problem_type": The problem type of the dataset
+        """
+        dataset = self.tid_to_dataset(tid=tid)
+        return self._zeroshot_context.df_metrics.loc[dataset].to_dict()
 
     @property
     def folds(self) -> List[int]:
@@ -211,7 +242,7 @@ class EvaluationRepository(SaveLoadMixin):
         return len(self.folds)
 
     def n_datasets(self) -> int:
-        return len(self.tids())
+        return len(self.datasets())
 
     def n_models(self) -> int:
         return len(self.list_models())
@@ -220,8 +251,8 @@ class EvaluationRepository(SaveLoadMixin):
     def task_name(tid: int, fold: int) -> str:
         return f"{tid}_{fold}"
 
-    def task_name_from_dataset(self, dataset_name: str, fold: int) -> str:
-        return self.task_name(tid=self.dataset_to_tid(dataset_name), fold=fold)
+    def task_name_from_dataset(self, dataset: str, fold: int) -> str:
+        return self.task_name(tid=self.dataset_to_tid(dataset), fold=fold)
 
     def evaluate_ensemble(
         self,
