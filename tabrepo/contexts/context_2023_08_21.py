@@ -254,7 +254,7 @@ datasets = [
 ]
 folds = [0, 1, 2]
 local_prefix = "2023_08_21"
-date = "2023_08_21",
+date = "2023_08_21"
 kwargs = dict(
     local_prefix=local_prefix,
     s3_prefix=s3_prefix,
@@ -263,56 +263,56 @@ kwargs = dict(
 )
 
 
-context_bag_2023_08_21: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416",
+D244_F3_C1416: BenchmarkContext = construct_context(
+    name="D244_F3_C1416",
     description="Large-scale Benchmark on 244 datasets and 3 folds (455 GB, 212 datasets)",
     datasets=datasets,
     **kwargs,
 )
 
 
-context_bag_2023_08_21_paper: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416_paper",
+D244_F3_C1416_200: BenchmarkContext = construct_context(
+    name="D244_F3_C1416_200",
     description="Large-scale Benchmark on 244 datasets and 3 folds (107 GB, 200 smallest datasets)",
     datasets=datasets[-200:],
     **kwargs,
 )
 
 
-context_bag_2023_08_21_medium: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416_medium",
+D244_F3_C1416_175: BenchmarkContext = construct_context(
+    name="D244_F3_C1416_175",
     description="Large-scale Benchmark on 244 datasets and 3 folds (50 GB, 175 smallest datasets)",
     datasets=datasets[-175:],
     **kwargs,
 )
 
 
-context_bag_2023_08_21_small: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416_small",
+D244_F3_C1416_100: BenchmarkContext = construct_context(
+    name="D244_F3_C1416_100",
     description="Large-scale Benchmark on 244 datasets and 3 folds (8.7 GB, 100 smallest datasets)",
     datasets=datasets[-100:],
     **kwargs,
 )
 
 
-context_bag_2023_08_21_micro: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416_micro",
+D244_F3_C1416_30: BenchmarkContext = construct_context(
+    name="D244_F3_C1416_30",
     description="Large-scale Benchmark on 244 datasets and 3 folds (1.0 GB, 30 smallest datasets)",
     datasets=datasets[-30:],
     **kwargs,
 )
 
 
-context_bag_2023_08_21_toy: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416_toy",
+D244_F3_C1416_10: BenchmarkContext = construct_context(
+    name="D244_F3_C1416_10",
     description="Large-scale Benchmark on 244 datasets and 3 folds (10 smallest datasets)",
     datasets=datasets[-10:],
     **kwargs,
 )
 
 
-context_bag_2023_08_21_dummy: BenchmarkContext = construct_context(
-    name="BAG_D244_F3_C1416_dummy",
+D244_F3_C1416_3: BenchmarkContext = construct_context(
+    name="D244_F3_C1416_3",
     description="Large-scale Benchmark on 244 datasets and 3 folds (3 smallest datasets)",
     datasets=datasets[-3:],
     **kwargs,
