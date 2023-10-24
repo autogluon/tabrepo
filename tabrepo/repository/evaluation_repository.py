@@ -127,7 +127,6 @@ class EvaluationRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    # TODO: Rename to `datasets`
     def datasets(self, problem_type: str = None) -> List[str]:
         return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
