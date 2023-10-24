@@ -60,13 +60,10 @@ def get_metric_name(metric: str) -> str:
     return metric_map.get(metric, metric)
 
 
-def get_metric_from_raw(row):
+def get_metric_error_from_score(score: float, metric: str) -> float:
     from autogluon.core.metrics import get_metric
-    metric = row["metric"]
-    score_val = row["score_val"]
-
     metric = get_metric_name(metric=metric)
-    return get_metric(metric=metric).convert_score_to_error(score=score_val)
+    return get_metric(metric=metric).convert_score_to_error(score=score)
 
 
 def preprocess_raw(df_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
@@ -76,7 +73,7 @@ def preprocess_raw(df_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
     if "metric_error_val" not in df_raw:
         df_raw["metric"] = df_raw["metric"].apply(lambda m: get_metric_name(metric=m))
         df_raw["metric_error_val"] = df_raw[["score_val", "metric"]].apply(
-            lambda row: get_metric_from_raw(row=row), axis=1,
+            lambda row: get_metric_error_from_score(score=row["score_val"], metric=row["metric"]), axis=1,
         )
     if "model" in df_raw:
         df_raw['framework'] = df_raw['model']
@@ -96,7 +93,7 @@ def preprocess_comparison(df_comparison_raw: pd.DataFrame, inplace=True) -> pd.D
     return df_comparison_raw
 
 
-def combine_results_with_score_val(df_raw, df_results_by_dataset):
+def combine_results_with_score_val(df_raw: pd.DataFrame, df_results_by_dataset: pd.DataFrame) -> pd.DataFrame:
     df_raw_zoom = df_raw[['framework', 'metric_error_val', 'fold', 'tid']].copy()
     df_raw_zoom = df_raw_zoom[['framework', 'metric_error_val', 'fold', 'tid']]
     df_results_by_dataset_with_score_val = df_results_by_dataset.merge(df_raw_zoom, on=['framework', 'tid', 'fold'])
