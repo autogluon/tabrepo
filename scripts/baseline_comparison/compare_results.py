@@ -18,21 +18,17 @@ def winrate_comparison(df: pd.DataFrame, repo: EvaluationRepository):
         "time infer (s)": "time_infer_s",
     }, axis=1)
 
-    df['tid_task'] = df['tid'].astype('str') + '_' + df['fold'].astype('str')
-
     df_for_eval = copy.deepcopy(df)
     df_for_eval = df_for_eval.rename(columns={
         'method': 'framework',
         'test_error': 'metric_error',
     })
 
-    df_for_eval['tid_task'] = df_for_eval['tid'].astype('str') + '_' + df_for_eval['fold'].astype('str')
-    df_for_eval['problem_type'] = df_for_eval['tid'].map(repo._zeroshot_context.tid_to_problem_type_dict)
-
-    df_for_eval = df_for_eval.drop(columns=['rank', 'normalized-error', 'tid_task'])
     tid_to_dataset = repo._tid_to_name
-
     df_for_eval['dataset'] = df['tid'].map(tid_to_dataset)
+    df_for_eval['problem_type'] = df_for_eval['dataset'].map(repo._zeroshot_context.dataset_to_problem_type_dict)
+
+    df_for_eval = df_for_eval.drop(columns=['rank', 'normalized-error'])
 
     # from autogluon.common.savers import save_pd
     # save_path = f's3://autogluon-zeroshot/config_results/zs_Bag244_full.csv'

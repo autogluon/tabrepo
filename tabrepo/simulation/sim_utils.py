@@ -9,11 +9,10 @@ def get_dataset_to_tid_dict(df_raw: pd.DataFrame) -> dict:
     return dataset_to_tid_dict
 
 
-def get_dataset_name_to_tid_dict(df_raw: pd.DataFrame) -> dict:
-    df_tid_to_dataset_map = df_raw[['task', 'tid']].drop_duplicates(['task', 'tid'])
+def get_task_to_dataset_dict(df_raw: pd.DataFrame) -> dict:
+    df_tid_to_dataset_map = df_raw[['task', 'dataset']].drop_duplicates(['task', 'dataset'])
     dataset_to_tid_dict = df_tid_to_dataset_map.set_index('task')
-    # dataset_to_tid_dict = dataset_to_tid_dict[dataset_to_tid_dict['fold'] == 0]
-    dataset_to_tid_dict = dataset_to_tid_dict['tid'].to_dict()
+    dataset_to_tid_dict = dataset_to_tid_dict['dataset'].to_dict()
     return dataset_to_tid_dict
 
 

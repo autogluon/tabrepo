@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import List
 
 from tabrepo.utils.cache import cache_function
-from tabrepo.repository import EvaluationRepository, EvaluationRepositoryZeroshot
+from tabrepo.contexts import get_subcontext
+from tabrepo.repository.evaluation_repository_zeroshot import EvaluationRepositoryZeroshot
 from autogluon.core.metrics import get_metric
 
 
@@ -23,7 +24,6 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
         task = repo.task_name(tid=tid, fold=fold)
 
         zsc = repo._zeroshot_context
-        tid = zsc.dataset_name_to_tid_dict[task]
 
         # Note: This contains a lot of information beyond what is used here, use a debugger to view
         task_ground_truth_metadata: dict = repo._ground_truth[tid][fold]
@@ -77,7 +77,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
 if __name__ == '__main__':
     # Download repository from S3 and cache it locally for re-use in future calls
     repository: EvaluationRepositoryZeroshot = cache_function(
-        fun=lambda: EvaluationRepository.load('s3://autogluon-zeroshot/repository/BAG_D244_F1_C16_micro.pkl'),
+        fun=lambda: get_subcontext("D244_F3_C1416_30").load_from_parent(),
         cache_name=f"repo_micro",
     ).to_zeroshot()
 
