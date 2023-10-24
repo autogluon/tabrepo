@@ -154,8 +154,8 @@ class EvaluationRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_configs()
 
-    def dataset_to_tid(self, dataset_name: str) -> int:
-        return self._name_to_tid[dataset_name]
+    def dataset_to_tid(self, dataset: str) -> int:
+        return self._name_to_tid[dataset]
 
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_name.get(tid, "Not found")
@@ -360,7 +360,7 @@ if __name__ == '__main__':
         # repo = EvaluationRepository.load(version="2022_10_13")
 
         repo = load_repo_artificial()
-        tid = repo.dataset_to_tid(dataset_name=dataset_name)
+        tid = repo.dataset_to_tid(dataset=dataset_name)
         print(repo.datasets()[:3])  # ['abalone', 'ada', 'adult']
         print(repo.tids()[:3])  # [2073, 3945, 7593]
 
