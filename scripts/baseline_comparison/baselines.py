@@ -72,9 +72,10 @@ def evaluate_configs(
     # Makes results invariant to config order (otherwise tie breaking logic in Caruana selection can make the
     # result depend on configuration order)
     config_selected = list(sorted(config_selected.copy()))
+    dataset = repo.tid_to_dataset(tid=tid)
 
     metric_errors, ensemble_weights = repo.evaluate_ensemble(
-        tids=[tid],
+        datasets=[dataset],
         configs=config_selected,
         ensemble_size=ensemble_size,
         backend='native',
@@ -532,7 +533,7 @@ def evaluate_tuning(
         for suffix, ensemble_size in [("", 1), (f" (ensemble)", 20)]:
             for method in ["zeroshot", "localsearch"]:
                 test_errors, ensemble_weights = repo.evaluate_ensemble(
-                    tids=[tid],
+                    datasets=[dataset],
                     configs=tid_to_config(tuning_rows, tid)[method],
                     ensemble_size=ensemble_size,
                     rank=False,

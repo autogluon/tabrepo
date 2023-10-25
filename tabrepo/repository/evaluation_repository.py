@@ -258,7 +258,7 @@ class EvaluationRepository(SaveLoadMixin):
 
     def evaluate_ensemble(
         self,
-        tids: List[int],
+        datasets: List[str],
         configs: List[str],
         ensemble_size: int,
         rank: bool = True,
@@ -266,7 +266,7 @@ class EvaluationRepository(SaveLoadMixin):
         backend: str = "ray",
     ) -> Tuple[np.array, Dict[str, np.array]]:
         """
-        :param tids: list of dataset tids to compute errors on.
+        :param datasets: list of datasets to compute errors on.
         :param configs: list of config to consider for ensembling.
         :param ensemble_size: number of members to select with Caruana.
         :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
@@ -280,8 +280,8 @@ class EvaluationRepository(SaveLoadMixin):
         if folds is None:
             folds = self.folds
         tasks = [
-            self.task_name(tid=tid, fold=fold)
-            for tid in tids
+            self.task_name_from_dataset(dataset=dataset, fold=fold)
+            for dataset in datasets
             for fold in folds
         ]
         scorer = self._construct_ensemble_selection_config_scorer(
@@ -298,9 +298,9 @@ class EvaluationRepository(SaveLoadMixin):
             out = dict_errors
 
         out_numpy = np.array([[
-                out[self.task_name(tid=tid, fold=fold)
+                out[self.task_name_from_dataset(dataset=dataset, fold=fold)
             ] for fold in folds
-        ] for tid in tids])
+        ] for dataset in datasets])
 
         return out_numpy, dict_ensemble_weights
 
@@ -336,20 +336,14 @@ class EvaluationRepository(SaveLoadMixin):
         return config_scorer
 
     @classmethod
-    def from_context(cls, version: str = None, lazy_format: bool = True):
-        return load(version=version, lazy_format=lazy_format)
+    def from_context(cls, version: str = None, predictions_format: str = "memmap"):
+        return load(version=version, predictions_format=predictions_format)
 
 
-def load(version: str = None) -> EvaluationRepository:
-    from tabrepo.contexts import get_context
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = get_context(version).load(load_predictions=True)
-    r = EvaluationRepository(
-        zeroshot_context=zsc,
-        tabular_predictions=zeroshot_pred_proba,
-        ground_truth=zeroshot_gt,
-    )
-    r = r.force_to_dense(verbose=True)
-    return r
+def load(version: str = None, predictions_format: str = "memmap") -> EvaluationRepository:
+    from tabrepo.contexts import get_subcontext
+    repo = get_subcontext(version).load_from_parent(load_predictions=True, predictions_format=predictions_format)
+    return repo
 
 
 if __name__ == '__main__':
@@ -371,6 +365,6 @@ if __name__ == '__main__':
         print(repo.predict_val_single(dataset=dataset, config=config, fold=2).shape)
         print(repo.predict_test_single(dataset=dataset, config=config, fold=2).shape)
         print(repo.dataset_metadata(dataset=dataset))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
-        print(repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
-        print(repo.evaluate_ensemble(tids=[tid], configs=[config, config],
+        print(repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
+        print(repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                      ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]

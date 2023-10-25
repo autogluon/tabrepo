@@ -45,7 +45,7 @@ def test_repository():
     assert repo.labels_val(dataset=dataset, fold=2).shape == (123,)
     assert repo.labels_test(dataset=dataset, fold=2).shape == (13,)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    result_errors, result_ensemble_weights = repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native")
+    result_errors, result_ensemble_weights = repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")
     assert result_errors.shape == (1, 3)
     assert len(result_ensemble_weights.keys()) == 3
 
@@ -57,7 +57,7 @@ def test_repository():
     task_0 = repo.task_name_from_dataset(dataset=dataset, fold=0)
     assert np.allclose(result_ensemble_weights[task_0], [1.0, 0.0])
 
-    assert repo.evaluate_ensemble(tids=[tid], configs=[config, config],
+    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                   ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[0, 2])
@@ -69,9 +69,9 @@ def test_repository():
     assert repo.predict_val_single(dataset=dataset, config=config, fold=2).shape == (123, 25)
     assert repo.predict_test_single(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    # result_errors, result_ensemble_weights = repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native")[0],
-    assert repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 2)
-    assert repo.evaluate_ensemble(tids=[tid], configs=[config, config],
+    # result_errors, result_ensemble_weights = repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0],
+    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 2)
+    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                   ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
     repo = repo.subset(folds=[2], datasets=[dataset], models=[config])
@@ -83,9 +83,9 @@ def test_repository():
     assert repo.predict_val_single(dataset=dataset, config=config, fold=2).shape == (123, 25)
     assert repo.predict_test_single(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    assert repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 1)
+    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 1)
 
-    assert repo.evaluate_ensemble(tids=[tid], configs=[config, config],
+    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                   ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
 
