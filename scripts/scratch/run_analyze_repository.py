@@ -10,7 +10,7 @@ from autogluon.core.metrics import get_metric
 
 def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None):
     if models is None:
-        models = repo.get_configs()
+        models = repo.configs()
 
     datasets = repo.datasets()
     fold = 0

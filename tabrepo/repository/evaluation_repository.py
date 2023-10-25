@@ -77,7 +77,6 @@ class EvaluationRepository(SaveLoadMixin):
         if models:
             self._zeroshot_context.subset_models(models=models)
         if datasets:
-            # TODO: Align `_zeroshot_context` naming of datasets -> tids
             self._zeroshot_context.subset_datasets(datasets=datasets)
         if problem_types:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
@@ -130,7 +129,7 @@ class EvaluationRepository(SaveLoadMixin):
     def datasets(self, problem_type: str = None) -> List[str]:
         return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
-    def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+    def configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
@@ -246,8 +245,8 @@ class EvaluationRepository(SaveLoadMixin):
     def n_datasets(self) -> int:
         return len(self.datasets())
 
-    def n_models(self) -> int:
-        return len(self.get_configs())
+    def n_configs(self) -> int:
+        return len(self.configs())
 
     def task_name_from_tid(self, tid: int, fold: int) -> str:
         return self._zeroshot_context.task_name_from_tid(tid=tid, fold=fold)
@@ -359,7 +358,7 @@ if __name__ == '__main__':
         print(repo.tids()[:3])  # [2073, 3945, 7593]
 
         print(tid)  # 360945
-        print(repo.get_configs(datasets=[dataset])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
+        print(repo.configs(datasets=[dataset])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
         print(repo.eval_metrics(dataset=dataset, configs=[config], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
         print(repo.predict_val_single(dataset=dataset, config=config, fold=2).shape)
         print(repo.predict_test_single(dataset=dataset, config=config, fold=2).shape)

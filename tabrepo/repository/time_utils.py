@@ -25,7 +25,7 @@ def get_runtime(
     dataset = repo.tid_to_dataset(tid=tid)
     task = repo.task_name(dataset=dataset, fold=fold)
     if not config_names:
-        config_names = repo.get_configs()
+        config_names = repo.configs()
     df_metrics = repo._zeroshot_context.df_results_by_dataset_vs_automl
     df_configs = pd.DataFrame(config_names, columns=["framework"]).merge(df_metrics[df_metrics[task_col] == task])
     runtime_configs = dict(df_configs.set_index('framework')[runtime_col])
