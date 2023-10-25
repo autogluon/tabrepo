@@ -157,20 +157,20 @@ class EvaluationRepository(SaveLoadMixin):
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_name.get(tid, "Not found")
 
-    def eval_metrics(self, tid: int, config_names: List[str], fold: int, check_all_found: bool = True) -> List[dict]:
+    def eval_metrics(self, dataset: str, fold: int, configs: List[str], check_all_found: bool = True) -> List[dict]:
         """
-        :param tid:
-        :param config_names: list of configs to query metrics
+        :param dataset:
         :param fold:
+        :param configs: list of configs to query metrics
         :return: list of metrics for each configuration
         """
+        task = self.task_name_from_dataset(dataset=dataset, fold=fold)
         df = self._zeroshot_context.df_results_by_dataset_vs_automl
-        task = self.task_name(tid=tid, fold=fold)
-        mask = (df["task"] == task) & (df["framework"].isin(config_names))
+        mask = (df["task"] == task) & (df["framework"].isin(configs))
         output_cols = ["framework", "metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank",]
         if check_all_found:
-            assert sum(mask) == len(config_names), \
-                f"expected one evaluation occurence for each configuration {config_names} for {tid}, " \
+            assert sum(mask) == len(configs), \
+                f"expected one evaluation occurence for each configuration {configs} for {dataset}, " \
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
@@ -353,26 +353,25 @@ def load(version: str = None) -> EvaluationRepository:
     return r
 
 
-# TODO: git shelve ADD BACK
 if __name__ == '__main__':
     from tabrepo.contexts.context_artificial import load_repo_artificial
 
     with catchtime("loading repo and evaluating one ensemble config"):
-        dataset_name = "abalone"
-        config_name = "NeuralNetFastAI_r1"
+        dataset = "abalone"
+        config = "NeuralNetFastAI_r1"
         # repo = EvaluationRepository.load(version="2022_10_13")
 
         repo = load_repo_artificial()
-        tid = repo.dataset_to_tid(dataset=dataset_name)
+        tid = repo.dataset_to_tid(dataset=dataset)
         print(repo.datasets()[:3])  # ['abalone', 'ada', 'adult']
         print(repo.tids()[:3])  # [2073, 3945, 7593]
 
         print(tid)  # 360945
-        print(repo.get_configs(datasets=[dataset_name])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
-        print(repo.eval_metrics(tid=tid, config_names=[config_name], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
-        print(repo.predict_val_single(tid=tid, config=config_name, fold=2).shape)
-        print(repo.predict_test_single(tid=tid, config=config_name, fold=2).shape)
+        print(repo.get_configs(datasets=[dataset])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
+        print(repo.eval_metrics(dataset=dataset, configs=[config], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
+        print(repo.predict_val_single(tid=tid, config=config, fold=2).shape)
+        print(repo.predict_test_single(tid=tid, config=config, fold=2).shape)
         print(repo.dataset_metadata(tid=tid))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
-        print(repo.evaluate_ensemble(tids=[tid], configs=[config_name, config_name], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
-        print(repo.evaluate_ensemble(tids=[tid], configs=[config_name, config_name],
+        print(repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
+        print(repo.evaluate_ensemble(tids=[tid], configs=[config, config],
                                      ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]
