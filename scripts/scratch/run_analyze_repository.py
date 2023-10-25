@@ -28,8 +28,8 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
         problem_type = task_info['problem_type']
         metric_name = task_info['metric']
         eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
-        y_val = repo.labels_val(tid=tid, fold=fold)
-        y_test = repo.labels_test(tid=tid, fold=fold)
+        y_val = repo.labels_val(dataset=dataset, fold=fold)
+        y_test = repo.labels_test(dataset=dataset, fold=fold)
 
         print(f'({dataset_num + 1}/{n_datasets}) task: {task}\n'
               f'\tname: {dataset} | fold: {fold} | tid: {tid}\n'

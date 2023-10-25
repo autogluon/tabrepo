@@ -42,8 +42,8 @@ def test_repository():
     assert repo.predict_test_single(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.predict_val(dataset=dataset, fold=2, configs=[config]).shape == (1, 123, 25)
     assert repo.predict_test(dataset=dataset, fold=2, configs=[config]).shape == (1, 13, 25)
-    assert repo.labels_val(tid=tid, fold=2).shape == (123,)
-    assert repo.labels_test(tid=tid, fold=2).shape == (13,)
+    assert repo.labels_val(dataset=dataset, fold=2).shape == (123,)
+    assert repo.labels_test(dataset=dataset, fold=2).shape == (13,)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     result_errors, result_ensemble_weights = repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native")
     assert result_errors.shape == (1, 3)

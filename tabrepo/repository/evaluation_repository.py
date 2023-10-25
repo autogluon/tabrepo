@@ -210,10 +210,12 @@ class EvaluationRepository(SaveLoadMixin):
             models=configs,
         )
 
-    def labels_test(self, tid: int, fold: int) -> np.array:
+    def labels_test(self, dataset: str, fold: int) -> np.array:
+        tid = self.dataset_to_tid(dataset=dataset)
         return self._ground_truth.labels_test(tid=tid, fold=fold)
 
-    def labels_val(self, tid: int, fold: int) -> np.array:
+    def labels_val(self, dataset: str, fold: int) -> np.array:
+        tid = self.dataset_to_tid(dataset=dataset)
         return self._ground_truth.labels_val(tid=tid, fold=fold)
 
     def dataset_metadata(self, dataset: str) -> dict:
