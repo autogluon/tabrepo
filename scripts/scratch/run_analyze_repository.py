@@ -23,7 +23,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
 
         zsc = repo._zeroshot_context
 
-        task_info = repo.dataset_info(tid=tid)
+        task_info = repo.dataset_info(dataset=dataset)
 
         problem_type = task_info['problem_type']
         metric_name = task_info['metric']

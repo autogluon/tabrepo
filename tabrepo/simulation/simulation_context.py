@@ -1,3 +1,4 @@
+import copy
 from collections import defaultdict
 import json
 from pathlib import Path
@@ -42,13 +43,14 @@ class ZeroshotSimulatorContext:
         self.folds = folds
         self.score_against_only_automl = score_against_only_automl
         self.pct = pct
-        self.df_metadata = df_metadata
+
         # TODO align_valid_folds returns 8 values and does many different things, it would help to break down to more
         #  modular functions
         self.df_results_by_dataset_automl, \
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.df_metrics, \
+        self.df_metadata, \
         self.task_to_dataset_dict, \
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
@@ -57,6 +59,7 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
+            df_metadata=df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
             pct=self.pct,
@@ -95,6 +98,7 @@ class ZeroshotSimulatorContext:
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.df_metrics, \
+        self.df_metadata, \
         self.task_to_dataset_dict, \
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
@@ -103,6 +107,7 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset=self.df_results_by_dataset_vs_automl,
             df_results_by_dataset_automl=self.df_results_by_dataset_automl,
             df_raw=self.df_raw,
+            df_metadata=self.df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
             pct=self.pct,
@@ -117,6 +122,7 @@ class ZeroshotSimulatorContext:
                            df_raw: pd.DataFrame,
                            df_results_by_dataset: pd.DataFrame,
                            df_results_by_dataset_automl: pd.DataFrame,
+                           df_metadata: pd.DataFrame,
                            folds: List[int],
                            score_against_only_automl: bool,
                            pct: bool):
@@ -210,11 +216,22 @@ class ZeroshotSimulatorContext:
 
         df_metrics = get_dataset_to_metric_problem_type(df_raw=df_raw)
 
+        if df_metadata is not None:
+            df_metadata = copy.deepcopy(df_metadata)
+            if "dataset" not in df_metadata:
+                assert "tid" in df_metadata, f"Unknown metadata format: {list(df_metadata.columns)}"
+                tid_to_dataset_dict = {v: k for k, v in dataset_to_tid_dict.items()}
+                df_metadata["dataset"] = df_metadata["tid"].map(tid_to_dataset_dict)
+            df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
+            assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
+            assert len(df_metadata) == len(unique_datasets)
+
         return (
             df_results_by_dataset_automl,
             df_results_by_dataset_vs_automl,
             df_raw,
             df_metrics,
+            df_metadata,
             task_to_dataset_dict,
             dataset_to_tid_dict,
             unique_tasks,
@@ -374,7 +391,7 @@ class ZeroshotSimulatorContext:
         if self.df_results_by_dataset_automl is not None:
             self.df_results_by_dataset_automl = self.df_results_by_dataset_automl[self.df_results_by_dataset_automl["dataset"].isin(datasets)]
         if self.df_metadata is not None:
-            self.df_metadata = self.df_metadata[self.df_metadata["name"].isin(datasets)]
+            self.df_metadata = self.df_metadata[self.df_metadata["dataset"].isin(datasets)]
         self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if d in datasets}
 
     def subset_problem_types(self, problem_types: List[str]):

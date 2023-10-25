@@ -35,8 +35,7 @@ def load_context_artificial(**kwargs):
     configs_full = {model: {} for model in models}
 
     df_metadata = pd.DataFrame([{
-        'tid': tid,
-        'name': dataset_name,
+        'dataset': dataset_name,
         'task_type': "TaskType.SUPERVISED_CLASSIFICATION",
     }
         for tid, dataset_name in zip(tids, dataset_names)

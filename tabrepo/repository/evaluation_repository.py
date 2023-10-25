@@ -216,15 +216,15 @@ class EvaluationRepository(SaveLoadMixin):
     def labels_val(self, tid: int, fold: int) -> np.array:
         return self._ground_truth.labels_val(tid=tid, fold=fold)
 
-    def dataset_metadata(self, tid: int) -> dict:
-        metadata = self._df_metadata[self._df_metadata.tid == tid]
+    def dataset_metadata(self, dataset: str) -> dict:
+        metadata = self._df_metadata[self._df_metadata["dataset"] == dataset]
         return dict(zip(metadata.columns, metadata.values[0]))
 
-    def dataset_info(self, tid: int) -> dict:
+    def dataset_info(self, dataset: str) -> dict:
         """
         Parameters
         ----------
-        tid
+        dataset: str
 
         Returns
         -------
@@ -232,7 +232,6 @@ class EvaluationRepository(SaveLoadMixin):
             "metric": The evaluation metric name used for scoring on the dataset
             "problem_type": The problem type of the dataset
         """
-        dataset = self.tid_to_dataset(tid=tid)
         return self._zeroshot_context.df_metrics.loc[dataset].to_dict()
 
     @property
@@ -369,7 +368,7 @@ if __name__ == '__main__':
         print(repo.eval_metrics(dataset=dataset, configs=[config], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
         print(repo.predict_val_single(dataset=dataset, config=config, fold=2).shape)
         print(repo.predict_test_single(dataset=dataset, config=config, fold=2).shape)
-        print(repo.dataset_metadata(tid=tid))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
+        print(repo.dataset_metadata(dataset=dataset))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
         print(repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
         print(repo.evaluate_ensemble(tids=[tid], configs=[config, config],
                                      ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]
