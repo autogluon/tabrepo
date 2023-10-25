@@ -74,7 +74,7 @@ class RankScorer:
                  df_results_by_dataset: pd.DataFrame,
                  datasets: List[str],
                  metric_error_col: str = 'metric_error',
-                 dataset_col: str = 'dataset',
+                 dataset_col: str = 'task',
                  framework_col: str = 'framework',
                  ties_win: bool = False,
                  pct: bool = False,
@@ -90,7 +90,7 @@ class RankScorer:
         assert all(col in df_results_by_dataset for col in [metric_error_col, dataset_col, framework_col])
         all_datasets = set(df_results_by_dataset[dataset_col].unique())
         for dataset in datasets:
-            assert dataset in all_datasets, f"dataset {dataset} not present in passed evaluations"
+            assert dataset in all_datasets, f"{dataset_col} {dataset} not present in passed evaluations"
         self.ties_win = ties_win
         self.pct = pct
         self.include_partial = include_partial

@@ -16,6 +16,7 @@ from .ground_truth import GroundTruth
 from .simulation_context import ZeroshotSimulatorContext
 from .simulation_context import TabularModelPredictions
 from ..utils.rank_utils import RankScorer
+from ..utils import task_to_tid_fold
 from ..metrics import _fast_log_loss, _fast_roc_auc
 
 
@@ -81,7 +82,7 @@ class EnsembleScorer:
 
     def evaluate_task(self, tid: str, fold: int, models: List[str]) -> Tuple[float, np.array]:
         task_metadata = self.task_metrics_metadata[tid]
-        metric_name = task_metadata["eval_metric"]
+        metric_name = task_metadata["metric"]
         problem_type = task_metadata["problem_type"]
 
         y_val = self.zeroshot_gt.labels_val(tid, fold)
@@ -134,13 +135,10 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
                  zeroshot_gt: Dict[str, Dict[int, Dict[str, Any]]],
                  zeroshot_pred_proba: TabularModelPredictions,
                  ranker: RankScorer,
-                 dataset_name_to_tid_dict: Dict[str, int],
-                 dataset_name_to_fold_dict: Dict[str, List[int]],
                  tid_to_dataset_name_dict: Dict[int, str],
                  task_metrics_metadata: Dict[int, Dict[str, str]],
                  ensemble_size=100,
                  ensemble_selection_kwargs=None,
-                 max_fold: Optional[float] = None,
                  backend: str = 'native',
                  use_fast_metrics: bool = True,
                  proxy_fit_metric_map: Optional[Union[dict, str]] = None,  # TODO: Add unit test
@@ -148,7 +146,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         """
         A scorer object to evaluate configs via simulating ensemble selection.
 
-        :param datasets: The list of datasets to consider for scoring.
+        :param datasets: The list of datasets to consider for scoring. TODO: Convert to tasks?
         :param zeroshot_gt: The ground truth information and task metadata for all tasks.
         :param zeroshot_pred_proba: The TabularModelPredictions object that contains the predictions of all configs on all tasks.
         :param ranker: The ranking object used to compute scores on each task.
@@ -175,14 +173,11 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         self.zeroshot_gt = zeroshot_gt
         self.zeroshot_pred_proba = zeroshot_pred_proba
         self.ranker = ranker
-        self.dataset_name_to_tid_dict = dataset_name_to_tid_dict
-        self.dataset_name_to_fold_dict = dataset_name_to_fold_dict
         self.tid_to_dataset_name_dict = tid_to_dataset_name_dict
         self.ensemble_size = ensemble_size
         if ensemble_selection_kwargs is None:
             ensemble_selection_kwargs = {}
         self.ensemble_selection_kwargs = ensemble_selection_kwargs
-        self.max_fold = max_fold
         assert backend in ['native', 'ray']
         self.backend = backend
         self.use_fast_metrics = use_fast_metrics
@@ -209,10 +204,10 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
         if 'datasets' not in kwargs:
-            kwargs['datasets'] = zeroshot_simulator_context.get_dataset_folds()
+            kwargs['datasets'] = zeroshot_simulator_context.get_tasks()
 
-        dataset_to_tid_dict = {v: k for k, v in zeroshot_simulator_context.tid_to_dataset_dict.items()}
-        task_metrics_metadata = zeroshot_simulator_context.df_task_metrics.set_index("dataset")
+        dataset_to_tid_dict = zeroshot_simulator_context.dataset_to_tid_dict
+        task_metrics_metadata = zeroshot_simulator_context.df_metrics
         task_metrics_metadata = {
             dataset_to_tid_dict[dataset]: task_metrics_metadata.loc[dataset].to_dict()
             for dataset in task_metrics_metadata.index if dataset in dataset_to_tid_dict
@@ -220,16 +215,13 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
         return cls(
             ranker=zeroshot_simulator_context.rank_scorer_vs_automl,
-            dataset_name_to_tid_dict=zeroshot_simulator_context.dataset_name_to_tid_dict,
-            dataset_name_to_fold_dict=zeroshot_simulator_context.dataset_name_to_fold_dict,
             tid_to_dataset_name_dict=zeroshot_simulator_context.tid_to_dataset_dict,
             task_metrics_metadata=task_metrics_metadata,
             **kwargs,
         )
 
     def evaluate_task(self, task: str, models: List[str]) -> Tuple[float, np.array]:
-        fold = self.dataset_name_to_fold_dict[task]
-        tid = self.dataset_name_to_tid_dict[task]
+        tid, fold = task_to_tid_fold(task=task)
         return self.ensemble_scorer.evaluate_task(tid=tid, fold=fold, models=models)
 
     def compute_errors(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
@@ -247,9 +239,6 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         errors = dict()
         ensemble_weights = dict()
         for task in self.datasets:
-            fold = self.dataset_name_to_fold_dict[task]
-            if self.max_fold and fold >= self.max_fold:
-                continue
             errors[task], ensemble_weights[task] = self.evaluate_task(task=task, models=configs)
         return errors, ensemble_weights
 
@@ -300,11 +289,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             zeroshot_gt=self.zeroshot_gt,
             zeroshot_pred_proba=self.zeroshot_pred_proba,
             ranker=self.ranker,
-            dataset_name_to_tid_dict=self.dataset_name_to_tid_dict,
-            dataset_name_to_fold_dict=self.dataset_name_to_fold_dict,
             ensemble_size=self.ensemble_size,
             ensemble_selection_kwargs=self.ensemble_selection_kwargs,
             tid_to_dataset_name_dict=self.tid_to_dataset_name_dict,
             task_metrics_metadata=self.ensemble_scorer.task_metrics_metadata,
-            max_fold=self.max_fold,
         )

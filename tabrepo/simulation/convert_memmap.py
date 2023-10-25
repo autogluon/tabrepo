@@ -95,21 +95,6 @@ def convert_memmap_label_from_pickle(folder_pickle: Path, output_dir: Path, dtyp
     )
 
 
-def generate_metric_name_and_problem_type(folder_pickle: Path, output_file: str):
-    pkl_files = list(Path(folder_pickle).rglob("*zeroshot_gt.pkl"))
-    gt_dict = {f.parent.parent.name: load_pickle(f) for f in pkl_files}
-    rows = []
-    for k, v in gt_dict.items():
-        first = list(v[k].values())[0]
-        rows.append({
-            "dataset": k,
-            "eval_metric": first["eval_metric"],
-            "problem_type": first["problem_type"],
-        })
-    df = pd.DataFrame(rows)
-    df.to_csv(output_file, index=False)
-
-
 if __name__ == '__main__':
     path_pickle = "/home/ubuntu/sky_workdir/data/results/2023_08_21/zeroshot_metadata/"
     memmap_dir = "/home/ubuntu/sky_workdir/data/results/2023_08_21/model_predictions"
@@ -119,8 +104,3 @@ if __name__ == '__main__':
     memmap_dir = "/home/ubuntu/sky_workdir/data/results/2023_08_21/model_predictions_float16/"
     convert_memmap_pred_from_pickle(Path(path_pickle), Path(memmap_dir), dtype="float16")
     convert_memmap_label_from_pickle(Path(path_pickle), Path(memmap_dir), dtype="float16")
-
-    generate_metric_name_and_problem_type(
-        folder_pickle=path_pickle,
-        output_file=Path(__file__).parent.parent.parent / "data/metadata/task_metric_names.csv"
-    )

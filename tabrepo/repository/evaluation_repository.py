@@ -78,7 +78,7 @@ class EvaluationRepository(SaveLoadMixin):
             self._zeroshot_context.subset_models(models=models)
         if tids:
             # TODO: Align `_zeroshot_context` naming of datasets -> tids
-            self._zeroshot_context.subset_datasets(datasets=tids)
+            self._zeroshot_context.subset_tids(tids=tids)
         if problem_types:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         self.force_to_dense(verbose=verbose)
@@ -106,8 +106,8 @@ class EvaluationRepository(SaveLoadMixin):
                        verbose=verbose)
 
         self._zeroshot_context.subset_models(self._tabular_predictions.models)
-        tids = [self.dataset_to_tid(d) for d in self._tabular_predictions.datasets if d in self._name_to_tid]
-        self._zeroshot_context.subset_datasets(tids)
+        datasets = [d for d in self._tabular_predictions.datasets if d in self._name_to_tid]
+        self._zeroshot_context.subset_datasets(datasets)
         self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
         self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
                                                zeroshot_gt=self._ground_truth,
@@ -125,12 +125,10 @@ class EvaluationRepository(SaveLoadMixin):
 
         :param problem_type: If specified, only datasets with the given problem_type are returned.
         """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type)
+        return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    def dataset_names(self) -> List[str]:
-        tids = self.tids()
-        dataset_names = [self._tid_to_name[tid] for tid in tids]
-        return dataset_names
+    def datasets(self, problem_type: str = None) -> List[str]:
+        return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
     def list_models_available(self, tid: int) -> List[str]:
         # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
@@ -156,8 +154,8 @@ class EvaluationRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_configs()
 
-    def dataset_to_tid(self, dataset_name: str) -> int:
-        return self._name_to_tid[dataset_name]
+    def dataset_to_tid(self, dataset: str) -> int:
+        return self._name_to_tid[dataset]
 
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_name.get(tid, "Not found")
@@ -171,40 +169,76 @@ class EvaluationRepository(SaveLoadMixin):
         """
         df = self._zeroshot_context.df_results_by_dataset_vs_automl
         task = self.task_name(tid=tid, fold=fold)
-        mask = (df.dataset == task) & (df.framework.isin(config_names))
-        output_cols = ["framework", "time_train_s", "metric_error", "time_infer_s", "bestdiff", "loss_rescaled",
-                       "time_train_s_rescaled", "time_infer_s_rescaled", "rank", "score_val"]
+        mask = (df["task"] == task) & (df["framework"].isin(config_names))
+        output_cols = ["framework", "metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank",]
         if check_all_found:
             assert sum(mask) == len(config_names), \
                 f"expected one evaluation occurence for each configuration {config_names} for {tid}, " \
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
-    def val_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
+    def predict_test_single(self, tid: int, fold: int, config: str) -> np.array:
+        """
+        Returns the predictions on the test set for a given configuration on a given dataset and fold
+        :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
+        """
+        return self.predict_test(tid=tid, fold=fold, configs=[config]).squeeze()
+
+    def predict_val_single(self, tid: int, fold: int, config: str) -> np.array:
         """
         Returns the predictions on the validation set for a given configuration on a given dataset and fold
         :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
         """
-        return self._tabular_predictions.predict_val(
-            dataset=self.tid_to_dataset(tid),
-            fold=fold,
-            models=[config_name],
-        ).squeeze()
+        return self.predict_val(tid=tid, fold=fold, configs=[config]).squeeze()
 
-    def test_predictions(self, tid: int, config_name: str, fold: int) -> np.array:
+    def predict_test(self, tid: int, fold: int, configs: List[str] = None) -> np.ndarray:
         """
-        Returns the predictions on a test set for a given configuration on a given dataset and fold
-        :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
+        Returns the predictions on the test set for a given list of configurations on a given dataset and fold
+        :return: the model predictions with shape (n_configs, n_rows, n_classes) or (n_configs, n_rows) in case of regression
         """
+        dataset = self.tid_to_dataset(tid)
         return self._tabular_predictions.predict_test(
-            dataset=self.tid_to_dataset(tid),
+            dataset=dataset,
             fold=fold,
-            models=[config_name],
-        ).squeeze()
+            models=configs,
+        )
+
+    def predict_val(self, tid: int, fold: int, configs: List[str] = None) -> np.ndarray:
+        """
+        Returns the predictions on the validation set for a given list of configurations on a given dataset and fold
+        :return: the model predictions with shape (n_configs, n_rows, n_classes) or (n_configs, n_rows) in case of regression
+        """
+        dataset = self.tid_to_dataset(tid)
+        return self._tabular_predictions.predict_val(
+            dataset=dataset,
+            fold=fold,
+            models=configs,
+        )
+
+    def labels_test(self, tid: int, fold: int) -> np.array:
+        return self._ground_truth.labels_test(tid=tid, fold=fold)
+
+    def labels_val(self, tid: int, fold: int) -> np.array:
+        return self._ground_truth.labels_val(tid=tid, fold=fold)
 
     def dataset_metadata(self, tid: int) -> dict:
         metadata = self._df_metadata[self._df_metadata.tid == tid]
         return dict(zip(metadata.columns, metadata.values[0]))
+
+    def dataset_info(self, tid: int) -> dict:
+        """
+        Parameters
+        ----------
+        tid
+
+        Returns
+        -------
+        Dictionary with two keys:
+            "metric": The evaluation metric name used for scoring on the dataset
+            "problem_type": The problem type of the dataset
+        """
+        dataset = self.tid_to_dataset(tid=tid)
+        return self._zeroshot_context.df_metrics.loc[dataset].to_dict()
 
     @property
     def folds(self) -> List[int]:
@@ -214,7 +248,7 @@ class EvaluationRepository(SaveLoadMixin):
         return len(self.folds)
 
     def n_datasets(self) -> int:
-        return len(self.tids())
+        return len(self.datasets())
 
     def n_models(self) -> int:
         return len(self.list_models())
@@ -223,13 +257,13 @@ class EvaluationRepository(SaveLoadMixin):
     def task_name(tid: int, fold: int) -> str:
         return f"{tid}_{fold}"
 
-    def task_name_from_dataset(self, dataset_name: str, fold: int) -> str:
-        return self.task_name(tid=self.dataset_to_tid(dataset_name), fold=fold)
+    def task_name_from_dataset(self, dataset: str, fold: int) -> str:
+        return self.task_name(tid=self.dataset_to_tid(dataset), fold=fold)
 
     def evaluate_ensemble(
         self,
         tids: List[int],
-        config_names: List[str],
+        configs: List[str],
         ensemble_size: int,
         rank: bool = True,
         folds: Optional[List[int]] = None,
@@ -237,7 +271,7 @@ class EvaluationRepository(SaveLoadMixin):
     ) -> Tuple[np.array, Dict[str, np.array]]:
         """
         :param tids: list of dataset tids to compute errors on.
-        :param config_names: list of config to consider for ensembling.
+        :param configs: list of config to consider for ensembling.
         :param ensemble_size: number of members to select with Caruana.
         :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
         automl framework.
@@ -260,7 +294,7 @@ class EvaluationRepository(SaveLoadMixin):
             backend=backend,
         )
 
-        dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=config_names)
+        dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=configs)
         if rank:
             dict_scores = scorer.compute_ranks(errors=dict_errors)
             out = dict_scores
@@ -332,16 +366,16 @@ if __name__ == '__main__':
         # repo = EvaluationRepository.load(version="2022_10_13")
 
         repo = load_repo_artificial()
-        tid = repo.dataset_to_tid(dataset_name=dataset_name)
-        print(repo.dataset_names()[:3])  # ['abalone', 'ada', 'adult']
+        tid = repo.dataset_to_tid(dataset=dataset_name)
+        print(repo.datasets()[:3])  # ['abalone', 'ada', 'adult']
         print(repo.tids()[:3])  # [2073, 3945, 7593]
 
         print(tid)  # 360945
         print(list(repo.list_models_available(tid))[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
         print(repo.eval_metrics(tid=tid, config_names=[config_name], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
-        print(repo.val_predictions(tid=tid, config_name=config_name, fold=2).shape)
-        print(repo.test_predictions(tid=tid, config_name=config_name, fold=2).shape)
+        print(repo.predict_val_single(tid=tid, config=config_name, fold=2).shape)
+        print(repo.predict_test_single(tid=tid, config=config_name, fold=2).shape)
         print(repo.dataset_metadata(tid=tid))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
-        print(repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
-        print(repo.evaluate_ensemble(tids=[tid], config_names=[config_name, config_name],
+        print(repo.evaluate_ensemble(tids=[tid], configs=[config_name, config_name], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
+        print(repo.evaluate_ensemble(tids=[tid], configs=[config_name, config_name],
                                      ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]

@@ -15,7 +15,7 @@ if __name__ == '__main__':
         with catchtime("load"):
             zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(load_predictions=False)
         configs = zsc.get_configs()
-        datasets = zsc.get_dataset_folds()
+        datasets = zsc.get_tasks()
 
         train_error, _ = evaluate_ensemble(
             configs=configs,

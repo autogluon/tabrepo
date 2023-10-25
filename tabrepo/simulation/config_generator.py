@@ -219,19 +219,19 @@ class ZeroshotConfigGeneratorCV:
         self.config_generator_kwargs = config_generator_kwargs
         self.backend = backend
         self.config_scorer = config_scorer
-        self.unique_datasets_fold = np.array(config_scorer.datasets)
-        self.unique_datasets_map = zeroshot_simulator_context.dataset_name_to_tid_dict
+        self.unique_tasks = np.array(config_scorer.datasets)
+        self.task_to_dataset_dict = zeroshot_simulator_context.task_to_dataset_dict
         self.unique_datasets = set()
-        self.dataset_parent_to_fold_map = dict()
-        for d in self.unique_datasets_fold:
-            dataset_parent = self.unique_datasets_map[d]
-            self.unique_datasets.add(dataset_parent)
-            if dataset_parent in self.dataset_parent_to_fold_map:
-                self.dataset_parent_to_fold_map[dataset_parent].append(d)
+        self.dataset_to_task_map = dict()
+        for task in self.unique_tasks:
+            dataset = self.task_to_dataset_dict[task]
+            self.unique_datasets.add(dataset)
+            if dataset in self.dataset_to_task_map:
+                self.dataset_to_task_map[dataset].append(task)
             else:
-                self.dataset_parent_to_fold_map[dataset_parent] = [d]
-        for d in self.dataset_parent_to_fold_map:
-            self.dataset_parent_to_fold_map[d] = sorted(self.dataset_parent_to_fold_map[d])
+                self.dataset_to_task_map[dataset] = [task]
+        for dataset in self.dataset_to_task_map:
+            self.dataset_to_task_map[dataset] = sorted(self.dataset_to_task_map[dataset])
         self.unique_datasets = np.array((sorted(list(self.unique_datasets))))
 
         if configs is None:
@@ -241,7 +241,7 @@ class ZeroshotConfigGeneratorCV:
         self.kf = RepeatedKFold(n_splits=self.n_splits, random_state=0, n_repeats=self.n_repeats)
 
     def get_n_tasks(self) -> int:
-        return len(self.unique_datasets_fold)
+        return len(self.unique_tasks)
 
     def get_n_datasets(self) -> int:
         return len(self.unique_datasets)
@@ -257,9 +257,9 @@ class ZeroshotConfigGeneratorCV:
 
     def _get_tasks_from_dataset(self, dataset: str, num_folds=None) -> List[str]:
         if num_folds is None:
-            return self.dataset_parent_to_fold_map[dataset]
+            return self.dataset_to_task_map[dataset]
         else:
-            return self.dataset_parent_to_fold_map[dataset][:num_folds]
+            return self.dataset_to_task_map[dataset][:num_folds]
 
     def _get_split(self, fold: int) -> int:
         """

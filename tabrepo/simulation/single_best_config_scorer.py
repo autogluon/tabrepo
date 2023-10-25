@@ -11,9 +11,9 @@ class SingleBestConfigScorer(ConfigurationListScorer):
                  df_results_by_dataset: pd.DataFrame,
                  datasets: List[str] = None,
                  score_col: str = 'rank',
-                 score_val_col: str = 'score_val',
+                 score_val_col: str = 'metric_error_val',
                  model_col: str = 'framework',
-                 dataset_col: str = 'dataset'):
+                 task_col: str = 'task'):
         """
         Enables to score the best configuration from a given list of configuration.
         The configuration selected is the one with the lowest validation score is selected and its test-score
@@ -23,21 +23,21 @@ class SingleBestConfigScorer(ConfigurationListScorer):
         :param score_col:
         :param score_val_col:
         :param model_col:
-        :param dataset_col:
+        :param task_col:
         """
         super(SingleBestConfigScorer, self).__init__(datasets=datasets)
 
-        assert all(col in df_results_by_dataset for col in [score_col, score_val_col, model_col, dataset_col])
+        assert all(col in df_results_by_dataset for col in [score_col, score_val_col, model_col, task_col])
         self.score_col = score_col
         self.score_val_col = score_val_col
         self.model_col = model_col
-        self.dataset_col = dataset_col
+        self.task_col = task_col
         if datasets is not None:
             df_results_by_dataset = df_results_by_dataset[
-                df_results_by_dataset[dataset_col].isin(datasets)]
+                df_results_by_dataset[task_col].isin(datasets)]
         self.df_results_by_dataset = df_results_by_dataset
-        self.datasets = list(self.df_results_by_dataset[dataset_col].unique())
-        self.df_pivot_val = self.df_results_by_dataset.pivot_table(index=self.model_col, columns=self.dataset_col, values=self.score_val_col)
+        self.datasets = list(self.df_results_by_dataset[task_col].unique())
+        self.df_pivot_val = self.df_results_by_dataset.pivot_table(index=self.model_col, columns=self.task_col, values=self.score_val_col)
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -47,15 +47,15 @@ class SingleBestConfigScorer(ConfigurationListScorer):
         )
 
     def get_best_validation_configs_df(self, configs: list) -> pd.DataFrame:
-        best_val_model_series = self.df_pivot_val.loc[configs].idxmax(axis=0).to_frame(name=self.model_col)
-        best_val_model_by_dataset_df = self.df_results_by_dataset.merge(best_val_model_series, on=[self.dataset_col, self.model_col])
+        best_val_model_series = self.df_pivot_val.loc[configs].idxmin(axis=0).to_frame(name=self.model_col)
+        best_val_model_by_dataset_df = self.df_results_by_dataset.merge(best_val_model_series, on=[self.task_col, self.model_col])
         return best_val_model_by_dataset_df
 
     def score_per_dataset(self, configs: List[str], score_col=None) -> dict:
         if score_col is None:
             score_col = self.score_col
         best_val_model_by_dataset_df = self.get_best_validation_configs_df(configs=configs)
-        return best_val_model_by_dataset_df[[self.dataset_col, score_col]].set_index(self.dataset_col).squeeze().to_dict()
+        return best_val_model_by_dataset_df[[self.task_col, score_col]].set_index(self.task_col).squeeze().to_dict()
 
     def score(self, configs: List[str]) -> float:
         """
@@ -86,6 +86,6 @@ class SingleBestConfigScorer(ConfigurationListScorer):
             score_col=self.score_col,
             score_val_col=self.score_val_col,
             model_col=self.model_col,
-            dataset_col=self.dataset_col,
+            dataset_col=self.task_col,
         )
 

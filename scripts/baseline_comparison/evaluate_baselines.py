@@ -59,7 +59,7 @@ def make_scorers(repo: EvaluationRepository):
     ], ignore_index=True)
     unique_dataset_folds = [
         f"{repo.dataset_to_tid(dataset)}_{fold}"
-        for dataset in repo.dataset_names()
+        for dataset in repo.datasets()
         for fold in range(repo.n_folds())
     ]
     rank_scorer = RankScorer(df_results_baselines, datasets=unique_dataset_folds, pct=False)
@@ -208,7 +208,7 @@ def save_total_runtime_to_file(total_time_h):
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="BAG_D244_F3_C1416")
+    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="D244_F3_C1416_200")
     parser.add_argument("--n_folds", type=int, default=-1, required=False,
                         help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
     parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
@@ -271,7 +271,7 @@ if __name__ == "__main__":
         n_eval_folds = repo.n_folds()
 
     rank_scorer, normalized_scorer = make_scorers(repo)
-    dataset_names = repo.dataset_names()
+    dataset_names = repo.datasets()
     if n_datasets:
         dataset_names = dataset_names[:n_datasets]
 

@@ -270,7 +270,7 @@ if __name__ == "__main__":
     configs = zsc.get_configs()
 
     # configs = get_configs_small()
-    datasets = zsc.get_datasets()
+    datasets = zsc.get_tids()
     all_datasets = np.array(datasets)
     np.random.shuffle(all_datasets)
     n_splits = input_args.n_splits
@@ -287,8 +287,8 @@ if __name__ == "__main__":
             train_datasets = list(all_datasets[train_index])
             test_datasets = list(all_datasets[test_index])
             best_config, train_error, test_error = learn_ensemble_configuration(
-                train_datasets_folds=zsc.get_dataset_folds(train_datasets),
-                test_datasets_folds=zsc.get_dataset_folds(test_datasets),
+                train_datasets_folds=zsc.get_tasks(train_datasets),
+                test_datasets_folds=zsc.get_tasks(test_datasets),
                 configs=configs,
                 num_folds=args.num_folds,
                 ensemble_size=args.ensemble_size,
