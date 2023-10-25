@@ -36,8 +36,8 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
               f'\tproblem_type={problem_type} | metric_name={metric_name}\n'
               f'\ttrain_rows={len(y_val)} | test_rows={len(y_test)}')
 
-        pred_test = repo.predict_test(tid=tid, fold=fold, configs=models)
-        pred_val = repo.predict_val(tid=tid, fold=fold, configs=models)
+        pred_test = repo.predict_test(dataset=dataset, fold=fold, configs=models)
+        pred_val = repo.predict_val(dataset=dataset, fold=fold, configs=models)
 
         if problem_type == 'binary':
             # Force binary prediction probabilities to 1 dimensional prediction probabilities of the positive class

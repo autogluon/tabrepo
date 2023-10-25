@@ -174,38 +174,36 @@ class EvaluationRepository(SaveLoadMixin):
                 f"{fold} but found {sum(mask)}."
         return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
 
-    def predict_test_single(self, tid: int, fold: int, config: str) -> np.array:
+    def predict_test_single(self, dataset: str, fold: int, config: str) -> np.array:
         """
         Returns the predictions on the test set for a given configuration on a given dataset and fold
         :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
         """
-        return self.predict_test(tid=tid, fold=fold, configs=[config]).squeeze()
+        return self.predict_test(dataset=dataset, fold=fold, configs=[config]).squeeze()
 
-    def predict_val_single(self, tid: int, fold: int, config: str) -> np.array:
+    def predict_val_single(self, dataset: str, fold: int, config: str) -> np.array:
         """
         Returns the predictions on the validation set for a given configuration on a given dataset and fold
         :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
         """
-        return self.predict_val(tid=tid, fold=fold, configs=[config]).squeeze()
+        return self.predict_val(dataset=dataset, fold=fold, configs=[config]).squeeze()
 
-    def predict_test(self, tid: int, fold: int, configs: List[str] = None) -> np.ndarray:
+    def predict_test(self, dataset: str, fold: int, configs: List[str] = None) -> np.ndarray:
         """
         Returns the predictions on the test set for a given list of configurations on a given dataset and fold
         :return: the model predictions with shape (n_configs, n_rows, n_classes) or (n_configs, n_rows) in case of regression
         """
-        dataset = self.tid_to_dataset(tid)
         return self._tabular_predictions.predict_test(
             dataset=dataset,
             fold=fold,
             models=configs,
         )
 
-    def predict_val(self, tid: int, fold: int, configs: List[str] = None) -> np.ndarray:
+    def predict_val(self, dataset: str, fold: int, configs: List[str] = None) -> np.ndarray:
         """
         Returns the predictions on the validation set for a given list of configurations on a given dataset and fold
         :return: the model predictions with shape (n_configs, n_rows, n_classes) or (n_configs, n_rows) in case of regression
         """
-        dataset = self.tid_to_dataset(tid)
         return self._tabular_predictions.predict_val(
             dataset=dataset,
             fold=fold,
@@ -369,8 +367,8 @@ if __name__ == '__main__':
         print(tid)  # 360945
         print(repo.get_configs(datasets=[dataset])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
         print(repo.eval_metrics(dataset=dataset, configs=[config], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
-        print(repo.predict_val_single(tid=tid, config=config, fold=2).shape)
-        print(repo.predict_test_single(tid=tid, config=config, fold=2).shape)
+        print(repo.predict_val_single(dataset=dataset, config=config, fold=2).shape)
+        print(repo.predict_test_single(dataset=dataset, config=config, fold=2).shape)
         print(repo.dataset_metadata(tid=tid))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
         print(repo.evaluate_ensemble(tids=[tid], configs=[config, config], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
         print(repo.evaluate_ensemble(tids=[tid], configs=[config, config],
