@@ -56,18 +56,18 @@ class EvaluationRepository(SaveLoadMixin):
         return {v: k for k, v in self._name_to_tid.items()}
 
     def subset(self,
+               datasets: List[str] = None,
                folds: List[int] = None,
                models: List[str] = None,
-               tids: List[Union[str, int]] = None,
                problem_types: List[str] = None,
                verbose: bool = True,
                ):
         """
         Method to subset the repository object and force to a dense representation.
 
+        :param datasets: The list of datasets to subset. Ignored if unspecified.
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param models: The list of models to subset. Ignored if unspecified.
-        :param tids: The list of dataset task ids to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
@@ -76,9 +76,9 @@ class EvaluationRepository(SaveLoadMixin):
             self._zeroshot_context.subset_folds(folds=folds)
         if models:
             self._zeroshot_context.subset_models(models=models)
-        if tids:
+        if datasets:
             # TODO: Align `_zeroshot_context` naming of datasets -> tids
-            self._zeroshot_context.subset_tids(tids=tids)
+            self._zeroshot_context.subset_datasets(datasets=datasets)
         if problem_types:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         self.force_to_dense(verbose=verbose)

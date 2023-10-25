@@ -8,11 +8,11 @@ from tabrepo.utils.cache import cache_function
 
 def gen_sample_repo_exact(
         repo: EvaluationRepository,
+        datasets: List[str] = None,
         folds: List[int] = None,
-        tids: List[int] = None,
         models: List[str] = None,
 ) -> EvaluationRepository:
-    return copy.deepcopy(repo).subset(folds=folds, tids=tids, models=models)
+    return copy.deepcopy(repo).subset(datasets=datasets, folds=folds, models=models)
 
 
 def gen_sample_repo(
@@ -30,10 +30,9 @@ def gen_sample_repo(
         folds_sample = list(range(n_folds))
 
     random.seed(random_seed)
-    tid_sample = None
+    datasets_sample = None
     if n_datasets is not None:
         datasets_sample = random.sample(datasets, n_datasets)
-        tid_sample = [repo.dataset_to_tid(d) for d in datasets_sample]
 
     random.seed(random_seed + 1)
     models_sample = None
@@ -43,7 +42,7 @@ def gen_sample_repo(
     return gen_sample_repo_exact(
         repo=repo,
         folds=folds_sample,
-        tids=tid_sample,
+        datasets=datasets_sample,
         models=models_sample,
     )
 
