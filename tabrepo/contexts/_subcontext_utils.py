@@ -23,7 +23,7 @@ def gen_sample_repo(
         random_seed: int = 0,
 ) -> EvaluationRepository:
     repo = fun()
-    models = repo.list_models()
+    models = repo.get_configs()
     datasets = [repo.tid_to_dataset(taskid) for taskid in repo.tids()]
     folds_sample = None
     if n_folds is not None:

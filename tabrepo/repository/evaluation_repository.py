@@ -130,29 +130,26 @@ class EvaluationRepository(SaveLoadMixin):
     def datasets(self, problem_type: str = None) -> List[str]:
         return self._zeroshot_context.get_datasets(problem_type=problem_type)
 
-    def list_models_available(self, tid: int) -> List[str]:
-        # TODO rename with new name, and keep naming convention of tabular_predictions to allow filtering over folds,
-        #  datasets, specify whether all need to be present etc
+    def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
         """
-        :param tid:
-        :return: the list of configurations that are available on all folds of the given dataset.
-        """
-        res = set(self._tabular_predictions.list_models_available(datasets=[tid]))
-        for fold in self.folds:
-            df = self._zeroshot_context.df_results_by_dataset_vs_automl
-            task = self.task_name(tid=tid, fold=fold)
-            methods = set(df.loc[df.dataset == task, "framework"].unique())
-            res = res.intersection(methods)
-        return list(sorted(res))
+        Return all valid configs.
+        By default, will return all configs that appear in any task at least once.
 
-    # TODO: Unify with `list_models_available`
-    def list_models(self) -> List[str]:
-        """
-        List all models that appear in at least one task.
+        Parameters
+        ----------
+        datasets : List[str], default = None
+            If specified, will only consider the configs present in the given datasets
+        tasks: List[str], default = None
+            If specified, will only consider the configs present in the given tasks
+        union: bool, default = True
+            If True, will return the union of configs present in each task.
+            If False, will return the intersection of configs present in each task.
 
-        :return: the list of configurations that are available in at least one task.
+        Returns
+        -------
+        A list of config names satisfying the above conditions.
         """
-        return self._zeroshot_context.get_configs()
+        return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, union=union)
 
     def dataset_to_tid(self, dataset: str) -> int:
         return self._name_to_tid[dataset]
@@ -251,7 +248,7 @@ class EvaluationRepository(SaveLoadMixin):
         return len(self.datasets())
 
     def n_models(self) -> int:
-        return len(self.list_models())
+        return len(self.get_configs())
 
     @staticmethod
     def task_name(tid: int, fold: int) -> str:
@@ -371,7 +368,7 @@ if __name__ == '__main__':
         print(repo.tids()[:3])  # [2073, 3945, 7593]
 
         print(tid)  # 360945
-        print(list(repo.list_models_available(tid))[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
+        print(repo.get_configs(datasets=[dataset_name])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
         print(repo.eval_metrics(tid=tid, config_names=[config_name], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
         print(repo.predict_val_single(tid=tid, config=config_name, fold=2).shape)
         print(repo.predict_test_single(tid=tid, config=config_name, fold=2).shape)

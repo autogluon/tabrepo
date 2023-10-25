@@ -275,9 +275,43 @@ class ZeroshotSimulatorContext:
     def tid_to_dataset_dict(self):
         return {v: k for k, v in self.dataset_to_tid_dict.items()}
 
-    def get_configs(self) -> list:
-        """Return all valid configs"""
-        return list(self.df_results_by_dataset_vs_automl['framework'].unique())
+    def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+        """
+        Return all valid configs.
+        By default, will return all configs that appear in any task at least once.
+
+        Parameters
+        ----------
+        datasets : List[str], default = None
+            If specified, will only consider the configs present in the given datasets
+        tasks: List[str], default = None
+            If specified, will only consider the configs present in the given tasks
+        union: bool, default = True
+            If True, will return the union of configs present in each task.
+            If False, will return the intersection of configs present in each task.
+
+        Returns
+        -------
+        A list of config names satisfying the above conditions.
+        """
+        df = self.df_results_by_dataset_vs_automl
+        if datasets is not None:
+            datasets_all = set(self.get_datasets())
+            datasets_invalid = set(datasets).difference(datasets_all)
+            if len(datasets_invalid) != 0:
+                raise ValueError(f"Invalid datasets specified: {sorted(list(datasets_invalid))}")
+            df = df[df["dataset"].isin(datasets)]
+        if tasks is not None:
+            tasks_all = set(self.get_tasks())
+            tasks_invalid = set(tasks).difference(tasks_all)
+            if len(tasks_invalid) != 0:
+                raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
+            df = df[df["task"].isin(tasks)]
+
+        if len(df) == 0:
+            raise AssertionError(f"No valid results for tasks={tasks} | datasets={datasets}")
+
+        return self._get_configs_from_df(df=df, union=union)
 
     def load_groundtruth(self, paths_gt: List[str]) -> Tuple[dict, dict]:
         gt_val = defaultdict(_default_dict)
@@ -375,3 +409,31 @@ class ZeroshotSimulatorContext:
         self.unique_datasets = unique_datasets
         self.unique_tasks = unique_tasks
         self.dataset_to_tasks_dict = dataset_to_tasks_dict
+
+    @staticmethod
+    def _get_configs_from_df(df: pd.DataFrame, union: bool = True) -> List[str]:
+        """
+        Parameters
+        ----------
+        df: pd.DataFrame
+            A DataFrame containing the columns "task" and "framework".
+        union: bool, default = True
+            If True, will return the union of configs present in each task.
+            If False, will return the intersection of configs present in each task.
+
+        Returns
+        -------
+        The list of "framework" values present in `df` that satisfy the `union` value logic.
+        """
+        if union:
+            res = df["framework"].unique()
+        else:
+            tasks = list(df["task"].unique())
+            res = None
+            for task in tasks:
+                methods = set(df.loc[df["task"] == task, "framework"].unique())
+                if res is None:
+                    res = methods
+                else:
+                    res = res.intersection(methods)
+        return sorted(list(res))

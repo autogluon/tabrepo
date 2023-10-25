@@ -456,7 +456,7 @@ def zeroshot_results(
     assert not any(df_rank.isna().values.reshape(-1))
 
     model_frameworks = {
-        framework: sorted([x for x in repo.list_models() if framework in x])
+        framework: sorted([x for x in repo.get_configs() if framework in x])
         for framework in framework_types
     }
 
