@@ -31,7 +31,7 @@ class EvaluationRepository(SaveLoadMixin):
         self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
         self._ground_truth = ground_truth
         if self._tabular_predictions is not None:
-            assert all(self._zeroshot_context.dataset_to_tid_dict[x] in self._tid_to_name for x in self._tabular_predictions.datasets)
+            assert all(self._zeroshot_context.dataset_to_tid_dict[x] in self._tid_to_dataset_dict for x in self._tabular_predictions.datasets)
 
     def to_zeroshot(self) -> repository.EvaluationRepositoryZeroshot:
         """
@@ -48,12 +48,12 @@ class EvaluationRepository(SaveLoadMixin):
         self._zeroshot_context.print_info()
 
     @property
-    def _name_to_tid(self) -> Dict[str, int]:
+    def _dataset_to_tid_dict(self) -> Dict[str, int]:
         return self._zeroshot_context.dataset_to_tid_dict
 
     @property
-    def _tid_to_name(self) -> Dict[int, str]:
-        return {v: k for k, v in self._name_to_tid.items()}
+    def _tid_to_dataset_dict(self) -> Dict[int, str]:
+        return {v: k for k, v in self._dataset_to_tid_dict.items()}
 
     def subset(self,
                datasets: List[str] = None,
@@ -106,13 +106,13 @@ class EvaluationRepository(SaveLoadMixin):
                        verbose=verbose)
 
         self._zeroshot_context.subset_models(self._tabular_predictions.models)
-        datasets = [d for d in self._tabular_predictions.datasets if d in self._name_to_tid]
+        datasets = [d for d in self._tabular_predictions.datasets if d in self._dataset_to_tid_dict]
         self._zeroshot_context.subset_datasets(datasets)
         self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
         self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
                                                zeroshot_gt=self._ground_truth,
-                                               dataset_to_tid_dict=self._name_to_tid,
-                                               verbose=verbose,)
+                                               dataset_to_tid_dict=self._dataset_to_tid_dict,
+                                               verbose=verbose, )
         return self
 
     @property
@@ -152,10 +152,10 @@ class EvaluationRepository(SaveLoadMixin):
         return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, union=union)
 
     def dataset_to_tid(self, dataset: str) -> int:
-        return self._name_to_tid[dataset]
+        return self._dataset_to_tid_dict[dataset]
 
     def tid_to_dataset(self, tid: int) -> str:
-        return self._tid_to_name.get(tid, "Not found")
+        return self._tid_to_dataset_dict.get(tid, "Not found")
 
     def eval_metrics(self, dataset: str, fold: int, configs: List[str], check_all_found: bool = True) -> List[dict]:
         """
