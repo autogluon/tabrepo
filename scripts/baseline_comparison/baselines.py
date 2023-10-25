@@ -86,8 +86,8 @@ def evaluate_configs(
     assert metric_errors.shape == (1, len(folds))
     rows = []
     for fold, metric_error in zip(folds, metric_errors[0]):
-        dataset_fold_name = repo.task_name(tid=tid, fold=fold)
-        config_weights = ensemble_weights[dataset_fold_name]
+        task = repo.task_name(dataset=dataset, fold=fold)
+        config_weights = ensemble_weights[task]
 
         # select configurations used in the ensemble as infer time only depends on the models with non-zero weight.
         config_selected_ensemble = [
@@ -114,8 +114,8 @@ def evaluate_configs(
             fold=fold,
             method=method,
             test_error=metric_error,
-            rank=rank_scorer.rank(dataset_fold_name, metric_error),
-            normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
+            rank=rank_scorer.rank(task, metric_error),
+            normalized_score=normalized_scorer.rank(task, metric_error),
             time_train_s=sum(runtimes.values()),
             time_infer_s=sum(latencies.values()),
             config_selected=config_sampled,
@@ -268,8 +268,8 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
     for dataset in tqdm(dataset_names):
         tid = repo.dataset_to_tid(dataset)
         for fold in range(n_eval_folds):
-            dataset_fold_name = repo.task_name(tid=tid, fold=fold)
-            automl_df_fold = automl_df[automl_df['task'] == dataset_fold_name]
+            task = repo.task_name(dataset=dataset, fold=fold)
+            automl_df_fold = automl_df[automl_df['task'] == task]
             task_automl_dict = automl_df_fold.T.to_dict()
 
             for k, v in task_automl_dict.items():
@@ -280,8 +280,8 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
                     fold=v['fold'],
                     method=v['framework'],
                     test_error=metric_error,
-                    rank=rank_scorer.rank(dataset_fold_name, metric_error),
-                    normalized_score=normalized_scorer.rank(dataset_fold_name, metric_error),
+                    rank=rank_scorer.rank(task, metric_error),
+                    normalized_score=normalized_scorer.rank(task, metric_error),
                     time_train_s=v['time_train_s'],
                     time_infer_s=v['time_infer_s'],
                 ))
@@ -541,7 +541,7 @@ def evaluate_tuning(
                 assert test_errors.shape[0] == 1  # we send one model, we should get one row back
                 for fold in range(n_eval_folds):
                     test_error = test_errors[0][fold]
-                    task_name = repo.task_name(tid=tid, fold=fold)
+                    task_name = repo.task_name(dataset=dataset, fold=fold)
                     rows.append(ResultRow(
                         tid=tid,
                         fold=fold,

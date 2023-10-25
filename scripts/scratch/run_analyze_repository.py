@@ -18,8 +18,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
     print(f'n_models={len(models)} | models={models}')
     print(f'n_datasets={n_datasets}')
     for dataset_num, dataset in enumerate(datasets):
-        tid = repo.dataset_to_tid(dataset)
-        task = repo.task_name(tid=tid, fold=fold)
+        task = repo.task_name(dataset=dataset, fold=fold)
 
         zsc = repo._zeroshot_context
 
@@ -32,7 +31,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
         y_test = repo.labels_test(dataset=dataset, fold=fold)
 
         print(f'({dataset_num + 1}/{n_datasets}) task: {task}\n'
-              f'\tname: {dataset} | fold: {fold} | tid: {tid}\n'
+              f'\tdataset: {dataset} | fold: {fold}\n'
               f'\tproblem_type={problem_type} | metric_name={metric_name}\n'
               f'\ttrain_rows={len(y_val)} | test_rows={len(y_test)}')
 

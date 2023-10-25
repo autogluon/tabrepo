@@ -164,7 +164,7 @@ class EvaluationRepository(SaveLoadMixin):
         :param configs: list of configs to query metrics
         :return: list of metrics for each configuration
         """
-        task = self.task_name_from_dataset(dataset=dataset, fold=fold)
+        task = self.task_name(dataset=dataset, fold=fold)
         df = self._zeroshot_context.df_results_by_dataset_vs_automl
         mask = (df["task"] == task) & (df["framework"].isin(configs))
         output_cols = ["framework", "metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank",]
@@ -249,12 +249,11 @@ class EvaluationRepository(SaveLoadMixin):
     def n_models(self) -> int:
         return len(self.get_configs())
 
-    @staticmethod
-    def task_name(tid: int, fold: int) -> str:
-        return f"{tid}_{fold}"
+    def task_name_from_tid(self, tid: int, fold: int) -> str:
+        return self._zeroshot_context.task_name_from_tid(tid=tid, fold=fold)
 
-    def task_name_from_dataset(self, dataset: str, fold: int) -> str:
-        return self.task_name(tid=self.dataset_to_tid(dataset), fold=fold)
+    def task_name(self, dataset: str, fold: int) -> str:
+        return self.task_name_from_tid(tid=self.dataset_to_tid(dataset), fold=fold)
 
     def evaluate_ensemble(
         self,
@@ -280,7 +279,7 @@ class EvaluationRepository(SaveLoadMixin):
         if folds is None:
             folds = self.folds
         tasks = [
-            self.task_name_from_dataset(dataset=dataset, fold=fold)
+            self.task_name(dataset=dataset, fold=fold)
             for dataset in datasets
             for fold in folds
         ]
@@ -298,7 +297,7 @@ class EvaluationRepository(SaveLoadMixin):
             out = dict_errors
 
         out_numpy = np.array([[
-                out[self.task_name_from_dataset(dataset=dataset, fold=fold)
+                out[self.task_name(dataset=dataset, fold=fold)
             ] for fold in folds
         ] for dataset in datasets])
 

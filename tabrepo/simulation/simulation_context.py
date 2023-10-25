@@ -292,6 +292,10 @@ class ZeroshotSimulatorContext:
     def tid_to_dataset_dict(self):
         return {v: k for k, v in self.dataset_to_tid_dict.items()}
 
+    @staticmethod
+    def task_name_from_tid(tid: int, fold: int) -> str:
+        return f"{tid}_{fold}"
+
     def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
         """
         Return all valid configs.

@@ -54,7 +54,7 @@ def test_repository():
     assert dataset_info["problem_type"] == "regression"
 
     # Test ensemble weights are as expected
-    task_0 = repo.task_name_from_dataset(dataset=dataset, fold=0)
+    task_0 = repo.task_name(dataset=dataset, fold=0)
     assert np.allclose(result_ensemble_weights[task_0], [1.0, 0.0])
 
     assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
