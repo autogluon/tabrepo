@@ -8,7 +8,7 @@ repo = load_repo_artificial()
 
 def test_get_runtime():
 
-    config_names = repo.get_configs()
+    config_names = repo.configs()
     runtime_dict = get_runtime(
         repo,
         tid=359944,
@@ -20,7 +20,7 @@ def test_get_runtime():
 
 
 def test_get_runtime_time_infer_s():
-    config_names = repo.get_configs()
+    config_names = repo.configs()
     runtime_dict = get_runtime(
         repo,
         tid=359944,
@@ -33,12 +33,12 @@ def test_get_runtime_time_infer_s():
 
 
 def test_sort_by_runtime():
-    config_names = repo.get_configs()
+    config_names = repo.configs()
     assert sort_by_runtime(repo, config_names) == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
 
 
 def test_filter_configs_by_runtime():
-    config_names = repo.get_configs()
+    config_names = repo.configs()
     for max_cumruntime, num_config_expected in [
         (None, len(config_names)),
         (0, len(config_names)),

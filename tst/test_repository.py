@@ -10,10 +10,10 @@ from tabrepo.repository import EvaluationRepository
 def verify_equivalent_repository(repo1: EvaluationRepository, repo2: EvaluationRepository):
     assert repo1.folds == repo2.folds
     assert repo1.tids() == repo2.tids()
-    assert repo1.get_configs() == repo2.get_configs()
+    assert repo1.configs() == repo2.configs()
     assert repo1.datasets() == repo2.datasets()
     for dataset in repo1.datasets():
-        for c in repo1.get_configs():
+        for c in repo1.configs():
             for f in repo1.folds:
                 repo1_test = repo1.predict_test_single(dataset=dataset, config=c, fold=f)
                 repo2_test = repo2.predict_test_single(dataset=dataset, config=c, fold=f)
@@ -35,7 +35,7 @@ def test_repository():
     assert repo.n_folds() == 3
     assert repo.folds == [0, 1, 2]
     assert repo.dataset_to_tid(dataset) == 359946
-    assert repo.get_configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+    assert repo.configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
     # TODO check values, something like [{'framework': 'NeuralNetFastAI_r1', 'time_train_s': 0.1965823616800535, 'metric_error': 0.9764594650133958, 'time_infer_s': 0.3687251706609641, 'bestdiff': 0.8209932298479351, 'loss_rescaled': 0.09710127579306127, 'time_train_s_rescaled': 0.8379449074988039, 'time_infer_s_rescaled': 0.09609840789396307, 'rank': 2.345816964276348, 'score_val': 0.4686512016477016}]
     print(repo.eval_metrics(dataset=dataset, configs=[config], fold=2))
     assert repo.predict_val_single(dataset=dataset, config=config, fold=2).shape == (123, 25)
@@ -65,7 +65,7 @@ def test_repository():
     assert repo.n_folds() == 2
     assert repo.folds == [0, 2]
     assert repo.tids() == [359946, 359944]
-    assert repo.get_configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+    assert repo.configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
     assert repo.predict_val_single(dataset=dataset, config=config, fold=2).shape == (123, 25)
     assert repo.predict_test_single(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
@@ -79,7 +79,7 @@ def test_repository():
     assert repo.n_folds() == 1
     assert repo.folds == [2]
     assert repo.tids() == [359946]
-    assert repo.get_configs() == [config]
+    assert repo.configs() == [config]
     assert repo.predict_val_single(dataset=dataset, config=config, fold=2).shape == (123, 25)
     assert repo.predict_test_single(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
