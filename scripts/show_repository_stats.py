@@ -25,7 +25,7 @@ automl_frameworks = set(x.split("_")[0] for x in automl_frameworks)
 
 n_datasets = repo.n_datasets()
 n_bagged = 8
-n_hps = repo.n_models()
+n_hps = repo.n_configs()
 n_seeds = repo.n_folds()
 n_automl = len(automl_frameworks)
 

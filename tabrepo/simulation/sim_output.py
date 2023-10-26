@@ -87,7 +87,7 @@ class SimulationOutputGenerator:
         repo = copy.deepcopy(self.repo)
 
         # TODO: subset datasets
-        repo = repo.subset(models=portfolio, verbose=False)
+        repo = repo.subset(configs=portfolio, verbose=False)
 
         config_scorer_test = repo._construct_config_scorer(
             datasets=datasets,

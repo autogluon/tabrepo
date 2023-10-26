@@ -16,7 +16,7 @@ class BenchmarkSubcontext:
                  name: str = None,
                  folds: List[int] = None,
                  configs: List[str] = None,
-                 datasets: List[Union[int, str]] = None,
+                 datasets: List[str] = None,
                  problem_type: Union[str, List[str]] = None):
 
         self.parent = parent
@@ -71,9 +71,11 @@ class BenchmarkSubcontext:
             tabular_predictions=zeroshot_pred_proba,
             ground_truth=zeroshot_gt,
         )
-        repo = repo.subset(folds=self.folds,
-                           models=self.configs,
-                           tids=self.datasets)
+        repo = repo.subset(
+            datasets=self.datasets,
+            folds=self.folds,
+            configs=self.configs,
+        )
         return repo
 
     def exists(self):

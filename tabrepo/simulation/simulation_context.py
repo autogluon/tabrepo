@@ -1,3 +1,4 @@
+import copy
 from collections import defaultdict
 import json
 from pathlib import Path
@@ -42,13 +43,14 @@ class ZeroshotSimulatorContext:
         self.folds = folds
         self.score_against_only_automl = score_against_only_automl
         self.pct = pct
-        self.df_metadata = df_metadata
+
         # TODO align_valid_folds returns 8 values and does many different things, it would help to break down to more
         #  modular functions
         self.df_results_by_dataset_automl, \
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.df_metrics, \
+        self.df_metadata, \
         self.task_to_dataset_dict, \
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
@@ -57,6 +59,7 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
+            df_metadata=df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
             pct=self.pct,
@@ -95,6 +98,7 @@ class ZeroshotSimulatorContext:
         self.df_results_by_dataset_vs_automl, \
         self.df_raw, \
         self.df_metrics, \
+        self.df_metadata, \
         self.task_to_dataset_dict, \
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
@@ -103,6 +107,7 @@ class ZeroshotSimulatorContext:
             df_results_by_dataset=self.df_results_by_dataset_vs_automl,
             df_results_by_dataset_automl=self.df_results_by_dataset_automl,
             df_raw=self.df_raw,
+            df_metadata=self.df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
             pct=self.pct,
@@ -117,6 +122,7 @@ class ZeroshotSimulatorContext:
                            df_raw: pd.DataFrame,
                            df_results_by_dataset: pd.DataFrame,
                            df_results_by_dataset_automl: pd.DataFrame,
+                           df_metadata: pd.DataFrame,
                            folds: List[int],
                            score_against_only_automl: bool,
                            pct: bool):
@@ -210,11 +216,22 @@ class ZeroshotSimulatorContext:
 
         df_metrics = get_dataset_to_metric_problem_type(df_raw=df_raw)
 
+        if df_metadata is not None:
+            df_metadata = copy.deepcopy(df_metadata)
+            if "dataset" not in df_metadata:
+                assert "tid" in df_metadata, f"Unknown metadata format: {list(df_metadata.columns)}"
+                tid_to_dataset_dict = {v: k for k, v in dataset_to_tid_dict.items()}
+                df_metadata["dataset"] = df_metadata["tid"].map(tid_to_dataset_dict)
+            df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
+            assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
+            assert len(df_metadata) == len(unique_datasets)
+
         return (
             df_results_by_dataset_automl,
             df_results_by_dataset_vs_automl,
             df_raw,
             df_metrics,
+            df_metadata,
             task_to_dataset_dict,
             dataset_to_tid_dict,
             unique_tasks,
@@ -275,9 +292,47 @@ class ZeroshotSimulatorContext:
     def tid_to_dataset_dict(self):
         return {v: k for k, v in self.dataset_to_tid_dict.items()}
 
-    def get_configs(self) -> list:
-        """Return all valid configs"""
-        return list(self.df_results_by_dataset_vs_automl['framework'].unique())
+    @staticmethod
+    def task_name_from_tid(tid: int, fold: int) -> str:
+        return f"{tid}_{fold}"
+
+    def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+        """
+        Return all valid configs.
+        By default, will return all configs that appear in any task at least once.
+
+        Parameters
+        ----------
+        datasets : List[str], default = None
+            If specified, will only consider the configs present in the given datasets
+        tasks: List[str], default = None
+            If specified, will only consider the configs present in the given tasks
+        union: bool, default = True
+            If True, will return the union of configs present in each task.
+            If False, will return the intersection of configs present in each task.
+
+        Returns
+        -------
+        A list of config names satisfying the above conditions.
+        """
+        df = self.df_results_by_dataset_vs_automl
+        if datasets is not None:
+            datasets_all = set(self.get_datasets())
+            datasets_invalid = set(datasets).difference(datasets_all)
+            if len(datasets_invalid) != 0:
+                raise ValueError(f"Invalid datasets specified: {sorted(list(datasets_invalid))}")
+            df = df[df["dataset"].isin(datasets)]
+        if tasks is not None:
+            tasks_all = set(self.get_tasks())
+            tasks_invalid = set(tasks).difference(tasks_all)
+            if len(tasks_invalid) != 0:
+                raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
+            df = df[df["task"].isin(tasks)]
+
+        if len(df) == 0:
+            raise AssertionError(f"No valid results for tasks={tasks} | datasets={datasets}")
+
+        return self._get_configs_from_df(df=df, union=union)
 
     def load_groundtruth(self, paths_gt: List[str]) -> Tuple[dict, dict]:
         gt_val = defaultdict(_default_dict)
@@ -285,14 +340,14 @@ class ZeroshotSimulatorContext:
         for p in paths_gt:
             with open(Path(p).parent / "metadata.json", "r") as f:
                 metadata = json.load(f)
-            if metadata["dataset"] in self.dataset_to_tid_dict:
-                tid = self.dataset_to_tid_dict[metadata["dataset"]]
+            dataset = metadata["dataset"]
+            if dataset in self.dataset_to_tid_dict:
                 fold = metadata["fold"]
                 if Path(p).stem.startswith("label-test"):
-                    gt_test[tid][fold] = pd.read_csv(p, index_col=0)
+                    gt_test[dataset][fold] = pd.read_csv(p, index_col=0)
                 else:
-                    gt_val[tid][fold] = pd.read_csv(p, index_col=0)
-        return GroundTruth(gt_val, gt_test)
+                    gt_val[dataset][fold] = pd.read_csv(p, index_col=0)
+        return GroundTruth(label_val_dict=gt_val, label_test_dict=gt_test)
 
     def load_pred(self, path_pred_proba: Union[Path, str], datasets: List[str], prediction_format: str = "memmap") -> TabularModelPredictions:
         """
@@ -316,11 +371,6 @@ class ZeroshotSimulatorContext:
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
         return zeroshot_pred_proba
 
-    def subset_tids(self, tids: List[int]):
-        tid_to_dataset_dict = self.tid_to_dataset_dict
-        datasets = [tid_to_dataset_dict[tid] for tid in tids]
-        self.subset_datasets(datasets=datasets)
-
     def subset_datasets(self, datasets: List[str]):
         """
         Only keep the provided datasets, drop all others
@@ -340,22 +390,22 @@ class ZeroshotSimulatorContext:
         if self.df_results_by_dataset_automl is not None:
             self.df_results_by_dataset_automl = self.df_results_by_dataset_automl[self.df_results_by_dataset_automl["dataset"].isin(datasets)]
         if self.df_metadata is not None:
-            self.df_metadata = self.df_metadata[self.df_metadata["name"].isin(datasets)]
+            self.df_metadata = self.df_metadata[self.df_metadata["dataset"].isin(datasets)]
         self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if d in datasets}
 
     def subset_problem_types(self, problem_types: List[str]):
         """
         Only keep the provided problem_types, drop all others
         """
-        datasets = self.get_tids(problem_type=problem_types)
+        datasets = self.get_datasets(problem_type=problem_types)
         self.subset_datasets(datasets=datasets)
 
-    def subset_models(self, models):
+    def subset_configs(self, configs: List[str]):
         """
-        Only keep the provided models, drop all others
+        Only keep the provided configs, drop all others
         """
         self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[
-            self.df_results_by_dataset_vs_automl['framework'].isin(models)
+            self.df_results_by_dataset_vs_automl['framework'].isin(configs)
         ]
 
     def subset_folds(self, folds: List[int]):
@@ -375,3 +425,31 @@ class ZeroshotSimulatorContext:
         self.unique_datasets = unique_datasets
         self.unique_tasks = unique_tasks
         self.dataset_to_tasks_dict = dataset_to_tasks_dict
+
+    @staticmethod
+    def _get_configs_from_df(df: pd.DataFrame, union: bool = True) -> List[str]:
+        """
+        Parameters
+        ----------
+        df: pd.DataFrame
+            A DataFrame containing the columns "task" and "framework".
+        union: bool, default = True
+            If True, will return the union of configs present in each task.
+            If False, will return the intersection of configs present in each task.
+
+        Returns
+        -------
+        The list of "framework" values present in `df` that satisfy the `union` value logic.
+        """
+        if union:
+            res = df["framework"].unique()
+        else:
+            tasks = list(df["task"].unique())
+            res = None
+            for task in tasks:
+                methods = set(df.loc[df["task"] == task, "framework"].unique())
+                if res is None:
+                    res = methods
+                else:
+                    res = res.intersection(methods)
+        return sorted(list(res))

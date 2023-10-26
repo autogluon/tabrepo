@@ -10,7 +10,7 @@ from autogluon.core.metrics import get_metric
 
 def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None):
     if models is None:
-        models = repo.list_models()
+        models = repo.configs()
 
     datasets = repo.datasets()
     fold = 0
@@ -18,26 +18,25 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
     print(f'n_models={len(models)} | models={models}')
     print(f'n_datasets={n_datasets}')
     for dataset_num, dataset in enumerate(datasets):
-        tid = repo.dataset_to_tid(dataset)
-        task = repo.task_name(tid=tid, fold=fold)
+        task = repo.task_name(dataset=dataset, fold=fold)
 
         zsc = repo._zeroshot_context
 
-        task_info = repo.dataset_info(tid=tid)
+        task_info = repo.dataset_info(dataset=dataset)
 
         problem_type = task_info['problem_type']
         metric_name = task_info['metric']
         eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
-        y_val = repo.labels_val(tid=tid, fold=fold)
-        y_test = repo.labels_test(tid=tid, fold=fold)
+        y_val = repo.labels_val(dataset=dataset, fold=fold)
+        y_test = repo.labels_test(dataset=dataset, fold=fold)
 
         print(f'({dataset_num + 1}/{n_datasets}) task: {task}\n'
-              f'\tname: {dataset} | fold: {fold} | tid: {tid}\n'
+              f'\tdataset: {dataset} | fold: {fold}\n'
               f'\tproblem_type={problem_type} | metric_name={metric_name}\n'
               f'\ttrain_rows={len(y_val)} | test_rows={len(y_test)}')
 
-        pred_test = repo.predict_test(tid=tid, fold=fold, configs=models)
-        pred_val = repo.predict_val(tid=tid, fold=fold, configs=models)
+        pred_test = repo.predict_test(dataset=dataset, fold=fold, configs=models)
+        pred_val = repo.predict_val(dataset=dataset, fold=fold, configs=models)
 
         if problem_type == 'binary':
             # Force binary prediction probabilities to 1 dimensional prediction probabilities of the positive class

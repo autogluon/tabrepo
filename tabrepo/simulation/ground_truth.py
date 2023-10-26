@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 import pandas as pd
 
@@ -14,15 +14,19 @@ class GroundTruth:
         assert set(label_val_dict.keys()) == set(label_test_dict.keys())
         self._label_val_dict = label_val_dict
         self._label_test_dict = label_test_dict
-    @property
-    def tids(self):
-        return self._label_val_dict.keys()
-    def remove_tid(self, tid):
-        self._label_val_dict.pop(tid)
-        self._label_test_dict.pop(tid)
-    def labels_val(self, tid: str, fold: int):
-        # Note we could also expose the series index (original row of OpenML)
-        return self._label_val_dict[tid][fold].values.flatten()
 
-    def labels_test(self, tid: str, fold: int):
-        return self._label_test_dict[tid][fold].values.flatten()
+    @property
+    def datasets(self) -> List[str]:
+        return sorted(list(self._label_val_dict.keys()))
+
+    # FIXME: Add restrict instead, same as tabular_predictions
+    def remove_dataset(self, dataset: str):
+        self._label_val_dict.pop(dataset)
+        self._label_test_dict.pop(dataset)
+
+    def labels_val(self, dataset: str, fold: int):
+        # Note we could also expose the series index (original row of OpenML)
+        return self._label_val_dict[dataset][fold].values.flatten()
+
+    def labels_test(self, dataset: str, fold: int):
+        return self._label_test_dict[dataset][fold].values.flatten()

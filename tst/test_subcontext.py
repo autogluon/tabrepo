@@ -50,7 +50,7 @@ def test_subcontext():
     assert isinstance(repo, EvaluationRepositoryZeroshot)
     assert repo.n_folds() == n_folds
     assert repo.n_datasets() == n_datasets
-    assert repo.n_models() == n_models
+    assert repo.n_configs() == n_models
 
     for config_scorer_type in ['single', 'ensemble']:
         for backend in ['seq', 'ray']:

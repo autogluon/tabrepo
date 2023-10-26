@@ -10,17 +10,17 @@ def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
                                  zeroshot_pred_proba: TabularModelPredictions,
                                  zeroshot_gt: GroundTruth):
     # FIXME: Use datasets instead of tids
-    zpp_tids = [zsc.dataset_to_tid_dict[dataset] for dataset in zeroshot_pred_proba.datasets if dataset in zsc.dataset_to_tid_dict]
-    zsc_tids = zsc.get_tids()
-    zsc_tids_set = set(zsc_tids)
-    valid_tids = [tid for tid in zpp_tids if tid in zsc_tids_set]
-    if set(zpp_tids) != set(valid_tids):
-        zeroshot_pred_proba.restrict_datasets(datasets=[zsc.tid_to_dataset_dict[tid] for tid in valid_tids])
-        zpp_tids = [zsc.dataset_to_tid_dict[dataset] for dataset in zeroshot_pred_proba.datasets]
-        gt_tids = list(zeroshot_gt.tids)
-        for d in gt_tids:
-            if d not in zpp_tids:
-                zeroshot_gt.remove_tid(d)
+    zpp_datasets = [dataset for dataset in zeroshot_pred_proba.datasets if dataset in zsc.dataset_to_tid_dict]
+    zsc_datasets = zsc.get_datasets()
+    zsc_datasets_set = set(zsc_datasets)
+    valid_datasets = [dataset for dataset in zpp_datasets if dataset in zsc_datasets_set]
+    if set(zpp_datasets) != set(valid_datasets):
+        zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
+        zpp_datasets = zeroshot_pred_proba.datasets
+        gt_datasets = zeroshot_gt.datasets
+        for d in gt_datasets:
+            if d not in zpp_datasets:
+                zeroshot_gt.remove_dataset(dataset=d)
     zsc_datasets = zsc.get_datasets()
     zpp_datasets = [dataset for dataset in zeroshot_pred_proba.datasets if dataset in zsc_datasets]
     zsc.subset_datasets(zpp_datasets)
@@ -46,7 +46,7 @@ def load_zeroshot_input(path_pred_proba: str,
     intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
     force_to_dense(zeroshot_pred_proba, first_prune_method='task', second_prune_method='dataset')
 
-    zsc.subset_models(zeroshot_pred_proba.models)
+    zsc.subset_configs(zeroshot_pred_proba.models)
     zsc.subset_datasets(zeroshot_pred_proba.datasets)
     zeroshot_pred_proba.restrict_models(zsc.get_configs())
     zeroshot_gt = prune_zeroshot_gt(dataset_to_tid_dict=zsc.dataset_to_tid_dict, zeroshot_pred_proba=zeroshot_pred_proba, zeroshot_gt=zeroshot_gt)
@@ -56,13 +56,13 @@ def load_zeroshot_input(path_pred_proba: str,
 
 def prune_zeroshot_gt(dataset_to_tid_dict, zeroshot_pred_proba, zeroshot_gt: GroundTruth, verbose: bool = True) -> GroundTruth:
 
-    num_datasets_start = len(zeroshot_gt.tids)
-    tid_pred = set(dataset_to_tid_dict[dataset] for dataset in zeroshot_pred_proba.datasets if dataset in dataset_to_tid_dict)
-    for tid in list(zeroshot_gt.tids):
-        if tid not in tid_pred:
-            zeroshot_gt.remove_tid(tid)
-    num_datasets_end = len(zeroshot_gt.tids)
+    num_datasets_start = len(zeroshot_gt.datasets)
+    dataset_pred = set(dataset for dataset in zeroshot_pred_proba.datasets if dataset in dataset_to_tid_dict)
+    for dataset in zeroshot_gt.datasets:
+        if dataset not in dataset_pred:
+            zeroshot_gt.remove_dataset(dataset=dataset)
+    num_datasets_end = len(zeroshot_gt.datasets)
     if verbose:
         print(f'Aligning GT with pred_proba... (Dataset count {num_datasets_start} -> {num_datasets_end})')
-    assert len(tid_pred) == num_datasets_end
+    assert len(dataset_pred) == num_datasets_end
     return zeroshot_gt

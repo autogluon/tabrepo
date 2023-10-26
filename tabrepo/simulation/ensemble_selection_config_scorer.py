@@ -75,20 +75,20 @@ class EnsembleScorer:
             eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
         return eval_metric
 
-    def get_preds_from_models(self, tid: str, fold: int, models: List[str]):
-        pred_val = self.zeroshot_pp.predict_val(dataset=self.tid_to_dataset_dict[tid], fold=fold, models=models)
-        pred_test = self.zeroshot_pp.predict_test(dataset=self.tid_to_dataset_dict[tid], fold=fold, models=models)
+    def get_preds_from_models(self, dataset: str, fold: int, models: List[str]):
+        pred_val = self.zeroshot_pp.predict_val(dataset=dataset, fold=fold, models=models)
+        pred_test = self.zeroshot_pp.predict_test(dataset=dataset, fold=fold, models=models)
         return pred_val, pred_test
 
-    def evaluate_task(self, tid: str, fold: int, models: List[str]) -> Tuple[float, np.array]:
-        task_metadata = self.task_metrics_metadata[tid]
+    def evaluate_task(self, dataset: str, fold: int, models: List[str]) -> Tuple[float, np.array]:
+        task_metadata = self.task_metrics_metadata[dataset]
         metric_name = task_metadata["metric"]
         problem_type = task_metadata["problem_type"]
 
-        y_val = self.zeroshot_gt.labels_val(tid, fold)
-        y_test = self.zeroshot_gt.labels_test(tid, fold)
+        y_val = self.zeroshot_gt.labels_val(dataset=dataset, fold=fold)
+        y_test = self.zeroshot_gt.labels_test(dataset=dataset, fold=fold)
 
-        pred_val, pred_test = self.get_preds_from_models(tid=tid, fold=fold, models=models)
+        pred_val, pred_test = self.get_preds_from_models(dataset=dataset, fold=fold, models=models)
 
         if problem_type == 'binary':
             # Force binary prediction probabilities to 1 dimensional prediction probabilites of the positive class
@@ -209,7 +209,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         dataset_to_tid_dict = zeroshot_simulator_context.dataset_to_tid_dict
         task_metrics_metadata = zeroshot_simulator_context.df_metrics
         task_metrics_metadata = {
-            dataset_to_tid_dict[dataset]: task_metrics_metadata.loc[dataset].to_dict()
+            dataset: task_metrics_metadata.loc[dataset].to_dict()
             for dataset in task_metrics_metadata.index if dataset in dataset_to_tid_dict
         }
 
@@ -222,7 +222,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
     def evaluate_task(self, task: str, models: List[str]) -> Tuple[float, np.array]:
         tid, fold = task_to_tid_fold(task=task)
-        return self.ensemble_scorer.evaluate_task(tid=tid, fold=fold, models=models)
+        dataset = self.tid_to_dataset_name_dict[tid]
+        return self.ensemble_scorer.evaluate_task(dataset=dataset, fold=fold, models=models)
 
     def compute_errors(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
         """
