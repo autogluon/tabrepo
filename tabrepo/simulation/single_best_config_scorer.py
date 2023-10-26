@@ -86,6 +86,6 @@ class SingleBestConfigScorer(ConfigurationListScorer):
             score_col=self.score_col,
             score_val_col=self.score_val_col,
             model_col=self.model_col,
-            dataset_col=self.task_col,
+            task_col=self.task_col,
         )
 
