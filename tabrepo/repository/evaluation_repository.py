@@ -75,7 +75,7 @@ class EvaluationRepository(SaveLoadMixin):
         if folds:
             self._zeroshot_context.subset_folds(folds=folds)
         if configs:
-            self._zeroshot_context.subset_models(models=configs)
+            self._zeroshot_context.subset_configs(configs=configs)
         if datasets:
             self._zeroshot_context.subset_datasets(datasets=datasets)
         if problem_types:
@@ -104,7 +104,7 @@ class EvaluationRepository(SaveLoadMixin):
                        second_prune_method='dataset',
                        verbose=verbose)
 
-        self._zeroshot_context.subset_models(self._tabular_predictions.models)
+        self._zeroshot_context.subset_configs(self._tabular_predictions.models)
         datasets = [d for d in self._tabular_predictions.datasets if d in self._dataset_to_tid_dict]
         self._zeroshot_context.subset_datasets(datasets)
         self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())

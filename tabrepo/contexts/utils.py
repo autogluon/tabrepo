@@ -46,7 +46,7 @@ def load_zeroshot_input(path_pred_proba: str,
     intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
     force_to_dense(zeroshot_pred_proba, first_prune_method='task', second_prune_method='dataset')
 
-    zsc.subset_models(zeroshot_pred_proba.models)
+    zsc.subset_configs(zeroshot_pred_proba.models)
     zsc.subset_datasets(zeroshot_pred_proba.datasets)
     zeroshot_pred_proba.restrict_models(zsc.get_configs())
     zeroshot_gt = prune_zeroshot_gt(dataset_to_tid_dict=zsc.dataset_to_tid_dict, zeroshot_pred_proba=zeroshot_pred_proba, zeroshot_gt=zeroshot_gt)

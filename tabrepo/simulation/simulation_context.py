@@ -371,11 +371,6 @@ class ZeroshotSimulatorContext:
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)
         return zeroshot_pred_proba
 
-    def subset_tids(self, tids: List[int]):
-        tid_to_dataset_dict = self.tid_to_dataset_dict
-        datasets = [tid_to_dataset_dict[tid] for tid in tids]
-        self.subset_datasets(datasets=datasets)
-
     def subset_datasets(self, datasets: List[str]):
         """
         Only keep the provided datasets, drop all others
@@ -402,15 +397,15 @@ class ZeroshotSimulatorContext:
         """
         Only keep the provided problem_types, drop all others
         """
-        datasets = self.get_tids(problem_type=problem_types)
+        datasets = self.get_datasets(problem_type=problem_types)
         self.subset_datasets(datasets=datasets)
 
-    def subset_models(self, models):
+    def subset_configs(self, configs: List[str]):
         """
-        Only keep the provided models, drop all others
+        Only keep the provided configs, drop all others
         """
         self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[
-            self.df_results_by_dataset_vs_automl['framework'].isin(models)
+            self.df_results_by_dataset_vs_automl['framework'].isin(configs)
         ]
 
     def subset_folds(self, folds: List[int]):
