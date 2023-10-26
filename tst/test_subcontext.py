@@ -38,7 +38,7 @@ def test_subcontext():
     n_models = 20
     n_datasets = 10
     num_zeroshot = 3
-    subcontext_name = 'BAG_D244_F10_C608_FULL'
+    subcontext_name = 'D244_F3_C1416_30'
     name = 'test_sim'
 
     repo = get_subcontext(name=subcontext_name).load_subset(

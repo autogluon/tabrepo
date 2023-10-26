@@ -27,7 +27,7 @@ def compute_all_with_load(subcontext, prediction_format: str):
 if __name__ == '__main__':
     """
     instance_type = "m6i.32xlarge"
-    context_name = "BAG_D244_F3_C1416_micro"
+    context_name = "D244_F3_C1416_30"
     
     mem:
         Time  Load: 54.78s
@@ -45,7 +45,7 @@ if __name__ == '__main__':
         Train  Err: 6.98507
         Test   Err: 11.54601
     """
-    context_name = "BAG_D244_F3_C1416_micro"
+    context_name = "D244_F3_C1416_30"
     subcontext = get_subcontext(context_name)
 
     prediction_formats = [

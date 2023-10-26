@@ -153,6 +153,7 @@ def rename_dataframe(df):
     df.method = df.method.str.replace("NeuralNetTorch", "MLP")
     return df
 
+
 def generate_sentitivity_plots(df, show: bool = False):
     # show stds
 

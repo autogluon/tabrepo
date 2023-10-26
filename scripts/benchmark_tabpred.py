@@ -54,7 +54,7 @@ if __name__ == '__main__':
     repeats = 100
 
     # Download predictions locally
-    # load_context("BAG_D244_F3_C1416_micro", ignore_cache=False)
+    # load_context("D244_F3_C1416_30", ignore_cache=False)
 
     pickle_path = Path(filepath.parent.parent / "data/results/2023_08_21_micro/zeroshot_metadata/")
     memmap_dir = Path(filepath.parent.parent / "data/results/2023_08_21_micro/model_predictions/")

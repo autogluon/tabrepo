@@ -5,7 +5,7 @@ from tabrepo.repository.evaluation_repository import load, EvaluationRepository
 
 output_path = Path(__file__).parent
 
-def load_context(version: str = "BAG_D244_F3_C1416", filter_very_large_dataset: bool = True, ignore_cache: bool = False) -> EvaluationRepository:
+def load_context(version: str = "D244_F3_C1416_200", filter_very_large_dataset: bool = True, ignore_cache: bool = False) -> EvaluationRepository:
     def _load_fun():
         repo = load(version=version)
         repo = repo.subset(configs=[m for m in repo.configs() if not "NeuralNetFastAI" in m])
