@@ -23,7 +23,6 @@ class ZeroshotSimulatorContext:
             self,
             df_raw: pd.DataFrame,
             folds: List[int],
-            df_results_by_dataset: pd.DataFrame = None,
             df_results_by_dataset_automl: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
             pct: bool = False,
@@ -31,9 +30,8 @@ class ZeroshotSimulatorContext:
     ):
         """
         Encapsulates results evaluated on multiple base models/datasets/folds.
-        :param df_results_by_dataset: results of base models on multiple datasets/folds
+        :param df_raw:
         :param df_results_by_dataset_automl: results of automl systems by multiple datasets/folds
-        :param df_raw: 
         :param folds: List of folds to be considered in a list of integers
         :param pct: whether to use percentage rather than rank numbers
         :param score_against_only_automl: if `True`, the scores are ranks (or percentage if `pct` is True) over automl
@@ -57,7 +55,6 @@ class ZeroshotSimulatorContext:
         self.unique_datasets, \
         self.rank_scorer_vs_automl = self._align_valid_folds(
             df_raw=df_raw,
-            df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_metadata=df_metadata,
             folds=folds,
@@ -105,7 +102,6 @@ class ZeroshotSimulatorContext:
         self.unique_datasets, \
         self.rank_scorer_vs_automl = self._align_valid_folds(
             df_raw=self.df_raw,
-            df_results_by_dataset=self.df_results_by_dataset_vs_automl,
             df_results_by_dataset_automl=self.df_results_by_dataset_automl,
             df_metadata=self.df_metadata,
             folds=folds,
@@ -120,7 +116,6 @@ class ZeroshotSimulatorContext:
     @staticmethod
     def _align_valid_folds(*,
                            df_raw: pd.DataFrame,
-                           df_results_by_dataset: pd.DataFrame,
                            df_results_by_dataset_automl: pd.DataFrame,
                            df_metadata: pd.DataFrame,
                            folds: List[int],
@@ -141,16 +136,16 @@ class ZeroshotSimulatorContext:
         assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
 
-        if df_results_by_dataset is None:
-            df_results_by_dataset = df_raw[[
-                "framework",
-                "dataset",
-                "fold",
-                "metric_error",
-                "metric_error_val",
-                "time_train_s",
-                "time_infer_s",
-            ]].copy(deep=True)
+        # FIXME: Remove entirely
+        df_results_by_dataset = df_raw[[
+            "framework",
+            "dataset",
+            "fold",
+            "metric_error",
+            "metric_error_val",
+            "time_train_s",
+            "time_infer_s",
+        ]].copy(deep=True)
 
         df_results_by_dataset = df_results_by_dataset.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
         if df_results_by_dataset_automl is not None:

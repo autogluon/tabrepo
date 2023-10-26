@@ -5,13 +5,11 @@ from autogluon.common.loaders import load_pd
 
 def load_results(
     raw: str,
-    results_by_dataset: str = None,
     metadata: str = None,
     metadata_join_column: str = "dataset",
     require_tid_in_metadata: bool = False,
-) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
+) -> (pd.DataFrame, pd.DataFrame):
     print(f'Loading input files...\n'
-          f'\tresults_by_dataset: {results_by_dataset}\n'
           f'\traw:                {raw}\n'
           f'\tmetadata:           {metadata}')
     if metadata is not None:
@@ -20,11 +18,6 @@ def load_results(
         df_metadata = None
     df_raw = load_pd.load(raw)
     df_raw = preprocess_raw(df_raw=df_raw, inplace=True)
-
-    if results_by_dataset is not None:
-        df_results_by_dataset = load_pd.load(results_by_dataset)
-    else:
-        df_results_by_dataset = None
 
     if require_tid_in_metadata:
         if df_metadata is None:
@@ -64,7 +57,7 @@ def load_results(
         metadata_column_order = ["dataset"] + [c for c in df_metadata.columns if c != "dataset"]
         df_metadata = df_metadata[metadata_column_order]  # make dataset first
 
-    return df_raw, df_results_by_dataset, df_metadata
+    return df_raw, df_metadata
 
 
 def get_metric_name(metric: str) -> str:
@@ -95,9 +88,3 @@ def preprocess_raw(df_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
     if "model" in df_raw:
         df_raw['framework'] = df_raw['model']
     return df_raw
-
-
-def preprocess_comparison(df_comparison_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
-    if not inplace:
-        df_comparison_raw = df_comparison_raw.copy(deep=True)
-    return df_comparison_raw
