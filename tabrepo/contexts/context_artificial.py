@@ -26,7 +26,7 @@ def load_context_artificial(**kwargs):
     # TODO write specification of dataframes schema, this code produces a minimal example that enables
     #  to use all the features required in evaluation such as listing datasets, evaluating ensembles or
     #  comparing to baselines
-    dataset_names = ["ada", "abalone"]
+    datasets = ["ada", "abalone"]
     tids = [359944, 359946]
     n_folds = 3
     models = ["NeuralNetFastAI_r1", "NeuralNetFastAI_r2"]
@@ -38,7 +38,7 @@ def load_context_artificial(**kwargs):
         'dataset': dataset_name,
         'task_type': "TaskType.SUPERVISED_CLASSIFICATION",
     }
-        for tid, dataset_name in zip(tids, dataset_names)
+        for tid, dataset_name in zip(tids, datasets)
     ])
     df_results_by_dataset = pd.DataFrame({
         "framework": model,
@@ -46,8 +46,8 @@ def load_context_artificial(**kwargs):
         "fold": fold,
         "tid": tid,
         **make_random_metric(model)
-     } for fold in range(n_folds) for model in models for (tid, dataset_name) in zip(tids, dataset_names)
-     )
+    } for fold in range(n_folds) for model in models for (tid, dataset_name) in zip(tids, datasets)
+    )
 
     df_results_by_dataset_automl = pd.DataFrame({
         "framework": baseline,
@@ -55,8 +55,8 @@ def load_context_artificial(**kwargs):
         "fold": fold,
         "tid": tid,
         **make_random_metric(baseline)
-     } for fold in range(n_folds) for baseline in baselines for (tid, dataset_name) in zip(tids, dataset_names)
-     )
+    } for fold in range(n_folds) for baseline in baselines for (tid, dataset_name) in zip(tids, datasets)
+    )
     df_raw = pd.DataFrame({
         "dataset": dataset_name,
         "framework": baseline,
@@ -65,8 +65,8 @@ def load_context_artificial(**kwargs):
         "fold": fold,
         "tid": tid,
         **make_random_metric(baseline)
-     } for fold in range(n_folds) for baseline in baselines for (tid, dataset_name) in zip(tids, dataset_names)
-     )
+    } for fold in range(n_folds) for baseline in baselines for (tid, dataset_name) in zip(tids, datasets)
+    )
     zsc = ZeroshotSimulatorContext(
         df_results_by_dataset=df_results_by_dataset,
         df_results_by_dataset_automl=df_results_by_dataset_automl,
@@ -88,16 +88,16 @@ def load_context_artificial(**kwargs):
             }
             for fold in range(n_folds)
         }
-        for dataset_name in dataset_names
+        for dataset_name in datasets
     }
     zeroshot_pred_proba = TabularPredictionsInMemory.from_dict(pred_dict)
 
     make_dict = lambda size: {
-        tid: {
+        dataset: {
             fold: pd.Series(np.random.randint(low=0, high=25, size=size))
             for fold in range(n_folds)
         }
-        for tid in tids
+        for dataset in datasets
     }
 
     zeroshot_gt = GroundTruth(label_val_dict=make_dict(123), label_test_dict=make_dict(13))

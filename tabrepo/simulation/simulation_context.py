@@ -340,14 +340,14 @@ class ZeroshotSimulatorContext:
         for p in paths_gt:
             with open(Path(p).parent / "metadata.json", "r") as f:
                 metadata = json.load(f)
-            if metadata["dataset"] in self.dataset_to_tid_dict:
-                tid = self.dataset_to_tid_dict[metadata["dataset"]]
+            dataset = metadata["dataset"]
+            if dataset in self.dataset_to_tid_dict:
                 fold = metadata["fold"]
                 if Path(p).stem.startswith("label-test"):
-                    gt_test[tid][fold] = pd.read_csv(p, index_col=0)
+                    gt_test[dataset][fold] = pd.read_csv(p, index_col=0)
                 else:
-                    gt_val[tid][fold] = pd.read_csv(p, index_col=0)
-        return GroundTruth(gt_val, gt_test)
+                    gt_val[dataset][fold] = pd.read_csv(p, index_col=0)
+        return GroundTruth(label_val_dict=gt_val, label_test_dict=gt_test)
 
     def load_pred(self, path_pred_proba: Union[Path, str], datasets: List[str], prediction_format: str = "memmap") -> TabularModelPredictions:
         """

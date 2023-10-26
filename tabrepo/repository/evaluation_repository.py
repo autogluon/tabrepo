@@ -210,12 +210,10 @@ class EvaluationRepository(SaveLoadMixin):
         )
 
     def labels_test(self, dataset: str, fold: int) -> np.array:
-        tid = self.dataset_to_tid(dataset=dataset)
-        return self._ground_truth.labels_test(tid=tid, fold=fold)
+        return self._ground_truth.labels_test(dataset=dataset, fold=fold)
 
     def labels_val(self, dataset: str, fold: int) -> np.array:
-        tid = self.dataset_to_tid(dataset=dataset)
-        return self._ground_truth.labels_val(tid=tid, fold=fold)
+        return self._ground_truth.labels_val(dataset=dataset, fold=fold)
 
     def dataset_metadata(self, dataset: str) -> dict:
         metadata = self._df_metadata[self._df_metadata["dataset"] == dataset]
@@ -334,13 +332,13 @@ class EvaluationRepository(SaveLoadMixin):
         return config_scorer
 
     @classmethod
-    def from_context(cls, version: str = None, predictions_format: str = "memmap"):
-        return load(version=version, predictions_format=predictions_format)
+    def from_context(cls, version: str = None, prediction_format: str = "memmap"):
+        return load(version=version, prediction_format=prediction_format)
 
 
-def load(version: str = None, predictions_format: str = "memmap") -> EvaluationRepository:
+def load(version: str = None, prediction_format: str = "memmap") -> EvaluationRepository:
     from tabrepo.contexts import get_subcontext
-    repo = get_subcontext(version).load_from_parent(load_predictions=True, predictions_format=predictions_format)
+    repo = get_subcontext(version).load_from_parent(load_predictions=True, prediction_format=prediction_format)
     return repo
 
 
