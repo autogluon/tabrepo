@@ -74,7 +74,7 @@ class BenchmarkSubcontext:
         repo = repo.subset(
             datasets=self.datasets,
             folds=self.folds,
-            models=self.configs,
+            configs=self.configs,
         )
         return repo
 

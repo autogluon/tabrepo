@@ -12,7 +12,7 @@ def gen_sample_repo_exact(
         folds: List[int] = None,
         models: List[str] = None,
 ) -> EvaluationRepository:
-    return copy.deepcopy(repo).subset(datasets=datasets, folds=folds, models=models)
+    return copy.deepcopy(repo).subset(datasets=datasets, folds=folds, configs=models)
 
 
 def gen_sample_repo(

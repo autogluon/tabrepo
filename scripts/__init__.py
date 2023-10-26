@@ -8,7 +8,7 @@ output_path = Path(__file__).parent
 def load_context(version: str = "BAG_D244_F3_C1416", filter_very_large_dataset: bool = True, ignore_cache: bool = False) -> EvaluationRepository:
     def _load_fun():
         repo = load(version=version)
-        repo = repo.subset(models=[m for m in repo.configs() if not "NeuralNetFastAI" in m])
+        repo = repo.subset(configs=[m for m in repo.configs() if not "NeuralNetFastAI" in m])
         return repo.force_to_dense(verbose=True)
     repo = cache_function(_load_fun, cache_name=f"repo_{version}", ignore_cache=ignore_cache)
 
@@ -48,7 +48,7 @@ def load_context(version: str = "BAG_D244_F3_C1416", filter_very_large_dataset: 
 
         return repo.subset(
             datasets=very_large_datasets,
-            models=models_only_c1_or_r,
+            configs=models_only_c1_or_r,
         )
     else:
         return repo
