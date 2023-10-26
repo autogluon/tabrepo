@@ -398,9 +398,9 @@ def construct_s3_download_map(
 ) -> Dict[str, str]:
     split_value = f"{s3_prefix}model_predictions/"
     s3_download_map = {
-        "evaluation/compare/results_ranked_by_dataset_valid.csv": "evaluation/compare/results_ranked_by_dataset_valid.csv",
-        "evaluation/configs/results_ranked_by_dataset_all.csv": "evaluation/configs/results_ranked_by_dataset_all.csv",
-        "leaderboard_preprocessed_configs.csv": "leaderboard_preprocessed_configs.csv",
+        # FIXME: COMPARISON ROUNDING ERROR
+        "raw.parquet": "raw.parquet",
+        "comparison.parquet": "comparison.parquet",
     }
     s3_download_map = {f'{path_context}{k}': f'{s3_prefix}{v}' for k, v in s3_download_map.items()}
     _s3_download_map_metadata_pp = {f"{split_key}{f}": f"{split_value}{f}" for f in files_pp}
@@ -472,9 +472,6 @@ def construct_context(
     zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
 
     _result_paths = dict(
-        # results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
-        # comparison=str(Path(path_context) / "evaluation/compare/results_ranked_by_dataset_valid.csv"),
-        # raw=str(Path(path_context) / "leaderboard_preprocessed_configs.csv"),
         comparison=str(Path(path_context) / "comparison.parquet"),
         raw=str(Path(path_context) / "raw.parquet"),
     )
