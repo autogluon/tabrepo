@@ -3,40 +3,11 @@ import pandas as pd
 from autogluon.common.loaders import load_pd
 
 
-# FIXME: REMOVE
-def convert_to_dataset_fold_HACK(df: pd.DataFrame, column_name="dataset", column_type=str) -> pd.DataFrame:
-    """
-    Converts "{dataset}_{fold}" dataset column to (dataset, fold) columns.
-
-    Parameters
-    ----------
-    df: pandas DataFrame of benchmark results
-        The DataFrame must have a column named `dataset` in the form "{dataset}_{fold}".
-        Example: "adult_5"
-    column_name: str, default = "dataset"
-        The name of the column to create alongside "fold".
-    column_type: type, default = str
-        The dtype of the column to create alongside "fold".
-
-    Returns
-    -------
-    Pandas DataFrame of benchmark results with the dataset column split into (dataset, fold) columns
-
-    """
-    df = df.copy(deep=True)
-    df["fold"] = df["dataset"].apply(lambda x: x.rsplit("_", 1)[1]).astype(int)
-    df[column_name] = df["dataset"].apply(lambda x: x.rsplit("_", 1)[0]).astype(column_type)
-    df_columns = list(df.columns)
-    df_columns = [column_name, "fold"] + [c for c in df_columns if c not in [column_name, "dataset", "fold"]]
-    return df[df_columns]  # Reorder so dataset and fold are the first two columns.
-
-
-
-
 def load_results(
     results_by_dataset: str,
     raw: str,
     metadata: str,
+    metadata_join_column: str = "dataset",
     require_tid_in_metadata: bool = False,
 ) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
     print(f'Loading input files...\n'
@@ -52,14 +23,10 @@ def load_results(
 
     if results_by_dataset is not None:
         df_results_by_dataset = load_pd.load(results_by_dataset)
-        # FIXME: HACK
-        if "fold" not in df_results_by_dataset.columns:
-            df_results_by_dataset = convert_to_dataset_fold_HACK(df_results_by_dataset, column_name="tid", column_type=int)
-            # df_results_by_dataset["dataset"] = df_results_by_dataset["dataset"].astype(int)
     else:
         df_results_by_dataset = df_raw[[
             "framework",
-            "tid",
+            "dataset",
             "fold",
             "metric_error",
             "time_train_s",
@@ -69,13 +36,40 @@ def load_results(
     if require_tid_in_metadata:
         if df_metadata is None:
             raise AssertionError('`metadata` must not be None if `require_tid_in_metadata=True`')
-        valid_tids = set(list(df_metadata['tid'].unique()))
-        init_tid_count = len(df_raw['tid'].unique())
-        df_raw = df_raw[df_raw['tid'].isin(valid_tids)]
-        post_tid_count = len(df_raw['tid'].unique())
-        if init_tid_count != post_tid_count:
+        if metadata_join_column not in df_raw:
+            raise AssertionError(f"`metadata` file was specified but `raw` is missing the required `{metadata_join_column}` column to join with `metadata`.\n"
+                                 f"\tmetadata_join_column: {metadata_join_column}\n"
+                                 f"\tpath             raw: {raw}\n"
+                                 f"\tpath        metadata: {metadata}\n"
+                                 f"\tcolumns          raw: {list(df_raw.columns)}\n"
+                                 f"\tcolumns     metadata: {list(df_metadata.columns)}")
+        if metadata_join_column not in df_metadata:
+            raise AssertionError(f"`metadata` file was specified but `metadata` is missing the required `{metadata_join_column}` column to join with `raw`.\n"
+                                 f"\tmetadata_join_column: {metadata_join_column}\n"
+                                 f"\tpath             raw: {raw}\n"
+                                 f"\tpath        metadata: {metadata}\n"
+                                 f"\tcolumns          raw: {list(df_raw.columns)}\n"
+                                 f"\tcolumns     metadata: {list(df_metadata.columns)}")
+        valid_values = set(list(df_metadata[metadata_join_column].unique()))
+        init_dataset_count = len(df_raw["dataset"].unique())
+        df_raw = df_raw[df_raw[metadata_join_column].isin(valid_values)]
+        post_dataset_count = len(df_raw["dataset"].unique())
+        if init_dataset_count != post_dataset_count:
             print(f'Filtered datasets with tids that are missing from metadata. '
-                  f'Filtered from {init_tid_count} datasets -> {post_tid_count} datasets.')
+                  f'Filtered from {init_dataset_count} datasets -> {post_dataset_count} datasets.')
+
+    if df_metadata is not None:
+        if "dataset" != metadata_join_column:
+            unique_metadata_join_column_vals = df_raw[[metadata_join_column, "dataset"]].drop_duplicates()
+            assert unique_metadata_join_column_vals["dataset"].value_counts().values.max() == 1, (f"Metadata join key `{metadata_join_column}` does not produce a 1:1 mapping with `dataset`.\n"
+                                                                                                  f"Counts post-join (should always be 1):\n"
+                                                                                                  f"{unique_metadata_join_column_vals['dataset'].value_counts()}")
+            df_metadata = df_metadata.drop(columns=["dataset"], errors="ignore")
+        else:
+            unique_metadata_join_column_vals = df_raw[[metadata_join_column]]
+        df_metadata = df_metadata.merge(unique_metadata_join_column_vals, on=[metadata_join_column])
+        metadata_column_order = ["dataset"] + [c for c in df_metadata.columns if c != "dataset"]
+        df_metadata = df_metadata[metadata_column_order]  # make dataset first
 
     return df_results_by_dataset, df_raw, df_metadata
 
@@ -98,7 +92,8 @@ def get_metric_error_from_score(score: float, metric: str) -> float:
 def preprocess_raw(df_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
     if not inplace:
         df_raw = df_raw.copy(deep=True)
-    df_raw['tid'] = df_raw['tid'].astype(int)
+    if "tid" in df_raw:
+        df_raw['tid'] = df_raw['tid'].astype(int)
     if "metric_error_val" not in df_raw:
         df_raw["metric"] = df_raw["metric"].apply(lambda m: get_metric_name(metric=m))
         df_raw["metric_error_val"] = df_raw[["score_val", "metric"]].apply(
@@ -112,17 +107,11 @@ def preprocess_raw(df_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
 def preprocess_comparison(df_comparison_raw: pd.DataFrame, inplace=True) -> pd.DataFrame:
     if not inplace:
         df_comparison_raw = df_comparison_raw.copy(deep=True)
-
-    # FIXME: HACK
-    if "fold" not in df_comparison_raw.columns:
-        df_comparison_raw = convert_to_dataset_fold_HACK(df_comparison_raw, column_name="tid", column_type=int)
-
-    df_comparison_raw['tid'] = df_comparison_raw['tid'].astype(int)
     return df_comparison_raw
 
 
 def combine_results_with_score_val(df_raw: pd.DataFrame, df_results_by_dataset: pd.DataFrame) -> pd.DataFrame:
-    df_raw_zoom = df_raw[['framework', 'metric_error_val', 'fold', 'tid']].copy()
-    df_raw_zoom = df_raw_zoom[['framework', 'metric_error_val', 'fold', 'tid']]
-    df_results_by_dataset_with_score_val = df_results_by_dataset.merge(df_raw_zoom, on=['framework', 'tid', 'fold'])
+    df_raw_zoom = df_raw[['framework', 'metric_error_val', 'fold', 'dataset']].copy()
+    df_raw_zoom = df_raw_zoom[['framework', 'metric_error_val', 'fold', 'dataset']]
+    df_results_by_dataset_with_score_val = df_results_by_dataset.merge(df_raw_zoom, on=['framework', 'dataset', 'fold'])
     return df_results_by_dataset_with_score_val

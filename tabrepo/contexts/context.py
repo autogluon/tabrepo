@@ -27,6 +27,7 @@ class BenchmarkPaths:
     results_by_dataset: str = None
     comparison: str = None
     task_metadata: str = None
+    metadata_join_column: str = "dataset"
     path_pred_proba: str = None
     datasets: List[str] = None
     zs_pp: List[str] = None
@@ -138,6 +139,7 @@ class BenchmarkPaths:
             results_by_dataset=self.results_by_dataset,
             raw=self.raw,
             metadata=self.task_metadata,
+            metadata_join_column=self.metadata_join_column,
             require_tid_in_metadata=self.task_metadata is not None,
         )
         return df_results_by_dataset, df_raw, df_metadata
@@ -418,6 +420,7 @@ def construct_context(
         description: str = None,
         date: str = None,
         task_metadata: str = "task_metadata_244.csv",
+        metadata_join_column: str = "dataset",
 ) -> BenchmarkContext:
     """
 
@@ -469,15 +472,19 @@ def construct_context(
     zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
 
     _result_paths = dict(
-        # FIXME: Remove results_by_dataset
-        results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
-        comparison=str(Path(path_context) / "evaluation/compare/results_ranked_by_dataset_valid.csv"),
-        raw=str(Path(path_context) / "leaderboard_preprocessed_configs.csv"),
+        # results_by_dataset=str(Path(path_context) / "evaluation/configs/results_ranked_by_dataset_all.csv"),
+        # comparison=str(Path(path_context) / "evaluation/compare/results_ranked_by_dataset_valid.csv"),
+        # raw=str(Path(path_context) / "leaderboard_preprocessed_configs.csv"),
+        comparison=str(Path(path_context) / "comparison.parquet"),
+        raw=str(Path(path_context) / "raw.parquet"),
     )
 
-    _task_metadata_path = dict(
-        task_metadata=str(Paths.data_root / "metadata" / task_metadata),
-    )
+    if task_metadata is not None:
+        _task_metadata_path = dict(
+            task_metadata=str(Paths.data_root / "metadata" / task_metadata),
+        )
+    else:
+        _task_metadata_path = dict()
 
     _bag_zs_path = dict(
         zs_gt=zs_gt,
@@ -492,6 +499,7 @@ def construct_context(
         folds=folds,
         s3_download_map=_s3_download_map,
         datasets=datasets,
+        metadata_join_column=metadata_join_column,
         **_result_paths,
         **_bag_zs_path,
         **_task_metadata_path,

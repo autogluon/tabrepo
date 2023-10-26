@@ -127,26 +127,32 @@ class ZeroshotSimulatorContext:
                            score_against_only_automl: bool,
                            pct: bool):
         # assert that each dataset contains only one problem type
-        dataset_problem_types = df_raw[["tid", "problem_type"]].drop_duplicates()
-        assert len(dataset_problem_types) == len(dataset_problem_types["tid"].unique())
+        dataset_problem_types = df_raw[["dataset", "problem_type"]].drop_duplicates()
+        assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique())
+
+        if "tid" not in df_raw.columns:
+            df_raw = df_raw.copy(deep=True)
+            datasets = sorted(list(df_raw["dataset"].unique()))
+            dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
+            df_raw["tid"] = df_raw["dataset"].map(dataset_to_tid_map).astype(int)
 
         # assert that each dataset-tid combination is exclusive
         dataset_tid = df_raw[["dataset", "tid"]].drop_duplicates()
         assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
 
-        df_results_by_dataset = df_results_by_dataset.drop(columns=["dataset"], errors="ignore").merge(dataset_tid, on=["tid"])
+        df_results_by_dataset = df_results_by_dataset.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
         if df_results_by_dataset_automl is not None:
-            df_results_by_dataset_automl = df_results_by_dataset_automl.drop(columns=["dataset"], errors="ignore").merge(dataset_tid, on=["tid"])
+            df_results_by_dataset_automl = df_results_by_dataset_automl.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
 
-        df_results_by_dataset = df_results_by_dataset.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["tid"])
+        df_results_by_dataset = df_results_by_dataset.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
         if df_results_by_dataset_automl is not None:
-            df_results_by_dataset_automl = df_results_by_dataset_automl.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["tid"])
+            df_results_by_dataset_automl = df_results_by_dataset_automl.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
 
         df_results_by_dataset = df_results_by_dataset[df_results_by_dataset['fold'].isin(folds)]
         unique_dataset_folds_set = df_results_by_dataset[['dataset', 'fold']].drop_duplicates()
 
-        config_task_counts_raw = df_raw[['framework', 'fold', 'tid']].value_counts()
+        config_task_counts_raw = df_raw[['framework', 'fold', 'dataset']].value_counts()
         config_task_counts_results_by_dataset = df_results_by_dataset[['framework', 'dataset', 'fold']].value_counts()
 
         sources_to_check = [
@@ -217,11 +223,9 @@ class ZeroshotSimulatorContext:
         df_metrics = get_dataset_to_metric_problem_type(df_raw=df_raw)
 
         if df_metadata is not None:
+            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
+                                              f"Columns: {list(df_metadata.columns)}")
             df_metadata = copy.deepcopy(df_metadata)
-            if "dataset" not in df_metadata:
-                assert "tid" in df_metadata, f"Unknown metadata format: {list(df_metadata.columns)}"
-                tid_to_dataset_dict = {v: k for k, v in dataset_to_tid_dict.items()}
-                df_metadata["dataset"] = df_metadata["tid"].map(tid_to_dataset_dict)
             df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
             assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
             assert len(df_metadata) == len(unique_datasets)
