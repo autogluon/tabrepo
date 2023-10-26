@@ -22,8 +22,8 @@ class ZeroshotSimulatorContext:
     def __init__(
             self,
             df_raw: pd.DataFrame,
-            df_results_by_dataset: pd.DataFrame,
             folds: List[int],
+            df_results_by_dataset: pd.DataFrame = None,
             df_results_by_dataset_automl: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
             pct: bool = False,
@@ -46,9 +46,9 @@ class ZeroshotSimulatorContext:
 
         # TODO align_valid_folds returns 8 values and does many different things, it would help to break down to more
         #  modular functions
+        self.df_raw, \
         self.df_results_by_dataset_automl, \
         self.df_results_by_dataset_vs_automl, \
-        self.df_raw, \
         self.df_metrics, \
         self.df_metadata, \
         self.task_to_dataset_dict, \
@@ -56,9 +56,9 @@ class ZeroshotSimulatorContext:
         self.unique_tasks, \
         self.unique_datasets, \
         self.rank_scorer_vs_automl = self._align_valid_folds(
+            df_raw=df_raw,
             df_results_by_dataset=df_results_by_dataset,
             df_results_by_dataset_automl=df_results_by_dataset_automl,
-            df_raw=df_raw,
             df_metadata=df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
@@ -94,9 +94,9 @@ class ZeroshotSimulatorContext:
         if folds is None:
             folds = self.folds
         self.folds = folds
+        self.df_raw, \
         self.df_results_by_dataset_automl, \
         self.df_results_by_dataset_vs_automl, \
-        self.df_raw, \
         self.df_metrics, \
         self.df_metadata, \
         self.task_to_dataset_dict, \
@@ -104,9 +104,9 @@ class ZeroshotSimulatorContext:
         self.unique_tasks, \
         self.unique_datasets, \
         self.rank_scorer_vs_automl = self._align_valid_folds(
+            df_raw=self.df_raw,
             df_results_by_dataset=self.df_results_by_dataset_vs_automl,
             df_results_by_dataset_automl=self.df_results_by_dataset_automl,
-            df_raw=self.df_raw,
             df_metadata=self.df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
@@ -140,6 +140,17 @@ class ZeroshotSimulatorContext:
         dataset_tid = df_raw[["dataset", "tid"]].drop_duplicates()
         assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
+
+        if df_results_by_dataset is None:
+            df_results_by_dataset = df_raw[[
+                "framework",
+                "dataset",
+                "fold",
+                "metric_error",
+                "metric_error_val",
+                "time_train_s",
+                "time_infer_s",
+            ]].copy(deep=True)
 
         df_results_by_dataset = df_results_by_dataset.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
         if df_results_by_dataset_automl is not None:
@@ -231,9 +242,9 @@ class ZeroshotSimulatorContext:
             assert len(df_metadata) == len(unique_datasets)
 
         return (
+            df_raw,
             df_results_by_dataset_automl,
             df_results_by_dataset_vs_automl,
-            df_raw,
             df_metrics,
             df_metadata,
             task_to_dataset_dict,

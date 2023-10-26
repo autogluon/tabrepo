@@ -14,7 +14,7 @@ from autogluon.common.utils.s3_utils import download_s3_files
 from autogluon.common.utils.s3_utils import is_s3_url, s3_path_to_bucket_prefix
 
 from .utils import load_zeroshot_input
-from ..loaders import load_configs, load_results, combine_results_with_score_val, Paths
+from ..loaders import load_configs, load_results, Paths
 from ..loaders._results import preprocess_comparison
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..predictions.tabular_predictions import TabularModelPredictions
@@ -135,14 +135,14 @@ class BenchmarkPaths:
         return True
 
     def load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        df_results_by_dataset, df_raw, df_metadata = load_results(
-            results_by_dataset=self.results_by_dataset,
+        df_raw, df_results_by_dataset, df_metadata = load_results(
             raw=self.raw,
+            results_by_dataset=self.results_by_dataset,
             metadata=self.task_metadata,
             metadata_join_column=self.metadata_join_column,
             require_tid_in_metadata=self.task_metadata is not None,
         )
-        return df_results_by_dataset, df_raw, df_metadata
+        return df_raw, df_results_by_dataset, df_metadata
 
     def load_comparison(self) -> pd.DataFrame | None:
         if self.comparison is None:
@@ -361,9 +361,8 @@ class BenchmarkContext:
         return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
     def _load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        df_results_by_dataset, df_raw, df_metadata = self.benchmark_paths.load_results()
-        df_results_by_dataset = combine_results_with_score_val(df_raw, df_results_by_dataset)
-        return df_results_by_dataset, df_raw, df_metadata
+        df_raw, df_results_by_dataset, df_metadata = self.benchmark_paths.load_results()
+        return df_raw, df_results_by_dataset, df_metadata
 
     def _load_configs(self) -> dict:
         return self.benchmark_paths.load_configs()
@@ -374,16 +373,16 @@ class BenchmarkContext:
         return self.benchmark_paths.load_predictions(zsc=zsc, prediction_format=prediction_format)
 
     def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
-        df_results_by_dataset, df_raw, df_metadata = self._load_results()
+        df_raw, df_results_by_dataset, df_metadata = self._load_results()
 
         # Load in real framework results to score against
         print(f'Loading comparison_frameworks: {self.benchmark_paths.comparison}')
         df_results_by_dataset_automl = self.benchmark_paths.load_comparison()
         zsc = ZeroshotSimulatorContext(
-            df_results_by_dataset=df_results_by_dataset,
-            df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_raw=df_raw,
             folds=folds,
+            df_results_by_dataset=df_results_by_dataset,
+            df_results_by_dataset_automl=df_results_by_dataset_automl,
             df_metadata=df_metadata,
         )
         return zsc
