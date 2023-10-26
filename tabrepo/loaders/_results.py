@@ -3,6 +3,36 @@ import pandas as pd
 from autogluon.common.loaders import load_pd
 
 
+# FIXME: REMOVE
+def convert_to_dataset_fold_HACK(df: pd.DataFrame, column_name="dataset", column_type=str) -> pd.DataFrame:
+    """
+    Converts "{dataset}_{fold}" dataset column to (dataset, fold) columns.
+
+    Parameters
+    ----------
+    df: pandas DataFrame of benchmark results
+        The DataFrame must have a column named `dataset` in the form "{dataset}_{fold}".
+        Example: "adult_5"
+    column_name: str, default = "dataset"
+        The name of the column to create alongside "fold".
+    column_type: type, default = str
+        The dtype of the column to create alongside "fold".
+
+    Returns
+    -------
+    Pandas DataFrame of benchmark results with the dataset column split into (dataset, fold) columns
+
+    """
+    df = df.copy(deep=True)
+    df["fold"] = df["dataset"].apply(lambda x: x.rsplit("_", 1)[1]).astype(int)
+    df[column_name] = df["dataset"].apply(lambda x: x.rsplit("_", 1)[0]).astype(column_type)
+    df_columns = list(df.columns)
+    df_columns = [column_name, "fold"] + [c for c in df_columns if c not in [column_name, "dataset", "fold"]]
+    return df[df_columns]  # Reorder so dataset and fold are the first two columns.
+
+
+
+
 def load_results(
     results_by_dataset: str,
     raw: str,
@@ -24,8 +54,7 @@ def load_results(
         df_results_by_dataset = load_pd.load(results_by_dataset)
         # FIXME: HACK
         if "fold" not in df_results_by_dataset.columns:
-            from autogluon.bench.eval.evaluation.evaluate_utils import convert_to_dataset_fold
-            df_results_by_dataset = convert_to_dataset_fold(df_results_by_dataset, column_name="tid", column_type=int)
+            df_results_by_dataset = convert_to_dataset_fold_HACK(df_results_by_dataset, column_name="tid", column_type=int)
             # df_results_by_dataset["dataset"] = df_results_by_dataset["dataset"].astype(int)
     else:
         df_results_by_dataset = df_raw[[
@@ -86,8 +115,7 @@ def preprocess_comparison(df_comparison_raw: pd.DataFrame, inplace=True) -> pd.D
 
     # FIXME: HACK
     if "fold" not in df_comparison_raw.columns:
-        from autogluon.bench.eval.evaluation.evaluate_utils import convert_to_dataset_fold
-        df_comparison_raw = convert_to_dataset_fold(df_comparison_raw, column_name="tid", column_type=int)
+        df_comparison_raw = convert_to_dataset_fold_HACK(df_comparison_raw, column_name="tid", column_type=int)
 
     df_comparison_raw['tid'] = df_comparison_raw['tid'].astype(int)
     return df_comparison_raw
