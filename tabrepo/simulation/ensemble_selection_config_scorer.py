@@ -214,7 +214,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         }
 
         return cls(
-            ranker=zeroshot_simulator_context.rank_scorer_vs_automl,
+            ranker=zeroshot_simulator_context.rank_scorer,
             tid_to_dataset_name_dict=zeroshot_simulator_context.tid_to_dataset_dict,
             task_metrics_metadata=task_metrics_metadata,
             **kwargs,

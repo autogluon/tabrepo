@@ -28,7 +28,7 @@ class ZeroshotSimulatorContext:
             df_metadata: pd.DataFrame = None,
             folds: List[int] | None = None,
             pct: bool = False,
-            score_against_only_automl: bool = True,
+            score_against_only_baselines: bool = True,
     ):
         """
         Encapsulates results evaluated on multiple base models/datasets/folds.
@@ -36,12 +36,11 @@ class ZeroshotSimulatorContext:
         :param df_baselines: results of baseline systems by multiple datasets/folds
         :param folds: List of folds to be considered in a list of integers. If None, will not filter by fold.
         :param pct: whether to use percentage rather than rank numbers
-        :param score_against_only_automl: if `True`, the scores are ranks (or percentage if `pct` is True) over automl
-        baselines. If False, the scores are computed against both automl baselines and random model configurations
-        for all base models (random-forest, knns etc).
+        :param score_against_only_baselines: if `True`, the scores are ranks (or percentage if `pct` is True) over the baselines only
+        baselines. If False, the scores are computed against both baselines and the configs.
         """
         self.folds = folds
-        self.score_against_only_automl = score_against_only_automl
+        self.score_against_only_baselines = score_against_only_baselines
         self.pct = pct
 
         # TODO align_valid_folds returns 8 values and does many different things, it would help to break down to more
@@ -55,12 +54,12 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
         self.unique_datasets, \
-        self.rank_scorer_vs_automl = self._align_valid_folds(
+        self.rank_scorer = self._align_valid_folds(
             df_configs=df_configs,
             df_baselines=df_baselines,
             df_metadata=df_metadata,
             folds=folds,
-            score_against_only_automl=self.score_against_only_automl,
+            score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
@@ -102,12 +101,12 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
         self.unique_datasets, \
-        self.rank_scorer_vs_automl = self._align_valid_folds(
+        self.rank_scorer = self._align_valid_folds(
             df_configs=self.df_configs,
             df_baselines=self.df_baselines,
             df_metadata=self.df_metadata,
             folds=folds,
-            score_against_only_automl=self.score_against_only_automl,
+            score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
@@ -205,20 +204,22 @@ class ZeroshotSimulatorContext:
         unique_tasks = sorted(list(df_configs["task"].unique()))
         unique_datasets = sorted(list(df_configs["dataset"].unique()))
 
-        if df_baselines is None:
-            df_results_baselines = df_configs.copy(deep=True)
-        elif score_against_only_automl:
-            df_results_baselines = df_baselines.copy(deep=True)
+        if score_against_only_automl:
+            assert df_baselines is not None, (f"`score_against_only_automl=True`, but `df_baselines` is None. "
+                                              f"Either specify `df_baselines` or set `score_against_only_automl=False`.")
+            df_comparison = df_baselines.copy(deep=True)
+        elif df_baselines is None:
+            df_comparison = df_configs.copy(deep=True)
         else:
-            df_results_baselines = pd.concat([df_configs, df_baselines], ignore_index=True)
-        rank_scorer_vs_automl = RankScorer(
-            df_results_by_dataset=df_results_baselines,
-            datasets=unique_tasks,
+            df_comparison = pd.concat([df_configs, df_baselines], ignore_index=True)
+        rank_scorer = RankScorer(
+            df_results=df_comparison,
+            tasks=unique_tasks,
             pct=pct,
         )
         df_configs_ranked = df_configs.copy()
         df_configs_ranked['rank'] = df_configs_ranked.apply(
-            lambda row: rank_scorer_vs_automl.rank(row["task"], row["metric_error"]), axis=1
+            lambda row: rank_scorer.rank(row["task"], row["metric_error"]), axis=1
         )
 
         task_to_dataset_dict = get_task_to_dataset_dict(df=df_configs)
@@ -245,7 +246,7 @@ class ZeroshotSimulatorContext:
             dataset_to_tid_dict,
             unique_tasks,
             unique_datasets,
-            rank_scorer_vs_automl,
+            rank_scorer,
         )
 
     @staticmethod
