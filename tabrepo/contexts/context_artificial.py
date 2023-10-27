@@ -46,6 +46,7 @@ def load_context_artificial(**kwargs):
         "fold": fold,
         "framework": baseline,
         "problem_type": "regression",
+        "metric": "root_mean_squared_error",
         **make_random_metric(baseline)
     } for fold in range(n_folds) for baseline in baselines for dataset in datasets
     )

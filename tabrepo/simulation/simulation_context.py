@@ -113,19 +113,25 @@ class ZeroshotSimulatorContext:
         self.dataset_to_problem_type_dict = self.df_results_by_dataset_vs_automl[['dataset', 'problem_type']].drop_duplicates().set_index(
             'dataset').squeeze().to_dict()
 
-    @staticmethod
-    def _align_valid_folds(*,
+    @classmethod
+    def _align_valid_folds(cls,
+                           *,
                            df_raw: pd.DataFrame,
                            df_results_by_dataset_automl: pd.DataFrame,
                            df_metadata: pd.DataFrame,
                            folds: List[int],
                            score_against_only_automl: bool,
                            pct: bool):
+        cls._validate_df_raw(df_raw=df_raw)
+        if df_results_by_dataset_automl is not None:
+            cls._validate_df_comparison(df_comparison=df_results_by_dataset_automl)
         # assert that each dataset contains only one problem type
         dataset_problem_types = df_raw[["dataset", "problem_type"]].drop_duplicates()
         assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique())
 
         if "tid" not in df_raw.columns:
+            print(f"Note: `tid` is missing from `df_raw` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
+                  f"These values will be unrelated to OpenML task IDs.")
             df_raw = df_raw.copy(deep=True)
             datasets = sorted(list(df_raw["dataset"].unique()))
             dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
@@ -248,6 +254,48 @@ class ZeroshotSimulatorContext:
             unique_datasets,
             rank_scorer_vs_automl,
         )
+
+    @staticmethod
+    def _validate_df(df: pd.DataFrame, name: str, required_columns: List[str]):
+        df_columns = list(df.columns)
+        missing_required_columns = [c for c in required_columns if c not in df_columns]
+        if missing_required_columns:
+            present_required_columns = [c for c in required_columns if c in df_columns]
+            present_extra_columns = [c for c in df_columns if c not in required_columns]
+            raise AssertionError(f"Missing required columns in `{name}`:\n"
+                                 f"\tMissing Required: {missing_required_columns}\n"
+                                 f"\tPresent Required: {present_required_columns}\n"
+                                 f"\tPresent    Extra: {present_extra_columns}\n"
+                                 f"{df}")
+
+    @classmethod
+    def _validate_df_raw(cls, df_raw: pd.DataFrame):
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric_error_val",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+        cls._validate_df(df=df_raw, name="df_raw", required_columns=required_columns)
+
+    @classmethod
+    def _validate_df_comparison(cls, df_comparison: pd.DataFrame):
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+        cls._validate_df(df=df_comparison, name="df_comparison", required_columns=required_columns)
 
     def print_info(self):
         out = '====== Zeroshot Simulator Context Info ======\n'
