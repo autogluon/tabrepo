@@ -70,9 +70,9 @@ class BenchmarkPaths:
         return file_paths
 
     def assert_exists_all(self, check_zs=True):
-        self._assert_exists(self.configs, 'raw')
+        self._assert_exists(self.configs, 'configs')
         if self.baselines is not None:
-            self._assert_exists(self.baselines, 'comparison')
+            self._assert_exists(self.baselines, 'baselines')
         if self.task_metadata is not None:
             self._assert_exists(self.task_metadata, 'task_metadata')
         if check_zs:
