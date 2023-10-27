@@ -16,9 +16,8 @@ def get_task_to_dataset_dict(df_raw: pd.DataFrame) -> dict:
     return dataset_to_tid_dict
 
 
-def filter_datasets(df_raw: pd.DataFrame, datasets: pd.DataFrame) -> pd.DataFrame:
-    df_raw = df_raw.merge(datasets, on=["dataset", "fold"])
-    return df_raw
+def filter_datasets(df: pd.DataFrame, datasets: pd.DataFrame) -> pd.DataFrame:
+    return df.merge(datasets, on=["dataset", "fold"])
 
 
 def get_dataset_to_metric_problem_type(df_raw: pd.DataFrame) -> pd.DataFrame:

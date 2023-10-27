@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 from collections import defaultdict
 import json
@@ -22,9 +24,9 @@ class ZeroshotSimulatorContext:
     def __init__(
             self,
             df_raw: pd.DataFrame,
-            folds: List[int],
             df_results_by_dataset_automl: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
+            folds: List[int] | None = None,
             pct: bool = False,
             score_against_only_automl: bool = True,
     ):
@@ -32,7 +34,7 @@ class ZeroshotSimulatorContext:
         Encapsulates results evaluated on multiple base models/datasets/folds.
         :param df_raw:
         :param df_results_by_dataset_automl: results of automl systems by multiple datasets/folds
-        :param folds: List of folds to be considered in a list of integers
+        :param folds: List of folds to be considered in a list of integers. If None, will not filter by fold.
         :param pct: whether to use percentage rather than rank numbers
         :param score_against_only_automl: if `True`, the scores are ranks (or percentage if `pct` is True) over automl
         baselines. If False, the scores are computed against both automl baselines and random model configurations
@@ -119,7 +121,7 @@ class ZeroshotSimulatorContext:
                            df_raw: pd.DataFrame,
                            df_results_by_dataset_automl: pd.DataFrame,
                            df_metadata: pd.DataFrame,
-                           folds: List[int],
+                           folds: List[int] | None,
                            score_against_only_automl: bool,
                            pct: bool):
         cls._validate_df_raw(df_raw=df_raw)
@@ -164,19 +166,16 @@ class ZeroshotSimulatorContext:
 
         unique_dataset_folds_set = df_raw[['dataset', 'fold']].drop_duplicates()
 
-        config_task_counts_raw = df_raw[['framework', 'fold', 'dataset']].value_counts()
-
-        sources_to_check = [
-            ("df_raw", config_task_counts_raw),
-        ]
-
+        sources_to_check = []
         if df_results_by_dataset_automl is not None:
-            df_results_by_dataset_automl = df_results_by_dataset_automl.merge(unique_dataset_folds_set, on=["dataset", "fold"])
+            df_results_by_dataset_automl = filter_datasets(df=df_results_by_dataset_automl, datasets=unique_dataset_folds_set)
             unique_dataset_folds_set = df_results_by_dataset_automl[['dataset', 'fold']].drop_duplicates()
-            config_task_counts_results_by_dataset_automl = df_results_by_dataset_automl[['framework', 'dataset', 'fold']].value_counts()
-            sources_to_check.append(("df_comparison", config_task_counts_results_by_dataset_automl))
+            df_raw = filter_datasets(df=df_raw, datasets=unique_dataset_folds_set)
+            sources_to_check.append(("df_comparison", df_results_by_dataset_automl))
+        sources_to_check.append(("df_raw", df_raw))
 
-        for source, config_task_counts in sources_to_check:
+        for source, df_source in sources_to_check:
+            config_task_counts = df_source[['framework', 'dataset', 'fold']].value_counts()
             if config_task_counts.max() > 1:
                 raise AssertionError(f'Multiple rows in `{source}` exist for a config task pair! '
                                      f'There should only ever be one row per config task pair. '
@@ -184,22 +183,27 @@ class ZeroshotSimulatorContext:
                                      f'Config Task Counts:\n'
                                      f'{config_task_counts}')
 
-        df_raw = filter_datasets(df_raw=df_raw, datasets=unique_dataset_folds_set)
+        if df_results_by_dataset_automl is not None:
+            df_results_by_dataset_automl = filter_datasets(df=df_results_by_dataset_automl, datasets=unique_dataset_folds_set)
 
-        tasks = df_raw[['dataset', 'fold']].drop_duplicates()
-        tasks_in_valid_folds = tasks[tasks['fold'].isin(folds)]
-        dataset_fold_counts = tasks_in_valid_folds['dataset'].value_counts()
-        datasets_with_all_folds = dataset_fold_counts[dataset_fold_counts == len(folds)]
-        unique_datasets = sorted(list(datasets_with_all_folds.index))
-        unique_datasets_set = set(unique_datasets)
-        unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["dataset"].isin(unique_datasets_set)]
-        df_raw = filter_datasets(df_raw=df_raw, datasets=unique_dataset_folds_set)
+        if folds is not None:
+            tasks = df_raw[['dataset', 'fold']].drop_duplicates()
+            tasks_in_valid_folds = tasks[tasks['fold'].isin(folds)]
+            dataset_fold_counts = tasks_in_valid_folds['dataset'].value_counts()
+            datasets_with_all_folds = dataset_fold_counts[dataset_fold_counts == len(folds)]
+            unique_datasets = sorted(list(datasets_with_all_folds.index))
+            unique_datasets_set = set(unique_datasets)
+            unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["dataset"].isin(unique_datasets_set)]
+            df_raw = filter_datasets(df=df_raw, datasets=unique_dataset_folds_set)
+            if df_results_by_dataset_automl is not None:
+                df_results_by_dataset_automl = filter_datasets(df=df_results_by_dataset_automl, datasets=unique_dataset_folds_set)
 
         df_raw["task"] = df_raw["tid"].astype(str) + '_' + df_raw["fold"].astype(str)
         if df_results_by_dataset_automl is not None:
             df_results_by_dataset_automl["task"] = df_results_by_dataset_automl["tid"].astype(str) + '_' + df_results_by_dataset_automl["fold"].astype(str)
 
-        unique_tasks = sorted(list(df_raw['task'].unique()))
+        unique_tasks = sorted(list(df_raw["task"].unique()))
+        unique_datasets = sorted(list(df_raw["dataset"].unique()))
 
         if df_results_by_dataset_automl is None:
             df_results_baselines = df_raw.copy(deep=True)
