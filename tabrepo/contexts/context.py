@@ -15,6 +15,7 @@ from autogluon.common.utils.s3_utils import is_s3_url, s3_path_to_bucket_prefix
 
 from .utils import load_zeroshot_input
 from ..loaders import load_configs, load_results, Paths
+from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..predictions.tabular_predictions import TabularModelPredictions
 from ..utils import catchtime
@@ -22,22 +23,22 @@ from ..utils import catchtime
 
 @dataclass
 class BenchmarkPaths:
-    raw: str
-    comparison: str = None
+    configs: str
+    baselines: str = None
     task_metadata: str = None
     metadata_join_column: str = "dataset"
     path_pred_proba: str = None
     datasets: List[str] = None
     zs_pp: List[str] = None
     zs_gt: List[str] = None
-    configs: List[str] = None
+    configs_hyperparameters: List[str] = None
 
     def __post_init__(self):
         if self.zs_pp is not None and isinstance(self.zs_pp, str):
             self.zs_pp = [self.zs_pp]
         if self.zs_gt is not None and isinstance(self.zs_gt, str):
             self.zs_gt = [self.zs_gt]
-        if self.configs is None:
+        if self.configs_hyperparameters is None:
             configs_prefix = Paths.data_root / 'configs'
             configs = [
                 f'{configs_prefix}/configs_catboost.json',
@@ -49,7 +50,7 @@ class BenchmarkPaths:
                 f'{configs_prefix}/configs_xt.json',
                 f'{configs_prefix}/configs_knn.json',
             ]
-            self.configs = configs
+            self.configs_hyperparameters = configs
 
     def print_summary(self):
         max_str_len = max(len(key) for key in self.__dict__.keys())
@@ -58,8 +59,8 @@ class BenchmarkPaths:
 
     def get_file_paths(self, include_zs: bool = True) -> List[str]:
         file_paths = [
-            self.raw,
-            self.comparison,
+            self.configs,
+            self.baselines,
             self.task_metadata,
         ]
         if include_zs:
@@ -69,9 +70,9 @@ class BenchmarkPaths:
         return file_paths
 
     def assert_exists_all(self, check_zs=True):
-        self._assert_exists(self.raw, 'raw')
-        if self.comparison is not None:
-            self._assert_exists(self.comparison, 'comparison')
+        self._assert_exists(self.configs, 'raw')
+        if self.baselines is not None:
+            self._assert_exists(self.baselines, 'comparison')
         if self.task_metadata is not None:
             self._assert_exists(self.task_metadata, 'task_metadata')
         if check_zs:
@@ -130,24 +131,24 @@ class BenchmarkPaths:
         return True
 
     def load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        df_raw, df_metadata = load_results(
-            raw=self.raw,
-            metadata=self.task_metadata,
+        df_configs, df_metadata = load_results(
+            path_configs=self.configs,
+            path_metadata=self.task_metadata,
             metadata_join_column=self.metadata_join_column,
             require_tid_in_metadata=self.task_metadata is not None,
         )
-        return df_raw, df_metadata
+        return df_configs, df_metadata
 
-    def load_comparison(self) -> pd.DataFrame | None:
-        if self.comparison is None:
+    def load_baselines(self) -> pd.DataFrame | None:
+        if self.baselines is None:
             return None
-        df_comparison = load_pd.load(self.comparison)
-        return df_comparison
+        df_baselines = load_pd.load(self.baselines)
+        return df_baselines
 
     def load_predictions(self,
                          zsc: ZeroshotSimulatorContext,
                          prediction_format: str = "memmap",
-                         ) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
+                         ) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
         """
         :param prediction_format: Determines the format of the loaded tabular_predictions. Default = "memmap".
             "memmap": Fast and low memory usage.
@@ -167,8 +168,8 @@ class BenchmarkPaths:
         )
         return zeroshot_pred_proba, zeroshot_gt, zsc
 
-    def load_configs(self) -> dict:
-        return load_configs(self.configs)
+    def load_configs_hyperparameters(self) -> dict:
+        return load_configs(self.configs_hyperparameters)
 
 
 class BenchmarkContext:
@@ -288,7 +289,7 @@ class BenchmarkContext:
              load_predictions: bool = True,
              download_files: bool = True,
              prediction_format: str = "memmap",
-             exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, dict]:
+             exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, GroundTruth]:
         """
         :param folds: If None, uses self.folds as default.
             If specified, must be a subset of `self.folds`. This will filter the results to only the specified folds.
@@ -305,7 +306,7 @@ class BenchmarkContext:
         :return: Returns four objects in the following order:
             zsc: ZeroshotSimulatorContext
                 The zeroshot simulator context object.
-            configs: dict
+            configs_hyperparameters: dict
                 # TODO: Consider making a part of zsc.
                 The dictionary of config names to hyperparameters.
                 This is useful when wanting to understand what hyperparameters a particular model config is using.
@@ -343,7 +344,7 @@ class BenchmarkContext:
 
             zsc = self._load_zsc(folds=folds)
             print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
-            configs_full = self._load_configs()
+            configs_hyperparameters = self._load_configs_hyperparameters()
 
             if load_predictions:
                 zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format)
@@ -351,30 +352,30 @@ class BenchmarkContext:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
 
-        return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
+        return zsc, configs_hyperparameters, zeroshot_pred_proba, zeroshot_gt
 
     def _load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        df_raw, df_metadata = self.benchmark_paths.load_results()
-        return df_raw, df_metadata
+        df_configs, df_metadata = self.benchmark_paths.load_results()
+        return df_configs, df_metadata
 
-    def _load_configs(self) -> dict:
-        return self.benchmark_paths.load_configs()
+    def _load_configs_hyperparameters(self) -> dict:
+        return self.benchmark_paths.load_configs_hyperparameters()
 
     def _load_predictions(self,
                           zsc: ZeroshotSimulatorContext,
-                          prediction_format: str) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
+                          prediction_format: str) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
         return self.benchmark_paths.load_predictions(zsc=zsc, prediction_format=prediction_format)
 
     def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
-        df_raw, df_metadata = self._load_results()
+        df_configs, df_metadata = self._load_results()
 
         # Load in real framework results to score against
-        print(f'Loading comparison_frameworks: {self.benchmark_paths.comparison}')
-        df_comparison = self.benchmark_paths.load_comparison()
+        print(f'Loading baselines: {self.benchmark_paths.baselines}')
+        df_baselines = self.benchmark_paths.load_baselines()
         zsc = ZeroshotSimulatorContext(
-            df_configs=df_raw,
+            df_configs=df_configs,
             folds=folds,
-            df_baselines=df_comparison,
+            df_baselines=df_baselines,
             df_metadata=df_metadata,
         )
         return zsc
@@ -390,8 +391,8 @@ def construct_s3_download_map(
     split_value = f"{s3_prefix}model_predictions/"
     s3_download_map = {
         # FIXME: COMPARISON ROUNDING ERROR
-        "raw.parquet": "raw.parquet",
-        "comparison.parquet": "comparison.parquet",
+        "configs.parquet": "configs.parquet",
+        "baselines.parquet": "baselines.parquet",
     }
     s3_download_map = {f'{path_context}{k}': f'{s3_prefix}{v}' for k, v in s3_download_map.items()}
     _s3_download_map_metadata_pp = {f"{split_key}{f}": f"{split_value}{f}" for f in files_pp}
@@ -438,8 +439,6 @@ def construct_context(
 
     split_key = str(Path(path_context) / "model_predictions") + os.sep
 
-
-
     files_pred = ["metadata.json", "pred-test.dat", "pred-val.dat"]
     _files_pp = [f"{dataset}/{fold}/{f}" for dataset in datasets for fold in folds for f in files_pred]
     files_label = ["label-test.csv.zip", "label-val.csv.zip"]
@@ -463,8 +462,8 @@ def construct_context(
     zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
 
     _result_paths = dict(
-        comparison=str(Path(path_context) / "comparison.parquet"),
-        raw=str(Path(path_context) / "raw.parquet"),
+        baselines=str(Path(path_context) / "baselines.parquet"),
+        configs=str(Path(path_context) / "configs.parquet"),
     )
 
     if task_metadata is not None:

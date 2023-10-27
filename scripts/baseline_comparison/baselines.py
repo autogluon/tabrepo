@@ -262,7 +262,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
     """
     :return: evaluation of AutoGluon medium/high/best quality.
     """
-    automl_df = copy.deepcopy(repo._zeroshot_context.df_results_by_dataset_automl)
+    automl_df = copy.deepcopy(repo._zeroshot_context.df_baselines)
 
     rows_automl = []
     for dataset in tqdm(dataset_names):

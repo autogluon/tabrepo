@@ -97,7 +97,7 @@ def load_context_artificial(**kwargs):
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
 
-def load_repo_artificial():
+def load_repo_artificial() -> EvaluationRepository:
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
     return EvaluationRepository(
         zeroshot_context=zsc,

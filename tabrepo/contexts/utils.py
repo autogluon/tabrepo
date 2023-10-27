@@ -31,7 +31,7 @@ def load_zeroshot_input(path_pred_proba: str,
                         datasets: List[str],
                         zsc: ZeroshotSimulatorContext,
                         prediction_format: str = "memmap",
-                        ) -> Tuple[TabularModelPredictions, dict, ZeroshotSimulatorContext]:
+                        ) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
     print(f'Loading ZS inputs:\n'
           f'\tpred_proba:  {path_pred_proba}\n'
     )
@@ -43,7 +43,7 @@ def load_zeroshot_input(path_pred_proba: str,
     )
 
     # keep only dataset whose folds are all present
-    intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt)
+    intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt=zeroshot_gt)
     force_to_dense(zeroshot_pred_proba, first_prune_method='task', second_prune_method='dataset')
 
     zsc.subset_configs(zeroshot_pred_proba.models)

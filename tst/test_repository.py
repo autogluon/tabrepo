@@ -60,7 +60,7 @@ def test_repository():
     assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                   ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
-    repo = repo.subset(folds=[0, 2])
+    repo: EvaluationRepository = repo.subset(folds=[0, 2])
     assert repo.datasets() == ['abalone', 'ada']
     assert repo.n_folds() == 2
     assert repo.folds == [0, 2]
@@ -74,7 +74,7 @@ def test_repository():
     assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                   ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 1)
 
-    repo = repo.subset(folds=[2], datasets=[dataset], configs=[config])
+    repo: EvaluationRepository = repo.subset(folds=[2], datasets=[dataset], configs=[config])
     assert repo.datasets() == ['abalone']
     assert repo.n_folds() == 1
     assert repo.folds == [2]

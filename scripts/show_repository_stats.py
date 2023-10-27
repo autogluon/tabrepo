@@ -19,7 +19,7 @@ from scripts.baseline_comparison.baselines import framework_types
 
 repo = load_context()
 
-automl_frameworks = repo._zeroshot_context.df_results_by_dataset_automl.framework.unique().tolist()
+automl_frameworks = repo._zeroshot_context.df_baselines.framework.unique().tolist()
 
 automl_frameworks = set(x.split("_")[0] for x in automl_frameworks)
 

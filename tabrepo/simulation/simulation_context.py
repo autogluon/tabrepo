@@ -385,7 +385,7 @@ class ZeroshotSimulatorContext:
 
         return self._get_configs_from_df(df=df, union=union)
 
-    def load_groundtruth(self, paths_gt: List[str]) -> Tuple[dict, dict]:
+    def load_groundtruth(self, paths_gt: List[str]) -> GroundTruth:
         gt_val = defaultdict(_default_dict)
         gt_test = defaultdict(_default_dict)
         for p in paths_gt:
