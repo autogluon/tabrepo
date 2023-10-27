@@ -372,9 +372,9 @@ class BenchmarkContext:
         print(f'Loading comparison_frameworks: {self.benchmark_paths.comparison}')
         df_comparison = self.benchmark_paths.load_comparison()
         zsc = ZeroshotSimulatorContext(
-            df_raw=df_raw,
+            df_configs=df_raw,
             folds=folds,
-            df_results_by_dataset_automl=df_comparison,
+            df_baselines=df_comparison,
             df_metadata=df_metadata,
         )
         return zsc

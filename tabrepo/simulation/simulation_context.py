@@ -23,8 +23,8 @@ def _default_dict():
 class ZeroshotSimulatorContext:
     def __init__(
             self,
-            df_raw: pd.DataFrame,
-            df_results_by_dataset_automl: pd.DataFrame = None,
+            df_configs: pd.DataFrame,
+            df_baselines: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
             folds: List[int] | None = None,
             pct: bool = False,
@@ -32,8 +32,8 @@ class ZeroshotSimulatorContext:
     ):
         """
         Encapsulates results evaluated on multiple base models/datasets/folds.
-        :param df_raw:
-        :param df_results_by_dataset_automl: results of automl systems by multiple datasets/folds
+        :param df_configs: results of configs by multiple datasets/folds
+        :param df_baselines: results of baseline systems by multiple datasets/folds
         :param folds: List of folds to be considered in a list of integers. If None, will not filter by fold.
         :param pct: whether to use percentage rather than rank numbers
         :param score_against_only_automl: if `True`, the scores are ranks (or percentage if `pct` is True) over automl
@@ -46,8 +46,8 @@ class ZeroshotSimulatorContext:
 
         # TODO align_valid_folds returns 8 values and does many different things, it would help to break down to more
         #  modular functions
-        self.df_raw, \
-        self.df_results_by_dataset_automl, \
+        self.df_configs, \
+        self.df_baselines, \
         self.df_results_by_dataset_vs_automl, \
         self.df_metrics, \
         self.df_metadata, \
@@ -56,8 +56,8 @@ class ZeroshotSimulatorContext:
         self.unique_tasks, \
         self.unique_datasets, \
         self.rank_scorer_vs_automl = self._align_valid_folds(
-            df_raw=df_raw,
-            df_comparison=df_results_by_dataset_automl,
+            df_configs=df_configs,
+            df_baselines=df_baselines,
             df_metadata=df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
@@ -93,8 +93,8 @@ class ZeroshotSimulatorContext:
         if folds is None:
             folds = self.folds
         self.folds = folds
-        self.df_raw, \
-        self.df_results_by_dataset_automl, \
+        self.df_configs, \
+        self.df_baselines, \
         self.df_results_by_dataset_vs_automl, \
         self.df_metrics, \
         self.df_metadata, \
@@ -103,8 +103,8 @@ class ZeroshotSimulatorContext:
         self.unique_tasks, \
         self.unique_datasets, \
         self.rank_scorer_vs_automl = self._align_valid_folds(
-            df_raw=self.df_raw,
-            df_comparison=self.df_results_by_dataset_automl,
+            df_configs=self.df_configs,
+            df_baselines=self.df_baselines,
             df_metadata=self.df_metadata,
             folds=folds,
             score_against_only_automl=self.score_against_only_automl,
@@ -118,61 +118,61 @@ class ZeroshotSimulatorContext:
     @classmethod
     def _align_valid_folds(cls,
                            *,
-                           df_raw: pd.DataFrame,
-                           df_comparison: pd.DataFrame,
+                           df_configs: pd.DataFrame,
+                           df_baselines: pd.DataFrame,
                            df_metadata: pd.DataFrame,
                            folds: List[int] | None,
                            score_against_only_automl: bool,
                            pct: bool):
-        cls._validate_df_raw(df_raw=df_raw)
-        if df_comparison is not None:
-            cls._validate_df_comparison(df_comparison=df_comparison)
+        cls._validate_df_configs(df_configs=df_configs)
+        if df_baselines is not None:
+            cls._validate_df_baselines(df_baselines=df_baselines)
         # assert that each dataset contains only one problem type
-        dataset_problem_types = df_raw[["dataset", "problem_type"]].drop_duplicates()
+        dataset_problem_types = df_configs[["dataset", "problem_type"]].drop_duplicates()
         assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique()), \
-            "Error: datasets exist in `df_raw` that contain multiple problem_types!"
+            "Error: datasets exist in `df_configs` that contain multiple problem_types!"
 
-        if df_comparison is not None:
-            dataset_problem_types_comparison = df_comparison[["dataset", "problem_type"]].drop_duplicates()
+        if df_baselines is not None:
+            dataset_problem_types_comparison = df_baselines[["dataset", "problem_type"]].drop_duplicates()
             assert len(dataset_problem_types_comparison) == len(dataset_problem_types_comparison["dataset"].unique()), \
                 "Error: datasets exist in `df_comparison` that contain multiple problem_types!"
-            dataset_problem_types_map_raw = dataset_problem_types.set_index("dataset").squeeze().to_dict()
-            dataset_problem_types_map_comparison = dataset_problem_types_comparison.set_index("dataset").squeeze().to_dict()
-            for d in dataset_problem_types_map_raw.keys():
-                problem_type_raw = dataset_problem_types_map_raw[d]
-                if d in dataset_problem_types_map_comparison:
-                    problem_type_comparison = dataset_problem_types_map_comparison[d]
-                    assert problem_type_raw == problem_type_comparison, \
-                        (f"Error: Dataset `{d}` has a different `problem_type` between `df_raw` and `df_comparison`. They must match:\n"
-                         f"\tdf_raw       : {problem_type_raw}\n"
-                         f"\tdf_comparison: {problem_type_comparison}")
+            dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze().to_dict()
+            dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze().to_dict()
+            for d in dataset_problem_types_map_configs.keys():
+                problem_type_configs = dataset_problem_types_map_configs[d]
+                if d in dataset_problem_types_map_baselines:
+                    problem_type_baselines = dataset_problem_types_map_baselines[d]
+                    assert problem_type_configs == problem_type_baselines, \
+                        (f"Error: Dataset `{d}` has a different `problem_type` between `df_configs` and `df_baselines`. They must match:\n"
+                         f"\tdf_configs  : {problem_type_configs}\n"
+                         f"\tdf_baselines: {problem_type_baselines}")
 
-        if "tid" not in df_raw.columns:
-            print(f"Note: `tid` is missing from `df_raw` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
+        if "tid" not in df_configs.columns:
+            print(f"Note: `tid` is missing from `df_configs` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
                   f"These values will be unrelated to OpenML task IDs.")
-            df_raw = df_raw.copy(deep=True)
-            datasets = sorted(list(df_raw["dataset"].unique()))
+            df_configs = df_configs.copy(deep=True)
+            datasets = sorted(list(df_configs["dataset"].unique()))
             dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
-            df_raw["tid"] = df_raw["dataset"].map(dataset_to_tid_map).astype(int)
+            df_configs["tid"] = df_configs["dataset"].map(dataset_to_tid_map).astype(int)
 
         # assert that each dataset-tid combination is exclusive
-        dataset_tid = df_raw[["dataset", "tid"]].drop_duplicates()
+        dataset_tid = df_configs[["dataset", "tid"]].drop_duplicates()
         assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
 
-        if df_comparison is not None:
-            df_comparison = df_comparison.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
-            df_comparison = df_comparison.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
+        if df_baselines is not None:
+            df_baselines = df_baselines.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
+            df_baselines = df_baselines.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
 
-        unique_dataset_folds_set = df_raw[['dataset', 'fold']].drop_duplicates()
+        unique_dataset_folds_set = df_configs[['dataset', 'fold']].drop_duplicates()
 
         sources_to_check = []
-        if df_comparison is not None:
-            df_comparison = filter_datasets(df=df_comparison, datasets=unique_dataset_folds_set)
-            unique_dataset_folds_set = df_comparison[['dataset', 'fold']].drop_duplicates()
-            df_raw = filter_datasets(df=df_raw, datasets=unique_dataset_folds_set)
-            sources_to_check.append(("df_comparison", df_comparison))
-        sources_to_check.append(("df_raw", df_raw))
+        if df_baselines is not None:
+            df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
+            unique_dataset_folds_set = df_baselines[['dataset', 'fold']].drop_duplicates()
+            df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
+            sources_to_check.append(("df_baselines", df_baselines))
+        sources_to_check.append(("df_configs", df_configs))
 
         for source, df_source in sources_to_check:
             config_task_counts = df_source[['framework', 'dataset', 'fold']].value_counts()
@@ -183,49 +183,49 @@ class ZeroshotSimulatorContext:
                                      f'Config Task Counts:\n'
                                      f'{config_task_counts}')
 
-        if df_comparison is not None:
-            df_comparison = filter_datasets(df=df_comparison, datasets=unique_dataset_folds_set)
+        if df_baselines is not None:
+            df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
 
         if folds is not None:
-            tasks = df_raw[['dataset', 'fold']].drop_duplicates()
+            tasks = df_configs[['dataset', 'fold']].drop_duplicates()
             tasks_in_valid_folds = tasks[tasks['fold'].isin(folds)]
             dataset_fold_counts = tasks_in_valid_folds['dataset'].value_counts()
             datasets_with_all_folds = dataset_fold_counts[dataset_fold_counts == len(folds)]
             unique_datasets = sorted(list(datasets_with_all_folds.index))
             unique_datasets_set = set(unique_datasets)
             unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["dataset"].isin(unique_datasets_set)]
-            df_raw = filter_datasets(df=df_raw, datasets=unique_dataset_folds_set)
-            if df_comparison is not None:
-                df_comparison = filter_datasets(df=df_comparison, datasets=unique_dataset_folds_set)
+            df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
+            if df_baselines is not None:
+                df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
 
-        df_raw["task"] = df_raw["tid"].astype(str) + '_' + df_raw["fold"].astype(str)
-        if df_comparison is not None:
-            df_comparison["task"] = df_comparison["tid"].astype(str) + '_' + df_comparison["fold"].astype(str)
+        df_configs["task"] = df_configs["tid"].astype(str) + '_' + df_configs["fold"].astype(str)
+        if df_baselines is not None:
+            df_baselines["task"] = df_baselines["tid"].astype(str) + '_' + df_baselines["fold"].astype(str)
 
-        unique_tasks = sorted(list(df_raw["task"].unique()))
-        unique_datasets = sorted(list(df_raw["dataset"].unique()))
+        unique_tasks = sorted(list(df_configs["task"].unique()))
+        unique_datasets = sorted(list(df_configs["dataset"].unique()))
 
-        if df_comparison is None:
-            df_results_baselines = df_raw.copy(deep=True)
+        if df_baselines is None:
+            df_results_baselines = df_configs.copy(deep=True)
         elif score_against_only_automl:
-            df_results_baselines = df_comparison.copy(deep=True)
+            df_results_baselines = df_baselines.copy(deep=True)
         else:
-            df_results_baselines = pd.concat([df_raw, df_comparison], ignore_index=True)
+            df_results_baselines = pd.concat([df_configs, df_baselines], ignore_index=True)
         rank_scorer_vs_automl = RankScorer(
             df_results_by_dataset=df_results_baselines,
             datasets=unique_tasks,
             pct=pct,
         )
-        df_configs_ranked = df_raw.copy()
+        df_configs_ranked = df_configs.copy()
         df_configs_ranked['rank'] = df_configs_ranked.apply(
             lambda row: rank_scorer_vs_automl.rank(row["task"], row["metric_error"]), axis=1
         )
 
-        task_to_dataset_dict = get_task_to_dataset_dict(df_raw=df_raw)
-        dataset_to_tid_dict = get_dataset_to_tid_dict(df_raw=df_raw)
+        task_to_dataset_dict = get_task_to_dataset_dict(df=df_configs)
+        dataset_to_tid_dict = get_dataset_to_tid_dict(df=df_configs)
         assert len(unique_datasets) == len(dataset_to_tid_dict.keys())
 
-        df_metrics = get_dataset_to_metric_problem_type(df_raw=df_raw)
+        df_metrics = get_dataset_to_metric_problem_type(df=df_configs)
 
         if df_metadata is not None:
             assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
@@ -236,8 +236,8 @@ class ZeroshotSimulatorContext:
             assert len(df_metadata) == len(unique_datasets)
 
         return (
-            df_raw,
-            df_comparison,
+            df_configs,
+            df_baselines,
             df_configs_ranked,
             df_metrics,
             df_metadata,
@@ -262,7 +262,7 @@ class ZeroshotSimulatorContext:
                                  f"{df}")
 
     @classmethod
-    def _validate_df_raw(cls, df_raw: pd.DataFrame):
+    def _validate_df_configs(cls, df_configs: pd.DataFrame):
         required_columns = [
             "dataset",
             "fold",
@@ -274,10 +274,10 @@ class ZeroshotSimulatorContext:
             "time_train_s",
             "time_infer_s",
         ]
-        cls._validate_df(df=df_raw, name="df_raw", required_columns=required_columns)
+        cls._validate_df(df=df_configs, name="df_configs", required_columns=required_columns)
 
     @classmethod
-    def _validate_df_comparison(cls, df_comparison: pd.DataFrame):
+    def _validate_df_baselines(cls, df_baselines: pd.DataFrame):
         required_columns = [
             "dataset",
             "fold",
@@ -288,7 +288,7 @@ class ZeroshotSimulatorContext:
             "time_train_s",
             "time_infer_s",
         ]
-        cls._validate_df(df=df_comparison, name="df_comparison", required_columns=required_columns)
+        cls._validate_df(df=df_baselines, name="df_baselines", required_columns=required_columns)
 
     def print_info(self):
         out = '====== Zeroshot Simulator Context Info ======\n'
@@ -436,10 +436,10 @@ class ZeroshotSimulatorContext:
         self._update_unique_datasets(unique_datasets_subset)
 
         # Remove datasets from internal dataframes
-        self.df_raw = self.df_raw[self.df_raw["dataset"].isin(datasets)]
+        self.df_configs = self.df_configs[self.df_configs["dataset"].isin(datasets)]
         self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[self.df_results_by_dataset_vs_automl["dataset"].isin(datasets)]
-        if self.df_results_by_dataset_automl is not None:
-            self.df_results_by_dataset_automl = self.df_results_by_dataset_automl[self.df_results_by_dataset_automl["dataset"].isin(datasets)]
+        if self.df_baselines is not None:
+            self.df_baselines = self.df_baselines[self.df_baselines["dataset"].isin(datasets)]
         if self.df_metadata is not None:
             self.df_metadata = self.df_metadata[self.df_metadata["dataset"].isin(datasets)]
         self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if d in datasets}

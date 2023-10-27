@@ -61,8 +61,8 @@ def load_context_artificial(**kwargs):
     } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
     )
     zsc = ZeroshotSimulatorContext(
-        df_raw=df_raw,
-        df_results_by_dataset_automl=df_results_by_dataset_automl,
+        df_configs=df_raw,
+        df_baselines=df_results_by_dataset_automl,
         folds=list(range(n_folds)),
         df_metadata=df_metadata,
     )
