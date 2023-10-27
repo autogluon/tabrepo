@@ -12,7 +12,7 @@ def sort_datasets_linkage(zsc: ZeroshotSimulatorContext, datasets: List[float] =
     :return: datasets sorted by appearance order in hierarchical clustering linkage.
     Essentially, most typical datasets appear first and most outlier ones appear last.
     """
-    df_pivot = zsc.df_results_by_dataset_vs_automl.pivot_table(
+    df_pivot = zsc.df_configs_ranked.pivot_table(
         index="framework", columns="tid", values="metric_error"
     )
     df_rank = df_pivot.rank() / len(df_pivot)  # dataframe of ranks where columns are datasets and rows are models

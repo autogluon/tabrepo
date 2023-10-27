@@ -164,7 +164,7 @@ class EvaluationRepository(SaveLoadMixin):
         :return: list of metrics for each configuration
         """
         task = self.task_name(dataset=dataset, fold=fold)
-        df = self._zeroshot_context.df_results_by_dataset_vs_automl
+        df = self._zeroshot_context.df_configs_ranked
         mask = (df["task"] == task) & (df["framework"].isin(configs))
         output_cols = ["framework", "metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank",]
         if check_all_found:

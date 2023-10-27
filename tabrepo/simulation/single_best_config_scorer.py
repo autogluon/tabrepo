@@ -42,7 +42,7 @@ class SingleBestConfigScorer(ConfigurationListScorer):
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
         return cls(
-            df_results=zeroshot_simulator_context.df_results_by_dataset_vs_automl,
+            df_results=zeroshot_simulator_context.df_configs_ranked,
             **kwargs,
         )
 

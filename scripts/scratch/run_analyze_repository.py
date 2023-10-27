@@ -52,7 +52,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
             pred_val_m = pred_val[i]
             pred_test_m = pred_test[i]
 
-            row = zsc.df_results_by_dataset_vs_automl[zsc.df_results_by_dataset_vs_automl['task'] == task]
+            row = zsc.df_configs_ranked[zsc.df_configs_ranked['task'] == task]
             row = row[row['framework'] == m]
 
             test_error_row = row['metric_error'].iloc[0]

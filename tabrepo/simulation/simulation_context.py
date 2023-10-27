@@ -47,7 +47,7 @@ class ZeroshotSimulatorContext:
         #  modular functions
         self.df_configs, \
         self.df_baselines, \
-        self.df_results_by_dataset_vs_automl, \
+        self.df_configs_ranked, \
         self.df_metrics, \
         self.df_metadata, \
         self.task_to_dataset_dict, \
@@ -64,7 +64,7 @@ class ZeroshotSimulatorContext:
         )
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
-        self.dataset_to_problem_type_dict = self.df_results_by_dataset_vs_automl[['dataset', 'problem_type']].drop_duplicates().set_index(
+        self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
             'dataset').squeeze().to_dict()
 
     def _compute_dataset_to_tasks(self) -> dict:
@@ -94,7 +94,7 @@ class ZeroshotSimulatorContext:
         self.folds = folds
         self.df_configs, \
         self.df_baselines, \
-        self.df_results_by_dataset_vs_automl, \
+        self.df_configs_ranked, \
         self.df_metrics, \
         self.df_metadata, \
         self.task_to_dataset_dict, \
@@ -111,7 +111,7 @@ class ZeroshotSimulatorContext:
         )
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
-        self.dataset_to_problem_type_dict = self.df_results_by_dataset_vs_automl[['dataset', 'problem_type']].drop_duplicates().set_index(
+        self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
             'dataset').squeeze().to_dict()
 
     @classmethod
@@ -367,7 +367,7 @@ class ZeroshotSimulatorContext:
         -------
         A list of config names satisfying the above conditions.
         """
-        df = self.df_results_by_dataset_vs_automl
+        df = self.df_configs_ranked
         if datasets is not None:
             datasets_all = set(self.get_datasets())
             datasets_invalid = set(datasets).difference(datasets_all)
@@ -438,7 +438,7 @@ class ZeroshotSimulatorContext:
 
         # Remove datasets from internal dataframes
         self.df_configs = self.df_configs[self.df_configs["dataset"].isin(datasets)]
-        self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[self.df_results_by_dataset_vs_automl["dataset"].isin(datasets)]
+        self.df_configs_ranked = self.df_configs_ranked[self.df_configs_ranked["dataset"].isin(datasets)]
         if self.df_baselines is not None:
             self.df_baselines = self.df_baselines[self.df_baselines["dataset"].isin(datasets)]
         if self.df_metadata is not None:
@@ -456,8 +456,8 @@ class ZeroshotSimulatorContext:
         """
         Only keep the provided configs, drop all others
         """
-        self.df_results_by_dataset_vs_automl = self.df_results_by_dataset_vs_automl[
-            self.df_results_by_dataset_vs_automl['framework'].isin(configs)
+        self.df_configs_ranked = self.df_configs_ranked[
+            self.df_configs_ranked['framework'].isin(configs)
         ]
 
     def subset_folds(self, folds: List[int]):
