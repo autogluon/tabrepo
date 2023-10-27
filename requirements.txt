@@ -1,3 +1,0 @@
-autogluon
-ray
-syne-tune[extra]
