@@ -1,12 +1,13 @@
 import copy
 import os
 import tempfile
+from typing import List
 
 import numpy as np
 import pytest
 
-from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
-from tabrepo.predictions.tabular_predictions import TabularPredictionsDict, TabularModelPredictions
+from tabrepo.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
+from tabrepo.predictions.tabular_predictions import TabularPredictionsDict
 from tabrepo.utils.test_utils import generate_artificial_dict, generate_dummy
 
 num_models = 13
@@ -186,7 +187,7 @@ def test_predictions_after_restrict():
     ]
 
     with tempfile.TemporaryDirectory() as tmpdirname:
-        preds_list = [c.from_dict(pred_dict, output_dir=tmpdirname) for c in preds_cls_list]
+        preds_list: List[TabularModelPredictions] = [c.from_dict(pred_dict, output_dir=tmpdirname) for c in preds_cls_list]
 
         cur_datasets = copy.deepcopy(preds_list[0].datasets)
         cur_models = copy.deepcopy(preds_list[0].models)

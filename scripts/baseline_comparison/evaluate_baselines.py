@@ -52,11 +52,15 @@ class Experiment:
         )
 
 
-def make_scorers(repo: EvaluationRepository):
-    df_results_baselines = pd.concat([
-        repo._zeroshot_context.df_results_by_dataset_vs_automl,
-        repo._zeroshot_context.df_results_by_dataset_automl,
-    ], ignore_index=True)
+def make_scorers(repo: EvaluationRepository, only_baselines=False):
+    if only_baselines:
+        df_results_baselines = repo._zeroshot_context.df_baselines
+    else:
+        df_results_baselines = pd.concat([
+            repo._zeroshot_context.df_results_by_dataset_vs_automl,
+            repo._zeroshot_context.df_baselines,
+        ], ignore_index=True)
+
     unique_dataset_folds = [
         f"{repo.dataset_to_tid(dataset)}_{fold}"
         for dataset in repo.datasets()

@@ -54,7 +54,7 @@ def load_zeroshot_input(path_pred_proba: str,
     return zeroshot_pred_proba, zeroshot_gt, zsc
 
 
-def prune_zeroshot_gt(dataset_to_tid_dict, zeroshot_pred_proba, zeroshot_gt: GroundTruth, verbose: bool = True) -> GroundTruth:
+def prune_zeroshot_gt(dataset_to_tid_dict, zeroshot_pred_proba: TabularModelPredictions, zeroshot_gt: GroundTruth, verbose: bool = True) -> GroundTruth:
 
     num_datasets_start = len(zeroshot_gt.datasets)
     dataset_pred = set(dataset for dataset in zeroshot_pred_proba.datasets if dataset in dataset_to_tid_dict)

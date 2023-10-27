@@ -25,11 +25,12 @@ def compute_error_ray(config_scorer, configs: List[str], task: str) -> (float, d
     error, ensemble_weights = config_scorer.evaluate_task(task=task, models=configs)
     return error, ensemble_weights
 
+
 class EnsembleScorer:
     def __init__(self,
                  zeroshot_pp: TabularModelPredictions,
-                 tid_to_dataset_dict: dict,
                  zeroshot_gt: GroundTruth,
+                 tid_to_dataset_dict: dict,
                  task_metrics_metadata,
                  ensemble_method: callable = EnsembleSelection,
                  ensemble_method_kwargs: dict = None,
@@ -131,8 +132,8 @@ class EnsembleScorer:
 # FIXME: Add temperature scaling!!
 class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def __init__(self,
-                 datasets: List[str],
-                 zeroshot_gt: Dict[str, Dict[int, Dict[str, Any]]],
+                 tasks: List[str],
+                 zeroshot_gt: GroundTruth,
                  zeroshot_pred_proba: TabularModelPredictions,
                  ranker: RankScorer,
                  tid_to_dataset_name_dict: Dict[int, str],
@@ -146,7 +147,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         """
         A scorer object to evaluate configs via simulating ensemble selection.
 
-        :param datasets: The list of datasets to consider for scoring. TODO: Convert to tasks?
+        :param tasks: The list of tasks to consider for scoring.
         :param zeroshot_gt: The ground truth information and task metadata for all tasks.
         :param zeroshot_pred_proba: The TabularModelPredictions object that contains the predictions of all configs on all tasks.
         :param ranker: The ranking object used to compute scores on each task.
@@ -165,7 +166,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             If None: Do not use proxy metrics, equivalent to {}.
             If 'roc_auc_to_log_loss': set to {'roc_auc': 'log_loss'}, making 'log_loss' a proxy to 'roc_auc'
         """
-        super(EnsembleSelectionConfigScorer, self).__init__(datasets=datasets)
+        super(EnsembleSelectionConfigScorer, self).__init__(tasks=tasks)
         if zeroshot_gt is None:
             raise ValueError(f'zeroshot_gt cannot be None!')
         if zeroshot_pred_proba is None:
@@ -203,8 +204,8 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
-        if 'datasets' not in kwargs:
-            kwargs['datasets'] = zeroshot_simulator_context.get_tasks()
+        if 'tasks' not in kwargs:
+            kwargs['tasks'] = zeroshot_simulator_context.get_tasks()
 
         dataset_to_tid_dict = zeroshot_simulator_context.dataset_to_tid_dict
         task_metrics_metadata = zeroshot_simulator_context.df_metrics
@@ -239,7 +240,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             return self.compute_errors_ray(configs=configs)
         errors = dict()
         ensemble_weights = dict()
-        for task in self.datasets:
+        for task in self.tasks:
             errors[task], ensemble_weights[task] = self.evaluate_task(task=task, models=configs)
         return errors, ensemble_weights
 
@@ -250,17 +251,17 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             ray.init()
         config_scorer = ray.put(self)
         results = []
-        for i in range(len(self.datasets)):
+        for i in range(len(self.tasks)):
             results.append(compute_error_ray.remote(
                 config_scorer,
                 configs,
-                self.datasets[i],
+                self.tasks[i],
             ))
         results_list = ray.get(results)
         errors_list = [r[0] for r in results_list]
         ensemble_weights_list = [r[1] for r in results_list]
-        errors = {self.datasets[i]: errors_list[i] for i in range(len(self.datasets))}
-        ensemble_weights = {self.datasets[i]: ensemble_weights_list[i] for i in range(len(self.datasets))}
+        errors = {self.tasks[i]: errors_list[i] for i in range(len(self.tasks))}
+        ensemble_weights = {self.tasks[i]: ensemble_weights_list[i] for i in range(len(self.tasks))}
         return errors, ensemble_weights
 
     def compute_ranks(self, errors: Dict[str, float]) -> Dict[str, float]:
@@ -284,9 +285,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         errors, ensemble_weights = self.compute_errors(configs=configs)
         return self.compute_ranks(errors=errors)
 
-    def subset(self, datasets):
+    def subset(self, tasks):
         return self.__class__(
-            datasets=datasets,
+            datasets=tasks,
             zeroshot_gt=self.zeroshot_gt,
             zeroshot_pred_proba=self.zeroshot_pred_proba,
             ranker=self.ranker,

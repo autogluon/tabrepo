@@ -417,7 +417,7 @@ class ZeroshotSimulatorContext:
         }
 
         path_pred_proba = Path(path_pred_proba)
-        zeroshot_pred_proba = class_map[prediction_format].from_data_dir(data_dir=path_pred_proba, datasets=datasets)
+        zeroshot_pred_proba: TabularModelPredictions = class_map[prediction_format].from_data_dir(data_dir=path_pred_proba, datasets=datasets)
         all_datasets = self.get_datasets()
         valid_datasets = [d for d in zeroshot_pred_proba.datasets if d in all_datasets]
         zeroshot_pred_proba.restrict_datasets(datasets=valid_datasets)

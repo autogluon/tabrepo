@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory
+from tabrepo.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory
 from tabrepo.simulation.dense_utils import get_folds_dense, get_models_dense, is_dense_models, is_dense_folds, \
     force_to_dense, print_summary, list_folds_available, list_models_available, is_empty
 from tabrepo.utils.test_utils import generate_artificial_dict
@@ -19,7 +19,7 @@ models = [f"{i}" for i in range(num_models)]
 pred_dict = generate_artificial_dict(num_folds, models, dataset_shapes)
 
 
-def _make_empty_and_assert(pred_proba):
+def _make_empty_and_assert(pred_proba: TabularModelPredictions):
     pred_proba_copy = copy.deepcopy(pred_proba)
     pred_proba_copy.restrict_folds([])
     assert pred_proba_copy.datasets == []
@@ -62,7 +62,7 @@ def test_sparse_to_dense(cls):
     pred_dict['d2'][1]['pred_proba_dict_val'].pop('5')
     pred_dict['d3'].pop(2)
     with tempfile.TemporaryDirectory() as tmpdirname:
-        pred_proba = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
+        pred_proba: TabularModelPredictions = cls.from_dict(pred_dict=pred_dict, output_dir=tmpdirname)
 
         init_folds = pred_proba.folds
         init_folds_dense = get_folds_dense(pred_proba)

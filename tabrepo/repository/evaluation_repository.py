@@ -281,7 +281,7 @@ class EvaluationRepository(SaveLoadMixin):
             for fold in folds
         ]
         scorer = self._construct_ensemble_selection_config_scorer(
-            datasets=tasks,
+            tasks=tasks,
             ensemble_size=ensemble_size,
             backend=backend,
         )

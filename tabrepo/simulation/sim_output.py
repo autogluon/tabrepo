@@ -60,7 +60,7 @@ class SimulationOutputGenerator:
         else:
             config_scorer_kwargs = copy.deepcopy(config_scorer_kwargs)
 
-        from tabrepo.repository import EvaluationRepositoryZeroshot
+        from tabrepo.repository.evaluation_repository_zeroshot import EvaluationRepositoryZeroshot
         self.repo: EvaluationRepositoryZeroshot = repo
 
         self.config_scorer_type = config_scorer_type

@@ -4,11 +4,8 @@ from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 
 
 class ConfigurationListScorer:
-    # todo we could probably factor more common arguments from Single/Ensemble. For now, we only
-    #  factor out datasets which is needed by downstream classes.
-    def __init__(self, datasets: List[str]):
-        # TODO: Rename datasets -> tasks
-        self.datasets: List[str] = datasets
+    def __init__(self, tasks: List[str]):
+        self.tasks: List[str] = tasks
 
     @classmethod
     def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
@@ -24,5 +21,5 @@ class ConfigurationListScorer:
         """
         raise NotImplementedError()
 
-    def subset(self, datasets: List[str]) -> "ConfigurationListScorer":
+    def subset(self, tasks: List[str]) -> "ConfigurationListScorer":
         raise NotImplementedError()
