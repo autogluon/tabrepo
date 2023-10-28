@@ -72,13 +72,13 @@ class EvaluationRepository(SaveLoadMixin):
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
         """
-        if folds:
+        if folds is not None:
             self._zeroshot_context.subset_folds(folds=folds)
-        if configs:
+        if configs is not None:
             self._zeroshot_context.subset_configs(configs=configs)
-        if datasets:
+        if datasets is not None:
             self._zeroshot_context.subset_datasets(datasets=datasets)
-        if problem_types:
+        if problem_types is not None:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         self.force_to_dense(verbose=verbose)
         return self
