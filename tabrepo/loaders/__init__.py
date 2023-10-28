@@ -3,7 +3,7 @@ import os
 from typing import Dict, List, Tuple
 
 from ._configs import load_configs
-from ._results import load_results, combine_results_with_score_val
+from ._results import load_results
 from ._download import download_zs_metadata
 
 

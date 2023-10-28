@@ -178,7 +178,7 @@ def sample_and_pick_best(
     """
     if n_output is None:
         n_output = default_ensemble_size
-    df_score_val = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    df_score_val = repo._zeroshot_context.df_configs_ranked
 
     # gets rows with desired task and framework
     mask = (df_score_val['tid'] == tid) & (df_score_val.fold == fold)
@@ -262,7 +262,7 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
     """
     :return: evaluation of AutoGluon medium/high/best quality.
     """
-    automl_df = copy.deepcopy(repo._zeroshot_context.df_results_by_dataset_automl)
+    automl_df = copy.deepcopy(repo._zeroshot_context.df_baselines)
 
     rows_automl = []
     for dataset in tqdm(dataset_names):
@@ -328,7 +328,7 @@ def zeroshot_name(
 def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, quantile: float = 0.95):
     # Filter configurations which respects the constrain less than `quantile` fraction of the time
     assert 0<= quantile <= 1
-    dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    dd = repo._zeroshot_context.df_configs_ranked
     dd = dd[dd.tid != test_tid]
     df_configs_runtime = dd.pivot_table(
         index="framework", columns="tid", values="time_train_s"
@@ -449,7 +449,7 @@ def zeroshot_results(
             folds=range(n_eval_folds),
         )
 
-    dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    dd = repo._zeroshot_context.df_configs_ranked
     # df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()
     # TODO use normalized scores
     df_rank = dd.pivot_table(index="framework", columns="task", values="metric_error").rank(ascending=False)

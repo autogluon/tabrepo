@@ -10,7 +10,7 @@ def load_context(version: str = "D244_F3_C1416_200", filter_very_large_dataset: 
         repo = load(version=version)
         repo = repo.subset(configs=[m for m in repo.configs() if not "NeuralNetFastAI" in m])
         return repo.force_to_dense(verbose=True)
-    repo = cache_function(_load_fun, cache_name=f"repo_{version}", ignore_cache=ignore_cache)
+    repo: EvaluationRepository = cache_function(_load_fun, cache_name=f"repo_{version}", ignore_cache=ignore_cache)
 
 
     if filter_very_large_dataset:

@@ -219,7 +219,7 @@ class ZeroshotConfigGeneratorCV:
         self.config_generator_kwargs = config_generator_kwargs
         self.backend = backend
         self.config_scorer = config_scorer
-        self.unique_tasks = np.array(config_scorer.datasets)
+        self.unique_tasks = np.array(config_scorer.tasks)
         self.task_to_dataset_dict = zeroshot_simulator_context.task_to_dataset_dict
         self.unique_datasets = set()
         self.dataset_to_task_map = dict()
@@ -404,8 +404,8 @@ class ZeroshotConfigGeneratorCV:
                  return_all_metadata=False) -> List[Dict[str, Any]]:
         if configs is None:
             configs = self.configs
-        config_scorer_train = self.config_scorer.subset(datasets=train_tasks)
-        config_scorer_test = self.config_scorer.subset(datasets=test_tasks)
+        config_scorer_train = self.config_scorer.subset(tasks=train_tasks)
+        config_scorer_test = self.config_scorer.subset(tasks=test_tasks)
 
         zs_config_generator = ZeroshotConfigGenerator(config_scorer=config_scorer_train,
                                                       configs=configs,

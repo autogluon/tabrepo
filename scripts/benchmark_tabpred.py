@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tabrepo.simulation.convert_memmap import convert_memmap_pred_from_pickle
-from tabrepo.predictions import TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
+from tabrepo.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
 from tabrepo.utils import catchtime
 
 filepath = Path(__file__)
@@ -9,7 +9,7 @@ filepath = Path(__file__)
 
 def compute_all_with_load(data_dir, predictions_class, name: str, models: list, repeats: int = 1):
     with catchtime(f"Load time with   {name}"):
-        preds = predictions_class.from_data_dir(data_dir=data_dir)
+        preds: TabularModelPredictions = predictions_class.from_data_dir(data_dir=data_dir)
     with catchtime(f"Compute sum with repeats={repeats} : {name}"):
         for _ in range(repeats):
             res = compute_all(preds=preds, models=models)
@@ -17,13 +17,13 @@ def compute_all_with_load(data_dir, predictions_class, name: str, models: list, 
     return res
 
 
-def compute_all(preds, models):
+def compute_all(preds: TabularModelPredictions, models):
     datasets = preds.datasets
     res = 0
     for dataset in datasets:
         for fold in preds.folds:
-            pred_val = preds.predict_val(dataset, fold, models)
-            pred_test = preds.predict_test(dataset, fold, models)
+            pred_val = preds.predict_val(dataset=dataset, fold=fold, models=models)
+            pred_test = preds.predict_test(dataset=dataset, fold=fold, models=models)
             res += pred_val.mean() + pred_test.mean()
 
     return res

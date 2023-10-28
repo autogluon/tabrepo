@@ -70,49 +70,50 @@ def get_rank(error: float,
 
 
 class RankScorer:
-    def __init__(self,
-                 df_results_by_dataset: pd.DataFrame,
-                 datasets: List[str],
-                 metric_error_col: str = 'metric_error',
-                 dataset_col: str = 'task',
-                 framework_col: str = 'framework',
-                 ties_win: bool = False,
-                 pct: bool = False,
-                 include_partial: bool = True,
-                 ):
+    def __init__(
+        self,
+        df_results: pd.DataFrame,
+        tasks: List[str],
+        metric_error_col: str = 'metric_error',
+        task_col: str = 'task',
+        framework_col: str = 'framework',
+        ties_win: bool = False,
+        pct: bool = False,
+        include_partial: bool = True,
+    ):
         """
-        :param df_results_by_dataset: Dataframe of method performance containing columns `metric_error_col`,
-        `dataset_col` and `framework_col`.
-        :param datasets: datasets to consider
+        :param df_results: Dataframe of method performance containing columns `metric_error_col`,
+        `task_col` and `framework_col`.
+        :param tasks: datasets to consider
         :param ties_win: whether ties count as a win (True) or a tie (False). Set False to ensure symmetric equivalence.
         :param pct: whether to display the returned rankings in percentile form.
         """
-        assert all(col in df_results_by_dataset for col in [metric_error_col, dataset_col, framework_col])
-        all_datasets = set(df_results_by_dataset[dataset_col].unique())
-        for dataset in datasets:
-            assert dataset in all_datasets, f"{dataset_col} {dataset} not present in passed evaluations"
+        assert all(col in df_results for col in [metric_error_col, task_col, framework_col])
+        all_datasets = set(df_results[task_col].unique())
+        for task in tasks:
+            assert task in all_datasets, f"{task_col} {task} not present in passed evaluations"
         self.ties_win = ties_win
         self.pct = pct
         self.include_partial = include_partial
-        df_pivot = df_results_by_dataset.pivot_table(values=metric_error_col, index=dataset_col, columns=framework_col)
+        df_pivot = df_results.pivot_table(values=metric_error_col, index=task_col, columns=framework_col)
         df_pivot.values.sort(axis=1)  # NOTE: The framework columns are now no longer correct. Do not use them.
 
         # tolist to drop the framework col name, since it is no longer ordered.
-        self.error_dict = {dataset: df_pivot.loc[dataset].dropna().tolist() for dataset in datasets}
+        self.error_dict = {dataset: df_pivot.loc[dataset].dropna().tolist() for dataset in tasks}
 
-    def rank(self, dataset: str, error: float) -> float:
+    def rank(self, task: str, error: float) -> float:
         """
         Get the rank of a result on a dataset given an error.
         """
         if self.ties_win and not self.include_partial:
-            rank = np.searchsorted(self.error_dict[dataset], error)
+            rank = np.searchsorted(self.error_dict[task], error)
             if self.pct:
-                return rank / len(self.error_dict[dataset])
+                return rank / len(self.error_dict[task])
             else:
                 return rank
         else:
             return get_rank(error=error,
-                            error_lst=self.error_dict[dataset],
+                            error_lst=self.error_dict[task],
                             ties_win=self.ties_win,
                             pct=self.pct,
                             include_partial=self.include_partial)

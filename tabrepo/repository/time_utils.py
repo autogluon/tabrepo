@@ -26,7 +26,7 @@ def get_runtime(
     task = repo.task_name(dataset=dataset, fold=fold)
     if not config_names:
         config_names = repo.configs()
-    df_metrics = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    df_metrics = repo._zeroshot_context.df_configs_ranked
     df_configs = pd.DataFrame(config_names, columns=["framework"]).merge(df_metrics[df_metrics[task_col] == task])
     runtime_configs = dict(df_configs.set_index('framework')[runtime_col])
     missing_configurations = set(config_names).difference(runtime_configs.keys())
@@ -51,7 +51,7 @@ def sort_by_runtime(
     config_names: List[str],
     ascending: bool = True,
 ) -> List[str]:
-    df_metrics = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    df_metrics = repo._zeroshot_context.df_configs_ranked
     config_sorted = df_metrics.pivot_table(
         index="framework", columns="tid", values="time_train_s"
     ).median(axis=1).sort_values(ascending=ascending).index.tolist()

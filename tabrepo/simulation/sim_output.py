@@ -60,7 +60,7 @@ class SimulationOutputGenerator:
         else:
             config_scorer_kwargs = copy.deepcopy(config_scorer_kwargs)
 
-        from tabrepo.repository import EvaluationRepositoryZeroshot
+        from tabrepo.repository.evaluation_repository_zeroshot import EvaluationRepositoryZeroshot
         self.repo: EvaluationRepositoryZeroshot = repo
 
         self.config_scorer_type = config_scorer_type
@@ -97,7 +97,7 @@ class SimulationOutputGenerator:
 
         zsc = repo._zeroshot_context
 
-        df_raw_subset = zsc.df_raw[zsc.df_raw['tid_new'].isin(datasets)]
+        df_raw_subset = zsc.df_configs[zsc.df_configs['tid_new'].isin(datasets)]
         df_raw_subset = df_raw_subset[df_raw_subset['model'].isin(portfolio)]
         df_total_train_and_infer_times = df_raw_subset[['tid_new', 'time_train_s', 'time_infer_s']].groupby('tid_new').sum()
         df_raw_subset = df_raw_subset.drop_duplicates(subset=['tid_new'])

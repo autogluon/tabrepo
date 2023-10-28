@@ -35,42 +35,34 @@ def load_context_artificial(**kwargs):
     configs_full = {model: {} for model in models}
 
     df_metadata = pd.DataFrame([{
-        'dataset': dataset_name,
+        'dataset': dataset,
         'task_type': "TaskType.SUPERVISED_CLASSIFICATION",
     }
-        for tid, dataset_name in zip(tids, datasets)
+        for tid, dataset in zip(tids, datasets)
     ])
-    df_results_by_dataset = pd.DataFrame({
-        "framework": model,
-        "problem_type": "regression",
-        "fold": fold,
-        "tid": tid,
-        **make_random_metric(model)
-    } for fold in range(n_folds) for model in models for (tid, dataset_name) in zip(tids, datasets)
-    )
 
     df_results_by_dataset_automl = pd.DataFrame({
-        "framework": baseline,
-        "problem_type": "regression",
+        "dataset": dataset,
         "fold": fold,
-        "tid": tid,
-        **make_random_metric(baseline)
-    } for fold in range(n_folds) for baseline in baselines for (tid, dataset_name) in zip(tids, datasets)
-    )
-    df_raw = pd.DataFrame({
-        "dataset": dataset_name,
         "framework": baseline,
         "problem_type": "regression",
         "metric": "root_mean_squared_error",
-        "fold": fold,
-        "tid": tid,
         **make_random_metric(baseline)
-    } for fold in range(n_folds) for baseline in baselines for (tid, dataset_name) in zip(tids, datasets)
+    } for fold in range(n_folds) for baseline in baselines for dataset in datasets
+    )
+    df_raw = pd.DataFrame({
+        "dataset": dataset,
+        "tid": tid,
+        "fold": fold,
+        "framework": model,
+        "problem_type": "regression",
+        "metric": "root_mean_squared_error",
+        **make_random_metric(model)
+    } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
     )
     zsc = ZeroshotSimulatorContext(
-        df_results_by_dataset=df_results_by_dataset,
-        df_results_by_dataset_automl=df_results_by_dataset_automl,
-        df_raw=df_raw,
+        df_configs=df_raw,
+        df_baselines=df_results_by_dataset_automl,
         folds=list(range(n_folds)),
         df_metadata=df_metadata,
     )
@@ -105,7 +97,7 @@ def load_context_artificial(**kwargs):
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
 
-def load_repo_artificial():
+def load_repo_artificial() -> EvaluationRepository:
     zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
     return EvaluationRepository(
         zeroshot_context=zsc,

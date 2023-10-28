@@ -52,17 +52,21 @@ class Experiment:
         )
 
 
-def make_scorers(repo: EvaluationRepository):
-    df_results_baselines = pd.concat([
-        repo._zeroshot_context.df_results_by_dataset_vs_automl,
-        repo._zeroshot_context.df_results_by_dataset_automl,
-    ], ignore_index=True)
+def make_scorers(repo: EvaluationRepository, only_baselines=False):
+    if only_baselines:
+        df_results_baselines = repo._zeroshot_context.df_baselines
+    else:
+        df_results_baselines = pd.concat([
+            repo._zeroshot_context.df_configs_ranked,
+            repo._zeroshot_context.df_baselines,
+        ], ignore_index=True)
+
     unique_dataset_folds = [
         f"{repo.dataset_to_tid(dataset)}_{fold}"
         for dataset in repo.datasets()
         for fold in range(repo.n_folds())
     ]
-    rank_scorer = RankScorer(df_results_baselines, datasets=unique_dataset_folds, pct=False)
+    rank_scorer = RankScorer(df_results_baselines, tasks=unique_dataset_folds, pct=False)
     normalized_scorer = NormalizedScorer(df_results_baselines, datasets=unique_dataset_folds, baseline=None)
     return rank_scorer, normalized_scorer
 
@@ -70,7 +74,7 @@ def make_scorers(repo: EvaluationRepository):
 def impute_missing(repo: EvaluationRepository):
     # impute random forest data missing folds by picking data from another fold
     # TODO remove once we have complete dataset
-    df = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    df = repo._zeroshot_context.df_configs_ranked
     df["framework_type"] = df.apply(lambda row: row["framework"].split("_")[0], axis=1)
 
     missing_tasks = [(3583, 0), (58, 9), (3483, 0)]
@@ -80,7 +84,7 @@ def impute_missing(repo: EvaluationRepository):
         df_impute['dataset'] = f"{tid}_{fold}"
         df_impute['fold'] = fold
         df = pd.concat([df, df_impute], ignore_index=True)
-    repo._zeroshot_context.df_results_by_dataset_vs_automl = df
+    repo._zeroshot_context.df_configs_ranked = df
 
 
 def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname: str = None, show: bool = False):
@@ -109,17 +113,17 @@ def make_rename_dict(suffix: str) -> Dict[str, str]:
     return rename_dict
 
 
-def time_cutoff_baseline(df, rel_tol = 0.1):
+def time_cutoff_baseline(df: pd.DataFrame, rel_tol: float = 0.1) -> pd.DataFrame:
     df = df.copy()
     # TODO Portfolio excess are due to just using one fold to simulate runtimes, fix it
     mask = (df["time fit (s)"] > df["fit budget"] * (1 + rel_tol)) & (~df.method.str.contains("Portfolio"))
 
     # gets performance of Extra-trees baseline on all tasks
-    dd = repo._zeroshot_context.df_results_by_dataset_vs_automl
+    dd = repo._zeroshot_context.df_configs_ranked
     dd = dd[dd.framework == "ExtraTrees_c1_BAG_L1"]
     dd["tid"] = dd.dataset.apply(lambda s: int(s.split("_")[0]))
     dd["fold"] = dd.dataset.apply(lambda s: int(s.split("_")[1]))
-    dd["rank"] = dd.apply(lambda row: rank_scorer.rank(dataset=row["dataset"], error=row["metric_error"]), axis=1)
+    dd["rank"] = dd.apply(lambda row: rank_scorer.rank(task=row["dataset"], error=row["metric_error"]), axis=1)
     dd["normalized-score"] = dd.apply(
         lambda row: normalized_scorer.rank(dataset=row["dataset"], error=row["metric_error"]), axis=1)
     df_baseline = dd[["tid", "fold", "rank", "normalized-score"]]

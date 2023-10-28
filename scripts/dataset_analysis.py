@@ -107,7 +107,7 @@ generate_dataset_info_latex(repo=repo)
 
 zsc = repo._zeroshot_context
 
-df = zsc.df_results_by_dataset_vs_automl.copy()
+df = zsc.df_configs_ranked.copy()
 # # remove tasks with some lightGBM models missing, todo fix
 # missing_tids = [359932, 359944, 359933, 359946]
 # df = df[~df.tid.isin(missing_tids)]
@@ -150,7 +150,7 @@ sns.heatmap(
 ax.set_title("Model rank correlation", fontdict={'size': title_size})
 
 # runtime figure
-df = zsc.df_results_by_dataset_vs_automl
+df = zsc.df_configs_ranked
 ax = axes[2]
 df['framework_type'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
 for framework in df['framework_type'].unique():

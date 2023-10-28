@@ -255,11 +255,13 @@ datasets = [
 folds = [0, 1, 2]
 local_prefix = "2023_08_21"
 date = "2023_08_21"
+metadata_join_column = "tid"
 kwargs = dict(
     local_prefix=local_prefix,
     s3_prefix=s3_prefix,
     folds=folds,
     date=date,
+    metadata_join_column=metadata_join_column,
 )
 
 

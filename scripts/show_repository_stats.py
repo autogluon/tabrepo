@@ -19,7 +19,7 @@ from scripts.baseline_comparison.baselines import framework_types
 
 repo = load_context()
 
-automl_frameworks = repo._zeroshot_context.df_results_by_dataset_automl.framework.unique().tolist()
+automl_frameworks = repo._zeroshot_context.df_baselines.framework.unique().tolist()
 
 automl_frameworks = set(x.split("_")[0] for x in automl_frameworks)
 
@@ -31,7 +31,7 @@ n_automl = len(automl_frameworks)
 
 n_cpus = 8
 
-realnumhourstabrepo = int(repo._zeroshot_context.df_results_by_dataset_vs_automl['time_train_s'].sum() / 3600)
+realnumhourstabrepo = int(repo._zeroshot_context.df_configs_ranked['time_train_s'].sum() / 3600)
 realnumcpuhourstabrepo = realnumhourstabrepo * n_cpus
 
 

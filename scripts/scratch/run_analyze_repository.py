@@ -35,8 +35,8 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
               f'\tproblem_type={problem_type} | metric_name={metric_name}\n'
               f'\ttrain_rows={len(y_val)} | test_rows={len(y_test)}')
 
-        pred_test = repo.predict_test(dataset=dataset, fold=fold, configs=models)
-        pred_val = repo.predict_val(dataset=dataset, fold=fold, configs=models)
+        pred_test = repo.predict_test_multi(dataset=dataset, fold=fold, configs=models)
+        pred_val = repo.predict_val_multi(dataset=dataset, fold=fold, configs=models)
 
         if problem_type == 'binary':
             # Force binary prediction probabilities to 1 dimensional prediction probabilities of the positive class
@@ -52,7 +52,7 @@ def analyze(repo: EvaluationRepositoryZeroshot, models: List[str] | None = None)
             pred_val_m = pred_val[i]
             pred_test_m = pred_test[i]
 
-            row = zsc.df_results_by_dataset_vs_automl[zsc.df_results_by_dataset_vs_automl['task'] == task]
+            row = zsc.df_configs_ranked[zsc.df_configs_ranked['task'] == task]
             row = row[row['framework'] == m]
 
             test_error_row = row['metric_error'].iloc[0]
