@@ -12,7 +12,6 @@ from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
 from tabrepo.predictions.tabular_predictions import TabularModelPredictions
 from tabrepo.utils.cache import SaveLoadMixin
-from tabrepo.utils import catchtime
 from tabrepo import repository
 
 
@@ -340,27 +339,3 @@ def load(version: str = None, prediction_format: str = "memmap") -> EvaluationRe
     from tabrepo.contexts import get_subcontext
     repo = get_subcontext(version).load_from_parent(load_predictions=True, prediction_format=prediction_format)
     return repo
-
-
-if __name__ == '__main__':
-    from tabrepo.contexts.context_artificial import load_repo_artificial
-
-    with catchtime("loading repo and evaluating one ensemble config"):
-        dataset = "abalone"
-        config = "NeuralNetFastAI_r1"
-        # repo = EvaluationRepository.load(version="2022_10_13")
-
-        repo = load_repo_artificial()
-        tid = repo.dataset_to_tid(dataset=dataset)
-        print(repo.datasets()[:3])  # ['abalone', 'ada', 'adult']
-        print(repo.tids()[:3])  # [2073, 3945, 7593]
-
-        print(tid)  # 360945
-        print(repo.configs(datasets=[dataset])[:3])  # ['LightGBM_r181', 'CatBoost_r81', 'ExtraTrees_r33']
-        print(repo.eval_metrics(dataset=dataset, configs=[config], fold=2))  # {'time_train_s': 0.4008138179779053, 'metric_error': 25825.49788, ...
-        print(repo.predict_val(dataset=dataset, config=config, fold=2).shape)
-        print(repo.predict_test(dataset=dataset, config=config, fold=2).shape)
-        print(repo.dataset_metadata(dataset=dataset))  # {'tid': 360945, 'ttid': 'TaskType.SUPERVISED_REGRESSION
-        print(repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native"))  # [[7.20435338 7.04106921 7.11815431 7.08556309 7.18165966 7.1394064  7.03340405 7.11273415 7.07614767 7.21791022]]
-        print(repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
-                                     ensemble_size=5, folds=[2], backend="native"))  # [[7.11815431]]
