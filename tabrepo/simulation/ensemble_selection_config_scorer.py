@@ -287,7 +287,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
 
     def subset(self, tasks):
         return self.__class__(
-            datasets=tasks,
+            tasks=tasks,
             zeroshot_gt=self.zeroshot_gt,
             zeroshot_pred_proba=self.zeroshot_pred_proba,
             ranker=self.ranker,
