@@ -5,7 +5,7 @@ This allows to compare for free against state-of-the-art AutoML systems or rando
 precomputed results. We also store and expose model predictions so any ensembling strategy can also be benchmarked 
 cheaply by just querying precomputed results.
 
-We give scripts from the paper so that one reproduce all experiments that compare different models and portfolios
+We give scripts from the paper so that one can reproduce all experiments that compare different models and portfolio
 strategies against state-of-the-art AutoML systems.
 
 The key features of the repo are:
