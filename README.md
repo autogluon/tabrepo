@@ -100,7 +100,7 @@ python scripts/baseline_comparison/evaluate_baselines.py --expname v1
 
 The experiment will require ~200GB of disk storage and 32GB of memory (although we use memmap to load model predictions
 on the fly, large dataset still have a significant memory footprint even for a couple of models). In particular, we
-used a `m6i.4xlarge` machine for our experiments which took 1h 42m (which is less than 2$).
+used a `m6i.4xlarge` machine for our experiments which took 1h 42m (less than $2 of compute).
 
 All the table and figures of the paper will be generated under `scripts/figures` and `scripts/tables`.
 
