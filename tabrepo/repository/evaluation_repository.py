@@ -251,29 +251,38 @@ class EvaluationRepository(SaveLoadMixin):
     def task_name(self, dataset: str, fold: int) -> str:
         return self.task_name_from_tid(tid=self.dataset_to_tid(dataset), fold=fold)
 
+    def task_to_dataset(self, task: str) -> str:
+        return self._zeroshot_context.task_to_dataset_dict[task]
+
+    def task_to_fold(self, task: str) -> int:
+        return self._zeroshot_context.task_to_fold(task=task)
+
     def evaluate_ensemble(
         self,
         datasets: List[str],
-        configs: List[str],
-        ensemble_size: int,
+        configs: List[str] = None,
+        *,
+        ensemble_size: int = 100,
         rank: bool = True,
         folds: Optional[List[int]] = None,
         backend: str = "ray",
-    ) -> Tuple[np.array, Dict[str, np.array]]:
+    ) -> Tuple[pd.Series, pd.DataFrame]:
         """
         :param datasets: list of datasets to compute errors on.
-        :param configs: list of config to consider for ensembling.
+        :param configs: list of config to consider for ensembling. Uses all configs if None.
         :param ensemble_size: number of members to select with Caruana.
         :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
         automl framework.
         :param folds: list of folds that need to be evaluated, use all folds if not provided.
+        :param backend: Options include ["native", "ray"].
         :return: Tuple:
-            2D array of scores whose rows are datasets and columns are folds.
-            Dictionary of task_name -> model weights in the ensemble. Model weights are stored in a numpy array,
-                with weights corresponding to the order of `config_names`.
+            Pandas Series of ensemble test errors per task, with multi-index (dataset, fold).
+            Pandas DataFrame of ensemble weights per task, with multi-index (dataset, fold). Columns are the names of each config.
         """
         if folds is None:
             folds = self.folds
+        if configs is None:
+            configs = self.configs()
         tasks = [
             self.task_name(dataset=dataset, fold=fold)
             for dataset in datasets
@@ -286,18 +295,22 @@ class EvaluationRepository(SaveLoadMixin):
         )
 
         dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=configs)
+
         if rank:
             dict_scores = scorer.compute_ranks(errors=dict_errors)
             out = dict_scores
         else:
             out = dict_errors
 
-        out_numpy = np.array([[
-                out[self.task_name(dataset=dataset, fold=fold)
-            ] for fold in folds
-        ] for dataset in datasets])
+        dataset_folds = [(self.task_to_dataset(task=task), self.task_to_fold(task=task)) for task in tasks]
+        ensemble_weights = [dict_ensemble_weights[task] for task in tasks]
+        out_list = [out[task] for task in tasks]
 
-        return out_numpy, dict_ensemble_weights
+        multiindex = pd.MultiIndex.from_tuples(dataset_folds, names=["dataset", "fold"])
+        df_out = pd.Series(data=out_list, index=multiindex)
+        df_ensemble_weights = pd.DataFrame(data=ensemble_weights, index=multiindex, columns=configs)
+
+        return df_out, df_ensemble_weights
 
     def _construct_config_scorer(self,
                                  config_scorer_type: str = 'ensemble',
@@ -335,7 +348,7 @@ class EvaluationRepository(SaveLoadMixin):
         return load(version=version, prediction_format=prediction_format)
 
 
-def load(version: str, *, load_predictions: bool = True, prediction_format: str = "memmap") -> EvaluationRepository:
+def load(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
     """
     Load the specified EvaluationRepository. Will automatically download all required inputs if they do not already exist on local disk.
 
@@ -346,6 +359,11 @@ def load(version: str, *, load_predictions: bool = True, prediction_format: str 
     load_predictions: bool, default = True
         If True, loads the config predictions.
         If False, does not load the config predictions (disabling the ability to simulate ensembling).
+    cache: bool | str, default = False
+        Valid values: [True, False, "overwrite"]
+        If True, will load directly from a cached repository or cache the loaded evaluation repository to accelerate future load calls.
+        Setting to True may lead to incompatibility in loading repositories from different versions of the codebase.
+        If "overwrite", will overwrite the existing cache and cache the new version.
     prediction_format: str, default = "memmap"
         Options: ["memmap", "memopt", "mem"]
         Determines the way the predictions are represented in the repo.
@@ -356,5 +374,12 @@ def load(version: str, *, load_predictions: bool = True, prediction_format: str 
     EvaluationRepository object for the given context.
     """
     from tabrepo.contexts import get_subcontext
-    repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format)
+    if cache is not False:
+        kwargs = dict()
+        if isinstance(cache, str) and cache == "overwrite":
+            kwargs["ignore_cache"] = True
+            kwargs["exists"] = "overwrite"
+        repo = get_subcontext(version).load(load_predictions=load_predictions, prediction_format=prediction_format, **kwargs)
+    else:
+        repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format)
     return repo

@@ -66,6 +66,7 @@ class ZeroshotSimulatorContext:
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
             'dataset').squeeze().to_dict()
+        self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze().to_dict()
 
     def _compute_dataset_to_tasks(self) -> dict:
         """
@@ -113,6 +114,7 @@ class ZeroshotSimulatorContext:
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
             'dataset').squeeze().to_dict()
+        self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze().to_dict()
 
     @classmethod
     def _align_valid_folds(cls,
@@ -309,6 +311,9 @@ class ZeroshotSimulatorContext:
             else:
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
         return datasets
+
+    def task_to_fold(self, task) -> int:
+        return self.task_to_fold_dict[task]
 
     def get_tids(self, problem_type=None) -> List[int]:
         datasets = self.get_datasets(problem_type=problem_type)

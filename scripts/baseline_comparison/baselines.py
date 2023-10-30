@@ -83,11 +83,12 @@ def evaluate_configs(
         rank=False,
     )
     # we expect a tensor of results with shape (n_tasks, n_folds)
-    assert metric_errors.shape == (1, len(folds))
+    assert metric_errors.shape == (len(folds),)
     rows = []
-    for fold, metric_error in zip(folds, metric_errors[0]):
+    for fold in folds:
         task = repo.task_name(dataset=dataset, fold=fold)
-        config_weights = ensemble_weights[task]
+        metric_error = metric_errors.loc[(dataset, fold)]
+        config_weights = ensemble_weights.loc[(dataset, fold)]
 
         # select configurations used in the ensemble as infer time only depends on the models with non-zero weight.
         config_selected_ensemble = [

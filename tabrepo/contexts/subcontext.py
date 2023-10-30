@@ -55,9 +55,9 @@ class BenchmarkSubcontext:
         elif exists == 'raise':
             if _exists:
                 raise AssertionError(f'{self.path} already exists, but exists="{exists}"')
-        return self._download(**kwargs)
+        return self._cache(**kwargs)
 
-    def _download(self, **kwargs) -> EvaluationRepository:
+    def _cache(self, **kwargs) -> EvaluationRepository:
         repo = self.load_from_parent(**kwargs)
         repo.save(self.path)
         return repo
@@ -81,12 +81,12 @@ class BenchmarkSubcontext:
     def exists(self):
         return BenchmarkPaths.exists(self.path)
 
-    def load(self, download_files=True, exists='ignore') -> EvaluationRepository:
-        if not self.exists():
+    def load(self, download_files: bool = True, ignore_cache: bool = False, exists: str = 'ignore', **kwargs) -> EvaluationRepository:
+        if not self.exists() or ignore_cache:
             if not download_files:
                 raise FileNotFoundError(f'Missing file: "{self.path}", try calling `load` with `download_files=True`')
             print(f'Downloading subcontext {self.name}...')
-            return self.download(exists=exists)
+            return self.download(exists=exists, **kwargs)
         return self._load()
 
     def _load(self) -> EvaluationRepository:
