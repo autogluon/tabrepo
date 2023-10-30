@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tabrepo.utils.cache import cache_function
-from tabrepo.repository.evaluation_repository import load, EvaluationRepository
+from tabrepo import load, EvaluationRepository
 
 output_path = Path(__file__).parent
 

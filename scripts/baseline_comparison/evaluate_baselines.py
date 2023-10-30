@@ -8,11 +8,16 @@ import matplotlib
 from pathlib import Path
 
 from autogluon.common.savers import save_pd
-from tabrepo.repository.evaluation_repository import (
-    EvaluationRepository,
-)
+from dataclasses import dataclass
+
+from tabrepo import EvaluationRepository
+from tabrepo.loaders import Paths
 from tabrepo.utils import catchtime
 from tabrepo.utils.cache import cache_function, cache_function_dataframe
+from tabrepo.utils.normalized_scorer import NormalizedScorer
+from tabrepo.utils.rank_utils import RankScorer
+
+from scripts import output_path, load_context
 from scripts.baseline_comparison.baselines import (
     automl_results,
     framework_default_results,
@@ -22,6 +27,7 @@ from scripts.baseline_comparison.baselines import (
     ResultRow,
     framework_types, framework_name, time_suffix, default_ensemble_size, n_portfolios_default,
 )
+from scripts.baseline_comparison.compare_results import winrate_comparison
 from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
     show_latex_table,
@@ -29,12 +35,6 @@ from scripts.baseline_comparison.plot_utils import (
     show_scatter_performance_vs_time, iqm, show_scatter_performance_vs_time_lower_budgets, figure_path,
     plot_critical_diagrams,
 )
-from tabrepo.loaders import Paths
-from tabrepo.utils.normalized_scorer import NormalizedScorer
-from tabrepo.utils.rank_utils import RankScorer
-from dataclasses import dataclass
-from scripts import output_path, load_context
-from scripts.baseline_comparison.compare_results import winrate_comparison
 
 
 @dataclass

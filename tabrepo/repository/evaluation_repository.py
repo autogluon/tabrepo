@@ -1,18 +1,18 @@
 from __future__ import annotations
 import copy
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from tabrepo.simulation.configuration_list_scorer import ConfigurationListScorer
-from tabrepo.simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
-from tabrepo.simulation.ground_truth import GroundTruth
-from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
-from tabrepo.simulation.single_best_config_scorer import SingleBestConfigScorer
-from tabrepo.predictions.tabular_predictions import TabularModelPredictions
-from tabrepo.utils.cache import SaveLoadMixin
-from tabrepo import repository
+from .. import repository
+from ..predictions.tabular_predictions import TabularModelPredictions
+from ..simulation.configuration_list_scorer import ConfigurationListScorer
+from ..simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from ..simulation.ground_truth import GroundTruth
+from ..simulation.simulation_context import ZeroshotSimulatorContext
+from ..simulation.single_best_config_scorer import SingleBestConfigScorer
+from ..utils.cache import SaveLoadMixin
 
 
 class EvaluationRepository(SaveLoadMixin):
@@ -335,7 +335,26 @@ class EvaluationRepository(SaveLoadMixin):
         return load(version=version, prediction_format=prediction_format)
 
 
-def load(version: str = None, prediction_format: str = "memmap") -> EvaluationRepository:
+def load(version: str, *, load_predictions: bool = True, prediction_format: str = "memmap") -> EvaluationRepository:
+    """
+    Load the specified EvaluationRepository. Will automatically download all required inputs if they do not already exist on local disk.
+
+    Parameters
+    ----------
+    version: str
+        The name of the context to load.
+    load_predictions: bool, default = True
+        If True, loads the config predictions.
+        If False, does not load the config predictions (disabling the ability to simulate ensembling).
+    prediction_format: str, default = "memmap"
+        Options: ["memmap", "memopt", "mem"]
+        Determines the way the predictions are represented in the repo.
+        It is recommended to keep the value as "memmap" for optimal performance.
+
+    Returns
+    -------
+    EvaluationRepository object for the given context.
+    """
     from tabrepo.contexts import get_subcontext
-    repo = get_subcontext(version).load_from_parent(load_predictions=True, prediction_format=prediction_format)
+    repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format)
     return repo
