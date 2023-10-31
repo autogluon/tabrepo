@@ -8,7 +8,7 @@ setup(
     name='tabrepo',
     version='0.0.1',
     packages=find_packages(exclude=('docs', 'tst', 'data')),
-    url='https://github.com/Innixma/autogluon-zeroshot-private',
+    url='https://github.com/Innixma/tabrepo',
     license='Apache-2.0',
     author='AutoGluon Community',
     install_requires=requirements,
