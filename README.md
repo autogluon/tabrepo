@@ -56,9 +56,9 @@ Now lets see how to do basic things with TabRepo.
 **Accessing model evaluations.** To access model evaluations, you can do the following:
 
 ```python
-from tabrepo import load
+from tabrepo import load_repository
 
-repo = load("D244_F3_C1416_30")
+repo = load_repository("D244_F3_C1416_30")
 repo.metrics(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
 ```
 
@@ -66,7 +66,7 @@ The code will return the metrics available for the configuration and dataset cho
 
 The example loads a smaller version of TabRepo with only a few datasets for illustrative purpose and shows
 the evaluations of one ensemble and how to query the stored predictions of a given model.
-When calling `load` models predictions and TabRepo metadata will be fetched from internet. We use a smaller version 
+When calling `load_repository` models predictions and TabRepo metadata will be fetched from the internet. We use a smaller version 
 here as it can take a long time to download all predictions, in case you want to query all datasets, replace the context
 with `D244_F3_C1416_30`.
 
@@ -74,8 +74,8 @@ with `D244_F3_C1416_30`.
 **Querying model predictions.**
 To query model predictions, run the following code:
 ```python
-from tabrepo import load
-repo = load("D244_F3_C1416_30")
+from tabrepo import load_repository
+repo = load_repository("D244_F3_C1416_30")
 print(repo.predict_val_multi(dataset="Australian", fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
@@ -85,8 +85,8 @@ You can also use `predict_test` to get the predictions on the test set.
 **Simulating ensembles.**
 To evaluate an ensemble of any list of configuration, you can run the following:
 ```python
-from tabrepo import load
-repo = load("D244_F3_C1416_30")
+from tabrepo import load_repository
+repo = load_repository("D244_F3_C1416_30")
 print(repo.evaluate_ensemble(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
@@ -98,8 +98,8 @@ predictions and validation groundtruth.
 Context's are used to load a repository and are downloaded from S3 with the following code:
 
 ```python
-from tabrepo import load
-repo = load(context_name)
+from tabrepo import load_repository
+repo = load_repository(context_name)
 ```
 
 Below is a list of the available contexts in TabRepo.

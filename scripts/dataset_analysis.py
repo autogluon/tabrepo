@@ -6,8 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from tabrepo.repository.evaluation_repository import load, EvaluationRepository
-from tabrepo.utils.cache import cache_function
+from tabrepo import EvaluationRepository
 from baseline_comparison.plot_utils import save_latex_table
 from scripts import load_context
 

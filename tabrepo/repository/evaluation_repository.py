@@ -361,10 +361,10 @@ class EvaluationRepository(SaveLoadMixin):
 
     @classmethod
     def from_context(cls, version: str = None, prediction_format: str = "memmap"):
-        return load(version=version, prediction_format=prediction_format)
+        return load_repository(version=version, prediction_format=prediction_format)
 
 
-def load(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
+def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
     """
     Load the specified EvaluationRepository. Will automatically download all required inputs if they do not already exist on local disk.
 

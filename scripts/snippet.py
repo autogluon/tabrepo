@@ -1,7 +1,7 @@
-from tabrepo.repository.evaluation_repository import load
+from tabrepo.repository.evaluation_repository import load_repository
 
 # load TabRepo with 200 datasets, 3 folds and 1416 configurations
-repository = load(version="D244_F3_C1416_200")
+repository = load_repository("D244_F3_C1416_200")
 
 # returns in ~2s the tensor of metrics for each dataset/fold obtained after ensembling the given configurations
 metrics = repository.evaluate_ensemble(

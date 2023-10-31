@@ -1,6 +1,6 @@
 import pandas as pd
 
-from tabrepo import load, get_context, list_contexts, EvaluationRepository
+from tabrepo import load_repository, get_context, list_contexts, EvaluationRepository
 
 
 if __name__ == '__main__':
@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     config_hyperparameters = context.load_configs_hyperparameters()
 
-    repo: EvaluationRepository = load(context_name, cache=True)
+    repo: EvaluationRepository = load_repository(context_name, cache=True)
 
     repo.print_info()
 
