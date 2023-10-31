@@ -56,7 +56,7 @@ Now lets see how to do basic things with TabRepo.
 **Accessing model evaluations.** To access model evaluations, you can do the following:
 
 ```python
-from tabrepo.repository.evaluation_repository import load
+from tabrepo import load
 
 repo = load("D244_F3_C1416_30")
 repo.metrics(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
