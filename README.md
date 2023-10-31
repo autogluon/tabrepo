@@ -25,7 +25,7 @@ To install the repository, run
 
 ```bash
 # TODO update repo address and name
-git clone https://github.com/Innixma/tabrepo.git
+git clone https://github.com/autogluon/tabrepo.git
 cd tabrepo  
 pip install -e .
 ```
@@ -34,7 +34,7 @@ In addition, if you are interested in reproducing the experiments of the paper, 
 
 ```bash
 # Install AG benchmark, required only to reproduce results showing win-rate tables
-git clone https://github.com/Innixma/autogluon-benchmark.git
+git clone https://github.com/autogluon/autogluon-benchmark.git
 pushd autogluon-benchmark
 pip install -e .
 popd
