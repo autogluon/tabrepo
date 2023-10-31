@@ -269,8 +269,9 @@ if __name__ == "__main__":
         "time infer (s)": 3,
     }
 
-
     repo: EvaluationRepository = load_context(version=repo_version)
+    repo.print_info()
+
     if n_eval_folds == -1:
         n_eval_folds = repo.n_folds()
 
