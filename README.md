@@ -93,6 +93,28 @@ print(repo.evaluate_ensemble(datasets=["Australian"], configs=["CatBoost_r22_BAG
 this code will return the error of an ensemble whose weights are computed with the Caruana procedure after loading model
 predictions and validation groundtruth.
 
+## Available Contexts
+
+Context's are used to load a repository and are downloaded from S3 with the following code:
+
+```python
+from tabrepo import load
+repo = load(context_name)
+```
+
+Below is a list of the available contexts in TabRepo.
+
+| Context Name      | # Datasets | # Folds | # Configs | Disk Size | Notes                     |
+| ----------------- | ---------- | ------- | --------- | --------- | ------------------------- |
+| D244_F3_C1416     | 211        | 3       | 1416      | 273 GB    | All successful datasets. 64 GB+ memory recommended. May take a few hours to download. |
+| D244_F3_C1416_200 | 200        | 3       | 1416      | 107 GB    | Used for results in paper. 32 GB memory recommended |
+| D244_F3_C1416_175 | 175        | 3       | 1416      | 50 GB     | 16 GB memory recommended |
+| D244_F3_C1416_100 | 100        | 3       | 1416      | 8.7 GB    | Ideal for fast prototyping |
+| D244_F3_C1416_30  | 30         | 3       | 1416      | 1.0 GB    | Toy context |
+| D244_F3_C1416_10  | 10         | 3       | 1416      | 0.2 GB    | Toy context |
+| D244_F3_C1416_3   | 3          | 3       | 1416      | 30 MB     | Toy context |
+
+
 ## Reproducing paper experiments
 
 To reproduce the experiments from the paper, run:
