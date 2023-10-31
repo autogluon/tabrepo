@@ -2,7 +2,7 @@ from .context import BenchmarkContext, construct_context
 from ..loaders import Paths
 
 
-s3_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2023_08_21/'
+s3_prefix = 's3://tabrepo/contexts/2023_08_21/'
 
 # 244 datasets sorted largest to smallest
 datasets = [
