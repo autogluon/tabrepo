@@ -42,7 +42,6 @@ popd
 # Install extra dependencies used for experimental scripts
 pip install "autorank"
 pip install "seaborn"
-pip install "syne-tune[core]"         
 ```
 
 You are all set!
