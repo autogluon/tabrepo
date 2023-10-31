@@ -103,15 +103,15 @@ repo = load_repository(context_name)
 
 Below is a list of the available contexts in TabRepo.
 
-| Context Name      | # Datasets | # Folds | # Configs | Disk Size | Notes                     |
-| ----------------- | ---------- | ------- | --------- | --------- | ------------------------- |
+| Context Name      | # Datasets | # Folds | # Configs | Disk Size | Notes                                                                                 |
+|-------------------|------------|---------|-----------|-----------|---------------------------------------------------------------------------------------|
 | D244_F3_C1416     | 211        | 3       | 1416      | 273 GB    | All successful datasets. 64 GB+ memory recommended. May take a few hours to download. |
-| D244_F3_C1416_200 | 200        | 3       | 1416      | 107 GB    | Used for results in paper. 32 GB memory recommended |
-| D244_F3_C1416_175 | 175        | 3       | 1416      | 50 GB     | 16 GB memory recommended |
-| D244_F3_C1416_100 | 100        | 3       | 1416      | 8.7 GB    | Ideal for fast prototyping |
-| D244_F3_C1416_30  | 30         | 3       | 1416      | 1.0 GB    | Toy context |
-| D244_F3_C1416_10  | 10         | 3       | 1416      | 0.2 GB    | Toy context |
-| D244_F3_C1416_3   | 3          | 3       | 1416      | 30 MB     | Toy context |
+| D244_F3_C1416_200 | 200        | 3       | 1416      | 107 GB    | Used for results in paper. 32 GB memory recommended                                   |
+| D244_F3_C1416_175 | 175        | 3       | 1416      | 50 GB     | 16 GB memory recommended                                                              |
+| D244_F3_C1416_100 | 100        | 3       | 1416      | 8.7 GB    | Ideal for fast prototyping                                                            |
+| D244_F3_C1416_30  | 30         | 3       | 1416      | 1.0 GB    | Toy context                                                                           |
+| D244_F3_C1416_10  | 10         | 3       | 1416      | 0.2 GB    | Toy context                                                                           |
+| D244_F3_C1416_3   | 3          | 3       | 1416      | 30 MB     | Toy context                                                                           |
 
 
 ## Reproducing paper experiments
