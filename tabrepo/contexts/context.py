@@ -38,19 +38,8 @@ class BenchmarkPaths:
             self.zs_pp = [self.zs_pp]
         if self.zs_gt is not None and isinstance(self.zs_gt, str):
             self.zs_gt = [self.zs_gt]
-        if self.configs_hyperparameters is None:
-            configs_prefix = Paths.data_root / 'configs'
-            configs = [
-                f'{configs_prefix}/configs_catboost.json',
-                f'{configs_prefix}/configs_fastai.json',
-                f'{configs_prefix}/configs_lightgbm.json',
-                f'{configs_prefix}/configs_nn_torch.json',
-                f'{configs_prefix}/configs_xgboost.json',
-                f'{configs_prefix}/configs_rf.json',
-                f'{configs_prefix}/configs_xt.json',
-                f'{configs_prefix}/configs_knn.json',
-            ]
-            self.configs_hyperparameters = configs
+        if self.configs_hyperparameters is not None and isinstance(self.configs_hyperparameters, str):
+            self.configs_hyperparameters = [self.configs_hyperparameters]
 
     def print_summary(self):
         max_str_len = max(len(key) for key in self.__dict__.keys())
@@ -404,15 +393,16 @@ def construct_s3_download_map(
 
 
 def construct_context(
-        name: str,
-        datasets: List[str],
-        folds: List[int],
-        local_prefix: str,
-        s3_prefix: str = None,
-        description: str = None,
-        date: str = None,
-        task_metadata: str = "task_metadata_244.csv",
-        metadata_join_column: str = "dataset",
+    name: str,
+    datasets: List[str],
+    folds: List[int],
+    local_prefix: str,
+    s3_prefix: str = None,
+    description: str = None,
+    date: str = None,
+    task_metadata: str = None,
+    metadata_join_column: str = "dataset",
+    configs_hyperparameters: List[str] = None,
 ) -> BenchmarkContext:
     """
 
@@ -479,6 +469,10 @@ def construct_context(
         path_pred_proba=split_key,
     )
 
+    _configs_hyperparameters_path = dict()
+    if configs_hyperparameters is not None:
+        _configs_hyperparameters_path["configs_hyperparameters"] = configs_hyperparameters
+
     context: BenchmarkContext = BenchmarkContext.from_paths(
         name=name,
         description=description,
@@ -490,6 +484,7 @@ def construct_context(
         **_result_paths,
         **_bag_zs_path,
         **_task_metadata_path,
+        **_configs_hyperparameters_path,
     )
     return context
 

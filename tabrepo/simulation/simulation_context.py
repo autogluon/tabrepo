@@ -394,11 +394,12 @@ class ZeroshotSimulatorContext:
     def load_groundtruth(self, paths_gt: List[str]) -> GroundTruth:
         gt_val = defaultdict(_default_dict)
         gt_test = defaultdict(_default_dict)
+        unique_datasets = set(self.unique_datasets)
         for p in paths_gt:
             with open(Path(p).parent / "metadata.json", "r") as f:
                 metadata = json.load(f)
             dataset = metadata["dataset"]
-            if dataset in self.dataset_to_tid_dict:
+            if dataset in unique_datasets:
                 fold = metadata["fold"]
                 if Path(p).stem.startswith("label-test"):
                     gt_test[dataset][fold] = pd.read_csv(p, index_col=0)

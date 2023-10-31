@@ -1,4 +1,5 @@
 from .context import BenchmarkContext, construct_context
+from ..loaders import Paths
 
 
 s3_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2023_08_21/'
@@ -23,7 +24,7 @@ datasets = [
     # "GTSRB-HOG03",
     # "GTSRB-HueHist",
 
-    "porto-seguro",  # Cumulative Size: 455 GB (228 datasets)  # 212 datasets (succeeded)
+    "porto-seguro",  # Cumulative Size: 455 GB (228 datasets)  # 211 datasets (succeeded)
     "airlines",
     "ldpa",
     "albert",
@@ -35,8 +36,8 @@ datasets = [
     "Kuzushiji-MNIST",
     "mnist_784",
     # "CIFAR_10",  # Failed
-    "volkert",
-    "Yolanda",  # 200 datasets (succeeded)
+    "volkert",  # 200 datasets (succeeded)
+    "Yolanda",
     "letter",
     "kr-vs-k",
     "kropt",
@@ -59,7 +60,7 @@ datasets = [
     "bank-marketing",
     # "KDDCup09-Upselling",  # Failed
     # "one-hundred-plants-margin",  # Failed
-    "KDDCup09_appetency",
+    # "KDDCup09_appetency",  # Failed
     "jungle_chess_2pcs_raw_endgame_complete",
     "2dplanes",
     "fried",
@@ -256,18 +257,32 @@ folds = [0, 1, 2]
 local_prefix = "2023_08_21"
 date = "2023_08_21"
 metadata_join_column = "tid"
+
+configs_prefix = Paths.data_root / 'configs'
+configs = [
+    f'{configs_prefix}/configs_catboost.json',
+    f'{configs_prefix}/configs_fastai.json',
+    f'{configs_prefix}/configs_lightgbm.json',
+    f'{configs_prefix}/configs_nn_torch.json',
+    f'{configs_prefix}/configs_xgboost.json',
+    f'{configs_prefix}/configs_rf.json',
+    f'{configs_prefix}/configs_xt.json',
+]
+
 kwargs = dict(
     local_prefix=local_prefix,
     s3_prefix=s3_prefix,
     folds=folds,
     date=date,
+    task_metadata="task_metadata_244.csv",
     metadata_join_column=metadata_join_column,
+    configs_hyperparameters=configs,
 )
 
 
 D244_F3_C1416: BenchmarkContext = construct_context(
     name="D244_F3_C1416",
-    description="Large-scale Benchmark on 244 datasets and 3 folds (455 GB, 212 datasets)",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (293 GB, 211 datasets)",
     datasets=datasets,
     **kwargs,
 )
