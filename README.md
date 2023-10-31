@@ -49,6 +49,8 @@ You are all set!
 
 ## Quick-start
 
+**Recommended: Refer to `examples/run_quickstart.py` for a full runnable tutorial.**
+
 Now lets see how to do basic things with TabRepo.
 
 **Accessing model evaluations.** To access model evaluations, you can do the following:
@@ -56,8 +58,8 @@ Now lets see how to do basic things with TabRepo.
 ```python
 from tabrepo.repository.evaluation_repository import load
 
-repo = load("TODOBAG_D244_F3_C1416_micro")
-repo.metrics(tid=6, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
+repo = load("D244_F3_C1416_30")
+repo.metrics(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
 ```
 
 The code will return the metrics available for the configuration and dataset chosen. 
@@ -66,26 +68,26 @@ The example loads a smaller version of TabRepo with only a few datasets for illu
 the evaluations of one ensemble and how to query the stored predictions of a given model.
 When calling `load` models predictions and TabRepo metadata will be fetched from internet. We use a smaller version 
 here as it can take a long time to download all predictions, in case you want to query all datasets, replace the context
-with `TODOBAG_D244_F3_C1416`.
+with `D244_F3_C1416_30`.
 
 
 **Querying model predictions.**
 To query model predictions, run the following code:
 ```python
-from tabrepo.repository.evaluation_repository import load
-repo = load("TODOBAG_D244_F3_C1416_micro")
-print(repo.predict_val(tid=6, fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
+from tabrepo import load
+repo = load("D244_F3_C1416_30")
+print(repo.predict_val_multi(dataset="Australian", fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
 This will return predictions on the validation set. 
 You can also use `predict_test` to get the predictions on the test set.
 
 **Simulating ensembles.**
-To evaluate ensemble of any list of configuration, you can run the following:
+To evaluate an ensemble of any list of configuration, you can run the following:
 ```python
-from tabrepo.repository.evaluation_repository import load
-repo = load("TODOBAG_D244_F3_C1416_micro")
-print(repo.evaluate_ensemble(tids=[6], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
+from tabrepo import load
+repo = load("D244_F3_C1416_30")
+print(repo.evaluate_ensemble(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
 this code will return the error of an ensemble whose weights are computed with the Caruana procedure after loading model
