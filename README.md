@@ -25,8 +25,8 @@ To install the repository, run
 
 ```bash
 # TODO update repo address and name
-git clone https://github.com/Innixma/autogluon-zeroshot-private.git
-cd autogluon-zeroshot-private  
+git clone https://github.com/Innixma/tabrepo.git
+cd tabrepo  
 pip install -e .
 ```
 
