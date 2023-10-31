@@ -209,7 +209,6 @@ def save_total_runtime_to_file(total_time_h):
         f.write(str(total_time_h))
 
 
-
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()

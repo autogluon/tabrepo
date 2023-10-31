@@ -55,8 +55,9 @@ Now lets see how to do basic things with TabRepo.
 
 ```python
 from tabrepo.repository.evaluation_repository import load
+
 repo = load("TODOBAG_D244_F3_C1416_micro")
-repo.eval_metrics(tid=6, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
+repo.metrics(tid=6, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
 ```
 
 The code will return the metrics available for the configuration and dataset chosen. 

@@ -155,22 +155,36 @@ class EvaluationRepository(SaveLoadMixin):
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_dataset_dict.get(tid, "Not found")
 
-    def eval_metrics(self, dataset: str, fold: int, configs: List[str], check_all_found: bool = True) -> List[dict]:
+    def metrics(self, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
         """
-        :param dataset:
-        :param fold:
+        :param datasets:
+        :param folds:
         :param configs: list of configs to query metrics
-        :return: list of metrics for each configuration
+        :return: pd.DataFrame of metrics for each dataset-fold-framework combination.
+
+        Output is a multi-index pandas DataFrame ("dataset", "fold", "framework").
+        Each row is a result for a particular config on a given task.
+        Columns:
+            metric_error : Test error of the config
+            metric_error_val : Validation error of the config
+            time_train_s : Training time of the config
+            time_infer_s : Inference time of the config
+            rank : Rank of the config
         """
-        task = self.task_name(dataset=dataset, fold=fold)
-        df = self._zeroshot_context.df_configs_ranked
-        mask = (df["task"] == task) & (df["framework"].isin(configs))
-        output_cols = ["framework", "metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank",]
-        if check_all_found:
-            assert sum(mask) == len(configs), \
-                f"expected one evaluation occurence for each configuration {configs} for {dataset}, " \
-                f"{fold} but found {sum(mask)}."
-        return [dict(zip(output_cols, row)) for row in df.loc[mask, output_cols].values]
+        df = self._zeroshot_context.df_configs_ranked.set_index(["dataset", "fold", "framework"], drop=True)[
+            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank"]
+        ]
+        if datasets is None:
+            datasets = self.datasets()
+
+        mask = df.index.get_level_values("dataset").isin(datasets)
+        if folds is not None:
+            mask = mask & df.index.get_level_values("fold").isin(folds)
+        if configs is not None:
+            mask = mask & df.index.get_level_values("framework").isin(configs)
+        df = df[mask]
+
+        return df
 
     def predict_test(self, dataset: str, fold: int, config: str) -> np.ndarray:
         """
@@ -307,7 +321,9 @@ class EvaluationRepository(SaveLoadMixin):
         out_list = [out[task] for task in tasks]
 
         multiindex = pd.MultiIndex.from_tuples(dataset_folds, names=["dataset", "fold"])
-        df_out = pd.Series(data=out_list, index=multiindex)
+
+        df_name = "rank" if rank else "error"
+        df_out = pd.Series(data=out_list, index=multiindex, name=df_name)
         df_ensemble_weights = pd.DataFrame(data=ensemble_weights, index=multiindex, columns=configs)
 
         return df_out, df_ensemble_weights

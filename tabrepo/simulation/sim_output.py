@@ -13,7 +13,9 @@ def metric_error_to_score(metric_error: float, metric: str):
     elif metric == 'auc':
         metric_score = 1 - metric_error
     else:
-        raise AssertionError(f'Unknown metric: {metric}')
+        from autogluon.core.metrics import get_metric
+        metric_func = get_metric(metric=metric)
+        metric_score = metric_func.convert_error_to_score(metric_error)
     return metric_score
 
 
@@ -72,17 +74,17 @@ class SimulationOutputGenerator:
                        portfolio: Union[List[str], Portfolio],
                        *,
                        name: str,
-                       datasets: List[str] = None,
+                       tasks: List[str] = None,
                        minimal_columns=True,) -> pd.DataFrame:
         """
         Create from a single portfolio (Not cross-validated)
         """
         if isinstance(portfolio, Portfolio):
-            if datasets is None and portfolio.test_datasets_fold is not None:
-                datasets = portfolio.test_datasets_fold
+            if tasks is None and portfolio.test_datasets_fold is not None:
+                tasks = portfolio.test_datasets_fold
             portfolio = portfolio.configs
-        if datasets is None:
-            datasets = self.repo._zeroshot_context.get_tasks()
+        if tasks is None:
+            tasks = self.repo._zeroshot_context.get_tasks()
 
         repo = copy.deepcopy(self.repo)
 
@@ -90,31 +92,31 @@ class SimulationOutputGenerator:
         repo = repo.subset(configs=portfolio, verbose=False)
 
         config_scorer_test = repo._construct_config_scorer(
-            datasets=datasets,
+            tasks=tasks,
             config_scorer_type=self.config_scorer_type,
             **self.config_scorer_kwargs
         )
 
         zsc = repo._zeroshot_context
 
-        df_raw_subset = zsc.df_configs[zsc.df_configs['tid_new'].isin(datasets)]
-        df_raw_subset = df_raw_subset[df_raw_subset['model'].isin(portfolio)]
-        df_total_train_and_infer_times = df_raw_subset[['tid_new', 'time_train_s', 'time_infer_s']].groupby('tid_new').sum()
-        df_raw_subset = df_raw_subset.drop_duplicates(subset=['tid_new'])
+        df_raw_subset = zsc.df_configs[zsc.df_configs['task'].isin(tasks)]
+        df_raw_subset = df_raw_subset[df_raw_subset['framework'].isin(portfolio)]
+        df_total_train_and_infer_times = df_raw_subset[['task', 'time_train_s', 'time_infer_s']].groupby('task').sum()
+        df_raw_subset = df_raw_subset.drop_duplicates(subset=['task'])
 
         score_per_dataset, metadata = config_scorer_test.compute_errors(portfolio)
 
-        df_raw_subset['metric_error'] = [score_per_dataset[row[0]] for row in zip(df_raw_subset['tid_new'])]
-        df_raw_subset['metric_score'] = [metric_error_to_score(row[0], row[1]) for row in
-                                         zip(df_raw_subset['metric_error'], df_raw_subset['metric'])]
+        df_raw_subset['metric_error'] = [score_per_dataset[row[0]] for row in zip(df_raw_subset['task'])]
+        # TODO: Add back?
+        # df_raw_subset['metric_score'] = [metric_error_to_score(row[0], row[1]) for row in
+        #                                  zip(df_raw_subset['metric_error'], df_raw_subset['metric'])]
         df_raw_subset['framework'] = name
-        df_raw_subset = df_raw_subset.set_index('tid_new', drop=True)
+        df_raw_subset = df_raw_subset.set_index('task', drop=True)
         df_raw_subset['time_train_s'] = df_total_train_and_infer_times['time_train_s']
 
         # FIXME: time_infer_s is not correct since it assumes all models are used in final ensemble
         #  In reality the infer_speed is faster.
         df_raw_subset['time_infer_s'] = df_total_train_and_infer_times['time_infer_s']
-        df_raw_subset = df_raw_subset.drop(columns=['model', 'framework_parent', 'constraint'])
         df_raw_subset = df_raw_subset.reset_index(drop=True)
         if minimal_columns:
             # TODO: Add val_error
@@ -154,9 +156,9 @@ class SimulationOutputGenerator:
             print(f'Computing scores for each dataset... (fold={f})')
             portfolio = portfolios[f]
             df_raw_subset = self.from_portfolio(portfolio=portfolio.configs,
-                                                datasets=portfolio.test_datasets_fold,
+                                                tasks=portfolio.test_datasets_fold,
                                                 name=name,
                                                 minimal_columns=minimal_columns)
             df_raw_all.append(df_raw_subset)
-        df_raw_all = pd.concat(df_raw_all)
+        df_raw_all = pd.concat(df_raw_all, ignore_index=True)
         return df_raw_all

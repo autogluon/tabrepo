@@ -344,7 +344,7 @@ class BenchmarkContext:
 
             zsc = self._load_zsc(folds=folds)
             print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
-            configs_hyperparameters = self._load_configs_hyperparameters()
+            configs_hyperparameters = self.load_configs_hyperparameters()
 
             if load_predictions:
                 zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format)
@@ -358,7 +358,7 @@ class BenchmarkContext:
         df_configs, df_metadata = self.benchmark_paths.load_results()
         return df_configs, df_metadata
 
-    def _load_configs_hyperparameters(self) -> dict:
+    def load_configs_hyperparameters(self) -> dict:
         return self.benchmark_paths.load_configs_hyperparameters()
 
     def _load_predictions(self,
