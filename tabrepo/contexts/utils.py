@@ -63,6 +63,6 @@ def prune_zeroshot_gt(dataset_to_tid_dict, zeroshot_pred_proba: TabularModelPred
             zeroshot_gt.remove_dataset(dataset=dataset)
     num_datasets_end = len(zeroshot_gt.datasets)
     if verbose:
-        print(f'Aligning GrpundTruth with TabularPredictions... (Dataset count {num_datasets_start} -> {num_datasets_end})')
+        print(f'Aligning GroundTruth with TabularPredictions... (Dataset count {num_datasets_start} -> {num_datasets_end})')
     assert len(dataset_pred) == num_datasets_end
     return zeroshot_gt
