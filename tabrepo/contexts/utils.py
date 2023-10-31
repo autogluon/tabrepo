@@ -9,7 +9,6 @@ from ..predictions.tabular_predictions import TabularModelPredictions
 def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
                                  zeroshot_pred_proba: TabularModelPredictions,
                                  zeroshot_gt: GroundTruth):
-    # FIXME: Use datasets instead of tids
     zpp_datasets = [dataset for dataset in zeroshot_pred_proba.datasets if dataset in zsc.dataset_to_tid_dict]
     zsc_datasets = zsc.get_datasets()
     zsc_datasets_set = set(zsc_datasets)
