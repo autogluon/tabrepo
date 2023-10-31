@@ -2,7 +2,8 @@ from .context import BenchmarkContext, construct_context
 from ..loaders import Paths
 
 
-s3_prefix = 's3://tabrepo/contexts/2023_08_21/'
+# s3_prefix = 's3://tabrepo/contexts/2023_08_21/'
+s3_prefix = "https://tabrepo.s3.us-west-2.amazonaws.com/contexts/2023_08_21/"
 
 # 244 datasets sorted largest to smallest
 datasets = [

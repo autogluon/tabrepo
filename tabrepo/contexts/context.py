@@ -19,6 +19,7 @@ from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..predictions.tabular_predictions import TabularModelPredictions
 from ..utils import catchtime
+from ..utils.download import download_files
 
 
 @dataclass
@@ -197,6 +198,7 @@ class BenchmarkContext:
     def download(self,
                  include_zs: bool = True,
                  exists: str = 'raise',
+                 verbose: bool = True,
                  dry_run: bool = False):
         """
         Downloads all BenchmarkContext required files from s3 to local disk.
@@ -271,7 +273,12 @@ class BenchmarkContext:
         print(f'\tDownloading {len(s3_to_local_tuple_list)} files from s3 to local...')
         for s3_path, local_path in s3_to_local_tuple_list:
             print(f'\t\t"{s3_path}" -> "{local_path}"')
-        download_s3_files(s3_to_local_tuple_list=s3_to_local_tuple_list, dry_run=dry_run)
+        s3_required_list = [(s3_path, local_path) for s3_path, local_path in s3_to_local_tuple_list if s3_path[:2] == "s3"]
+        urllib_required_list = [(s3_path, local_path) for s3_path, local_path in s3_to_local_tuple_list if s3_path[:2] != "s3"]
+        if urllib_required_list:
+            download_files(remote_to_local_tuple_list=urllib_required_list, dry_run=dry_run, verbose=verbose)
+        if s3_required_list:
+            download_s3_files(s3_to_local_tuple_list=s3_required_list, dry_run=dry_run, verbose=verbose)
 
     def load(self,
              folds: List[int] = None,
