@@ -217,7 +217,7 @@ if __name__ == "__main__":
                         help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
     parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
     parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
-    parser.add_argument("--expname", type=str, help="Name of the experiment", default="dummy")
+    parser.add_argument("--expname", type=str, help="Name of the experiment. If None, defaults to the value specified in `repo`.", required=False, default=None)
     parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
                         help="Engine used for embarrassingly parallel loop.")
     parser.add_argument("--ray_process_ratio", type=float,
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     ignore_cache = args.ignore_cache
     ray_process_ratio = args.ray_process_ratio
     engine = args.engine
-    expname = args.expname
+    expname = repo_version if args.expname is None else args.expname
     n_datasets = args.n_datasets
     if n_datasets:
         expname += f"-{n_datasets}"
