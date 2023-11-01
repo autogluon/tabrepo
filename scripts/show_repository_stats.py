@@ -15,7 +15,6 @@
 \newcommand{\numcpuhoursnosimu}{587224} % numhoursnosimu x 8
 """
 from scripts import load_context, output_path
-from scripts.baseline_comparison.baselines import framework_types
 
 repo = load_context()
 
@@ -28,6 +27,10 @@ n_bagged = 8
 n_hps = repo.n_configs()
 n_seeds = repo.n_folds()
 n_automl = len(automl_frameworks)
+
+config_names = repo.configs()
+config_names_defaults = [c for c in config_names if "_c1_" in c]
+realnumframeworks = len(config_names_defaults)
 
 n_cpus = 8
 
@@ -50,7 +53,7 @@ stats = {
     "realnumhps": n_hps,
     "realnumseeds": n_seeds,
     "realnumautomlbaseline": n_automl,
-    "realnumframeworks": len(framework_types),
+    "realnumframeworks": realnumframeworks,
     # "realnumevaluations": n_datasets * (n_hps + n_automl) * n_seeds,
     "realnumevaluations": n_datasets * n_hps * n_seeds,  # drop automl systems as we dont store their predictions
     "realnumhourstabrepo": realnumhourstabrepo,

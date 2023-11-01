@@ -9,7 +9,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from scripts.baseline_comparison.baselines import zeroshot_name, framework_types, n_portfolios_default
+from scripts.baseline_comparison.baselines import n_portfolios_default
 
 
 @dataclass
