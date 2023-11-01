@@ -25,7 +25,10 @@ from scripts.baseline_comparison.baselines import (
     zeroshot_results,
     zeroshot_name,
     ResultRow,
-    framework_types, framework_name, time_suffix, default_ensemble_size, n_portfolios_default,
+    framework_name,
+    time_suffix,
+    default_ensemble_size,
+    n_portfolios_default,
 )
 from scripts.baseline_comparison.compare_results import winrate_comparison
 from scripts.baseline_comparison.plot_utils import (
@@ -217,6 +220,7 @@ if __name__ == "__main__":
                         help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
     parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
     parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
+    parser.add_argument("--all_configs", action="store_true", help="If True, will use all configs rather than filtering out NeuralNetFastAI. If True, results will differ from the paper.")
     parser.add_argument("--expname", type=str, help="Name of the experiment. If None, defaults to the value specified in `repo`.", required=False, default=None)
     parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
                         help="Engine used for embarrassingly parallel loop.")
@@ -231,6 +235,8 @@ if __name__ == "__main__":
     engine = args.engine
     expname = repo_version if args.expname is None else args.expname
     n_datasets = args.n_datasets
+    as_paper = args.all_configs
+
     if n_datasets:
         expname += f"-{n_datasets}"
 
@@ -269,7 +275,10 @@ if __name__ == "__main__":
         "time infer (s)": 3,
     }
 
-    repo: EvaluationRepository = load_context(version=repo_version)
+    if not as_paper:
+        expname += "_ALL"
+
+    repo: EvaluationRepository = load_context(version=repo_version, ignore_cache=ignore_cache, as_paper=as_paper)
     repo.print_info()
 
     if n_eval_folds == -1:
@@ -280,9 +289,14 @@ if __name__ == "__main__":
     if n_datasets:
         dataset_names = dataset_names[:n_datasets]
 
+    # TODO: This is a hack, in future repo should know the framework_types via the configs.json input
+    configs_default = [c for c in repo.configs() if "_c1_" in c]
+    framework_types = [c.rsplit('_c1_', 1)[0] for c in configs_default]
+
     experiment_common_kwargs = dict(
         repo=repo,
         dataset_names=dataset_names,
+        framework_types=framework_types,
         rank_scorer=rank_scorer,
         normalized_scorer=normalized_scorer,
         n_eval_folds=n_eval_folds,

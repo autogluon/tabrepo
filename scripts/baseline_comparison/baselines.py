@@ -21,9 +21,6 @@ default_ensemble_size = 40
 n_portfolios_default = 200
 default_runtime = 3600 * 4
 
-framework_types = [
-    "CatBoost","NeuralNetTorch", "LightGBM", "RandomForest", "ExtraTrees", "XGBoost"
-]
 backup_fast_config = "ExtraTrees_c1_BAG_L1"
 
 
@@ -135,8 +132,14 @@ def framework_name(framework_type, max_runtime=None, ensemble_size=default_ensem
     return method
 
 
-def framework_default_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer,
-                              normalized_scorer, engine: str, **kwargs) -> List[ResultRow]:
+def framework_default_results(repo: EvaluationRepository,
+                              dataset_names: List[str],
+                              framework_types: List[str],
+                              n_eval_folds: int,
+                              rank_scorer,
+                              normalized_scorer,
+                              engine: str,
+                              **kwargs) -> List[ResultRow]:
     """
     :return: evaluations of default models (e.g. 'CatBoost_c1_BAG_L1') and the best/ensemble of all default models
     """
@@ -208,10 +211,14 @@ def sample_and_pick_best(
 
 
 def framework_best_results(
-        repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer, normalized_scorer,
+        repo: EvaluationRepository,
+        dataset_names: List[str],
+        framework_types: List[str],
+        n_eval_folds: int,
+        rank_scorer,
+        normalized_scorer,
         max_runtimes: float = [3600],
         ensemble_size: int = default_ensemble_size,
-        framework_types=framework_types,
         engine='ray',
         **kwargs) -> List[ResultRow]:
     """
@@ -345,6 +352,7 @@ def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, qua
 def zeroshot_results(
         repo: EvaluationRepository,
         dataset_names: List[str],
+        framework_types: List[str],
         rank_scorer,
         normalized_scorer,
         n_eval_folds: int,
