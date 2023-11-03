@@ -368,11 +368,15 @@ class BenchmarkContext:
         # Load in real framework results to score against
         print(f'Loading baselines: {self.benchmark_paths.baselines}')
         df_baselines = self.benchmark_paths.load_baselines()
+
+        score_against_only_baselines = df_baselines is not None
+
         zsc = ZeroshotSimulatorContext(
             df_configs=df_configs,
             folds=folds,
             df_baselines=df_baselines,
             df_metadata=df_metadata,
+            score_against_only_baselines=score_against_only_baselines,
         )
         return zsc
 
