@@ -255,7 +255,7 @@ def plot_critical_diagrams(df):
             f'Lightautoml',
             f'CatBoost (tuned + ens)',
         ])]
-        data = df_sub.pivot_table(index="tid", columns="method", values="rank")
+        data = df_sub.pivot_table(index="dataset", columns="method", values="rank")
         result = autorank(data, alpha=0.05, verbose=False, order="ascending")
         ax = axes[i]
         ax.set_title(budget)

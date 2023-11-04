@@ -117,6 +117,7 @@ class SimulationOutputGenerator:
         # FIXME: time_infer_s is not correct since it assumes all models are used in final ensemble
         #  In reality the infer_speed is faster.
         df_raw_subset['time_infer_s'] = df_total_train_and_infer_times['time_infer_s']
+        df_raw_subset["portfolio"] = [portfolio] * len(df_raw_subset)
         df_raw_subset = df_raw_subset.reset_index(drop=True)
         if minimal_columns:
             # TODO: Add val_error
@@ -130,6 +131,7 @@ class SimulationOutputGenerator:
                 'metric',
                 'problem_type',
                 'tid',
+                'portfolio',
             ]
             df_raw_subset = df_raw_subset[min_cols]
         return df_raw_subset

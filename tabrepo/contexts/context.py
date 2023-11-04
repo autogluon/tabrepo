@@ -412,6 +412,8 @@ def construct_context(
     description: str = None,
     date: str = None,
     task_metadata: str = None,
+    local_prefix_is_relative: bool = True,
+    has_baselines: bool = True,
     metadata_join_column: str = "dataset",
     configs_hyperparameters: List[str] = None,
 ) -> BenchmarkContext:
@@ -436,7 +438,15 @@ def construct_context(
     -------
     BenchmarkContext object that is able to load the data.
     """
-    path_context = str(Paths.results_root / local_prefix) + os.sep
+    if local_prefix_is_relative:
+        path_context = str(Paths.results_root / local_prefix) + os.sep
+    else:
+        path_context = str(Path(local_prefix)) + os.sep
+
+    if local_prefix_is_relative:
+        data_root = Paths.data_root
+    else:
+        data_root = Path(path_context).parent
 
     split_key = str(Path(path_context) / "model_predictions") + os.sep
 
@@ -457,19 +467,21 @@ def construct_context(
         _s3_download_map = None
 
     zs_pp = [f"{split_key}{f}" for f in _files_pp]
-    zs_pp = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_pp]
+    zs_pp = [Paths.rel_to_abs(k, relative_to=data_root) for k in zs_pp]
 
     zs_gt = [f"{split_key}{f}" for f in _files_gt]
-    zs_gt = [Paths.rel_to_abs(k, relative_to=Paths.data_root) for k in zs_gt]
+    zs_gt = [Paths.rel_to_abs(k, relative_to=data_root) for k in zs_gt]
 
     _result_paths = dict(
-        baselines=str(Path(path_context) / "baselines.parquet"),
         configs=str(Path(path_context) / "configs.parquet"),
     )
 
+    if has_baselines:
+        _result_paths["baselines"] = str(Path(path_context) / "baselines.parquet"),
+
     if task_metadata is not None:
         _task_metadata_path = dict(
-            task_metadata=str(Paths.data_root / "metadata" / task_metadata),
+            task_metadata=str(data_root / "metadata" / task_metadata),
         )
     else:
         _task_metadata_path = dict()

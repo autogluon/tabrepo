@@ -70,7 +70,7 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
         for fold in range(repo.n_folds())
     ]
     rank_scorer = RankScorer(df_results_baselines, tasks=unique_dataset_folds, pct=False)
-    normalized_scorer = NormalizedScorer(df_results_baselines, datasets=unique_dataset_folds, baseline=None)
+    normalized_scorer = NormalizedScorer(df_results_baselines, tasks=unique_dataset_folds, baseline=None)
     return rank_scorer, normalized_scorer
 
 
@@ -141,7 +141,7 @@ def rename_dataframe(df):
     rename_dict = make_rename_dict(suffix="8c_2023_08_21")
     df["method"] = df["method"].replace(rename_dict)
     df.rename({
-        "normalized_score": "normalized-error",
+        "normalized_error": "normalized-error",
         "time_train_s": "time fit (s)",
         "time_infer_s": "time infer (s)",
     },
@@ -357,15 +357,15 @@ if __name__ == "__main__":
             experiment.data(ignore_cache=ignore_cache) for experiment in experiments
         ])
     # De-duplicate in case we ran a config multiple times
-    df = df.drop_duplicates(subset=["method", "tid", "fold"])
+    df = df.drop_duplicates(subset=["method", "dataset", "fold"])
     df = rename_dataframe(df)
 
     # Save results
-    save_pd.save(path=str(Paths.data_root / "simulation" / "results.csv"), df=df)
+    save_pd.save(path=str(Paths.data_root / "simulation" / expname / "results.csv"), df=df)
 
     # df = time_cutoff_baseline(df)
 
-    print(f"Obtained {len(df)} evaluations on {len(df.tid.unique())} datasets for {len(df.method.unique())} methods.")
+    print(f"Obtained {len(df)} evaluations on {len(df.dataset.unique())} datasets for {len(df.method.unique())} methods.")
     print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
     total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
     print(f"Total time of experiments: {total_time_h} hours")

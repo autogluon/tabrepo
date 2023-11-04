@@ -26,12 +26,12 @@ backup_fast_config = "ExtraTrees_c1_BAG_L1"
 
 @dataclass
 class ResultRow:
-    tid: int  # OpenML tid (task ID)
+    dataset: str
     fold: int
     method: str
     test_error: float
     rank: float
-    normalized_score: float
+    normalized_error: float
     time_train_s: float
     time_infer_s: float
     config_selected: list = None
@@ -108,12 +108,12 @@ def evaluate_configs(
             runtime_col='time_infer_s',
         )
         rows.append(ResultRow(
-            tid=tid,
+            dataset=dataset,
             fold=fold,
             method=method,
             test_error=metric_error,
             rank=rank_scorer.rank(task, metric_error),
-            normalized_score=normalized_scorer.rank(task, metric_error),
+            normalized_error=normalized_scorer.rank(task, metric_error),
             time_train_s=sum(runtimes.values()),
             time_infer_s=sum(latencies.values()),
             config_selected=config_sampled,
@@ -284,12 +284,12 @@ def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_
                 assert tid == v['tid']
                 metric_error = v['metric_error']
                 rows_automl.append(ResultRow(
-                    tid=tid,
+                    dataset=dataset,
                     fold=v['fold'],
                     method=v['framework'],
                     test_error=metric_error,
                     rank=rank_scorer.rank(task, metric_error),
-                    normalized_score=normalized_scorer.rank(task, metric_error),
+                    normalized_error=normalized_scorer.rank(task, metric_error),
                     time_train_s=v['time_train_s'],
                     time_infer_s=v['time_infer_s'],
                 ))

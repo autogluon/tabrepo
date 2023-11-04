@@ -1,6 +1,7 @@
 from typing import Dict, List
 
 import pandas as pd
+from pathlib import Path
 
 
 class GroundTruth:
@@ -30,3 +31,30 @@ class GroundTruth:
 
     def labels_test(self, dataset: str, fold: int):
         return self._label_test_dict[dataset][fold].values.flatten()
+
+    # TODO: Unit test
+    @classmethod
+    def from_dict(cls, label_dict):
+        label_val_dict = dict()
+        label_test_dict = dict()
+        for dataset in label_dict.keys():
+            label_val_dict[dataset] = dict()
+            label_test_dict[dataset] = dict()
+            for fold in label_dict[dataset].keys():
+                labels_val = label_dict[dataset][fold]["y_val"]
+                labels_test = label_dict[dataset][fold]["y_test"]
+                label_val_dict[dataset][fold] = labels_val
+                label_test_dict[dataset][fold] = labels_test
+        return cls(label_val_dict=label_val_dict, label_test_dict=label_test_dict)
+
+    # TODO: Unit test
+    def to_data_dir(self, data_dir: str):
+        datasets = self.datasets
+        for dataset in datasets:
+            for fold in self._label_val_dict[dataset]:
+                target_folder = Path(data_dir) / dataset / str(fold)
+                target_folder.mkdir(exist_ok=True, parents=True)
+                labels_val = self._label_val_dict[dataset][fold]
+                labels_test = self._label_test_dict[dataset][fold]
+                labels_val.to_csv(target_folder / "label-val.csv.zip", index=True)
+                labels_test.to_csv(target_folder / "label-test.csv.zip", index=True)

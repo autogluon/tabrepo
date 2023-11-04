@@ -21,10 +21,10 @@ df_results_by_dataset = pd.DataFrame([
 
 def test_normalized_scorer():
     scorer = NormalizedScorer(
-        df_results_by_dataset=df_results_by_dataset,
-        datasets=["dataset1", "dataset2"],
+        df_results=df_results_by_dataset,
+        tasks=["dataset1", "dataset2"],
         metric_error_col=metric_col,
-        dataset_col=dataset_col,
+        task_col=dataset_col,
         framework_col=framework_col,
     )
     query_expected = [

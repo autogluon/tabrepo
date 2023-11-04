@@ -24,8 +24,6 @@ def winrate_comparison(df: pd.DataFrame, repo: EvaluationRepository):
         'test_error': 'metric_error',
     })
 
-    tid_to_dataset = repo._tid_to_dataset_dict
-    df_for_eval['dataset'] = df['tid'].map(tid_to_dataset)
     df_for_eval['problem_type'] = df_for_eval['dataset'].map(repo._zeroshot_context.dataset_to_problem_type_dict)
 
     df_for_eval = df_for_eval.drop(columns=['rank', 'normalized-error'])

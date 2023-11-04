@@ -30,7 +30,6 @@ class EnsembleScorer:
     def __init__(self,
                  zeroshot_pp: TabularModelPredictions,
                  zeroshot_gt: GroundTruth,
-                 tid_to_dataset_dict: dict,
                  task_metrics_metadata,
                  ensemble_method: callable = EnsembleSelection,
                  ensemble_method_kwargs: dict = None,
@@ -49,7 +48,6 @@ class EnsembleScorer:
         self.zeroshot_pp: TabularModelPredictions = zeroshot_pp
         self.zeroshot_gt = zeroshot_gt
         self.task_metrics_metadata = task_metrics_metadata
-        self.tid_to_dataset_dict = tid_to_dataset_dict
         self.proxy_fit_metric_map = proxy_fit_metric_map
         self.use_fast_metrics = use_fast_metrics
 
@@ -199,7 +197,6 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             ensemble_method_kwargs=ensemble_selection_kwargs,
             proxy_fit_metric_map=proxy_fit_metric_map,
             use_fast_metrics=use_fast_metrics,
-            tid_to_dataset_dict=tid_to_dataset_name_dict
         )
 
     @classmethod
