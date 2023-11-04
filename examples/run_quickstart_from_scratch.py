@@ -115,8 +115,8 @@ if __name__ == '__main__':
     save_loc = "./quickstart/"
     save_loc_data_dir = save_loc + "model_predictions/"
 
-    ground_truth = GroundTruth.from_dict(zeroshot_gt)
     predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
+    ground_truth = GroundTruth.from_dict(zeroshot_gt)
     predictions.to_data_dir(data_dir=save_loc_data_dir)
     ground_truth.to_data_dir(data_dir=save_loc_data_dir)
 
