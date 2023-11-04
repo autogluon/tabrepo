@@ -477,7 +477,7 @@ def construct_context(
     )
 
     if has_baselines:
-        _result_paths["baselines"] = str(Path(path_context) / "baselines.parquet"),
+        _result_paths["baselines"] = str(Path(path_context) / "baselines.parquet")
 
     if task_metadata is not None:
         _task_metadata_path = dict(
