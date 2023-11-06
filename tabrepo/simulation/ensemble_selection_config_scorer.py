@@ -105,8 +105,13 @@ class EnsembleScorer:
         if hasattr(fit_eval_metric, 'preprocess_bulk'):
             y_val, pred_val = fit_eval_metric.preprocess_bulk(y_val, pred_val)
 
+        if hasattr(fit_eval_metric, 'post_problem_type'):
+            fit_problem_type = fit_eval_metric.post_problem_type
+        else:
+            fit_problem_type = problem_type
+
         weighted_ensemble = self.ensemble_method(
-            problem_type=problem_type,
+            problem_type=fit_problem_type,
             metric=fit_eval_metric,
             **self.ensemble_method_kwargs,
         )
@@ -115,6 +120,12 @@ class EnsembleScorer:
 
         if hasattr(eval_metric, 'preprocess_bulk'):
             y_test, pred_test = eval_metric.preprocess_bulk(y_test, pred_test)
+
+        if hasattr(eval_metric, 'post_problem_type'):
+            predict_problem_type = eval_metric.post_problem_type
+        else:
+            predict_problem_type = problem_type
+        weighted_ensemble.problem_type = predict_problem_type
 
         if eval_metric.needs_pred:
             y_test_pred = weighted_ensemble.predict(pred_test)

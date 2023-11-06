@@ -104,9 +104,10 @@ fast_log_loss = make_scorer('log_loss',
                             greater_is_better=False,
                             needs_proba=True)
 
-
 fast_log_loss.preprocess_bulk = _preprocess_bulk
 
+# Problem type representation after preprocessing
+fast_log_loss.post_problem_type = "binary"
 
 # Score function for probabilistic classification
 fast_log_loss_end_to_end = make_scorer('fast_log_loss_end_to_end',
