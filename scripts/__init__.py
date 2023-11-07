@@ -13,7 +13,7 @@ def load_context(version: str = "D244_F3_C1416_200", as_paper: bool = True, igno
 
     if as_paper:
         # only pick models that have suffix rXX or c1
-        # filter NeuralNetFastAI mdoel family
+        # filter NeuralNetFastAI model family
         models = repo.configs()
         models_only_c1_or_r = []
         for m in models:
