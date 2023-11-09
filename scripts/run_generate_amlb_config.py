@@ -94,7 +94,7 @@ if __name__ == '__main__':
     for family in config_families:
         print(f'\n\n\n==================== {family} ====================')
         config_file_name = f'configs_{family}.json'
-        configs = load_json.load(path=json_root / config_file_name)
+        configs = load_json.load(path=str(json_root / config_file_name))
         config_names = list(configs.keys())
         print(config_names)
         hyperparameters_dict = construct_hyperparameters_dict(configs=configs)
