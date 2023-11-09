@@ -142,15 +142,12 @@ potential interesting future work directions:
 
 If you find this work useful for you research, please cite the following:
 ```
-@inproceedings{
-   anonymous2023tabrepo,
-   title={TabRepo: A Large Scale Repository of Tabular Model Evaluations and its Auto{ML} Applications},
-   author={Anonymous},
-   booktitle={Submitted to The Twelfth International Conference on Learning Representations},
-   year={2023},
-   url={https://openreview.net/forum?id=fTEPeQ00VM},
-   note={under review}
+@misc{tabrepo2023,
+      title={TabRepo: A Large Scale Repository of Tabular Model Evaluations and its AutoML Applications}, 
+      author={David Salinas and Nick Erickson},
+      year={2023},
+      eprint={2311.02971},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
 }
 ```
-
-We will update this reference with an Arxiv link soon.
