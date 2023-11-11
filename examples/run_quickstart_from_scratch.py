@@ -13,7 +13,7 @@ from tabrepo.contexts.subcontext import BenchmarkSubcontext
 from tabrepo.simulation.ground_truth import GroundTruth
 
 
-def get_artifacts(task, fold: int, dataset: str = None):
+def get_artifacts(task: OpenMLTaskWrapper, fold: int, dataset: str = None):
     if dataset is None:
         dataset = str(task.task_id)
     train_data, test_data = task.get_train_test_split_combined(fold=fold)
@@ -34,14 +34,15 @@ def get_artifacts(task, fold: int, dataset: str = None):
         verbosity=0,
     )
 
-    leaderboard = predictor.leaderboard(test_data)
+    leaderboard = predictor.leaderboard(test_data, score_format="error")
     leaderboard["dataset"] = dataset
     leaderboard["tid"] = task.task_id
     leaderboard["fold"] = fold
     leaderboard["problem_type"] = task.problem_type
-    leaderboard["metric"] = predictor.eval_metric.name
-    leaderboard["metric_error"] = leaderboard["score_test"].apply(lambda score: predictor.eval_metric.convert_score_to_error(score))
-    leaderboard["metric_error_val"] = leaderboard["score_val"].apply(lambda score: predictor.eval_metric.convert_score_to_error(score))
+    leaderboard.rename(columns={
+        "eval_metric": "metric",
+        "metric_error_test": "metric_error",
+    }, inplace=True)
     simulation_artifact = predictor.get_simulation_artifact(test_data=test_data)
     simulation_artifacts = {dataset: {fold: simulation_artifact}}
     return simulation_artifacts, leaderboard
