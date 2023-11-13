@@ -1,3 +1,4 @@
+import tempfile
 from typing import Dict, List
 
 import pandas as pd
@@ -49,6 +50,15 @@ class GroundTruth:
 
     # TODO: Unit test
     def to_data_dir(self, data_dir: str):
+        if data_dir[:2] == "s3":
+            from autogluon.common.utils.s3_utils import is_s3_url, upload_s3_folder, s3_path_to_bucket_prefix
+            if is_s3_url(str(data_dir)):
+                s3_bucket, s3_prefix = s3_path_to_bucket_prefix(data_dir)
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    self.to_data_dir(data_dir=temp_dir)
+                    upload_s3_folder(bucket=s3_bucket, prefix=s3_prefix, folder_to_upload=temp_dir)
+                return
+
         datasets = self.datasets
         for dataset in datasets:
             for fold in self._label_val_dict[dataset]:

@@ -1,5 +1,6 @@
 import copy
 from collections import defaultdict
+import tempfile
 from typing import List, Tuple, Optional, Dict, Union
 
 import pickle
@@ -60,6 +61,16 @@ class TabularModelPredictions:
     @staticmethod
     def _cache_data(pred_dict: TabularPredictionsDict, data_dir: str, dtype: str = "float32"):
         assert dtype in ["float16", "float32"]
+
+        if data_dir[:2] == "s3":
+            from autogluon.common.utils.s3_utils import is_s3_url, upload_s3_folder, s3_path_to_bucket_prefix
+            if is_s3_url(str(data_dir)):
+                s3_bucket, s3_prefix = s3_path_to_bucket_prefix(data_dir)
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    TabularModelPredictions._cache_data(pred_dict=pred_dict, data_dir=temp_dir, dtype=dtype)
+                    upload_s3_folder(bucket=s3_bucket, prefix=s3_prefix, folder_to_upload=temp_dir)
+                return
+
         data_dir = Path(data_dir)
         data_dir.mkdir(parents=True, exist_ok=True)
 
