@@ -43,7 +43,7 @@ def get_artifacts(task: OpenMLTaskWrapper, fold: int, dataset: str = None):
         "eval_metric": "metric",
         "metric_error_test": "metric_error",
     }, inplace=True)
-    simulation_artifact = predictor.get_simulation_artifact(test_data=test_data)
+    simulation_artifact = predictor.simulation_artifact(test_data=test_data)
     simulation_artifacts = {dataset: {fold: simulation_artifact}}
     return simulation_artifacts, leaderboard
 
