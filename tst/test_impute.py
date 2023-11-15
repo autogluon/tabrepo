@@ -1,21 +1,9 @@
-"""
-TODO:
-* add test for repository
-* add behavior for time
-DONE:
-* create artificial example with tabular prediction
-* add one sparse model
-* test behavior
-* implement impute logic
-"""
 import numpy as np
-import pandas as pd
 
 from tabrepo import EvaluationRepository
-from tabrepo.contexts.context_artificial import load_repo_artificial, load_context_artificial
+from tabrepo.contexts.context_artificial import load_context_artificial
 from tabrepo.predictions import TabularPredictionsMemmap
-from tabrepo.predictions.tabular_predictions import TabularPredictionsDict, TabularModelPredictions, \
-    TabularPredictionsInMemory
+from tabrepo.predictions.tabular_predictions import TabularModelPredictions
 from tabrepo.utils.test_utils import generate_artificial_dict
 
 num_models = 13
