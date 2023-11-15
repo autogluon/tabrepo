@@ -198,6 +198,18 @@ class TabularModelPredictions:
     def _model_available_dict(self) -> Dict[str, Dict[int, List[str]]]:
         raise NotImplementedError()
 
+    @staticmethod
+    def _keep_only_models_in_both_validation_and_test(pred_dict: TabularPredictionsDict):
+        """
+        :return: a dictionary where all splits contains the same set of models
+        """
+        for dataset, folds in pred_dict.items():
+            for fold, splits in folds.items():
+                models = set.intersection(*[set(model_dict.keys()) for model_dict in splits.values()])
+                for split, split_dict in splits.items():
+                    restrict = lambda model_dict, models: {k: v for k, v in model_dict.items() if k in models}
+                    pred_dict[dataset][fold][split] = restrict(pred_dict[dataset][fold][split], models)
+
 
 class TabularPredictionsInMemory(TabularModelPredictions):
     def __init__(self, pred_dict: TabularPredictionsDict, datasets: Optional[List[str]] = None):
@@ -208,7 +220,7 @@ class TabularPredictionsInMemory(TabularModelPredictions):
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, datasets: Optional[List[str]] = None, output_dir: str = None):
         # Optional, avoids changing passed object
-        pred_dict = copy.deepcopy(pred_dict)
+        cls._keep_only_models_in_both_validation_and_test(copy.deepcopy(pred_dict))
         return cls(pred_dict=pred_dict, datasets=datasets)
 
     def to_dict(self) -> TabularPredictionsDict:
@@ -288,6 +300,7 @@ class TabularPredictionsMemmap(TabularModelPredictions):
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None, datasets: Optional[List[str]] = None, dtype: str = "float32"):
+        cls._keep_only_models_in_both_validation_and_test(pred_dict)
         cls._cache_data(pred_dict=pred_dict, data_dir=output_dir, dtype=dtype)
         return cls(data_dir=output_dir, datasets=datasets)
 
@@ -324,15 +337,15 @@ class TabularPredictionsMemmap(TabularModelPredictions):
                 metadata_task["model_indices"] = model_indices
         return res
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
-        pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
+        pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="val", model_fallback=model_fallback)
         return pred
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
-        pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
+        pred = self._load_pred(dataset=dataset, fold=fold, models=models, split="test", model_fallback=model_fallback)
         return pred
 
-    def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):
+    def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None, model_fallback: str = None):
         assert dataset in self.metadata_dict, f"{dataset} not available."
         assert fold in self.metadata_dict[dataset], f"Fold {fold} of {dataset} not available."
 
@@ -341,6 +354,9 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         metadata = self.metadata_dict[dataset][fold]
         model_indices_all = metadata["model_indices"]
         model_indices_available = {m: model_indices_all[m] for m in metadata['models']}
+        if model_fallback:
+            # we use the model fallback if a model is not present
+            models = [m if m in model_indices_available else model_fallback for m in models]
         model_indices = [model_indices_available[m] for m in models]
         dtype = metadata["dtype"]
         pred = np.memmap(

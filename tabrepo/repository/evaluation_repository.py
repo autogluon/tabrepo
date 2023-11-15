@@ -25,12 +25,27 @@ class EvaluationRepository(SaveLoadMixin):
             zeroshot_context: ZeroshotSimulatorContext,
             tabular_predictions: TabularModelPredictions,
             ground_truth: GroundTruth,
+            config_fallback: str = None,
     ):
+        """
+        :param zeroshot_context:
+        :param tabular_predictions:
+        :param ground_truth:
+        :param config_fallback: if specified, used to replace the result of a configuration that is missing, if not
+        specified an error is thrown when querying a config that does not exist. A cheap baseline such as the result
+        of a mean predictor can be used for the fallback.
+        """
         self._tabular_predictions: TabularModelPredictions = tabular_predictions
         self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
         self._ground_truth = ground_truth
         if self._tabular_predictions is not None:
             assert all(self._zeroshot_context.dataset_to_tid_dict[x] in self._tid_to_dataset_dict for x in self._tabular_predictions.datasets)
+        self.set_config_fallback(config_fallback)
+
+    def set_config_fallback(self, config_fallback: str = None):
+        if config_fallback:
+            assert config_fallback in self.configs()
+        self._config_fallback = config_fallback
 
     def to_zeroshot(self) -> repository.EvaluationRepositoryZeroshot:
         """
@@ -98,14 +113,17 @@ class EvaluationRepository(SaveLoadMixin):
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(self._zeroshot_context, self._tabular_predictions, self._ground_truth)
 
-        force_to_dense(self._tabular_predictions,
-                       first_prune_method='task',
-                       second_prune_method='dataset',
-                       verbose=verbose)
+        # TODO do we still need it? At the moment, we are using the fallback for models so this may not be necessary
+        #  anymore
+        # force_to_dense(self._tabular_predictions,
+        #                first_prune_method='task',
+        #                second_prune_method='dataset',
+        #                verbose=verbose)
 
         self._zeroshot_context.subset_configs(self._tabular_predictions.models)
         datasets = [d for d in self._tabular_predictions.datasets if d in self._dataset_to_tid_dict]
         self._zeroshot_context.subset_datasets(datasets)
+
         self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
         self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
                                                zeroshot_gt=self._ground_truth,
@@ -209,6 +227,7 @@ class EvaluationRepository(SaveLoadMixin):
             dataset=dataset,
             fold=fold,
             models=configs,
+            model_fallback=self._config_fallback,
         )
 
     def predict_val_multi(self, dataset: str, fold: int, configs: List[str] = None) -> np.ndarray:
@@ -220,6 +239,7 @@ class EvaluationRepository(SaveLoadMixin):
             dataset=dataset,
             fold=fold,
             models=configs,
+            model_fallback=self._config_fallback,
         )
 
     def labels_test(self, dataset: str, fold: int) -> np.array:
