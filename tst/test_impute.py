@@ -1,3 +1,5 @@
+import tempfile
+
 import numpy as np
 
 from tabrepo import EvaluationRepository
@@ -32,27 +34,28 @@ def test_tabular_predictions():
     pred_dict["d2"][1]['pred_proba_dict_val'].pop("2")
     # pred_dict["d2"][1]['pred_proba_dict_test'].pop("2")
 
-    # TODO proper tmpdir
-    preds = TabularPredictionsMemmap.from_dict(pred_dict, output_dir='/tmp/foo')
-    pred_expected = preds.predict_val(dataset="d2", fold=1, models=["3"], model_fallback="3")
-    pred_obtained = preds.predict_val(dataset="d2", fold=1, models=["2"], model_fallback="3")
-    assert np.allclose(pred_expected, pred_obtained)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        preds = TabularPredictionsMemmap.from_dict(pred_dict, output_dir=tmpdirname)
+        pred_expected = preds.predict_val(dataset="d2", fold=1, models=["3"], model_fallback="3")
+        pred_obtained = preds.predict_val(dataset="d2", fold=1, models=["2"], model_fallback="3")
+        assert np.allclose(pred_expected, pred_obtained)
 
 
 def test_repository():
     zsc, configs_full, pred_proba, zeroshot_gt = load_context_artificial()
 
-    # remove NeuralNetFastAI_r1 from fold 1 of abalone...
-    pred_dict = pred_proba.pred_dict
-    pred_dict["abalone"][1]['pred_proba_dict_val'].pop("NeuralNetFastAI_r1")
-    repo = EvaluationRepository(
-        zeroshot_context=zsc,
-        tabular_predictions=TabularPredictionsMemmap.from_dict(pred_dict, "/tmp/foo2"),
-        ground_truth=zeroshot_gt,
-    )
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # remove NeuralNetFastAI_r1 from fold 1 of abalone...
+        pred_dict = pred_proba.pred_dict
+        pred_dict["abalone"][1]['pred_proba_dict_val'].pop("NeuralNetFastAI_r1")
+        repo = EvaluationRepository(
+            zeroshot_context=zsc,
+            tabular_predictions=TabularPredictionsMemmap.from_dict(pred_dict, tmpdirname),
+            ground_truth=zeroshot_gt,
+        )
 
-    # ... and make sure we retrieve the result of the fallback when querying results from missing NeuralNetFastAI_r1
-    repo.set_config_fallback("NeuralNetFastAI_r2")
-    pred_expected = repo.predict_val(dataset="abalone", fold=1, config="NeuralNetFastAI_r2")
-    pred_obtained = repo.predict_val(dataset="abalone", fold=1, config="NeuralNetFastAI_r1")
-    assert np.allclose(pred_expected, pred_obtained)
+        # ... and make sure we retrieve the result of the fallback when querying results from missing NeuralNetFastAI_r1
+        repo.set_config_fallback("NeuralNetFastAI_r2")
+        pred_expected = repo.predict_val(dataset="abalone", fold=1, config="NeuralNetFastAI_r2")
+        pred_obtained = repo.predict_val(dataset="abalone", fold=1, config="NeuralNetFastAI_r1")
+        assert np.allclose(pred_expected, pred_obtained)

@@ -115,17 +115,19 @@ class TabularModelPredictions:
                 fp[:] = pred_test[:]
                 fp.flush()
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
         """
         Obtains validation predictions on a given dataset and fold for a list of models
+        :param: model_fallback to use for fallback if one model of `models` is not found
         :return: predictions with shape (num_models, num_rows, num_classes) for classification and
         (num_models, num_rows, ) for regression
         """
         raise NotImplementedError()
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
         """
         Obtains test predictions on a given dataset and fold for a list of models
+        :param: model_fallback to use for fallback if one model of `models` is not found
         :return: predictions with shape (num_models, num_rows, num_classes) for classification and
         (num_models, num_rows, ) for regression
         """
@@ -231,10 +233,12 @@ class TabularPredictionsInMemory(TabularModelPredictions):
         memmap = TabularPredictionsMemmap.from_data_dir(data_dir=data_dir, datasets=datasets)
         return cls.from_dict(pred_dict=memmap.to_dict(), datasets=datasets)
 
-    def predict_val(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+    def predict_val(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
+        assert model_fallback is None, "model_fallback not supported for in memory data-structure"
         return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
 
-    def predict_test(self, dataset: str, fold: int, models: List[str] = None) -> np.array:
+    def predict_test(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
+        assert model_fallback is None, "model_fallback not supported for in memory data-structure"
         return self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
 
     def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):
