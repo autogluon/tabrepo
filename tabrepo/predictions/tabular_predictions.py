@@ -222,7 +222,8 @@ class TabularPredictionsInMemory(TabularModelPredictions):
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, datasets: Optional[List[str]] = None, output_dir: str = None):
         # Optional, avoids changing passed object
-        cls._keep_only_models_in_both_validation_and_test(copy.deepcopy(pred_dict))
+        pred_dict = copy.deepcopy(pred_dict)
+        cls._keep_only_models_in_both_validation_and_test(pred_dict)
         return cls(pred_dict=pred_dict, datasets=datasets)
 
     def to_dict(self) -> TabularPredictionsDict:
@@ -304,7 +305,7 @@ class TabularPredictionsMemmap(TabularModelPredictions):
 
     @classmethod
     def from_dict(cls, pred_dict: TabularPredictionsDict, output_dir: str = None, datasets: Optional[List[str]] = None, dtype: str = "float32"):
-        # cls._keep_only_models_in_both_validation_and_test(pred_dict)
+        cls._keep_only_models_in_both_validation_and_test(pred_dict)
         cls._cache_data(pred_dict=pred_dict, data_dir=output_dir, dtype=dtype)
         return cls(data_dir=output_dir, datasets=datasets)
 
