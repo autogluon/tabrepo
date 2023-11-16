@@ -40,7 +40,7 @@ def get_models(tabular_predictions: TabularModelPredictions, present_in_all=Fals
         If False, returns every model that appears in at least 1 dataset (sparse)
     """
     if not present_in_all:
-        return tabular_predictions.models
+        return tabular_predictions.models_exist()
     else:
         return get_models_dense(tabular_predictions)
 

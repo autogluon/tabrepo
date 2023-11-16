@@ -297,8 +297,9 @@ class ZeroshotSimulatorContext:
         out = '====== Zeroshot Simulator Context Info ======\n'
         out += f'# Configs: {len(self.get_configs())}\n'
         out += f'# Datasets: {len(self.unique_datasets)}\n'
-        out += f'# Folds: {len(self.folds)}\n'
-        out += f'Folds: {self.folds}\n'
+        if self.folds is not None:
+            out += f'# Folds: {len(self.folds)}\n'
+            out += f'Folds: {self.folds}\n'
         out += f'# Folds*Datasets: {len(self.unique_tasks)}\n'
         out += '=============================================\n'
         print(out)

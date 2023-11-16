@@ -165,6 +165,16 @@ class TabularModelPredictions:
                 all_models.append(models)
         return list(set.intersection(*map(set, all_models))) if all_models else []
 
+    def models_exist(self) -> List[str]:
+        """
+        :return: list of models that are present in any task
+        """
+        all_models = set()
+        for dataset, fold_dict in self.model_available_dict().items():
+            for fold, models in fold_dict.items():
+                all_models = all_models.union(models)
+        return sorted(list(all_models))
+
     def restrict_models(self, models: List[str]):
         raise NotImplementedError()
 
