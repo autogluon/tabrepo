@@ -70,10 +70,10 @@ if __name__ == '__main__':
 
     benchmark = "ag_244"
     constraint = "60h8c"
-    extra_args = "-u custom_configs -f 0 -m aws -p 3000"  # TODO: custom user dir
+    extra_args = "-u custom_configs -f 0 1 2 -m aws -p 3000"  # TODO: custom user dir
 
     resume_path = "s3://automl-benchmark-ag/aggregated/ec2/2023_07_25/results_valid.csv"
-    # resume_path = None
+    resume_path = None
     if resume_path is not None:
         extra_args += f" --resume --jobhistory {resume_path}"
 
