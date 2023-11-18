@@ -9,6 +9,7 @@ from tabrepo.models.nn_torch.generate import generate_configs_nn_torch
 from tabrepo.models.knn.generate import generate_configs_knn
 from tabrepo.models.random_forest.generate import generate_configs_random_forest
 from tabrepo.models.extra_trees.generate import generate_configs_extra_trees
+from tabrepo.models.lr.generate import generate_configs_lr
 from tabrepo.models.tabpfn.generate import generate_configs_tabpfn
 
 
@@ -21,6 +22,7 @@ if __name__ == '__main__':
     configs_knn = generate_configs_knn()
     configs_rf = generate_configs_random_forest()
     configs_xt = generate_configs_extra_trees()
+    configs_lr = generate_configs_lr()
     configs_tabpfn = generate_configs_tabpfn()
     json_root = Path(__file__).parent.parent / 'data' / 'configs'
     save_json.save(path=str(json_root / 'configs_lightgbm.json'), obj=configs_lightgbm)
@@ -31,4 +33,5 @@ if __name__ == '__main__':
     save_json.save(path=str(json_root / 'configs_knn.json'), obj=configs_knn)
     save_json.save(path=str(json_root / 'configs_rf.json'), obj=configs_rf)
     save_json.save(path=str(json_root / 'configs_xt.json'), obj=configs_xt)
+    save_json.save(path=str(json_root / 'configs_lr.json'), obj=configs_lr)
     save_json.save(path=str(json_root / 'configs_tabpfn.json'), obj=configs_tabpfn)

@@ -4,7 +4,6 @@ from ...utils.config_utils import ConfigGenerator
 name = 'TabPFN'
 manual_configs = [
     {},
-    {'N_ensemble_configurations': 2},
     {'N_ensemble_configurations': 4},
     {'N_ensemble_configurations': 8},
 ]
