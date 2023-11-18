@@ -82,11 +82,20 @@ def preprocess_configs(df_configs: pd.DataFrame, inplace=True) -> pd.DataFrame:
         df_configs = df_configs.copy(deep=True)
     if "tid" in df_configs:
         df_configs['tid'] = df_configs['tid'].astype(int)
+    df_configs["metric"] = df_configs["metric"].apply(lambda m: get_metric_name(metric=m))
     if "metric_error_val" not in df_configs:
-        df_configs["metric"] = df_configs["metric"].apply(lambda m: get_metric_name(metric=m))
         df_configs["metric_error_val"] = df_configs[["score_val", "metric"]].apply(
             lambda row: get_metric_error_from_score(score=row["score_val"], metric=row["metric"]), axis=1,
         )
     if "model" in df_configs:
         df_configs['framework'] = df_configs['model']
     return df_configs
+
+
+def preprocess_baselines(df_baselines: pd.DataFrame, inplace=True) -> pd.DataFrame:
+    if not inplace:
+        df_baselines = df_baselines.copy(deep=True)
+    if "tid" in df_baselines:
+        df_baselines['tid'] = df_baselines['tid'].astype(int)
+    df_baselines["metric"] = df_baselines["metric"].apply(lambda m: get_metric_name(metric=m))
+    return df_baselines
