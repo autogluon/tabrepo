@@ -235,7 +235,7 @@ if __name__ == "__main__":
     engine = args.engine
     expname = repo_version if args.expname is None else args.expname
     n_datasets = args.n_datasets
-    as_paper = args.all_configs
+    as_paper = not args.all_configs
 
     if n_datasets:
         expname += f"-{n_datasets}"
