@@ -161,7 +161,7 @@ def rename_dataframe(df):
     return df
 
 
-def generate_sentitivity_plots(df, show: bool = False):
+def generate_sensitivity_plots(df, show: bool = False):
     # show stds
 
     # show stds
@@ -343,12 +343,12 @@ if __name__ == "__main__":
     for seed in range(n_seeds):
         experiments.append(Experiment(
             expname=expname, name=f"zeroshot-{expname}-num-configs-{seed}",
-            run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, **experiment_common_kwargs)
+            run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, seed=seed, **experiment_common_kwargs)
         ))
 
         experiments.append(Experiment(
             expname=expname, name=f"zeroshot-{expname}-num-training-datasets-{seed}",
-            run_fun=lambda: zeroshot_results(n_training_datasets=n_training_datasets, **experiment_common_kwargs)
+            run_fun=lambda: zeroshot_results(n_training_datasets=n_training_datasets, seed=seed, **experiment_common_kwargs)
         ))
 
 
@@ -372,7 +372,7 @@ if __name__ == "__main__":
     save_total_runtime_to_file(total_time_h)
 
 
-    generate_sentitivity_plots(df, show=False)
+    generate_sensitivity_plots(df, show=False)
 
     show_latex_table(df, "all", show_table=True, n_digits=n_digits)
     ag_styles = [

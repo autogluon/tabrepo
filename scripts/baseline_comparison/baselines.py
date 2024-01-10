@@ -173,7 +173,7 @@ def framework_default_results(repo: EvaluationRepository,
 
 def sample_and_pick_best(
         repo: EvaluationRepository, tid: int, fold: int, framework_type: Optional[str], n_output: int,
-        max_runtime: float = None,
+        max_runtime: float = None, random_state: int = 0,
 ) -> Tuple[List[str], List[str]]:
     """
     :return: Samples random configurations for the given task until `max_runtime` is exhausted and returns the top `n_output` configurations
@@ -195,7 +195,7 @@ def sample_and_pick_best(
         print(f"missing data {tid} {fold} {framework_type}")
 
     # shuffle the rows
-    df_sub = df_sub.sample(frac=1, random_state=0).reset_index(drop=True)
+    df_sub = df_sub.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
     # pick only configurations up to max_runtime
     if max_runtime:
@@ -219,14 +219,15 @@ def framework_best_results(
         normalized_scorer,
         max_runtimes: float = [3600],
         ensemble_size: int = default_ensemble_size,
-        engine='ray',
+        engine: str = 'ray',
+        random_state: int = 0,
         **kwargs) -> List[ResultRow]:
     """
     Evaluates best configurations among `n_configs` random draws and ensemble built with `ensemble_size`
     configurations with highest validation scores among the `n_configs` configurations.
     """
 
-    def evaluate_tid(dataset_name, max_runtime, framework_type, ensemble_size, repo, rank_scorer, normalized_scorer):
+    def evaluate_tid(dataset_name, max_runtime, framework_type, ensemble_size, repo, rank_scorer, normalized_scorer, random_state):
         tid = repo.dataset_to_tid(dataset_name)
         rows = []
 
@@ -238,6 +239,7 @@ def framework_best_results(
                 fold=fold,
                 framework_type=framework_type,
                 max_runtime=max_runtime,
+                random_state=random_state,
             )
 
             # evaluate them
@@ -259,7 +261,7 @@ def framework_best_results(
     list_rows = parallel_for(
         evaluate_tid,
         inputs=list(itertools.product(dataset_names, max_runtimes, framework_types, ensemble_sizes)),
-        context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer),
+        context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer, random_state=random_state),
         engine=engine,
     )
     return [x for l in list_rows for x in l]
@@ -363,6 +365,7 @@ def zeroshot_results(
         n_training_configs: List[int] = [None],
         max_runtimes: List[float] = [default_runtime],
         engine: str = "ray",
+        seed: int = 0,
 ) -> List[ResultRow]:
     """
     :param dataset_names: list of dataset to use when fitting zeroshot
@@ -374,12 +377,13 @@ def zeroshot_results(
     :param n_training_configs: number of configurations available when fitting zeroshot TODO per framework
     :param max_runtimes: max runtime available when evaluating zeroshot configuration at test time
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
+    :param seed: the seed for the random number generator used for shuffling the configs
     :return: evaluation obtained on all combinations
     """
 
     def evaluate_dataset(test_dataset, n_portfolio, n_ensemble, n_training_dataset, n_training_fold, n_training_config,
                          max_runtime, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
-                         model_frameworks):
+                         model_frameworks, seed):
         method_name = zeroshot_name(
             n_portfolio=n_portfolio,
             n_ensemble=n_ensemble,
@@ -411,8 +415,8 @@ def zeroshot_results(
             else:
                 configs += list(np.random.choice(models_framework, n_training_config, replace=False))
 
-        # Randomly shuffle the config order with seed 0
-        rng = np.random.default_rng(seed=0)
+        # Randomly shuffle the config order with the passed seed
+        rng = np.random.default_rng(seed=seed)
         configs = list(rng.choice(configs, len(configs), replace=False))
 
         # # exclude configurations from zeroshot selection whose runtime exceeds runtime budget by large amount
@@ -475,7 +479,7 @@ def zeroshot_results(
         inputs=list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds,
                                       n_training_configs, max_runtimes)),
         context=dict(repo=repo, df_rank=df_rank, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer,
-                     model_frameworks=model_frameworks),
+                     model_frameworks=model_frameworks, seed=seed),
         engine=engine,
     )
     return [x for l in list_rows for x in l]
