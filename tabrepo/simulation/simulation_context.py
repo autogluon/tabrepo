@@ -304,13 +304,24 @@ class ZeroshotSimulatorContext:
         out += '=============================================\n'
         print(out)
 
-    def get_datasets(self, problem_type=None) -> List[str]:
+    def get_datasets(self, problem_type=None, union=True) -> List[str]:
         datasets = self.unique_datasets
         if problem_type is not None:
             if isinstance(problem_type, list):
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] in problem_type]
             else:
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
+        if not union:
+            configs = self.get_configs(union=True)
+            n_configs = len(configs)
+            df_configs_filtered = self.df_configs[self.df_configs["framework"].isin(configs)]
+            value_counts = df_configs_filtered.value_counts(["dataset", "fold"])
+            value_counts_valid = value_counts[value_counts == n_configs]
+            dataset_value_counts = value_counts_valid.reset_index(drop=False)[["dataset", "count"]].groupby("dataset")["count"].sum().to_dict()
+            dataset_task_counts = {d: len(tasks) for d, tasks in self.dataset_to_tasks_dict.items()}
+
+            # filter to only datasets that contain all configs
+            datasets = [d for d in datasets if dataset_value_counts.get(d, 0) == (dataset_task_counts[d] * n_configs)]
         return datasets
 
     def task_to_fold(self, task) -> int:
