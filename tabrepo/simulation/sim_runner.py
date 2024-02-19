@@ -24,11 +24,18 @@ def run_zs_sim_end_to_end(subcontext_name: str,
                           subcontext_load_kwargs: dict = None,
                           backend='ray'):
     from ..contexts import get_subcontext
-    benchmark_subcontext = get_subcontext(subcontext_name)
-    if subcontext_load_kwargs is None:
-        subcontext_load_kwargs = dict()
-    with catchtime(f"load {benchmark_subcontext.name}"):
-        repo = benchmark_subcontext.load(**subcontext_load_kwargs).to_zeroshot()
+    from ..repository import EvaluationRepository
+    if isinstance(subcontext_name, str):
+        benchmark_subcontext = get_subcontext(subcontext_name)
+        if subcontext_load_kwargs is None:
+            subcontext_load_kwargs = dict()
+        with catchtime(f"load {benchmark_subcontext.name}"):
+            repo = benchmark_subcontext.load_from_parent(**subcontext_load_kwargs).to_zeroshot()
+    elif isinstance(subcontext_name, EvaluationRepository):
+        repo = subcontext_name.to_zeroshot()
+    else:
+        raise ValueError(f"Unsupported type for subcontext_name: {type(subcontext_name)}")
+
     repo.print_info()
 
     results_cv = repo.simulate_zeroshot(
