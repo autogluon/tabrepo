@@ -65,8 +65,8 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
-            'dataset').squeeze().to_dict()
-        self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze().to_dict()
+            'dataset').squeeze(axis=1).to_dict()
+        self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze(axis=1).to_dict()
 
     def _compute_dataset_to_tasks(self) -> dict:
         """
@@ -113,8 +113,8 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
-            'dataset').squeeze().to_dict()
-        self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze().to_dict()
+            'dataset').squeeze(axis=1).to_dict()
+        self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze(axis=1).to_dict()
 
     @classmethod
     def _align_valid_folds(cls,
@@ -137,8 +137,8 @@ class ZeroshotSimulatorContext:
             dataset_problem_types_comparison = df_baselines[["dataset", "problem_type"]].drop_duplicates()
             assert len(dataset_problem_types_comparison) == len(dataset_problem_types_comparison["dataset"].unique()), \
                 "Error: datasets exist in `df_comparison` that contain multiple problem_types!"
-            dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze().to_dict()
-            dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze().to_dict()
+            dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze(axis=1).to_dict()
+            dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze(axis=1).to_dict()
             for d in dataset_problem_types_map_configs.keys():
                 problem_type_configs = dataset_problem_types_map_configs[d]
                 if d in dataset_problem_types_map_baselines:
