@@ -101,7 +101,7 @@ num_models_to_plot = 20
 title_size = 20
 figsize = (20, 7)
 
-repo_version = "BAG_D244_F3_C1416"
+repo_version = "D244_F3_C1416_200"
 repo: EvaluationRepository = load_context(version=repo_version)
 
 # Fails with: ValueError: Unknown format code 'f' for object of type 'str'
