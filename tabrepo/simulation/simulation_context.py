@@ -474,9 +474,13 @@ class ZeroshotSimulatorContext:
         """
         Only keep the provided configs, drop all others
         """
+        self.df_configs = self.df_configs[
+            self.df_configs['framework'].isin(configs)
+        ]
         self.df_configs_ranked = self.df_configs_ranked[
             self.df_configs_ranked['framework'].isin(configs)
         ]
+        self._update_all()
 
     def subset_folds(self, folds: List[int]):
         """
