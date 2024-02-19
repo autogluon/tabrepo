@@ -74,6 +74,7 @@ class EvaluationRepository(SaveLoadMixin):
                folds: List[int] = None,
                configs: List[str] = None,
                problem_types: List[str] = None,
+               force_to_dense: bool = True,
                verbose: bool = True,
                ):
         """
@@ -83,6 +84,7 @@ class EvaluationRepository(SaveLoadMixin):
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param configs: The list of configs to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
+        :param force_to_dense: If True, forces the output to dense representation.
         :param verbose: Whether to log verbose details about the force to dense operation.
         :return: Return self after in-place updates in this call.
         """
@@ -94,7 +96,8 @@ class EvaluationRepository(SaveLoadMixin):
             self._zeroshot_context.subset_datasets(datasets=datasets)
         if problem_types is not None:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
-        self.force_to_dense(verbose=verbose)
+        if force_to_dense:
+            self.force_to_dense(verbose=verbose)
         return self
 
     # TODO: Add `is_dense` method to assist in unit tests + sanity checks
