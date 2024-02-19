@@ -99,6 +99,7 @@ def evaluate_configs(
             fold=fold,
             config_names=config_sampled,
             runtime_col='time_train_s',
+            fail_if_missing=False,
         )
         latencies = get_runtime(
             repo=repo,
@@ -106,6 +107,7 @@ def evaluate_configs(
             fold=fold,
             config_names=config_selected_ensemble,
             runtime_col='time_infer_s',
+            fail_if_missing=False,
         )
         rows.append(ResultRow(
             dataset=dataset,
