@@ -286,6 +286,11 @@ if __name__ == "__main__":
     if n_eval_folds == -1:
         n_eval_folds = repo.n_folds()
 
+    problem_types = None
+    if problem_types is not None:
+        expname += f"-{'_'.join(sorted(problem_types))}"
+        repo = repo.subset(problem_types=problem_types)
+
     rank_scorer, normalized_scorer = make_scorers(repo)
     dataset_names = repo.datasets()
     if n_datasets:
