@@ -96,11 +96,13 @@ def convert_memmap_label_from_pickle(folder_pickle: Path, output_dir: Path, dtyp
 
 
 if __name__ == '__main__':
-    path_pickle = "/home/ubuntu/sky_workdir/data/results/2023_08_21/zeroshot_metadata/"
-    memmap_dir = "/home/ubuntu/sky_workdir/data/results/2023_08_21/model_predictions"
+    context = "2023_08_21_micro"
+    prefix = "/home/ubuntu/workspace/code/autogluon-zeroshot/data/results/"
+    path_pickle = f"{prefix}{context}/zeroshot_metadata/"
+    memmap_dir = f"{prefix}{context}/model_predictions"
     convert_memmap_pred_from_pickle(Path(path_pickle), Path(memmap_dir), dtype="float32")
     convert_memmap_label_from_pickle(Path(path_pickle), Path(memmap_dir), dtype="float32")
 
-    memmap_dir = "/home/ubuntu/sky_workdir/data/results/2023_08_21/model_predictions_float16/"
+    memmap_dir = f"{prefix}{context}/model_predictions_float16/"
     convert_memmap_pred_from_pickle(Path(path_pickle), Path(memmap_dir), dtype="float16")
     convert_memmap_label_from_pickle(Path(path_pickle), Path(memmap_dir), dtype="float16")
