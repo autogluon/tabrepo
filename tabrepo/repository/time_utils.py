@@ -39,10 +39,15 @@ def get_runtime(
             )
         else:
             # todo take mean of framework
-            mean_value = np.mean(list(runtime_configs.values()))
-            print(f"Imputing missing value {mean_value} for configurations {missing_configurations} on task {task}")
+            if repo._config_fallback is not None:
+                df_configs_fallback = pd.DataFrame([repo._config_fallback], columns=["framework"]).merge(df_metrics[df_metrics[task_col] == task])
+                runtime_configs_fallback = dict(df_configs_fallback.set_index('framework')[runtime_col])
+                fill_value = runtime_configs_fallback[repo._config_fallback]
+            else:
+                fill_value = np.mean(list(runtime_configs.values()))
+            print(f"Imputing missing value {fill_value} for configurations {missing_configurations} on task {task}")
             for configuration in missing_configurations:
-                runtime_configs[configuration] = mean_value
+                runtime_configs[configuration] = fill_value
     return runtime_configs
 
 
