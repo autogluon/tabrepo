@@ -280,8 +280,8 @@ if __name__ == "__main__":
 
     repo: EvaluationRepository = load_context(version=repo_version, ignore_cache=ignore_cache, as_paper=as_paper)
     # use predictions from this method in case of model failures
-    repo.set_config_fallback("ExtraTrees_c1_BAG_L1")
     repo.print_info()
+    repo.set_config_fallback("ExtraTrees_c1_BAG_L1")
 
     if n_eval_folds == -1:
         n_eval_folds = repo.n_folds()
