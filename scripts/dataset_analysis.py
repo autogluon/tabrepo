@@ -3,6 +3,7 @@ from pathlib import Path
 import warnings
 
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -11,8 +12,10 @@ from baseline_comparison.plot_utils import save_latex_table
 from scripts import load_context
 
 
-def order_clustermap(df):
+def order_clustermap(df, allow_nan=True):
     # TODO we could just call scipy
+    if allow_nan:
+        df = df.fillna(1)
     cg = sns.clustermap(df)
     row_indices = cg.dendrogram_row.reordered_ind
     col_indices = cg.dendrogram_col.reordered_ind
@@ -134,8 +137,10 @@ df_rank.columns.name = "dataset"
 # task-model rank
 fig, axes = plt.subplots(1, 3, figsize=figsize, dpi=300)
 ax = axes[0]
+cmap = matplotlib.colormaps.get_cmap('RdYlGn_r')
+cmap.set_bad("black")
 sns.heatmap(
-    df_rank, cmap="RdYlGn_r", vmin=0, vmax=1, ax=ax,
+    df_rank, cmap=cmap, vmin=0, vmax=1, ax=ax,
 )
 ax.set_xticks([])
 ax.set_xlabel("Datasets", fontdict={'size': title_size})
@@ -152,12 +157,36 @@ ax.set_title("Model rank correlation", fontdict={'size': title_size})
 df = zsc.df_configs_ranked
 ax = axes[2]
 df['framework_type'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
-for framework in df['framework_type'].unique():
-    df_framework = df.loc[df.framework_type == framework, :]
-    ax = df_framework.groupby("tid").max()['time_train_s'].sort_values().reset_index(drop=True).plot(marker=".", label=framework)
-    ax.set_yscale('log')
+
+df_grouped = df[["framework_type", "tid", "time_train_s"]].groupby(["framework_type", "tid"]).max()["time_train_s"].sort_values()
+df_grouped = df_grouped.reset_index(drop=False)
+df_grouped["group_index"] = df_grouped.groupby("framework_type")["time_train_s"].cumcount()
+df_grouped["group_index"] += 1
+
+sns.lineplot(
+    data=df_grouped,
+    x="group_index",
+    y="time_train_s",
+    hue="framework_type",
+    hue_order=sorted(list(df_grouped["framework_type"].unique())),
+    linewidth=3,
+    palette=[  # category10 color palette
+        '#1f77b4',
+        '#ff7f0e',
+        '#2ca02c',
+        '#d62728',
+        '#9467bd',
+        '#8c564b',
+        '#e377c2',
+        '#7f7f7f',
+        '#bcbd22',
+        '#17becf',
+    ],
+    ax=ax,
+)
+ax.set_yscale('log')
 ax.grid()
-ax.legend();
+ax.legend()
 ax.set_xlabel("Datasets", fontdict={'size': title_size})
 ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
 ax.set_title("Training runtime distribution", fontdict={'size': title_size})
