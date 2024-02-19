@@ -146,8 +146,24 @@ class EvaluationRepository(SaveLoadMixin):
         """
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    def datasets(self, problem_type: str = None) -> List[str]:
-        return self._zeroshot_context.get_datasets(problem_type=problem_type)
+    def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
+        """
+        Return all valid datasets.
+        By default, will return all datasets that appear in any config at least once.
+
+        Parameters
+        ----------
+        problem_type : str, default = None
+            If specified, will only consider datasets with the given problem type
+        union: bool, default = True
+            If True, will return the union of datasets present in each config.
+            If False, will return the intersection of datasets present in each config.
+
+        Returns
+        -------
+        A list of dataset names satisfying the above conditions.
+        """
+        return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
 
     def configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
         """
