@@ -274,7 +274,7 @@ if __name__ == "__main__":
             ray.init(num_cpus=num_ray_processes)
 
     n_eval_folds = args.n_folds
-    n_portfolios = [5, 10, 50, 100, n_portfolios_default]
+    n_portfolios = [5, 10, 25, 50, 100, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
@@ -318,7 +318,8 @@ if __name__ == "__main__":
 
     # TODO: This is a hack, in future repo should know the framework_types via the configs.json input
     configs_default = [c for c in repo.configs() if "_c1_" in c]
-    framework_types = [c.rsplit('_c1_', 1)[0] for c in configs_default]
+    framework_types_with_gpu = [c.rsplit('_c1_', 1)[0] for c in configs_default]
+    framework_types = [f for f in framework_types_with_gpu if f not in ["FTTransformer"]]
     configs_total = repo.configs()
     framework_counts = [c.split('_', 1)[0] for c in configs_total]
     framework_counts_unique = set(framework_counts)
@@ -338,6 +339,10 @@ if __name__ == "__main__":
         n_eval_folds=n_eval_folds,
         engine=engine,
     )
+
+    experiment_gpu = experiment_common_kwargs.copy()
+    experiment_gpu["framework_types"] = framework_types_with_gpu
+    experiment_gpu["method_prefix"] = "-gpu"
 
     experiments = [
         Experiment(
@@ -364,6 +369,10 @@ if __name__ == "__main__":
         Experiment(
             expname=expname, name=f"zeroshot-{expname}-maxruntimes",
             run_fun=lambda: zeroshot_results(max_runtimes=max_runtimes, **experiment_common_kwargs)
+        ),
+        Experiment(
+            expname=expname, name=f"zeroshot-gpu-{expname}",
+            run_fun=lambda: zeroshot_results(**experiment_gpu)
         ),
         # Experiment(
         #     expname=expname, name=f"zeroshot-{expname}-num-folds",
@@ -423,7 +432,7 @@ if __name__ == "__main__":
 
     # df = time_cutoff_baseline(df)
 
-    show_latex_table(df, "all", show_table=True, n_digits=n_digits)
+    show_latex_table(df, "all", show_table=True, n_digits=n_digits, save_prefix=expname_outdir)
     ag_styles = [
         # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
         MethodStyle("AutoGluon best (4h)", color="black", linestyle="-.", label_str="AG best (4h)", linewidth=2.5),
@@ -432,7 +441,7 @@ if __name__ == "__main__":
     ]
 
     method_styles = ag_styles.copy()
-    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits)#, ["rank", "normalized_score", ])
+    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits, save_prefix=expname_outdir)
 
     for i, framework_type in enumerate(framework_types):
         method_styles.append(
@@ -545,12 +554,18 @@ if __name__ == "__main__":
         df_selected.method = df_selected.method.str.replace(f" {budget_suffix}", "").str.replace(f"\-N{n_portfolios_default}", "")
         show_latex_table(
             df_selected,
-            f"selected-methods-{budget}",
+            title=f"selected-methods-{budget}",
             show_table=True,
             n_digits=n_digits,
+            save_prefix=expname_outdir,
         )
 
-    show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot", n_digits=n_digits)
+    show_latex_table(
+        df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))],
+        title="zeroshot",
+        n_digits=n_digits,
+        save_prefix=expname_outdir,
+    )
 
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])
     fig_save_path = figure_path(prefix=expname_outdir) / f"scatter-perf-vs-time.pdf"

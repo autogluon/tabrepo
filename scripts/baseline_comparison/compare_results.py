@@ -42,7 +42,6 @@ def winrate_comparison(df: pd.DataFrame, repo: EvaluationRepository, save_prefix
         "H2oautoml",
         "Autosklearn",
     ]
-
     for time_limit in ["1h", "4h"]:
         frameworks_to_eval_time_limit = [f + f' ({time_limit})' for f in frameworks_to_eval]
         results_ranked_valid, results_ranked_by_dataset_valid, results_ranked_all, results_ranked_by_dataset_all, results_pairs_merged_dict = evaluate(

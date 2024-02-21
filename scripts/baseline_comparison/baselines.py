@@ -319,13 +319,15 @@ def time_suffix(max_runtime: float) -> str:
 def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
-        max_runtime: float = default_runtime,
+        max_runtime: float = default_runtime, prefix: str = None,
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
     None, suffixes "-D{n_training_dataset}" and "-S{n_training_folds}" are added, for instance "Zeroshot-N20-C40-D30-S5"
     would be the name if n_training_dataset=30 and n_training_fold=5
     """
+    if prefix is None:
+        prefix = ""
     suffix = [
         f"-{letter}{x}" if x is not None else ""
         for letter, x in
@@ -337,7 +339,7 @@ def zeroshot_name(
     if n_ensemble is None or n_ensemble > 1:
         suffix += " (ensemble)"
     suffix += time_suffix(max_runtime)
-    return f"Portfolio{suffix}"
+    return f"Portfolio{prefix}{suffix}"
 
 
 def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, quantile: float = 0.95):
@@ -371,6 +373,7 @@ def zeroshot_results(
         max_runtimes: List[float] = [default_runtime],
         engine: str = "ray",
         seeds: list = [0],
+        method_prefix: str = None,
 ) -> List[ResultRow]:
     """
     :param dataset_names: list of dataset to use when fitting zeroshot
@@ -395,7 +398,8 @@ def zeroshot_results(
             n_training_dataset=n_training_dataset,
             n_training_fold=n_training_fold,
             max_runtime=max_runtime,
-            n_training_config=n_training_config
+            n_training_config=n_training_config,
+            prefix=method_prefix,
         )
 
         # restrict number of evaluation fold

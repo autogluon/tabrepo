@@ -29,10 +29,10 @@ def iqm(x):
     return np.mean(x[start:end])
 
 
-def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs=None, n_digits=None):
+def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs=None, n_digits=None, save_prefix=None):
     metrics = ["normalized-error", "rank", "time fit (s)", "time infer (s)"]
     df_metrics = compute_avg_metrics(df, metrics)
-    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs, n_digits=n_digits)
+    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs, n_digits=n_digits, save_prefix=save_prefix)
 
 
 def figure_path(prefix: str = None, suffix: str = None):
