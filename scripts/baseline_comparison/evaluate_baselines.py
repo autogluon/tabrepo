@@ -41,7 +41,7 @@ from scripts.baseline_comparison.plot_utils import (
 )
 
 
-def run_evalute_baselines(
+def run_evaluate_baselines(
     repo,
     ignore_cache: bool = False,
     ray_process_ratio: float = None,
@@ -398,7 +398,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(args.__dict__)
-    run_evalute_baselines(
+    run_evaluate_baselines(
         repo=args.repo,
         n_eval_folds=args.n_folds,
         n_datasets=args.n_datasets,
