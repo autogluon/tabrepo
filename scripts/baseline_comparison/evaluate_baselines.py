@@ -41,35 +41,24 @@ from scripts.baseline_comparison.plot_utils import (
 )
 
 
-if __name__ == "__main__":
-    from argparse import ArgumentParser
-    parser = ArgumentParser()
-    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="D244_F3_C1416_200")
-    parser.add_argument("--n_folds", type=int, default=-1, required=False,
-                        help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
-    parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
-    parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
-    parser.add_argument("--all_configs", action="store_true", help="If True, will use all configs rather than filtering out NeuralNetFastAI. If True, results will differ from the paper.")
-    parser.add_argument("--expname", type=str, help="Name of the experiment. If None, defaults to the value specified in `repo`.", required=False, default=None)
-    parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
-                        help="Engine used for embarrassingly parallel loop.")
-    parser.add_argument("--ray_process_ratio", type=float,
-                        help="The ratio of ray processes to logical cpu cores. Use lower values to reduce memory usage. Only used if engine == 'ray'",)
-    args = parser.parse_args()
-    print(args.__dict__)
-
-    repo_version = args.repo
-    ignore_cache = args.ignore_cache
-    ray_process_ratio = args.ray_process_ratio
-    engine = args.engine
-    expname = repo_version if args.expname is None else args.expname
-    n_datasets = args.n_datasets
-    as_paper = not args.all_configs
+def run_evalute_baselines(
+    repo,
+    ignore_cache: bool = False,
+    ray_process_ratio: float = None,
+    engine: str = "ray",
+    expname: str = None,
+    all_configs: bool = False,
+    n_datasets: int = None,
+    n_eval_folds: int = -1,
+):
+    repo_version = repo
+    expname = repo_version if expname is None else expname
+    as_paper = not all_configs
 
     if n_datasets:
         expname += f"-{n_datasets}"
 
-    if engine == "ray" and args.ray_process_ratio is not None:
+    if engine == "ray" and ray_process_ratio is not None:
         assert (ray_process_ratio <= 1) and (ray_process_ratio > 0)
         num_cpus = os.cpu_count()
         num_ray_processes = math.ceil(num_cpus*ray_process_ratio)
@@ -82,7 +71,6 @@ if __name__ == "__main__":
         if not ray.is_initialized():
             ray.init(num_cpus=num_ray_processes)
 
-    n_eval_folds = args.n_folds
     n_portfolios = [5, 10, 25, 50, 100, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
@@ -391,3 +379,32 @@ if __name__ == "__main__":
     winrate_comparison(df=df, repo=repo, save_prefix=expname_outdir)
 
     show_repository_stats.get_stats(expname_outdir=expname_outdir, repo=repo)
+
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="D244_F3_C1416_200")
+    parser.add_argument("--n_folds", type=int, default=-1, required=False,
+                        help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
+    parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
+    parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
+    parser.add_argument("--all_configs", action="store_true", help="If True, will use all configs rather than filtering out NeuralNetFastAI. If True, results will differ from the paper.")
+    parser.add_argument("--expname", type=str, help="Name of the experiment. If None, defaults to the value specified in `repo`.", required=False, default=None)
+    parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
+                        help="Engine used for embarrassingly parallel loop.")
+    parser.add_argument("--ray_process_ratio", type=float,
+                        help="The ratio of ray processes to logical cpu cores. Use lower values to reduce memory usage. Only used if engine == 'ray'",)
+    args = parser.parse_args()
+
+    print(args.__dict__)
+    run_evalute_baselines(
+        repo=args.repo,
+        n_eval_folds=args.n_folds,
+        n_datasets=args.n_datasets,
+        ignore_cache=args.ignore_cache,
+        all_configs=args.all_configs,
+        expname=args.expname,
+        engine=args.engine,
+        ray_process_ratio=args.ray_process_ratio,
+    )
