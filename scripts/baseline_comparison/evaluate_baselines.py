@@ -165,7 +165,7 @@ def rename_dataframe(df):
 
 def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     dimensions = [
-        ("M", "Number of configuration per family"),
+        ("M", "Number of configurations per family"),
         ("D", "Number of training datasets to fit portfolios"),
     ]
     metrics = [
@@ -319,6 +319,15 @@ if __name__ == "__main__":
     # TODO: This is a hack, in future repo should know the framework_types via the configs.json input
     configs_default = [c for c in repo.configs() if "_c1_" in c]
     framework_types = [c.rsplit('_c1_', 1)[0] for c in configs_default]
+    configs_total = repo.configs()
+    framework_counts = [c.split('_', 1)[0] for c in configs_total]
+    framework_counts_unique = set(framework_counts)
+    framework_counts_dict = {
+        f: len([f2 for f2 in framework_counts if f2 == f]) for f in framework_counts_unique
+    }
+    print(framework_counts_dict)
+
+    expname_outdir = Path("output") / expname
 
     experiment_common_kwargs = dict(
         repo=repo,
@@ -394,6 +403,8 @@ if __name__ == "__main__":
         ])
     # De-duplicate in case we ran a config multiple times
     df = rename_dataframe(df)
+    framework_types.remove("NeuralNetTorch")
+    framework_types.append("MLP")
     df = df.drop_duplicates(subset=["method", "dataset", "fold", "seed"])
 
     print(f"Obtained {len(df)} evaluations on {len(df.dataset.unique())} datasets for {len(df.method.unique())} methods.")
@@ -412,15 +423,6 @@ if __name__ == "__main__":
 
     # df = time_cutoff_baseline(df)
 
-    print(f"Obtained {len(df)} evaluations on {len(df.dataset.unique())} datasets for {len(df.method.unique())} methods.")
-    print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
-    total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
-    print(f"Total time of experiments: {total_time_h} hours")
-    save_total_runtime_to_file(total_time_h)
-
-
-    generate_sensitivity_plots(df, show=False)
-
     show_latex_table(df, "all", show_table=True, n_digits=n_digits)
     ag_styles = [
         # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
@@ -430,8 +432,7 @@ if __name__ == "__main__":
     ]
 
     method_styles = ag_styles.copy()
-    framework_types.remove("NeuralNetTorch")
-    framework_types.append("MLP")
+    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits)#, ["rank", "normalized_score", ])
 
     for i, framework_type in enumerate(framework_types):
         method_styles.append(
@@ -460,7 +461,6 @@ if __name__ == "__main__":
                 label_str=framework_type
             )
         )
-    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits)#, ["rank", "normalized_score", ])
 
     plot_figure(df, method_styles, figname="cdf-frameworks", save_prefix=expname_outdir)
 
