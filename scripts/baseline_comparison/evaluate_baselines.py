@@ -17,7 +17,7 @@ from tabrepo.utils.cache import cache_function, cache_function_dataframe
 from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.utils.rank_utils import RankScorer
 
-from scripts import output_path, load_context
+from scripts import output_path, load_context, show_repository_stats
 from scripts.baseline_comparison.baselines import (
     automl_results,
     framework_default_results,
@@ -35,7 +35,8 @@ from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
     show_latex_table,
     show_cdf,
-    show_scatter_performance_vs_time, iqm, show_scatter_performance_vs_time_lower_budgets, figure_path,
+    show_scatter_performance_vs_time, iqm, show_scatter_performance_vs_time_lower_budgets,
+    figure_path, table_path,
     plot_critical_diagrams,
 )
 
@@ -90,12 +91,13 @@ def impute_missing(repo: EvaluationRepository):
     repo._zeroshot_context.df_configs_ranked = df
 
 
-def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname: str = None, show: bool = False):
+def plot_figure(df, method_styles: List[MethodStyle], title: str = None, figname: str = None, show: bool = False, save_prefix: str = None, format: str = "pdf"):
     fig, _ = show_cdf(df[df.method.isin([m.name for m in method_styles])], method_styles=method_styles)
     if title:
         fig.suptitle(title)
     if figname:
-        fig_save_path = figure_path() / f"{figname}.pdf"
+        fig_path = figure_path(prefix=save_prefix)
+        fig_save_path = fig_path / f"{figname}.{format}"
         plt.tight_layout()
         plt.savefig(fig_save_path)
     if show:
@@ -161,37 +163,53 @@ def rename_dataframe(df):
     return df
 
 
-def generate_sensitivity_plots(df, show: bool = False):
-    # show stds
-
-    # show stds
-    fig, axes = plt.subplots(2, 2, sharex='col', sharey='row', figsize=(9, 4))
-
+def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     dimensions = [
         ("M", "Number of configuration per family"),
         ("D", "Number of training datasets to fit portfolios"),
     ]
+    metrics = [
+        "normalized-error",
+        # "rank",
+    ]
+
+    # show stds
+    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(9, 4))
+
     for i, (dimension, legend) in enumerate(dimensions):
 
-        for j, metric in enumerate(["normalized-error", "rank"]):
+        for j, metric in enumerate(metrics):
             df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :].copy()
+            df_portfolio["is_ensemble"] = df_portfolio.method.str.contains("(ensemble)")
             df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
 
-            df_portfolio.loc[:, dimension] = df_portfolio.loc[:, "method"].apply(
+            df_portfolio.loc[df_portfolio["is_ensemble"], dimension] = df_portfolio.loc[df_portfolio["is_ensemble"], "method"].apply(
                 lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
-            df_portfolio = df_portfolio[df_portfolio[dimension] > 1]
+            df_portfolio.loc[~df_portfolio["is_ensemble"], dimension] = df_portfolio.loc[~df_portfolio["is_ensemble"], "method"].apply(
+                lambda s: int(s.replace(" (4h)", "").split("-")[-1][1:]))
 
-            dim, mean, sem = df_portfolio.loc[:, [dimension, metric]].groupby(dimension).agg(
-                ["mean", "sem"]).reset_index().values.T
-            ax = axes[j][i]
-            ax.errorbar(
-                dim, mean, sem,
-                label="Portfolio",
-                linestyle="",
-                marker="o",
-            )
+            if len(metrics) > 1:
+                ax = axes[j][i]
+            else:
+                ax = axes[i]
+
+            for is_ens in [True, False]:
+                df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
+                df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[metric]
+                dim, mean, sem = df_portfolio_agg.groupby(dimension).agg(["mean", "sem"]).reset_index().values.T
+
+                label = "Portfolio"
+                if is_ens:
+                    label += " (ensemble)"
+
+                ax.errorbar(
+                    dim, mean, sem,
+                    label=label,
+                    linestyle="",
+                    marker="o",
+                )
             ax.set_xlim([0, None])
-            if j == 1:
+            if j == len(metrics) - 1:
                 ax.set_xlabel(legend)
             if i == 0:
                 ax.set_ylabel(f"{metric}")
@@ -199,16 +217,18 @@ def generate_sensitivity_plots(df, show: bool = False):
             ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
             if i == 1 and j == 0:
                 ax.legend()
-    fig_save_path = figure_path() / f"sensitivity.pdf"
+    fig_path = figure_path(prefix=save_prefix)
+    fig_save_path = fig_path / f"sensitivity.pdf"
     plt.tight_layout()
     plt.savefig(fig_save_path)
     if show:
         plt.show()
 
 
-def save_total_runtime_to_file(total_time_h):
+def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
     # Save total runtime so that "show_repository_stats.py" can show the ratio of saved time
-    with open(output_path / "tables" / "runtime.txt", "w") as f:
+    path = table_path(prefix=save_prefix)
+    with open(path / "runtime.txt", "w") as f:
         f.write(str(total_time_h))
 
 
@@ -258,9 +278,9 @@ if __name__ == "__main__":
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
-    n_training_datasets = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
-    n_training_configs = [1, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
-    n_seeds = 1
+    n_training_datasets = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
+    n_training_configs = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
+    n_seeds = 20
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
     linestyle_ensemble = "--"
@@ -347,25 +367,45 @@ if __name__ == "__main__":
     ]
 
     # Use more seeds
-    for seed in range(n_seeds):
-        experiments.append(Experiment(
-            expname=expname, name=f"zeroshot-{expname}-num-configs-{seed}",
-            run_fun=lambda: zeroshot_results(n_training_configs=n_training_configs, seed=seed, **experiment_common_kwargs)
-        ))
+    seeds = [s for s in range(n_seeds)]
+    experiments.append(Experiment(
+        expname=expname, name=f"zeroshot-{expname}-num-configs-n-seeds-{n_seeds}",
+        run_fun=lambda: zeroshot_results(
+            n_training_configs=n_training_configs,
+            n_ensembles=[1, default_ensemble_size],
+            seeds=seeds,
+            **experiment_common_kwargs,
+        )
+    ))
 
-        experiments.append(Experiment(
-            expname=expname, name=f"zeroshot-{expname}-num-training-datasets-{seed}",
-            run_fun=lambda: zeroshot_results(n_training_datasets=n_training_datasets, seed=seed, **experiment_common_kwargs)
-        ))
-
+    experiments.append(Experiment(
+        expname=expname, name=f"zeroshot-{expname}-num-training-datasets-n-seeds-{n_seeds}",
+        run_fun=lambda: zeroshot_results(
+            n_training_datasets=n_training_datasets,
+            n_ensembles=[1, default_ensemble_size],
+            seeds=seeds,
+            **experiment_common_kwargs,
+        )
+    ))
 
     with catchtime("total time to generate evaluations"):
         df = pd.concat([
             experiment.data(ignore_cache=ignore_cache) for experiment in experiments
         ])
     # De-duplicate in case we ran a config multiple times
-    df = df.drop_duplicates(subset=["method", "dataset", "fold"])
     df = rename_dataframe(df)
+    df = df.drop_duplicates(subset=["method", "dataset", "fold", "seed"])
+
+    print(f"Obtained {len(df)} evaluations on {len(df.dataset.unique())} datasets for {len(df.method.unique())} methods.")
+    print(f"Methods available:" + "\n".join(sorted(df.method.unique())))
+    total_time_h = df.loc[:, "time fit (s)"].sum() / 3600
+    print(f"Total time of experiments: {total_time_h} hours")
+    save_total_runtime_to_file(total_time_h, save_prefix=expname_outdir)
+
+    generate_sensitivity_plots(df, show=True, save_prefix=expname_outdir)
+
+    # Drop multiple seeds after generating sensitivity plots
+    df = df.drop_duplicates(subset=["method", "dataset", "fold"])
 
     # Save results
     save_pd.save(path=str(Paths.data_root / "simulation" / expname / "results.csv"), df=df)
@@ -397,7 +437,7 @@ if __name__ == "__main__":
         method_styles.append(
             MethodStyle(
                 framework_name(framework_type, tuned=False),
-                color=sns.color_palette('bright')[i],
+                color=sns.color_palette('bright', n_colors=20)[i],
                 linestyle=linestyle_default,
                 label=True,
                 label_str=framework_type,
@@ -406,7 +446,7 @@ if __name__ == "__main__":
         method_styles.append(
             MethodStyle(
                 framework_name(framework_type, max_runtime=4 * 3600, ensemble_size=1, tuned=True),
-                color=sns.color_palette('bright')[i],
+                color=sns.color_palette('bright', n_colors=20)[i],
                 linestyle=linestyle_tune,
                 label=False,
             )
@@ -414,7 +454,7 @@ if __name__ == "__main__":
         method_styles.append(
             MethodStyle(
                 framework_name(framework_type, max_runtime=4 * 3600, tuned=True),
-                color=sns.color_palette('bright')[i],
+                color=sns.color_palette('bright', n_colors=20)[i],
                 linestyle=linestyle_ensemble,
                 label=False,
                 label_str=framework_type
@@ -422,11 +462,12 @@ if __name__ == "__main__":
         )
     show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits)#, ["rank", "normalized_score", ])
 
-    plot_figure(df, method_styles, figname="cdf-frameworks")
+    plot_figure(df, method_styles, figname="cdf-frameworks", save_prefix=expname_outdir)
 
     plot_figure(
         df, [x for x in method_styles if "ensemble" not in x.name], figname="cdf-frameworks-tuned",
         title="Effect of tuning configurations",
+        save_prefix=expname_outdir,
     )
 
     plot_figure(
@@ -435,6 +476,7 @@ if __name__ == "__main__":
         figname="cdf-frameworks-ensemble",
         title="Effect of tuning & ensembling",
         # title="Comparison of frameworks",
+        save_prefix=expname_outdir,
     )
 
     cmap = matplotlib.colormaps["viridis"]
@@ -446,7 +488,7 @@ if __name__ == "__main__":
         )
         for i, size in enumerate(n_training_datasets)
     ]
-    plot_figure(df, method_styles, title="Effect of number of training tasks", figname="cdf-n-training-datasets")
+    plot_figure(df, method_styles, title="Effect of number of training tasks", figname="cdf-n-training-datasets", save_prefix=expname_outdir)
 
     # # Plot effect number of training fold
     # method_styles = ag_styles + [
@@ -466,7 +508,7 @@ if __name__ == "__main__":
         )
         for i, size in enumerate(n_portfolios)
     ]
-    plot_figure(df, method_styles, title="Effect of number of portfolio configurations", figname="cdf-n-configs")
+    plot_figure(df, method_styles, title="Effect of number of portfolio configurations", figname="cdf-n-configs", save_prefix=expname_outdir)
 
     # Plot effect of number of training configurations
     method_styles = ag_styles + [
@@ -476,7 +518,7 @@ if __name__ == "__main__":
         )
         for i, size in enumerate(n_training_configs)
     ]
-    plot_figure(df, method_styles, title="Effect of number of offline configurations", figname="cdf-n-training-configs")
+    plot_figure(df, method_styles, title="Effect of number of offline configurations", figname="cdf-n-training-configs", save_prefix=expname_outdir)
 
     # Plot effect of training time limit
     method_styles = ag_styles + [
@@ -487,7 +529,7 @@ if __name__ == "__main__":
         )
         for i, size in enumerate(max_runtimes)
     ]
-    plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime")
+    plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime", save_prefix=expname_outdir)
 
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     for budget in ["1h", "4h"]:
@@ -511,15 +553,17 @@ if __name__ == "__main__":
     show_latex_table(df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))], "zeroshot", n_digits=n_digits)
 
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])
-    fig_save_path = figure_path() / f"scatter-perf-vs-time.pdf"
+    fig_save_path = figure_path(prefix=expname_outdir) / f"scatter-perf-vs-time.pdf"
     fig.savefig(fig_save_path, bbox_extra_artists=bbox_extra_artists, bbox_inches='tight')
     fig.show()
 
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time_lower_budgets(df, metric_cols=["normalized-error", "rank"])
-    fig_save_path = figure_path() / f"scatter-perf-vs-time-lower-budget.pdf"
+    fig_save_path = figure_path(prefix=expname_outdir) / f"scatter-perf-vs-time-lower-budget.pdf"
     fig.savefig(fig_save_path, bbox_extra_artists=bbox_extra_artists, bbox_inches='tight')
     fig.show()
 
-    plot_critical_diagrams(df)
+    plot_critical_diagrams(df, save_prefix=expname_outdir)
 
-    winrate_comparison(df=df, repo=repo)
+    winrate_comparison(df=df, repo=repo, save_prefix=expname_outdir)
+
+    show_repository_stats.get_stats(expname_outdir=expname_outdir, repo=repo)

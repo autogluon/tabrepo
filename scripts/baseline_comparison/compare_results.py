@@ -7,7 +7,7 @@ from tabrepo.repository.evaluation_repository import EvaluationRepository
 from scripts.baseline_comparison.plot_utils import save_latex_table
 
 
-def winrate_comparison(df: pd.DataFrame, repo: EvaluationRepository):
+def winrate_comparison(df: pd.DataFrame, repo: EvaluationRepository, save_prefix: str = None):
     # git clone https://github.com/Innixma/autogluon-benchmark.git
     # cd autogluon-benchmark
     # pip install -e .
@@ -75,4 +75,4 @@ def winrate_comparison(df: pd.DataFrame, repo: EvaluationRepository):
             "rank": 3,
         }
         save_latex_table(df=results_pairs_portfolio_min, title=f"portfolio_winrate_compare_{time_limit}", show_table=True,
-                         latex_kwargs=latex_kwargs, n_digits=n_digits)
+                         latex_kwargs=latex_kwargs, n_digits=n_digits, save_prefix=save_prefix)
