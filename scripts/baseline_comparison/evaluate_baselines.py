@@ -129,7 +129,7 @@ def run_evaluate_baselines(
     }
     print(framework_counts_dict)
 
-    expname_outdir = Path("output") / expname
+    expname_outdir = str(Path("output") / expname)
 
     experiment_common_kwargs = dict(
         repo=repo,
