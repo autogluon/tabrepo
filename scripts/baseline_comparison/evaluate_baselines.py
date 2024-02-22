@@ -111,7 +111,7 @@ def run_evaluate_baselines(
     # TODO: This is a hack, in future repo should know the framework_types via the configs.json input
     configs_default = [c for c in repo.configs() if "_c1_" in c]
     framework_types_with_gpu = [c.rsplit('_c1_', 1)[0] for c in configs_default]
-    framework_types = [f for f in framework_types_with_gpu if f not in ["FTTransformer"]]
+    framework_types = [f for f in framework_types_with_gpu if f not in ["FTTransformer", "TabPFN"]]
     configs_total = repo.configs()
     framework_counts = [c.split('_', 1)[0] for c in configs_total]
     framework_counts_unique = set(framework_counts)
@@ -132,14 +132,13 @@ def run_evaluate_baselines(
         engine=engine,
     )
 
-    experiment_gpu = experiment_common_kwargs.copy()
-    experiment_gpu["framework_types"] = framework_types_with_gpu
-    experiment_gpu["method_prefix"] = "-gpu"
+    experiment_all_kwargs = experiment_common_kwargs.copy()
+    experiment_all_kwargs["framework_types"] = framework_types_with_gpu
 
     experiments = [
         Experiment(
             expname=expname, name=f"framework-default-{expname}",
-            run_fun=lambda: framework_default_results(**experiment_common_kwargs)
+            run_fun=lambda: framework_default_results(**experiment_all_kwargs)
         ),
         Experiment(
             expname=expname, name=f"framework-best-{expname}",
@@ -164,7 +163,7 @@ def run_evaluate_baselines(
         ),
         Experiment(
             expname=expname, name=f"zeroshot-gpu-{expname}",
-            run_fun=lambda: zeroshot_results(**experiment_gpu)
+            run_fun=lambda: zeroshot_results(method_prefix="-gpu", **experiment_all_kwargs)
         ),
         # Experiment(
         #     expname=expname, name=f"zeroshot-{expname}-num-folds",
@@ -205,7 +204,11 @@ def run_evaluate_baselines(
     # De-duplicate in case we ran a config multiple times
     df = rename_dataframe(df)
     framework_types.remove("NeuralNetTorch")
+    framework_types_with_gpu.remove("NeuralNetTorch")
     framework_types.append("MLP")
+    framework_types_with_gpu.append("MLP")
+    framework_counts_dict["MLP"] = framework_counts_dict["NeuralNetTorch"]
+    framework_counts_dict.pop("NeuralNetTorch")
     df = df.drop_duplicates(subset=["method", "dataset", "fold", "seed"])
 
     print(f"Obtained {len(df)} evaluations on {len(df.dataset.unique())} datasets for {len(df.method.unique())} methods.")
