@@ -28,6 +28,7 @@ from scripts.baseline_comparison.evaluate_utils import (
     save_total_runtime_to_file,
     make_scorers,
     plot_ctf,
+    plot_tuning_impact,
 )
 from scripts.baseline_comparison.plot_utils import (
     show_latex_table,
@@ -80,7 +81,7 @@ def run_evaluate_baselines(
     # n_training_configs = list(range(10, 210, 10))
     n_training_datasets = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 199]
     n_training_configs = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
-    n_seeds = 20
+    n_seeds = 10
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
 
@@ -255,6 +256,8 @@ def run_evaluate_baselines(
         n_digits=n_digits,
         save_prefix=expname_outdir,
     )
+
+    plot_tuning_impact(df=df, framework_types=framework_types_with_gpu, save_prefix=expname_outdir)
 
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])
     fig_save_path = figure_path(prefix=expname_outdir) / f"scatter-perf-vs-time.pdf"

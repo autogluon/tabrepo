@@ -1,4 +1,5 @@
 from typing import List, Callable, Dict
+
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -330,3 +331,106 @@ def plot_ctf(
     ]
     plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime", save_prefix=expname_outdir)
 
+
+def get_framework_type_method_names(framework_types, max_runtime=4 * 3600):
+    f_map = dict()
+    f_map_type = dict()
+    f_map_inverse = dict()
+    for framework_type in framework_types:
+        f_tuned = framework_name(framework_type, max_runtime=max_runtime, ensemble_size=1, tuned=True)
+        f_tuned_ensembled = framework_name(framework_type, max_runtime=max_runtime, tuned=True)
+        f_default = framework_name(framework_type, tuned=False)
+        f_map[framework_type] = dict(
+            default=f_default,
+            tuned=f_tuned,
+            tuned_ensembled=f_tuned_ensembled,
+        )
+        f_map_inverse[f_default] = "default"
+        f_map_inverse[f_tuned] = "tuned"
+        f_map_inverse[f_tuned_ensembled] = "tuned_ensembled"
+        f_map_type[f_default] = framework_type
+        f_map_type[f_tuned] = framework_type
+        f_map_type[f_tuned_ensembled] = framework_type
+    return f_map, f_map_type, f_map_inverse
+
+
+# FIXME: Avoid hardcoding
+def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str, show: bool = True):
+    df = df.copy()
+
+    f_map, f_map_type, f_map_inverse = get_framework_type_method_names(framework_types=framework_types)
+
+    metric = "normalized-error"
+
+    df["framework_type"] = df["method"].map(f_map_type).fillna(df["method"])
+    df["tune_method"] = df["method"].map(f_map_inverse).fillna("default")
+
+    framework_types = ["AutoGluon best (4h)", "Autosklearn2 (4h)"] + framework_types
+
+    df_plot = df[df["framework_type"].isin(framework_types)]
+
+    df_plot_w_mean = df_plot[["framework_type", "tune_method", metric, "dataset", "fold"]].groupby(
+        ["framework_type", "tune_method", "dataset"]
+    )[metric].mean().reset_index()
+    df_plot_w_mean_2 = df_plot.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
+    df_plot_w_mean_2 = df_plot_w_mean_2.sort_values(by=metric, ascending=False)
+    df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["tune_method"] == "default"]
+    baseline_mean = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] == "AutoGluon best (4h)"][metric].iloc[0]
+    df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] != "AutoGluon best (4h)"]
+    askl2_mean = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] == "Autosklearn2 (4h)"][metric].iloc[0]
+    df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] != "Autosklearn2 (4h)"]
+    framework_type_order = list(df_plot_w_mean_2["framework_type"].values)
+
+    # boxplot
+    # sns.set_color_codes("pastel")
+    with sns.axes_style("whitegrid"):
+        colors = sns.color_palette("pastel").as_hex()
+        errcolors = sns.color_palette("deep").as_hex()
+        fig, ax = plt.subplots(1, 1, figsize=(12, 4.5))
+        sns.barplot(
+            x="framework_type", y=metric,
+            # hue="tune_method",  # palette=["m", "g", "r],
+            label="Default",
+            data=df_plot[df_plot["tune_method"] == "default"], ax=ax,
+            order=framework_type_order, color=colors[0],
+            width=0.8,
+            errcolor=errcolors[0],
+        )
+        sns.barplot(
+            x="framework_type", y=metric,
+            # hue="tune_method",  # palette=["m", "g", "r],
+            label="Tuned (4h)",
+            data=df_plot[df_plot["tune_method"] == "tuned"], ax=ax,
+            order=framework_type_order, color=colors[1], width=0.7,
+            errcolor=errcolors[1],
+        )
+        boxplot = sns.barplot(
+            x="framework_type", y=metric,
+            # hue="tune_method",  # palette=["m", "g", "r],
+            label="Tuned + Ensembled (4h)",
+            data=df_plot[df_plot["tune_method"] == "tuned_ensembled"], ax=ax,
+            order=framework_type_order, color=colors[2], width=0.6,
+            errcolor=errcolors[2],
+        )
+        boxplot.set(xlabel=None)  # remove "Method" in the x-axis
+        boxplot.set_title("Effect of tuning and ensembling")
+        ax.axhline(y=baseline_mean, label="AutoGluon best (4h)", color="black", linewidth=2.0, ls="--")
+        ax.axhline(y=askl2_mean, label="Autosklearn2 (4h)", color="darkgray", linewidth=2.0, ls="--")
+        ax.set_ylim([0, 1])
+
+        # specify order
+        order = [2, 3, 4, 1, 0]
+
+        # reordering the labels
+        handles, labels = plt.gca().get_legend_handles_labels()
+
+        # pass handle & labels lists along with order as below
+        plt.legend([handles[i] for i in order], [labels[i] for i in order])
+        plt.tight_layout()
+
+        if save_prefix:
+            fig_path = figure_path(prefix=save_prefix)
+            fig_save_path = fig_path / f"tuning_impact.pdf"
+            plt.savefig(fig_save_path)
+        if show:
+            plt.show()
