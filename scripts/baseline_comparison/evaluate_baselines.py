@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import math
 import seaborn as sns
@@ -42,18 +44,25 @@ from scripts.baseline_comparison.plot_utils import (
 
 
 def run_evaluate_baselines(
-    repo,
+    repo: str | EvaluationRepository,
+    expname: str = None,
     ignore_cache: bool = False,
     ray_process_ratio: float = None,
     engine: str = "ray",
-    expname: str = None,
     all_configs: bool = False,
     n_datasets: int = None,
     n_eval_folds: int = -1,
 ):
-    repo_version = repo
-    expname = repo_version if expname is None else expname
     as_paper = not all_configs
+    if isinstance(repo, EvaluationRepository):
+        assert expname is not None, "expname must be specified when repo is an EvaluationRepository"
+    else:
+        expname = repo if expname is None else expname
+        repo: EvaluationRepository = load_context(version=repo, ignore_cache=ignore_cache, as_paper=as_paper)
+
+    repo.print_info()
+    # use predictions from this method in case of model failures
+    repo.set_config_fallback("ExtraTrees_c1_BAG_L1")
 
     if n_datasets:
         expname += f"-{n_datasets}"
@@ -94,11 +103,6 @@ def run_evaluate_baselines(
 
     if not as_paper:
         expname += "_ALL"
-
-    repo: EvaluationRepository = load_context(version=repo_version, ignore_cache=ignore_cache, as_paper=as_paper)
-    # use predictions from this method in case of model failures
-    repo.print_info()
-    repo.set_config_fallback("ExtraTrees_c1_BAG_L1")
 
     if n_eval_folds == -1:
         n_eval_folds = repo.n_folds()
