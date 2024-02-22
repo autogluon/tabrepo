@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import os
 import math
-import seaborn as sns
 import pandas as pd
-import matplotlib
 from pathlib import Path
 
 from autogluon.common.savers import save_pd
@@ -19,9 +17,6 @@ from scripts.baseline_comparison.baselines import (
     framework_default_results,
     framework_best_results,
     zeroshot_results,
-    zeroshot_name,
-    framework_name,
-    time_suffix,
     default_ensemble_size,
     n_portfolios_default,
 )
@@ -30,12 +25,11 @@ from scripts.baseline_comparison.evaluate_utils import (
     Experiment,
     rename_dataframe,
     generate_sensitivity_plots,
-    plot_figure,
     save_total_runtime_to_file,
     make_scorers,
+    plot_ctf,
 )
 from scripts.baseline_comparison.plot_utils import (
-    MethodStyle,
     show_latex_table,
     show_scatter_performance_vs_time, show_scatter_performance_vs_time_lower_budgets,
     figure_path,
@@ -89,9 +83,6 @@ def run_evaluate_baselines(
     n_seeds = 20
     n_training_folds = [1, 2, 5, 10]
     n_ensembles = [10, 20, 40, 80]
-    linestyle_ensemble = "--"
-    linestyle_default = "-"
-    linestyle_tune = "dotted"
 
     # Number of digits to show in table
     n_digits = {
@@ -234,112 +225,6 @@ def run_evaluate_baselines(
     # df = time_cutoff_baseline(df)
 
     show_latex_table(df, "all", show_table=True, n_digits=n_digits, save_prefix=expname_outdir)
-    ag_styles = [
-        # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
-        MethodStyle("AutoGluon best (4h)", color="black", linestyle="-.", label_str="AG best (4h)", linewidth=2.5),
-        # MethodStyle("AutoGluon high quality (ensemble)", color="black", linestyle=":", label_str="AG-high"),
-        # MethodStyle("localsearch (ensemble) (ST)", color="red", linestyle="-")
-    ]
-
-    method_styles = ag_styles.copy()
-    show_latex_table(df[df.method.isin([m.name for m in method_styles])], "frameworks", n_digits=n_digits, save_prefix=expname_outdir)
-
-    for i, framework_type in enumerate(framework_types):
-        method_styles.append(
-            MethodStyle(
-                framework_name(framework_type, tuned=False),
-                color=sns.color_palette('bright', n_colors=20)[i],
-                linestyle=linestyle_default,
-                label=True,
-                label_str=framework_type,
-            )
-        )
-        method_styles.append(
-            MethodStyle(
-                framework_name(framework_type, max_runtime=4 * 3600, ensemble_size=1, tuned=True),
-                color=sns.color_palette('bright', n_colors=20)[i],
-                linestyle=linestyle_tune,
-                label=False,
-            )
-        )
-        method_styles.append(
-            MethodStyle(
-                framework_name(framework_type, max_runtime=4 * 3600, tuned=True),
-                color=sns.color_palette('bright', n_colors=20)[i],
-                linestyle=linestyle_ensemble,
-                label=False,
-                label_str=framework_type
-            )
-        )
-
-    plot_figure(df, method_styles, figname="cdf-frameworks", save_prefix=expname_outdir)
-
-    plot_figure(
-        df, [x for x in method_styles if "ensemble" not in x.name], figname="cdf-frameworks-tuned",
-        title="Effect of tuning configurations",
-        save_prefix=expname_outdir,
-    )
-
-    plot_figure(
-        df,
-        [x for x in method_styles if any(pattern in x.name for pattern in ["tuned", "AutoGluon"])],
-        figname="cdf-frameworks-ensemble",
-        title="Effect of tuning & ensembling",
-        # title="Comparison of frameworks",
-        save_prefix=expname_outdir,
-    )
-
-    cmap = matplotlib.colormaps["viridis"]
-    # Plot effect number of training datasets
-    method_styles = ag_styles + [
-        MethodStyle(
-            zeroshot_name(n_training_dataset=size),
-            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}'~=~" + f"{size}$",
-        )
-        for i, size in enumerate(n_training_datasets)
-    ]
-    plot_figure(df, method_styles, title="Effect of number of training tasks", figname="cdf-n-training-datasets", save_prefix=expname_outdir)
-
-    # # Plot effect number of training fold
-    # method_styles = ag_styles + [
-    #     MethodStyle(
-    #         zeroshot_name(n_training_fold=size),
-    #         color=cmap(i / (len(n_training_folds) - 1)), linestyle="-", label_str=f"S{size}",
-    #     )
-    #     for i, size in enumerate(n_training_folds)
-    # ]
-    # plot_figure(df, method_styles, title="Effect of number of training folds", figname="cdf-n-training-folds")
-
-    # Plot effect number of portfolio size
-    method_styles = ag_styles + [
-        MethodStyle(
-            zeroshot_name(n_portfolio=size),
-            color=cmap(i / (len(n_portfolios) - 1)), linestyle="-", label_str=r"$\mathcal{N}~=~" + f"{size}$",
-        )
-        for i, size in enumerate(n_portfolios)
-    ]
-    plot_figure(df, method_styles, title="Effect of number of portfolio configurations", figname="cdf-n-configs", save_prefix=expname_outdir)
-
-    # Plot effect of number of training configurations
-    method_styles = ag_styles + [
-        MethodStyle(
-            zeroshot_name(n_training_config=size),
-            color=cmap(i / (len(n_training_configs) - 1)), linestyle="-", label_str=r"$\mathcal{M}'~=~" + f"{size}$",
-        )
-        for i, size in enumerate(n_training_configs)
-    ]
-    plot_figure(df, method_styles, title="Effect of number of offline configurations", figname="cdf-n-training-configs", save_prefix=expname_outdir)
-
-    # Plot effect of training time limit
-    method_styles = ag_styles + [
-        MethodStyle(
-            zeroshot_name(max_runtime=size),
-            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-",
-            label_str=time_suffix(size).replace("(", "").replace(")", "").strip(),
-        )
-        for i, size in enumerate(max_runtimes)
-    ]
-    plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime", save_prefix=expname_outdir)
 
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     for budget in ["1h", "4h"]:
@@ -379,6 +264,15 @@ def run_evaluate_baselines(
     fig.show()
 
     plot_critical_diagrams(df, save_prefix=expname_outdir)
+    plot_ctf(
+        df=df,
+        framework_types=framework_types,
+        expname_outdir=expname_outdir,
+        n_training_datasets=n_training_datasets,
+        n_portfolios=n_portfolios,
+        n_training_configs=n_training_configs,
+        max_runtimes=max_runtimes,
+    )
 
     winrate_comparison(df=df, repo=repo, save_prefix=expname_outdir)
 

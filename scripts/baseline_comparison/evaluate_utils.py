@@ -1,6 +1,8 @@
 from typing import List, Callable, Dict
+import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 
 from dataclasses import dataclass
 
@@ -10,7 +12,7 @@ from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.utils.rank_utils import RankScorer
 
 from scripts import output_path
-from scripts.baseline_comparison.baselines import ResultRow
+from scripts.baseline_comparison.baselines import ResultRow, zeroshot_name, time_suffix, framework_name
 from scripts.baseline_comparison.plot_utils import (
     MethodStyle,
     show_cdf,
@@ -208,3 +210,123 @@ def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
     path = table_path(prefix=save_prefix)
     with open(path / "runtime.txt", "w") as f:
         f.write(str(total_time_h))
+
+
+def plot_ctf(
+    df,
+    framework_types,
+    expname_outdir,
+    n_training_datasets,
+    n_portfolios,
+    n_training_configs,
+    max_runtimes,
+):
+    linestyle_ensemble = "--"
+    linestyle_default = "-"
+    linestyle_tune = "dotted"
+    ag_styles = [
+        # MethodStyle("AutoGluon best (1h)", color="black", linestyle="--", label_str="AG best (1h)"),
+        MethodStyle("AutoGluon best (4h)", color="black", linestyle="-.", label_str="AG best (4h)", linewidth=2.5),
+        # MethodStyle("AutoGluon high quality (ensemble)", color="black", linestyle=":", label_str="AG-high"),
+        # MethodStyle("localsearch (ensemble) (ST)", color="red", linestyle="-")
+    ]
+
+    method_styles = ag_styles.copy()
+
+    for i, framework_type in enumerate(framework_types):
+        method_styles.append(
+            MethodStyle(
+                framework_name(framework_type, tuned=False),
+                color=sns.color_palette('bright', n_colors=20)[i],
+                linestyle=linestyle_default,
+                label=True,
+                label_str=framework_type,
+            )
+        )
+        method_styles.append(
+            MethodStyle(
+                framework_name(framework_type, max_runtime=4 * 3600, ensemble_size=1, tuned=True),
+                color=sns.color_palette('bright', n_colors=20)[i],
+                linestyle=linestyle_tune,
+                label=False,
+            )
+        )
+        method_styles.append(
+            MethodStyle(
+                framework_name(framework_type, max_runtime=4 * 3600, tuned=True),
+                color=sns.color_palette('bright', n_colors=20)[i],
+                linestyle=linestyle_ensemble,
+                label=False,
+                label_str=framework_type
+            )
+        )
+
+    plot_figure(df, method_styles, figname="cdf-frameworks", save_prefix=expname_outdir)
+
+    plot_figure(
+        df, [x for x in method_styles if "ensemble" not in x.name], figname="cdf-frameworks-tuned",
+        title="Effect of tuning configurations",
+        save_prefix=expname_outdir,
+    )
+
+    plot_figure(
+        df,
+        [x for x in method_styles if any(pattern in x.name for pattern in ["tuned", "AutoGluon"])],
+        figname="cdf-frameworks-ensemble",
+        title="Effect of tuning & ensembling",
+        # title="Comparison of frameworks",
+        save_prefix=expname_outdir,
+    )
+
+    cmap = matplotlib.colormaps["viridis"]
+    # Plot effect number of training datasets
+    method_styles = ag_styles + [
+        MethodStyle(
+            zeroshot_name(n_training_dataset=size),
+            color=cmap(i / (len(n_training_datasets) - 1)), linestyle="-", label_str=r"$\mathcal{D}'~=~" + f"{size}$",
+        )
+        for i, size in enumerate(n_training_datasets)
+    ]
+    plot_figure(df, method_styles, title="Effect of number of training tasks", figname="cdf-n-training-datasets", save_prefix=expname_outdir)
+
+    # # Plot effect number of training fold
+    # method_styles = ag_styles + [
+    #     MethodStyle(
+    #         zeroshot_name(n_training_fold=size),
+    #         color=cmap(i / (len(n_training_folds) - 1)), linestyle="-", label_str=f"S{size}",
+    #     )
+    #     for i, size in enumerate(n_training_folds)
+    # ]
+    # plot_figure(df, method_styles, title="Effect of number of training folds", figname="cdf-n-training-folds")
+
+    # Plot effect number of portfolio size
+    method_styles = ag_styles + [
+        MethodStyle(
+            zeroshot_name(n_portfolio=size),
+            color=cmap(i / (len(n_portfolios) - 1)), linestyle="-", label_str=r"$\mathcal{N}~=~" + f"{size}$",
+        )
+        for i, size in enumerate(n_portfolios)
+    ]
+    plot_figure(df, method_styles, title="Effect of number of portfolio configurations", figname="cdf-n-configs", save_prefix=expname_outdir)
+
+    # Plot effect of number of training configurations
+    method_styles = ag_styles + [
+        MethodStyle(
+            zeroshot_name(n_training_config=size),
+            color=cmap(i / (len(n_training_configs) - 1)), linestyle="-", label_str=r"$\mathcal{M}'~=~" + f"{size}$",
+        )
+        for i, size in enumerate(n_training_configs)
+    ]
+    plot_figure(df, method_styles, title="Effect of number of offline configurations", figname="cdf-n-training-configs", save_prefix=expname_outdir)
+
+    # Plot effect of training time limit
+    method_styles = ag_styles + [
+        MethodStyle(
+            zeroshot_name(max_runtime=size),
+            color=cmap(i / (len(max_runtimes) - 1)), linestyle="-",
+            label_str=time_suffix(size).replace("(", "").replace(")", "").strip(),
+        )
+        for i, size in enumerate(max_runtimes)
+    ]
+    plot_figure(df, method_styles, title="Effect of training time limit", figname="cdf-max-runtime", save_prefix=expname_outdir)
+
