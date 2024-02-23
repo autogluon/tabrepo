@@ -29,6 +29,7 @@ from scripts.baseline_comparison.evaluate_utils import (
     make_scorers,
     plot_ctf,
     plot_tuning_impact,
+    plot_family_proportion,
 )
 from scripts.baseline_comparison.plot_utils import (
     show_latex_table,
@@ -222,7 +223,17 @@ def run_evaluate_baselines(
 
     # Drop multiple seeds after generating sensitivity plots
     df = df.drop_duplicates(subset=["method", "dataset", "fold"])
-
+    hue_order_family_proportion = [
+        "CatBoost",
+        "LightGBM",
+        "XGBoost",
+        "MLP",
+        "RandomForest",
+        "ExtraTrees",
+        "LinearModel",
+        "KNeighbors",
+    ]
+    plot_family_proportion(df=df, save_prefix=expname_outdir, hue_order=hue_order_family_proportion)
     # Save results
     save_pd.save(path=str(Paths.data_root / "simulation" / expname / "results.csv"), df=df)
 

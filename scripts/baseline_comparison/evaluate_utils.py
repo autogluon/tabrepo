@@ -1,3 +1,4 @@
+from ast import literal_eval
 from typing import List, Callable, Dict
 
 import matplotlib
@@ -155,7 +156,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     ]
 
     # show stds
-    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(9, 4))
+    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(9, 4), dpi=300)
 
     for i, (dimension, legend) in enumerate(dimensions):
 
@@ -163,11 +164,15 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
             df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :].copy()
             df_portfolio["is_ensemble"] = df_portfolio.method.str.contains("(ensemble)")
             df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
+            df_askl2 = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].copy()
 
             df_portfolio.loc[df_portfolio["is_ensemble"], dimension] = df_portfolio.loc[df_portfolio["is_ensemble"], "method"].apply(
                 lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
             df_portfolio.loc[~df_portfolio["is_ensemble"], dimension] = df_portfolio.loc[~df_portfolio["is_ensemble"], "method"].apply(
                 lambda s: int(s.replace(" (4h)", "").split("-")[-1][1:]))
+
+            # Drop instances where dimension=1
+            df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
 
             if len(metrics) > 1:
                 ax = axes[j][i]
@@ -186,7 +191,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                 ax.errorbar(
                     dim, mean, sem,
                     label=label,
-                    linestyle="",
+                    linestyle="-",
                     marker="o",
                 )
             ax.set_xlim([0, None])
@@ -196,10 +201,21 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                 ax.set_ylabel(f"{metric}")
             ax.grid()
             ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
+            ax.hlines(df_askl2.mean(), xmin=0, xmax=max(dim), color="darkgray", label="Autosklearn2", ls="--")
             if i == 1 and j == 0:
                 ax.legend()
+                # specify order
+                order = [3, 2, 1, 0]
+
+                # reordering the labels
+                handles, labels = ax.get_legend_handles_labels()
+
+                # pass handle & labels lists along with order as below
+                ax.legend([handles[i] for i in order], [labels[i] for i in order])
+
+
     fig_path = figure_path(prefix=save_prefix)
-    fig_save_path = fig_path / f"sensitivity.pdf"
+    fig_save_path = fig_path / f"sensitivity.png"
     plt.tight_layout()
     plt.savefig(fig_save_path)
     if show:
@@ -214,8 +230,8 @@ def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
 
 
 def plot_ctf(
-    df,
-    framework_types,
+    df: pd.DataFrame,
+    framework_types: list,
     expname_outdir,
     n_training_datasets,
     n_portfolios,
@@ -414,7 +430,7 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
         )
         boxplot.set(xlabel=None)  # remove "Method" in the x-axis
         boxplot.set_title("Effect of tuning and ensembling")
-        ax.axhline(y=baseline_mean, label="AutoGluon best (4h)", color="black", linewidth=2.0, ls="--")
+        ax.axhline(y=baseline_mean, label="AutoGluon (4h)", color="black", linewidth=2.0, ls="--")
         ax.axhline(y=askl2_mean, label="Autosklearn2 (4h)", color="darkgray", linewidth=2.0, ls="--")
         ax.set_ylim([0, 1])
 
@@ -430,7 +446,126 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
 
         if save_prefix:
             fig_path = figure_path(prefix=save_prefix)
-            fig_save_path = fig_path / f"tuning_impact.pdf"
+            fig_save_path = fig_path / f"tuning_impact.png"
             plt.savefig(fig_save_path)
         if show:
             plt.show()
+
+
+def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_prefix: str = None, show: bool = True, hue_order: list = None):
+    print('yo')
+    df_family = df[df["method"] == method].copy()
+    df_family = df_family[df_family["fold"] == 0]
+    portfolios = list(df_family["config_selected"].values)
+    portfolios_lst = [literal_eval(portfolio) for portfolio in portfolios]
+
+    from collections import defaultdict
+    type_count = defaultdict(int)
+    type_count_family = defaultdict(int)
+    type_count_per_iter = dict()
+    type_count_family_per_iter = dict()
+
+    n_iters = 50
+    for i in range(n_iters):
+        type_count_per_iter[i] = defaultdict(int)
+        type_count_family_per_iter[i] = defaultdict(int)
+        for portfolio in portfolios_lst:
+            if len(portfolio) <= i:
+                continue
+            name = portfolio[i]
+            family = name.split('_', 1)[0]
+            # To keep naming consistency in the paper
+            if family == "NeuralNetTorch":
+                family = "MLP"
+            type_count[name] += 1
+            type_count_family[family] += 1
+            type_count_per_iter[i][name] += 1
+            type_count_family_per_iter[i][family] += 1
+
+    families = sorted(list(type_count_family.keys()))
+
+    import copy
+    type_count_cumulative = dict()
+    type_count_family_cumulative = dict()
+    type_count_cumulative[0] = copy.deepcopy(type_count_per_iter[0])
+    type_count_family_cumulative[0] = copy.deepcopy(type_count_family_per_iter[0])
+    for i in range(1, n_iters):
+        type_count_cumulative[i] = copy.deepcopy(type_count_cumulative[i-1])
+        for k in type_count_per_iter[i].keys():
+            type_count_cumulative[i][k] += type_count_per_iter[i][k]
+        type_count_family_cumulative[i] = copy.deepcopy(type_count_family_cumulative[i-1])
+        for k in type_count_family_per_iter[i].keys():
+            type_count_family_cumulative[i][k] += type_count_family_per_iter[i][k]
+
+    data = []
+    for i in range(n_iters):
+        data.append([type_count_family_per_iter[i][f] for f in families])
+    data_cumulative = []
+    for i in range(n_iters):
+        data_cumulative.append([type_count_family_cumulative[i][f] for f in families])
+
+
+    data_df = pd.DataFrame(data=data, columns=families)
+    data_df = data_df.div(data_df.sum(axis=1), axis=0) * 100
+    data_df2 = data_df.stack().reset_index(name='Model Frequency (%) at Position').rename(columns={'level_1': 'Model', 'level_0': 'Portfolio Position'})
+    data_df2["Portfolio Position"] += 1
+
+    data_cumulative_df = pd.DataFrame(data=data_cumulative, columns=families)
+    data_cumulative_df = data_cumulative_df.div(data_cumulative_df.sum(axis=1), axis=0) * 100
+    data_cumulative_df2 = data_cumulative_df.stack().reset_index(name='Cumulative Model Frequency (%)').rename(columns={'level_1': 'Model', 'level_0': 'Portfolio Position'})
+    data_cumulative_df2["Portfolio Position"] += 1
+    fig, axes = plt.subplots(2, 1, sharey=False, sharex=True, figsize=(16, 10), dpi=300, layout="constrained")
+
+    sns.histplot(
+        data_df2,
+        x="Portfolio Position",
+        weights="Model Frequency (%) at Position",
+        # stat="percent",
+        hue="Model",
+        hue_order=hue_order,
+        multiple="stack",
+        # palette="light:m_r",
+        palette="pastel",
+        edgecolor=".3",
+        linewidth=.5,
+        discrete=True,
+        ax=axes[0],
+        # legend=False,
+    )
+    axes[0].set(ylabel="Model Frequency (%) at Position")
+    axes[0].set_xlim([0, n_iters+1])
+    axes[0].set_ylim([0, 100])
+    sns.move_legend(axes[0], "upper left")
+
+    sns.histplot(
+        data_cumulative_df2,
+        x="Portfolio Position",
+        weights="Cumulative Model Frequency (%)",
+        # stat="percent",
+        hue="Model",
+        hue_order=hue_order,
+        multiple="stack",
+        # palette="light:m_r",
+        palette="pastel",
+        edgecolor=".3",
+        linewidth=.5,
+        discrete=True,
+        ax=axes[1],
+        legend=False,
+    )
+    axes[1].set(ylabel="Cumulative Model Frequency (%)")
+    axes[1].set_xlim([0, n_iters+1])
+    axes[1].set_ylim([0, 100])
+
+    fig.suptitle(f"Model Family Presence in Portfolio by Training Order")
+
+    if save_prefix:
+        fig_path = figure_path(prefix=save_prefix)
+        fig_save_path = fig_path / f"portfolio_model_presence.png"
+        plt.savefig(fig_save_path)
+    if show:
+        plt.show()
+
+    print('yay')
+
+
