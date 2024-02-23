@@ -146,10 +146,11 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     plt.rcParams.update({'font.size': 16})
 
     df_metrics = compute_avg_metrics(df, ["normalized-error", "rank", "time fit (s)", "time infer (s)", "fit budget"])
-    colors = [sns.color_palette("bright")[j] for j in range(10)]
+    colors = [sns.color_palette("pastel")[j] for j in range(10)]
 
     # makes autogluon black to respect colors used in previous plots
     colors[6] = "black"
+    colors[7] = sns.color_palette("bright")[6]
     # colors[6] = "yellow"
     markers = ['x', 'v', '^', "8", "D", 'v', "s", '*', ]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
@@ -166,15 +167,16 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
-            fitting_budget_hour = df_framework["fit budget"] / 3600
+            df_framework_sorted = df_framework.sort_values(by="fit budget", ascending=True)
+            fitting_budget_hour = df_framework_sorted["fit budget"] / 3600
 
-            axes[i].scatter(
+            axes[i].plot(
                 fitting_budget_hour,
-                df_framework[metric_col],
+                df_framework_sorted[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                s=100.0 if markers[j] == "*" else 70.0,
+                markersize=14 if markers[j] == "*" else 10,
             )
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
@@ -218,15 +220,16 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
-            fitting_budget_hour = df_framework["fit budget"] / 3600
+            df_framework_sorted = df_framework.sort_values(by="fit budget", ascending=True)
+            fitting_budget_hour = df_framework_sorted["fit budget"] / 3600
 
-            axes[i].scatter(
+            axes[i].plot(
                 fitting_budget_hour,
-                df_framework[metric_col],
+                df_framework_sorted[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                s=100.0 if markers[j] == "*" else 70.0,
+                markersize=14 if markers[j] == "*" else 10,
             )
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
