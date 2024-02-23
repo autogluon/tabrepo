@@ -183,17 +183,26 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                 df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
                 df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[metric]
                 dim, mean, sem = df_portfolio_agg.groupby(dimension).agg(["mean", "sem"]).reset_index().values.T
+                _, _, std = df_portfolio_agg.groupby(dimension).agg(["mean", "std"]).reset_index().values.T
 
                 label = "Portfolio"
                 if is_ens:
                     label += " (ensemble)"
 
-                ax.errorbar(
-                    dim, mean, sem,
+                ax.plot(
+                    dim, mean,
                     label=label,
                     linestyle="-",
                     marker="o",
                 )
+
+                ax.fill_between(
+                    dim,
+                    [m - s for m, s in zip(mean, std)],
+                    [m + s for m, s in zip(mean, std)],
+                    alpha=0.2,
+                )
+
             ax.set_xlim([0, None])
             if j == len(metrics) - 1:
                 ax.set_xlabel(legend)
@@ -205,7 +214,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
             if i == 1 and j == 0:
                 ax.legend()
                 # specify order
-                order = [3, 2, 1, 0]
+                order = [1, 0, 3, 2]
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
@@ -220,6 +229,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     plt.savefig(fig_save_path)
     if show:
         plt.show()
+    raise AssertionError
 
 
 def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
