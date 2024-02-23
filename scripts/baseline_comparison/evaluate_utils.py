@@ -229,7 +229,6 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     plt.savefig(fig_save_path)
     if show:
         plt.show()
-    raise AssertionError
 
 
 def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
