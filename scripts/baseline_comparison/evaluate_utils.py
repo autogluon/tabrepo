@@ -417,7 +417,8 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
             # hue="tune_method",  # palette=["m", "g", "r],
             label="Tuned (4h)",
             data=df_plot[df_plot["tune_method"] == "tuned"], ax=ax,
-            order=framework_type_order, color=colors[1], width=0.7,
+            order=framework_type_order, color=colors[1],
+            width=0.7,
             errcolor=errcolors[1],
         )
         boxplot = sns.barplot(
@@ -425,7 +426,8 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
             # hue="tune_method",  # palette=["m", "g", "r],
             label="Tuned + Ensembled (4h)",
             data=df_plot[df_plot["tune_method"] == "tuned_ensembled"], ax=ax,
-            order=framework_type_order, color=colors[2], width=0.6,
+            order=framework_type_order, color=colors[2],
+            width=0.6,
             errcolor=errcolors[2],
         )
         boxplot.set(xlabel=None)  # remove "Method" in the x-axis

@@ -244,6 +244,7 @@ def run_evaluate_baselines(
     automl_frameworks = ["Autosklearn2", "Flaml", "Lightautoml", "H2oautoml"]
     for budget in ["1h", "4h"]:
         budget_suffix = f"\({budget}\)"
+        budget_suffix_str = f"({budget})"
         # df = df[~df.method.str.contains("All")]
         df_selected = df[
             (df.method.str.contains(f"AutoGluon .*{budget_suffix}")) |
@@ -252,7 +253,7 @@ def run_evaluate_baselines(
             (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
             (df.method.str.contains(".*default.*"))
         ].copy()
-        df_selected.method = df_selected.method.str.replace(f" {budget_suffix}", "").str.replace(f"\-N{n_portfolios_default}", "")
+        df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
         show_latex_table(
             df_selected,
             title=f"selected-methods-{budget}",
@@ -260,7 +261,27 @@ def run_evaluate_baselines(
             n_digits=n_digits,
             save_prefix=expname_outdir,
         )
+        if budget in ["4h"]:
+            df_selected = df[
+                (df.method.str.contains(f"AutoGluon .*{budget_suffix}")) |
+                (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
+                (df.method.str.contains(f"Portfolio-gpu-N{n_portfolios_default} .*{budget_suffix}")) |
+                (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{budget_suffix}")) |
+                (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
+                (df.method.str.contains(".*default.*"))
+            ].copy()
+            df_selected["method"] = df_selected["method"].map({
+                f"Portfolio-gpu-N{n_portfolios_default} (ensemble) {budget_suffix_str}": f"Portfolio-N{n_portfolios_default}-GPU (ensemble) {budget_suffix_str}",
+            }).fillna(df_selected["method"])
+            df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
 
+            show_latex_table(
+                df_selected,
+                title=f"selected-methods-gpu-{budget}",
+                show_table=True,
+                n_digits=n_digits,
+                save_prefix=expname_outdir,
+            )
     show_latex_table(
         df[(df.method.str.contains("Portfolio") | (df.method.str.contains("AutoGluon ")))],
         title="zeroshot",
