@@ -179,7 +179,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
             else:
                 ax = axes[i]
 
-            for is_ens in [True, False]:
+            for is_ens in [False, True]:
                 df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
                 df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[metric]
                 dim, mean, sem = df_portfolio_agg.groupby(dimension).agg(["mean", "sem"]).reset_index().values.T
@@ -214,7 +214,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
             if i == 1 and j == 0:
                 ax.legend()
                 # specify order
-                order = [1, 0, 3, 2]
+                order = [0, 1, 3, 2]
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
