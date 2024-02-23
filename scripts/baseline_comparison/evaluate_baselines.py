@@ -139,11 +139,11 @@ def run_evaluate_baselines(
 
     experiments = [
         Experiment(
-            expname=expname, name=f"framework-default-{expname}",
+            expname=expname, name=f"framework-default",
             run_fun=lambda: framework_default_results(**experiment_all_kwargs)
         ),
         Experiment(
-            expname=expname, name=f"framework-best-{expname}",
+            expname=expname, name=f"framework-best",
             run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
         ),
         # Experiment(
@@ -152,27 +152,27 @@ def run_evaluate_baselines(
         # ),
         # Automl baselines such as Autogluon best, high, medium quality
         Experiment(
-            expname=expname, name=f"automl-baselines-{expname}",
+            expname=expname, name=f"automl-baselines",
             run_fun=lambda: automl_results(**experiment_common_kwargs),
         ),
         Experiment(
-            expname=expname, name=f"zeroshot-{expname}",
+            expname=expname, name=f"zeroshot",
             run_fun=lambda: zeroshot_results(**experiment_common_kwargs)
         ),
         Experiment(
-            expname=expname, name=f"zeroshot-{expname}-maxruntimes",
+            expname=expname, name=f"zeroshot-maxruntimes",
             run_fun=lambda: zeroshot_results(max_runtimes=max_runtimes, **experiment_common_kwargs)
         ),
         Experiment(
-            expname=expname, name=f"zeroshot-gpu-{expname}",
-            run_fun=lambda: zeroshot_results(method_prefix="-gpu", **experiment_all_kwargs)
+            expname=expname, name=f"zeroshot-gpu",
+            run_fun=lambda: zeroshot_results(method_prefix="-gpu", n_ensembles=[1, default_ensemble_size], **experiment_all_kwargs)
         ),
         # Experiment(
         #     expname=expname, name=f"zeroshot-{expname}-num-folds",
         #     run_fun=lambda: zeroshot_results(n_training_folds=n_training_folds, ** experiment_common_kwargs)
         # ),
         Experiment(
-            expname=expname, name=f"zeroshot-{expname}-num-portfolios",
+            expname=expname, name=f"zeroshot-num-portfolios",
             run_fun=lambda: zeroshot_results(n_portfolios=n_portfolios, n_ensembles=[1, default_ensemble_size], **experiment_common_kwargs)
         ),
     ]
@@ -180,7 +180,7 @@ def run_evaluate_baselines(
     # Use more seeds
     seeds = [s for s in range(n_seeds)]
     experiments.append(Experiment(
-        expname=expname, name=f"zeroshot-{expname}-num-configs-n-seeds-{n_seeds}",
+        expname=expname, name=f"zeroshot-num-configs-n-seeds-{n_seeds}",
         run_fun=lambda: zeroshot_results(
             n_training_configs=n_training_configs,
             n_ensembles=[1, default_ensemble_size],
@@ -190,7 +190,7 @@ def run_evaluate_baselines(
     ))
 
     experiments.append(Experiment(
-        expname=expname, name=f"zeroshot-{expname}-num-training-datasets-n-seeds-{n_seeds}",
+        expname=expname, name=f"zeroshot-num-training-datasets-n-seeds-{n_seeds}",
         run_fun=lambda: zeroshot_results(
             n_training_datasets=n_training_datasets,
             n_ensembles=[1, default_ensemble_size],
@@ -272,6 +272,7 @@ def run_evaluate_baselines(
             ].copy()
             df_selected["method"] = df_selected["method"].map({
                 f"Portfolio-gpu-N{n_portfolios_default} (ensemble) {budget_suffix_str}": f"Portfolio-N{n_portfolios_default}-GPU (ensemble) {budget_suffix_str}",
+                f"Portfolio-gpu-N{n_portfolios_default} {budget_suffix_str}": f"Portfolio-N{n_portfolios_default}-GPU {budget_suffix_str}",
             }).fillna(df_selected["method"])
             df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
 
