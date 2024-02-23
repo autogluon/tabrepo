@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from tabrepo import EvaluationRepository
-from baseline_comparison.plot_utils import save_latex_table
 from scripts import load_context
+from scripts.baseline_comparison.plot_utils import figure_path, save_latex_table
 
 
 def order_clustermap(df, allow_nan=True):
@@ -31,7 +31,7 @@ def index(name):
         return int(config_number)
 
 
-def generate_dataset_info_latex(repo: EvaluationRepository):
+def generate_dataset_info_latex(repo: EvaluationRepository, expname_outdir: str):
     metadata = repo._df_metadata.copy()
     assert len(metadata) == len(repo.tids())
 
@@ -61,7 +61,7 @@ def generate_dataset_info_latex(repo: EvaluationRepository):
     datasets_statistics = datasets_statistics.round()
     datasets_statistics = datasets_statistics.astype(int)
 
-    save_latex_table(df=datasets_statistics, title=f"datasets_statistics", show_table=True)
+    save_latex_table(df=datasets_statistics, title=f"datasets_statistics", show_table=True, save_prefix=expname_outdir)
 
     metadata_latex['name'] = metadata_latex['name'].apply(lambda x: x[:max_name_length])
 
@@ -94,105 +94,124 @@ def generate_dataset_info_latex(repo: EvaluationRepository):
         metadata_combined = pd.concat([metadata_left, metadata_right], axis=1)
         metadata_combined = metadata_combined.fillna('')
         save_latex_table(df=metadata_combined, title=f"datasets_{p}", show_table=True,
-                         latex_kwargs=latex_kwargs)
+                         latex_kwargs=latex_kwargs, save_prefix=expname_outdir)
 
 
-num_models_to_plot = 20
-title_size = 20
-figsize = (20, 7)
+def generate_dataset_analysis(repo, expname_outdir: str):
+    num_models_to_plot = 20
+    title_size = 20
+    figsize = (20, 7)
 
-repo_version = "D244_F3_C1416_200"
-repo: EvaluationRepository = load_context(version=repo_version)
+    # Fails with: ValueError: Unknown format code 'f' for object of type 'str'
+    generate_dataset_info_latex(repo=repo, expname_outdir=expname_outdir)
 
-# Fails with: ValueError: Unknown format code 'f' for object of type 'str'
-generate_dataset_info_latex(repo=repo)
+    zsc = repo._zeroshot_context
 
-zsc = repo._zeroshot_context
+    df = zsc.df_configs_ranked.copy()
 
-df = zsc.df_configs_ranked.copy()
-# # remove tasks with some lightGBM models missing, todo fix
-# missing_tids = [359932, 359944, 359933, 359946]
-# df = df[~df.tid.isin(missing_tids)]
+    df["framework"] = df["framework"].map({
+        "FTTransformer_c1_BAG_L1": "FTTransformer_r1_BAG_L1",
+        # "FTTransformer_c2_BAG_L1": "FTTransformer_r2_BAG_L1",
+        # "FTTransformer_c3_BAG_L1": "FTTransformer_r3_BAG_L1",
+        "TabPFN_c1_BAG_L1": "TabPFN_r1_BAG_L1",
+        # "TabPFN_c2_BAG_L1": "TabPFN_r2_BAG_L1",
+        # "TabPFN_c3_BAG_L1": "TabPFN_r3_BAG_L1",
 
-config_regexp = "(" + "|".join([str(x) for x in range(6)]) + ")"
-df = df[df.framework.str.contains(f"r{config_regexp}_BAG_L1")]
-df.framework = df.framework.str.replace("NeuralNetTorch", "MLP")
+    }).fillna(df["framework"])
+    config_regexp = "(" + "|".join([str(x) for x in range(4)]) + ")"
+    df = df[df.framework.str.contains(f"r{config_regexp}_BAG_L1")]
+    df.framework = df.framework.str.replace("NeuralNetTorch", "MLP")
 
-metric = "metric_error"
-df_pivot = df.pivot_table(
-    index="framework", columns="tid", values=metric
-)
-df_rank = df_pivot.rank() / len(df_pivot)
-df_rank.index = [x.replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
-# shorten framework names
-#df_rank.index = [x.replace("ExtraTrees", "ET").replace("CatBoost", "CB").replace("LightGBM", "LGBM").replace("NeuralNetFastAI", "MLP").replace("RandomForest", "RF").replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
+    metric = "metric_error"
+    df_pivot = df.pivot_table(
+        index="framework", columns="tid", values=metric
+    )
+    df_rank = df_pivot.rank() / len(df_pivot)
+    df_rank.index = [x.replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
+    # shorten framework names
+    #df_rank.index = [x.replace("ExtraTrees", "ET").replace("CatBoost", "CB").replace("LightGBM", "LGBM").replace("NeuralNetFastAI", "MLP").replace("RandomForest", "RF").replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
+    df_rank.index = [
+        x
+        # .replace("ExtraTrees", "ET")
+        # .replace("CatBoost", "CB")
+        # .replace("LightGBM", "LGBM")
+        .replace("NeuralNetTorch", "MLP")
+        # .replace("RandomForest", "_r", "_")
+        # .replace("_", "-")
+        for x in df_rank.index]
 
-df_rank = df_rank[[index(name) is not None and index(name) < num_models_to_plot for name in df_rank.index]]
+    df_rank = df_rank[[index(name) is not None and index(name) < num_models_to_plot for name in df_rank.index]]
 
-ordered_rows, ordered_cols = order_clustermap(df_rank)
-df_rank = df_rank.loc[ordered_rows]
-df_rank = df_rank[ordered_cols]
-df_rank.columns.name = "dataset"
+    ordered_rows, ordered_cols = order_clustermap(df_rank)
+    df_rank = df_rank.loc[ordered_rows]
+    df_rank = df_rank[ordered_cols]
+    df_rank.columns.name = "dataset"
 
-# task-model rank
-fig, axes = plt.subplots(1, 3, figsize=figsize, dpi=300)
-ax = axes[0]
-cmap = matplotlib.colormaps.get_cmap('RdYlGn_r')
-cmap.set_bad("black")
-sns.heatmap(
-    df_rank, cmap=cmap, vmin=0, vmax=1, ax=ax,
-)
-ax.set_xticks([])
-ax.set_xlabel("Datasets", fontdict={'size': title_size})
-ax.set_title("Ranks of models per dataset", fontdict={'size': title_size})
+    # task-model rank
+    fig, axes = plt.subplots(1, 3, figsize=figsize, dpi=300)
+    ax = axes[0]
+    cmap = matplotlib.colormaps.get_cmap('RdYlGn_r')
+    cmap.set_bad("black")
+    sns.heatmap(
+        df_rank, cmap=cmap, vmin=0, vmax=1, ax=ax,
+    )
+    ax.set_xticks([])
+    ax.set_xlabel("Datasets", fontdict={'size': title_size})
+    ax.set_title("Ranks of models per dataset", fontdict={'size': title_size})
 
-# model-model correlation
-ax = axes[1]
-sns.heatmap(
-    df_rank.T.corr(), cmap="vlag", vmin=-1, vmax=1, ax=ax,
-)
-ax.set_title("Model rank correlation", fontdict={'size': title_size})
+    # model-model correlation
+    ax = axes[1]
+    sns.heatmap(
+        df_rank.T.corr(), cmap="vlag", vmin=-1, vmax=1, ax=ax,
+    )
+    ax.set_title("Model rank correlation", fontdict={'size': title_size})
 
-# runtime figure
-df = zsc.df_configs_ranked
-ax = axes[2]
-df['framework_type'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
+    # runtime figure
+    df = zsc.df_configs_ranked
+    ax = axes[2]
+    df['framework_type'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
+    df['framework_type'] = df['framework_type'].map({"NeuralNetTorch": "MLP"}).fillna(df["framework_type"])
+    df_grouped = df[["framework_type", "tid", "time_train_s"]].groupby(["framework_type", "tid"]).max()["time_train_s"].sort_values()
+    df_grouped = df_grouped.reset_index(drop=False)
+    df_grouped["group_index"] = df_grouped.groupby("framework_type")["time_train_s"].cumcount()
+    df_grouped["group_index"] += 1
 
-df_grouped = df[["framework_type", "tid", "time_train_s"]].groupby(["framework_type", "tid"]).max()["time_train_s"].sort_values()
-df_grouped = df_grouped.reset_index(drop=False)
-df_grouped["group_index"] = df_grouped.groupby("framework_type")["time_train_s"].cumcount()
-df_grouped["group_index"] += 1
+    sns.lineplot(
+        data=df_grouped,
+        x="group_index",
+        y="time_train_s",
+        hue="framework_type",
+        hue_order=sorted(list(df_grouped["framework_type"].unique())),
+        linewidth=3,
+        palette=[  # category10 color palette
+            '#1f77b4',
+            '#ff7f0e',
+            '#2ca02c',
+            '#d62728',
+            '#9467bd',
+            '#8c564b',
+            '#e377c2',
+            '#7f7f7f',
+            '#bcbd22',
+            '#17becf',
+        ],
+        ax=ax,
+    )
+    ax.set_yscale('log')
+    ax.grid()
+    ax.legend()
+    ax.set_xlabel("Datasets", fontdict={'size': title_size})
+    ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
+    ax.set_title("Training runtime distribution", fontdict={'size': title_size})
 
-sns.lineplot(
-    data=df_grouped,
-    x="group_index",
-    y="time_train_s",
-    hue="framework_type",
-    hue_order=sorted(list(df_grouped["framework_type"].unique())),
-    linewidth=3,
-    palette=[  # category10 color palette
-        '#1f77b4',
-        '#ff7f0e',
-        '#2ca02c',
-        '#d62728',
-        '#9467bd',
-        '#8c564b',
-        '#e377c2',
-        '#7f7f7f',
-        '#bcbd22',
-        '#17becf',
-    ],
-    ax=ax,
-)
-ax.set_yscale('log')
-ax.grid()
-ax.legend()
-ax.set_xlabel("Datasets", fontdict={'size': title_size})
-ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
-ax.set_title("Training runtime distribution", fontdict={'size': title_size})
+    plt.tight_layout()
+    fig_save_path = figure_path(prefix=expname_outdir) / f"data-analysis.pdf"
+    plt.savefig(fig_save_path)
+    plt.show()
 
-plt.tight_layout()
-fig_save_path = Path(__file__).parent / "figures"
-fig_save_path.mkdir(exist_ok=True)
-plt.savefig(fig_save_path / "data-analysis.pdf")
-plt.show()
+
+if __name__ == "__main__":
+    repo_version = "D244_F3_REBUTTAL_200"
+    repo: EvaluationRepository = load_context(version=repo_version)
+    expname_outdir = str(Path("output") / repo_version)
+    generate_dataset_analysis(repo=repo, expname_outdir=expname_outdir)

@@ -37,6 +37,7 @@ from scripts.baseline_comparison.plot_utils import (
     figure_path,
     plot_critical_diagrams,
 )
+from scripts.dataset_analysis import generate_dataset_analysis
 
 
 def run_evaluate_baselines(
@@ -317,6 +318,7 @@ def run_evaluate_baselines(
     winrate_comparison(df=df, repo=repo, save_prefix=expname_outdir)
 
     show_repository_stats.get_stats(expname_outdir=expname_outdir, repo=repo)
+    generate_dataset_analysis(repo=repo, expname_outdir=expname_outdir)
 
 
 if __name__ == "__main__":
