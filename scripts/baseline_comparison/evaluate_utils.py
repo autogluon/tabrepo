@@ -156,7 +156,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     ]
 
     # show stds
-    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(9, 2), dpi=300)
+    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(14, 3), dpi=300)
 
     for i, (dimension, legend) in enumerate(dimensions):
 
