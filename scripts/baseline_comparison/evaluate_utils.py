@@ -156,7 +156,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     ]
 
     # show stds
-    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(9, 4), dpi=300)
+    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(9, 2), dpi=300)
 
     for i, (dimension, legend) in enumerate(dimensions):
 
@@ -194,6 +194,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                     label=label,
                     linestyle="-",
                     marker="o",
+                    linewidth=0.7,
                 )
 
                 ax.fill_between(
@@ -203,7 +204,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                     alpha=0.2,
                 )
 
-            ax.set_xlim([0, None])
+            ax.set_xlim([0, 200])
             if j == len(metrics) - 1:
                 ax.set_xlabel(legend)
             if i == 0:
@@ -575,7 +576,3 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
         plt.savefig(fig_save_path)
     if show:
         plt.show()
-
-    print('yay')
-
-

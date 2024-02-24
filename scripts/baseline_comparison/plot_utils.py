@@ -170,13 +170,13 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
             df_framework_sorted = df_framework.sort_values(by="fit budget", ascending=True)
             fitting_budget_hour = df_framework_sorted["fit budget"] / 3600
 
-            axes[i].plot(
+            axes[i].scatter(
                 fitting_budget_hour,
                 df_framework_sorted[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                markersize=14 if markers[j] == "*" else 10,
+                s=100 if markers[j] == "*" else 70,
             )
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
@@ -223,13 +223,13 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
             df_framework_sorted = df_framework.sort_values(by="fit budget", ascending=True)
             fitting_budget_hour = df_framework_sorted["fit budget"] / 3600
 
-            axes[i].plot(
+            axes[i].scatter(
                 fitting_budget_hour,
                 df_framework_sorted[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                markersize=14 if markers[j] == "*" else 10,
+                s=100 if markers[j] == "*" else 70,
             )
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
