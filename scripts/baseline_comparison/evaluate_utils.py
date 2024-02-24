@@ -183,7 +183,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                 df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
                 df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[metric]
                 dim, mean, sem = df_portfolio_agg.groupby(dimension).agg(["mean", "sem"]).reset_index().values.T
-                _, _, std = df_portfolio_agg.groupby(dimension).agg(["mean", "std"]).reset_index().values.T
+                # _, _, std = df_portfolio_agg.groupby(dimension).agg(["mean", "std"]).reset_index().values.T
 
                 label = "Portfolio"
                 if is_ens:
@@ -198,8 +198,8 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
 
                 ax.fill_between(
                     dim,
-                    [m - s for m, s in zip(mean, std)],
-                    [m + s for m, s in zip(mean, std)],
+                    [m - s for m, s in zip(mean, sem)],
+                    [m + s for m, s in zip(mean, sem)],
                     alpha=0.2,
                 )
 
@@ -224,7 +224,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
 
 
     fig_path = figure_path(prefix=save_prefix)
-    fig_save_path = fig_path / f"sensitivity.png"
+    fig_save_path = fig_path / f"sensitivity.pdf"
     plt.tight_layout()
     plt.savefig(fig_save_path)
     if show:
@@ -457,14 +457,13 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
 
         if save_prefix:
             fig_path = figure_path(prefix=save_prefix)
-            fig_save_path = fig_path / f"tuning_impact.png"
+            fig_save_path = fig_path / f"tuning-impact.pdf"
             plt.savefig(fig_save_path)
         if show:
             plt.show()
 
 
 def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_prefix: str = None, show: bool = True, hue_order: list = None):
-    print('yo')
     df_family = df[df["method"] == method].copy()
     df_family = df_family[df_family["fold"] == 0]
     portfolios = list(df_family["config_selected"].values)
@@ -572,7 +571,7 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
 
     if save_prefix:
         fig_path = figure_path(prefix=save_prefix)
-        fig_save_path = fig_path / f"portfolio_model_presence.png"
+        fig_save_path = fig_path / f"portfolio-model-presence.pdf"
         plt.savefig(fig_save_path)
     if show:
         plt.show()

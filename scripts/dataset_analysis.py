@@ -33,7 +33,7 @@ def index(name):
 
 def generate_dataset_info_latex(repo: EvaluationRepository, expname_outdir: str):
     metadata = repo._df_metadata.copy()
-    assert len(metadata) == len(repo.tids())
+    assert len(metadata) == len(repo.datasets())
 
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore')
