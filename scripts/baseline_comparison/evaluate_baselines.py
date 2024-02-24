@@ -77,7 +77,7 @@ def run_evaluate_baselines(
         if not ray.is_initialized():
             ray.init(num_cpus=num_ray_processes)
 
-    n_portfolios = [5, 10, 25, 50, 100, n_portfolios_default]
+    n_portfolios = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
@@ -85,7 +85,7 @@ def run_evaluate_baselines(
     n_training_configs = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
     n_seeds = 10
     n_training_folds = [1, 2, 5, 10]
-    n_ensembles = [10, 20, 40, 80]
+    n_ensemble_iterations = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
 
     # Number of digits to show in table
     n_digits = {
@@ -148,7 +148,7 @@ def run_evaluate_baselines(
             run_fun=lambda: framework_best_results(max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
         ),
         # Experiment(
-        #     expname=expname, name=f"framework-all-best-{expname}",
+        #     expname=expname, name=f"framework-all-best",
         #     run_fun=lambda: framework_best_results(framework_types=[None], max_runtimes=[3600, 3600 * 4, 3600 * 24], **experiment_common_kwargs),
         # ),
         # Automl baselines such as Autogluon best, high, medium quality
@@ -162,19 +162,23 @@ def run_evaluate_baselines(
         ),
         Experiment(
             expname=expname, name=f"zeroshot-maxruntimes",
-            run_fun=lambda: zeroshot_results(max_runtimes=max_runtimes, **experiment_common_kwargs)
+            run_fun=lambda: zeroshot_results(max_runtimes=max_runtimes, n_ensembles=[1, default_ensemble_size], **experiment_common_kwargs)
         ),
         Experiment(
             expname=expname, name=f"zeroshot-gpu",
-            run_fun=lambda: zeroshot_results(method_prefix="-gpu", n_ensembles=[1, default_ensemble_size], **experiment_all_kwargs)
+            run_fun=lambda: zeroshot_results(method_prefix="-GPU", n_ensembles=[1, default_ensemble_size], max_runtimes=[3600, 3600 * 4], **experiment_all_kwargs)
         ),
         # Experiment(
-        #     expname=expname, name=f"zeroshot-{expname}-num-folds",
-        #     run_fun=lambda: zeroshot_results(n_training_folds=n_training_folds, ** experiment_common_kwargs)
+        #     expname=expname, name=f"zeroshot-num-folds",
+        #     run_fun=lambda: zeroshot_results(n_training_folds=n_training_folds, **experiment_common_kwargs)
         # ),
         Experiment(
             expname=expname, name=f"zeroshot-num-portfolios",
             run_fun=lambda: zeroshot_results(n_portfolios=n_portfolios, n_ensembles=[1, default_ensemble_size], **experiment_common_kwargs)
+        ),
+        Experiment(
+            expname=expname, name=f"zeroshot-num-ensemble-iterations",
+            run_fun=lambda: zeroshot_results(n_ensembles=n_ensemble_iterations, n_ensemble_in_name=True, **experiment_common_kwargs)
         ),
     ]
 
@@ -255,15 +259,11 @@ def run_evaluate_baselines(
             df_selected = df[
                 (df.method.str.contains(f"AutoGluon .*{budget_suffix}")) |
                 (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
-                (df.method.str.contains(f"Portfolio-gpu-N{n_portfolios_default} .*{budget_suffix}")) |
+                (df.method.str.contains(f"Portfolio-GPU-N{n_portfolios_default} .*{budget_suffix}")) |
                 (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{budget_suffix}")) |
                 (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
                 (df.method.str.contains(".*default.*"))
             ].copy()
-            df_selected["method"] = df_selected["method"].map({
-                f"Portfolio-gpu-N{n_portfolios_default} (ensemble) {budget_suffix_str}": f"Portfolio-N{n_portfolios_default}-GPU (ensemble) {budget_suffix_str}",
-                f"Portfolio-gpu-N{n_portfolios_default} {budget_suffix_str}": f"Portfolio-N{n_portfolios_default}-GPU {budget_suffix_str}",
-            }).fillna(df_selected["method"])
             df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
 
             show_latex_table(
