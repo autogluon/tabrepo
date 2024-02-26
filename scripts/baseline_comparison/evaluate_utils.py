@@ -145,7 +145,7 @@ def rename_dataframe(df):
     return df
 
 
-def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
+def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterations: list = None, show: bool = False, save_prefix: str = None):
     dimensions = [
         ("M", "Number of configurations per family"),
         ("D", "Number of training datasets to fit portfolios"),
@@ -156,7 +156,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     ]
 
     # show stds
-    fig, axes = plt.subplots(len(metrics), len(dimensions), sharex='col', sharey='row', figsize=(14, 3), dpi=300)
+    fig, axes = plt.subplots(len(metrics)+1, len(dimensions), sharex='col', sharey='row', figsize=(14, 6), dpi=300)
 
     for i, (dimension, legend) in enumerate(dimensions):
 
@@ -174,7 +174,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
             # Drop instances where dimension=1
             df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
 
-            if len(metrics) > 1:
+            if len(metrics)+1 > 1:
                 ax = axes[j][i]
             else:
                 ax = axes[i]
@@ -223,6 +223,7 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
                 # pass handle & labels lists along with order as below
                 ax.legend([handles[i] for i in order], [labels[i] for i in order])
 
+    axes = generate_sensitivity_plots_v2(df=df, axes=axes, n_portfolios=n_portfolios, n_ensemble_iterations=n_ensemble_iterations, show=show, save_prefix=save_prefix)
 
     fig_path = figure_path(prefix=save_prefix)
     fig_save_path = fig_path / f"sensitivity.pdf"
@@ -230,6 +231,94 @@ def generate_sensitivity_plots(df, show: bool = False, save_prefix: str = None):
     plt.savefig(fig_save_path)
     if show:
         plt.show()
+
+
+
+def generate_sensitivity_plots_v2(df, axes, n_portfolios: list = None, n_ensemble_iterations: list = None, show: bool = False, save_prefix: str = None):
+    dimensions = [
+        ("n_portfolio", "Portfolio Size"),
+        ("n_ensemble_iterations", "Ensemble Selection Iterations"),
+    ]
+    metrics = [
+        "normalized-error",
+        # "rank",
+    ]
+
+    # Plot effect of number of training configurations
+    method_styles = {
+        zeroshot_name(n_portfolio=size): size
+        for i, size in enumerate(n_portfolios)
+    }
+
+    method_styles.update(
+        {
+            zeroshot_name(n_portfolio=size, n_ensemble=1): size
+            for i, size in enumerate(n_portfolios)
+        }
+    )
+
+    df = df.copy()
+
+    df["n_portfolio"] = df["method"].map(method_styles)
+
+    # Plot effect of number of training configurations
+    method_styles = {
+        zeroshot_name(n_ensemble=size, n_ensemble_in_name=True): size
+        for i, size in enumerate(n_ensemble_iterations)
+    }
+    df["n_ensemble_iterations"] = df["method"].map(method_styles)
+
+    for i, (dimension, legend) in enumerate(dimensions):
+        for j, metric in enumerate(metrics):
+            j = j + 1
+            df_portfolio = df.loc[~df[dimension].isna()].copy()
+            df_portfolio["is_ensemble"] = df_portfolio.method.str.contains("(ensemble)")
+            df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
+            df_askl2 = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].copy()
+
+            # Drop instances where dimension=1
+            df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
+
+            if len(metrics)+1 > 1:
+                ax = axes[j][i]
+            else:
+                ax = axes[i]
+
+            for is_ens in [False, True]:
+                df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
+                df_portfolio_agg = df_portfolio_agg[[dimension, metric]].groupby(dimension).mean()[metric]
+                dim, mean = df_portfolio_agg.reset_index().values.T
+
+                label = "Portfolio"
+                if is_ens:
+                    label += " (ensemble)"
+
+                ax.plot(
+                    dim, mean,
+                    label=label,
+                    linestyle="-",
+                    marker="o",
+                    linewidth=0.7,
+                )
+
+            ax.set_xlim([0, 200])
+            ax.set_xlabel(legend)
+            if i == 0:
+                ax.set_ylabel(f"{metric}")
+            ax.grid()
+            ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
+            ax.hlines(df_askl2.mean(), xmin=0, xmax=max(dim), color="darkgray", label="Autosklearn2", ls="--")
+            if i == 1 and j == 0:
+                ax.legend()
+                # specify order
+                order = [0, 1, 3, 2]
+
+                # reordering the labels
+                handles, labels = ax.get_legend_handles_labels()
+
+                # pass handle & labels lists along with order as below
+                ax.legend([handles[i] for i in order], [labels[i] for i in order])
+    return axes
 
 
 def save_total_runtime_to_file(total_time_h, save_prefix: str = None):

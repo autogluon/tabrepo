@@ -77,7 +77,8 @@ def run_evaluate_baselines(
         if not ray.is_initialized():
             ray.init(num_cpus=num_ray_processes)
 
-    n_portfolios = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, n_portfolios_default]
+    # TODO: n_training_datasets n_training_configs 15, 20
+    n_portfolios = [1, 2, 3, 4, 5, 10, 15, 20, 25, 50, 75, 100, 125, 150, 175, n_portfolios_default]
     max_runtimes = [300, 600, 1800, 3600, 3600 * 4, 24 * 3600]
     # n_training_datasets = list(range(10, 210, 10))
     # n_training_configs = list(range(10, 210, 10))
@@ -85,7 +86,7 @@ def run_evaluate_baselines(
     n_training_configs = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
     n_seeds = 10
     n_training_folds = [1, 2, 5, 10]
-    n_ensemble_iterations = [1, 2, 3, 4, 5, 10, 25, 50, 75, 100, 125, 150, 175, 200]
+    n_ensemble_iterations = [1, 2, 3, 4, 5, 10, 15, 20, 25, 50, 75, 100, 125, 150, 175, 200]
 
     # Number of digits to show in table
     n_digits = {
@@ -224,7 +225,7 @@ def run_evaluate_baselines(
     print(f"Total time of experiments: {total_time_h} hours")
     save_total_runtime_to_file(total_time_h, save_prefix=expname_outdir)
 
-    generate_sensitivity_plots(df, show=True, save_prefix=expname_outdir)
+    generate_sensitivity_plots(df, n_portfolios=n_portfolios, n_ensemble_iterations=n_ensemble_iterations, show=True, save_prefix=expname_outdir)
 
     # Drop multiple seeds after generating sensitivity plots
     df = df.drop_duplicates(subset=["method", "dataset", "fold"])

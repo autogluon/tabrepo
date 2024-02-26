@@ -319,7 +319,7 @@ def time_suffix(max_runtime: float) -> str:
 def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
-        max_runtime: float = default_runtime, prefix: str = None,
+        max_runtime: float = default_runtime, prefix: str = None, n_ensemble_in_name: bool = False
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
@@ -336,6 +336,8 @@ def zeroshot_name(
     # if n_ensemble:
     #     suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
+    if n_ensemble_in_name and n_ensemble is not None:
+        suffix += f"-E{n_ensemble}"
     if n_ensemble is None or n_ensemble > 1:
         suffix += " (ensemble)"
     suffix += time_suffix(max_runtime)
@@ -374,6 +376,7 @@ def zeroshot_results(
         engine: str = "ray",
         seeds: list = [0],
         method_prefix: str = None,
+        n_ensemble_in_name: bool = False,
 ) -> List[ResultRow]:
     """
     :param dataset_names: list of dataset to use when fitting zeroshot
@@ -400,6 +403,7 @@ def zeroshot_results(
             max_runtime=max_runtime,
             n_training_config=n_training_config,
             prefix=method_prefix,
+            n_ensemble_in_name=n_ensemble_in_name,
         )
 
         # restrict number of evaluation fold
