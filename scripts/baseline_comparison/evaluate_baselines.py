@@ -27,7 +27,7 @@ from scripts.baseline_comparison.evaluate_utils import (
     generate_sensitivity_plots,
     save_total_runtime_to_file,
     make_scorers,
-    plot_ctf,
+    plot_cdf,
     plot_tuning_impact,
     plot_family_proportion,
 )
@@ -294,7 +294,7 @@ def run_evaluate_baselines(
     fig.show()
 
     plot_critical_diagrams(df, save_prefix=expname_outdir)
-    plot_ctf(
+    plot_cdf(
         df=df,
         framework_types=framework_types,
         expname_outdir=expname_outdir,

@@ -146,7 +146,8 @@ def rename_dataframe(df):
 
 
 def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterations: list = None, show: bool = False, save_prefix: str = None):
-    fig, axes = plt.subplots(1, 4, sharey=True, sharex=True, figsize=(10, 2.5))
+    plt.rcParams.update({'font.size': 11})
+    fig, axes = plt.subplots(1, 4, sharey=True, sharex=True, figsize=(11, 2.2))
 
     dimensions = [
         ("M", "#configurations per family"),
@@ -158,10 +159,10 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
     ag_mean = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].mean()
     askl2_mean = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].mean()
 
-    def decorate(ax):
+    def decorate(ax, add_ylabel):
         ax.set_xlim([0, 200])
         ax.set_xlabel(legend)
-        if i == 0:
+        if add_ylabel:
             ax.set_ylabel(f"{metric}")
         ax.grid()
         ax.hlines(ag_mean, xmin=0, xmax=200, color="black", label="AutoGluon", ls="--")
@@ -204,7 +205,7 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
                 [m + s for m, s in zip(mean, sem)],
                 alpha=0.2,
             )
-        decorate(ax)
+        decorate(ax, add_ylabel=i==0)
 
     # dictionary to extract the number of portfolio member from names
     extract_number_portfolio = {
@@ -259,7 +260,7 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
                 marker="o",
                 linewidth=0.7,
             )
-        decorate(ax)
+        decorate(ax, add_ylabel=False)
     axes[-1].legend()
 
     fig_path = figure_path(prefix=save_prefix)
@@ -277,7 +278,7 @@ def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
         f.write(str(total_time_h))
 
 
-def plot_ctf(
+def plot_cdf(
     df: pd.DataFrame,
     framework_types: list,
     expname_outdir,
@@ -433,9 +434,6 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
 
     df_plot = df[df["framework_type"].isin(framework_types)]
 
-    df_plot_w_mean = df_plot[["framework_type", "tune_method", metric, "dataset", "fold"]].groupby(
-        ["framework_type", "tune_method", "dataset"]
-    )[metric].mean().reset_index()
     df_plot_w_mean_2 = df_plot.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
     df_plot_w_mean_2 = df_plot_w_mean_2.sort_values(by=metric, ascending=False)
     df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["tune_method"] == "default"]
@@ -445,53 +443,48 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
     df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] != "Autosklearn2 (4h)"]
     framework_type_order = list(df_plot_w_mean_2["framework_type"].values)
 
-    # boxplot
     # sns.set_color_codes("pastel")
     with sns.axes_style("whitegrid"):
         colors = sns.color_palette("pastel").as_hex()
         errcolors = sns.color_palette("deep").as_hex()
-        fig, ax = plt.subplots(1, 1, figsize=(12, 4.5))
+        fig, ax = plt.subplots(1, 1, figsize=(8.5, 2.2))
         sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
             label="Default",
             data=df_plot[df_plot["tune_method"] == "default"], ax=ax,
             order=framework_type_order, color=colors[0],
-            width=0.8,
+            width=0.6,
             errcolor=errcolors[0],
         )
         sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
-            label="Tuned (4h)",
+            label="Tuned",
             data=df_plot[df_plot["tune_method"] == "tuned"], ax=ax,
             order=framework_type_order, color=colors[1],
-            width=0.7,
+            width=0.5,
             errcolor=errcolors[1],
         )
         boxplot = sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
-            label="Tuned + Ensembled (4h)",
+            label="Tuned + ens)",
             data=df_plot[df_plot["tune_method"] == "tuned_ensembled"], ax=ax,
             order=framework_type_order, color=colors[2],
-            width=0.6,
+            width=0.4,
             errcolor=errcolors[2],
         )
         boxplot.set(xlabel=None)  # remove "Method" in the x-axis
-        boxplot.set_title("Effect of tuning and ensembling")
-        ax.axhline(y=baseline_mean, label="AutoGluon (4h)", color="black", linewidth=2.0, ls="--")
-        ax.axhline(y=askl2_mean, label="Autosklearn2 (4h)", color="darkgray", linewidth=2.0, ls="--")
+        #boxplot.set_title("Effect of tuning and ensembling")
         ax.set_ylim([0, 1])
 
-        # specify order
-        order = [2, 3, 4, 1, 0]
+        ax.axhline(y=baseline_mean, label="AutoGluon", color="black", linewidth=2.0, ls="--")
+        ax.axhline(y=askl2_mean, label="Autosklearn2", color="darkgray", linewidth=2.0, ls="--")
 
-        # reordering the labels
-        handles, labels = plt.gca().get_legend_handles_labels()
-
-        # pass handle & labels lists along with order as below
-        plt.legend([handles[i] for i in order], [labels[i] for i in order])
+        #ax.legend(loc="upper center", ncol=5)
+        ax.legend(loc="upper center", ncol=5, bbox_to_anchor=[0.5, 1.2])
+        #ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
         plt.tight_layout()
 
         if save_prefix:
@@ -500,7 +493,6 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
             plt.savefig(fig_save_path)
         if show:
             plt.show()
-
 
 def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_prefix: str = None, show: bool = True, hue_order: list = None):
     df_family = df[df["method"] == method].copy()

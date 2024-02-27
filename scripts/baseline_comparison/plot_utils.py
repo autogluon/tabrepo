@@ -106,7 +106,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
             MethodStyle(method, color=None, linestyle=None, label=method)
             for method in df.method.unique()
         ]
-    fig, axes = plt.subplots(1, 2, figsize=(8, 3), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
     metrics = ["normalized-error", "rank"]
     for i, metric in enumerate(metrics):
         for j, method_style in enumerate(method_styles):
