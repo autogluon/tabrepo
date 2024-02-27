@@ -249,6 +249,7 @@ def run_evaluate_baselines(
             (df.method.str.contains(".*default.*"))
         ].copy()
         df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
+        df_selected = df_selected.loc[~df_selected["method"].str.contains("AutoGluon high") & ~df_selected["method"].str.contains("AutoGluon medium"), :]
         show_latex_table(
             df_selected,
             title=f"selected-methods-{budget}",
@@ -266,7 +267,7 @@ def run_evaluate_baselines(
                 (df.method.str.contains(".*default.*"))
             ].copy()
             df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
-
+            df_selected = df_selected.loc[~df_selected["method"].str.contains("AutoGluon high") & ~df_selected["method"].str.contains("AutoGluon medium"), :]
             show_latex_table(
                 df_selected,
                 title=f"selected-methods-gpu-{budget}",
