@@ -146,84 +146,121 @@ def rename_dataframe(df):
 
 
 def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterations: list = None, show: bool = False, save_prefix: str = None):
+    fig, axes = plt.subplots(1, 4, sharey=True, sharex=True, figsize=(10, 2.5))
+
     dimensions = [
-        ("M", "Number of configurations per family"),
-        ("D", "Number of training datasets to fit portfolios"),
-    ]
-    metrics = [
-        "normalized-error",
-        # "rank",
+        ("M", "#configurations per family"),
+        ("D", "#training datasets"),
     ]
 
-    # show stds
-    fig, axes = plt.subplots(len(metrics)+1, len(dimensions), sharex='col', sharey='row', figsize=(14, 6), dpi=300)
+    metric = "normalized-error"
+
+    ag_mean = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].mean()
+    askl2_mean = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].mean()
+
+    def decorate(ax):
+        ax.set_xlim([0, 200])
+        ax.set_xlabel(legend)
+        if i == 0:
+            ax.set_ylabel(f"{metric}")
+        ax.grid()
+        ax.hlines(ag_mean, xmin=0, xmax=200, color="black", label="AutoGluon", ls="--")
+        ax.hlines(askl2_mean, xmin=0, xmax=200, color="darkgray", label="Autosklearn2", ls="--")
 
     for i, (dimension, legend) in enumerate(dimensions):
+        regex = f"Portfolio-N.*-{dimension}.*4h"
+        df_portfolio = df.loc[df.method.str.contains(regex), :].copy()
+        is_ensemble = df_portfolio.method.str.contains("(ensemble)")
+        df_portfolio.loc[is_ensemble, dimension] = df_portfolio.loc[is_ensemble, "method"].apply(
+            lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
+        df_portfolio.loc[~is_ensemble, dimension] = df_portfolio.loc[~is_ensemble, "method"].apply(
+            lambda s: int(s.replace(" (4h)", "").split("-")[-1][1:]))
 
-        for j, metric in enumerate(metrics):
-            df_portfolio = df.loc[df.method.str.contains(f"Portfolio-N.*-{dimension}.*4h"), :].copy()
-            df_portfolio["is_ensemble"] = df_portfolio.method.str.contains("(ensemble)")
-            df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
-            df_askl2 = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].copy()
+        # Drop instances where dimension=1
+        df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
 
-            df_portfolio.loc[df_portfolio["is_ensemble"], dimension] = df_portfolio.loc[df_portfolio["is_ensemble"], "method"].apply(
-                lambda s: int(s.replace(" (ensemble) (4h)", "").split("-")[-1][1:]))
-            df_portfolio.loc[~df_portfolio["is_ensemble"], dimension] = df_portfolio.loc[~df_portfolio["is_ensemble"], "method"].apply(
-                lambda s: int(s.replace(" (4h)", "").split("-")[-1][1:]))
+        for is_ens in [True, False]:
+            df_portfolio_agg = df_portfolio.loc[is_ensemble] if is_ens else df_portfolio.loc[~is_ensemble]
+            df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[
+                metric]
+            dim, mean, sem = df_portfolio_agg.groupby(dimension).agg(["mean", "sem"]).reset_index().values.T
 
-            # Drop instances where dimension=1
-            df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
+            ax = axes[i]
+            label = "Portfolio"
+            if is_ens:
+                label += " (ens.)"
 
-            if len(metrics)+1 > 1:
-                ax = axes[j][i]
-            else:
-                ax = axes[i]
+            ax.plot(
+                dim, mean,
+                label=label,
+                linestyle="-",
+                marker="o",
+                linewidth=0.7,
+            )
 
-            for is_ens in [False, True]:
-                df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
-                df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[metric]
-                dim, mean, sem = df_portfolio_agg.groupby(dimension).agg(["mean", "sem"]).reset_index().values.T
-                # _, _, std = df_portfolio_agg.groupby(dimension).agg(["mean", "std"]).reset_index().values.T
+            ax.fill_between(
+                dim,
+                [m - s for m, s in zip(mean, sem)],
+                [m + s for m, s in zip(mean, sem)],
+                alpha=0.2,
+            )
+        decorate(ax)
 
-                label = "Portfolio"
-                if is_ens:
-                    label += " (ensemble)"
+    # dictionary to extract the number of portfolio member from names
+    extract_number_portfolio = {
+        zeroshot_name(n_portfolio=size): size
+        for i, size in enumerate(n_portfolios)
+    }
 
-                ax.plot(
-                    dim, mean,
-                    label=label,
-                    linestyle="-",
-                    marker="o",
-                    linewidth=0.7,
-                )
+    extract_number_portfolio.update(
+        {
+            zeroshot_name(n_portfolio=size, n_ensemble=1): size
+            for i, size in enumerate(n_portfolios)
+        }
+    )
 
-                ax.fill_between(
-                    dim,
-                    [m - s for m, s in zip(mean, sem)],
-                    [m + s for m, s in zip(mean, sem)],
-                    alpha=0.2,
-                )
+    df["N"] = df["method"].map(extract_number_portfolio)
 
-            ax.set_xlim([0, 200])
-            if j == len(metrics) - 1:
-                ax.set_xlabel(legend)
-            if i == 0:
-                ax.set_ylabel(f"{metric}")
-            ax.grid()
-            ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
-            ax.hlines(df_askl2.mean(), xmin=0, xmax=max(dim), color="darkgray", label="Autosklearn2", ls="--")
-            if i == 1 and j == 0:
-                ax.legend()
-                # specify order
-                order = [0, 1, 3, 2]
+    # dictionary to extract the number of ensemble members from names
+    extract_number_ensemble = {
+        zeroshot_name(n_ensemble=size, n_ensemble_in_name=True): size
+        for i, size in enumerate(n_ensemble_iterations)
+    }
+    df["C"] = df["method"].map(extract_number_ensemble)
 
-                # reordering the labels
-                handles, labels = ax.get_legend_handles_labels()
+    dimensions = [
+        ("N", "#portfolio configurations"),
+        ("C", "#ensemble members"),
+    ]
 
-                # pass handle & labels lists along with order as below
-                ax.legend([handles[i] for i in order], [labels[i] for i in order])
+    for i, (dimension, legend) in enumerate(dimensions):
+        ax = axes[i + 2]
 
-    axes = generate_sensitivity_plots_v2(df=df, axes=axes, n_portfolios=n_portfolios, n_ensemble_iterations=n_ensemble_iterations, show=show, save_prefix=save_prefix)
+        df_portfolio = df.loc[~df[dimension].isna()]
+
+        # Drop instances where dimension=1
+        df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
+
+        is_ensemble = df_portfolio.method.str.contains("(ensemble)")
+
+        for is_ens in [True, False]:
+            df_portfolio_agg = df_portfolio.loc[is_ensemble] if is_ens else df_portfolio.loc[~is_ensemble]
+            df_portfolio_agg = df_portfolio_agg[[dimension, metric]].groupby(dimension).mean()[metric]
+            dim, mean = df_portfolio_agg.reset_index().values.T
+
+            label = "Portfolio"
+            if is_ens:
+                label += " (ens.)"
+
+            ax.plot(
+                dim, mean,
+                label=label,
+                linestyle="-",
+                marker="o",
+                linewidth=0.7,
+            )
+        decorate(ax)
+    axes[-1].legend()
 
     fig_path = figure_path(prefix=save_prefix)
     fig_save_path = fig_path / f"sensitivity.pdf"
@@ -231,94 +268,6 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
     plt.savefig(fig_save_path)
     if show:
         plt.show()
-
-
-
-def generate_sensitivity_plots_v2(df, axes, n_portfolios: list = None, n_ensemble_iterations: list = None, show: bool = False, save_prefix: str = None):
-    dimensions = [
-        ("n_portfolio", "Portfolio Size"),
-        ("n_ensemble_iterations", "Ensemble Selection Iterations"),
-    ]
-    metrics = [
-        "normalized-error",
-        # "rank",
-    ]
-
-    # Plot effect of number of training configurations
-    method_styles = {
-        zeroshot_name(n_portfolio=size): size
-        for i, size in enumerate(n_portfolios)
-    }
-
-    method_styles.update(
-        {
-            zeroshot_name(n_portfolio=size, n_ensemble=1): size
-            for i, size in enumerate(n_portfolios)
-        }
-    )
-
-    df = df.copy()
-
-    df["n_portfolio"] = df["method"].map(method_styles)
-
-    # Plot effect of number of training configurations
-    method_styles = {
-        zeroshot_name(n_ensemble=size, n_ensemble_in_name=True): size
-        for i, size in enumerate(n_ensemble_iterations)
-    }
-    df["n_ensemble_iterations"] = df["method"].map(method_styles)
-
-    for i, (dimension, legend) in enumerate(dimensions):
-        for j, metric in enumerate(metrics):
-            j = j + 1
-            df_portfolio = df.loc[~df[dimension].isna()].copy()
-            df_portfolio["is_ensemble"] = df_portfolio.method.str.contains("(ensemble)")
-            df_ag = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].copy()
-            df_askl2 = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].copy()
-
-            # Drop instances where dimension=1
-            df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
-
-            if len(metrics)+1 > 1:
-                ax = axes[j][i]
-            else:
-                ax = axes[i]
-
-            for is_ens in [False, True]:
-                df_portfolio_agg = df_portfolio.loc[df_portfolio["is_ensemble"] == is_ens].copy()
-                df_portfolio_agg = df_portfolio_agg[[dimension, metric]].groupby(dimension).mean()[metric]
-                dim, mean = df_portfolio_agg.reset_index().values.T
-
-                label = "Portfolio"
-                if is_ens:
-                    label += " (ensemble)"
-
-                ax.plot(
-                    dim, mean,
-                    label=label,
-                    linestyle="-",
-                    marker="o",
-                    linewidth=0.7,
-                )
-
-            ax.set_xlim([0, 200])
-            ax.set_xlabel(legend)
-            if i == 0:
-                ax.set_ylabel(f"{metric}")
-            ax.grid()
-            ax.hlines(df_ag.mean(), xmin=0, xmax=max(dim), color="black", label="AutoGluon", ls="--")
-            ax.hlines(df_askl2.mean(), xmin=0, xmax=max(dim), color="darkgray", label="Autosklearn2", ls="--")
-            if i == 1 and j == 0:
-                ax.legend()
-                # specify order
-                order = [0, 1, 3, 2]
-
-                # reordering the labels
-                handles, labels = ax.get_legend_handles_labels()
-
-                # pass handle & labels lists along with order as below
-                ax.legend([handles[i] for i in order], [labels[i] for i in order])
-    return axes
 
 
 def save_total_runtime_to_file(total_time_h, save_prefix: str = None):
