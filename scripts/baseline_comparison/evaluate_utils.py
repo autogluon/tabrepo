@@ -445,11 +445,12 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
     df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] != "Autosklearn2 (4h)"]
     framework_type_order = list(df_plot_w_mean_2["framework_type"].values)
 
+    # boxplot
     # sns.set_color_codes("pastel")
     with sns.axes_style("whitegrid"):
+        fig, ax = plt.subplots(1, 1, figsize=(10, 2.2))
         colors = sns.color_palette("pastel").as_hex()
         errcolors = sns.color_palette("deep").as_hex()
-        fig, ax = plt.subplots(1, 1, figsize=(8.5, 2.2))
         sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
@@ -458,13 +459,15 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
             order=framework_type_order, color=colors[0],
             width=0.6,
             errcolor=errcolors[0],
+            alpha=1.0,
         )
         sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
             label="Tuned",
             data=df_plot[df_plot["tune_method"] == "tuned"], ax=ax,
-            order=framework_type_order, color=colors[1],
+            order=framework_type_order,
+            color=colors[1],
             width=0.5,
             errcolor=errcolors[1],
         )
@@ -495,6 +498,7 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
             plt.savefig(fig_save_path)
         if show:
             plt.show()
+
 
 def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_prefix: str = None, show: bool = True, hue_order: list = None):
     df_family = df[df["method"] == method].copy()

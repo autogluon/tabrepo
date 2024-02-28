@@ -282,7 +282,7 @@ def run_evaluate_baselines(
         save_prefix=expname_outdir,
     )
 
-    plot_tuning_impact(df=df, framework_types=framework_types_with_gpu, save_prefix=expname_outdir)
+    plot_tuning_impact(df=df, framework_types=framework_types, save_prefix=expname_outdir)
 
     fig, _, bbox_extra_artists = show_scatter_performance_vs_time(df, metric_cols=["normalized-error", "rank"])
     fig_save_path = figure_path(prefix=expname_outdir) / f"scatter-perf-vs-time.pdf"
