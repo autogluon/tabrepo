@@ -9,7 +9,7 @@ from ..predictions.tabular_predictions import TabularModelPredictions
 def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
                                  zeroshot_pred_proba: TabularModelPredictions,
                                  zeroshot_gt: GroundTruth):
-    zpp_datasets = [dataset for dataset in zeroshot_pred_proba.datasets if dataset in zsc.dataset_to_tid_dict]
+    zpp_datasets = [dataset for dataset in zeroshot_pred_proba.datasets]
     zsc_datasets = zsc.get_datasets()
     zsc_datasets_set = set(zsc_datasets)
     valid_datasets = [dataset for dataset in zpp_datasets if dataset in zsc_datasets_set]
@@ -43,10 +43,10 @@ def load_zeroshot_input(path_pred_proba: str,
 
     # keep only dataset whose folds are all present
     intersect_folds_and_datasets(zsc, zeroshot_pred_proba, zeroshot_gt=zeroshot_gt)
-    force_to_dense(zeroshot_pred_proba, first_prune_method='task', second_prune_method='dataset')
+    # force_to_dense(zeroshot_pred_proba, first_prune_method='task', second_prune_method='dataset')
 
-    zsc.subset_configs(zeroshot_pred_proba.models)
-    zsc.subset_datasets(zeroshot_pred_proba.datasets)
+    # zsc.subset_configs(zeroshot_pred_proba.models)
+    # zsc.subset_datasets(zeroshot_pred_proba.datasets)
     zeroshot_pred_proba.restrict_models(zsc.get_configs())
     zeroshot_gt = prune_zeroshot_gt(dataset_to_tid_dict=zsc.dataset_to_tid_dict, zeroshot_pred_proba=zeroshot_pred_proba, zeroshot_gt=zeroshot_gt)
 

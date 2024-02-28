@@ -23,8 +23,10 @@ def load_context(version: str = "D244_F3_C1416_200", as_paper: bool = True, igno
                 models_only_c1_or_r.append(m)
         models_only_c1_or_r = [m for m in models_only_c1_or_r if not "NeuralNetFastAI" in m]
 
-        return repo.subset(
+        repo = repo.subset(
             configs=models_only_c1_or_r,
+            force_to_dense=False,
         )
+        return repo
     else:
         return repo

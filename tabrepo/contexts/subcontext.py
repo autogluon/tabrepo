@@ -75,6 +75,7 @@ class BenchmarkSubcontext:
             datasets=self.datasets,
             folds=self.folds,
             configs=self.configs,
+            force_to_dense=False,
         )
         return repo
 

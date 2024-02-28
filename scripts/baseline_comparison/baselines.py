@@ -35,6 +35,7 @@ class ResultRow:
     time_train_s: float
     time_infer_s: float
     config_selected: list = None
+    seed: int = None
 
 
 def evaluate_configs(
@@ -47,6 +48,7 @@ def evaluate_configs(
         ensemble_size: int = default_ensemble_size,
         config_sampled: List[str] = None,
         folds: List[int] = range(10),
+        seed: int = 0,
 ) -> List[ResultRow]:
     """
 
@@ -119,6 +121,7 @@ def evaluate_configs(
             time_train_s=sum(runtimes.values()),
             time_infer_s=sum(latencies.values()),
             config_selected=config_sampled,
+            seed=seed,
         ))
     return rows
 
@@ -316,13 +319,15 @@ def time_suffix(max_runtime: float) -> str:
 def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
-        max_runtime: float = default_runtime,
+        max_runtime: float = default_runtime, prefix: str = None, n_ensemble_in_name: bool = False
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
     None, suffixes "-D{n_training_dataset}" and "-S{n_training_folds}" are added, for instance "Zeroshot-N20-C40-D30-S5"
     would be the name if n_training_dataset=30 and n_training_fold=5
     """
+    if prefix is None:
+        prefix = ""
     suffix = [
         f"-{letter}{x}" if x is not None else ""
         for letter, x in
@@ -331,10 +336,12 @@ def zeroshot_name(
     # if n_ensemble:
     #     suffix += f"-C{n_ensemble}"
     suffix = "".join(suffix)
+    if n_ensemble_in_name and n_ensemble is not None:
+        suffix += f"-E{n_ensemble}"
     if n_ensemble is None or n_ensemble > 1:
         suffix += " (ensemble)"
     suffix += time_suffix(max_runtime)
-    return f"Portfolio{suffix}"
+    return f"Portfolio{prefix}{suffix}"
 
 
 def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, quantile: float = 0.95):
@@ -367,7 +374,9 @@ def zeroshot_results(
         n_training_configs: List[int] = [None],
         max_runtimes: List[float] = [default_runtime],
         engine: str = "ray",
-        seed: int = 0,
+        seeds: list = [0],
+        method_prefix: str = None,
+        n_ensemble_in_name: bool = False,
 ) -> List[ResultRow]:
     """
     :param dataset_names: list of dataset to use when fitting zeroshot
@@ -379,20 +388,22 @@ def zeroshot_results(
     :param n_training_configs: number of configurations available when fitting zeroshot TODO per framework
     :param max_runtimes: max runtime available when evaluating zeroshot configuration at test time
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
-    :param seed: the seed for the random number generator used for shuffling the configs
+    :param seeds: the seeds for the random number generator used for shuffling the configs
     :return: evaluation obtained on all combinations
     """
 
     def evaluate_dataset(test_dataset, n_portfolio, n_ensemble, n_training_dataset, n_training_fold, n_training_config,
-                         max_runtime, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
-                         model_frameworks, seed):
+                         max_runtime, seed: int, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
+                         model_frameworks):
         method_name = zeroshot_name(
             n_portfolio=n_portfolio,
             n_ensemble=n_ensemble,
             n_training_dataset=n_training_dataset,
             n_training_fold=n_training_fold,
             max_runtime=max_runtime,
-            n_training_config=n_training_config
+            n_training_config=n_training_config,
+            prefix=method_prefix,
+            n_ensemble_in_name=n_ensemble_in_name,
         )
 
         # restrict number of evaluation fold
@@ -462,6 +473,7 @@ def zeroshot_results(
             tid=test_tid,
             method=method_name,
             folds=range(n_eval_folds),
+            seed=seed,
         )
 
     dd = repo._zeroshot_context.df_configs_ranked
@@ -479,9 +491,9 @@ def zeroshot_results(
     list_rows = parallel_for(
         evaluate_dataset,
         inputs=list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds,
-                                      n_training_configs, max_runtimes)),
+                                      n_training_configs, max_runtimes, seeds)),
         context=dict(repo=repo, df_rank=df_rank, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer,
-                     model_frameworks=model_frameworks, seed=seed),
+                     model_frameworks=model_frameworks),
         engine=engine,
     )
     return [x for l in list_rows for x in l]

@@ -90,6 +90,10 @@ if __name__ == '__main__':
         'nn_torch',
         'rf',
         'xt',
+        'ftt',
+        'lr',
+        'knn',
+        'tabpfn',
     ]
     for family in config_families:
         print(f'\n\n\n==================== {family} ====================')

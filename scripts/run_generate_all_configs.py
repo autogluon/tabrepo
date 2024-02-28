@@ -11,6 +11,7 @@ from tabrepo.models.random_forest.generate import generate_configs_random_forest
 from tabrepo.models.extra_trees.generate import generate_configs_extra_trees
 from tabrepo.models.lr.generate import generate_configs_lr
 from tabrepo.models.tabpfn.generate import generate_configs_tabpfn
+from tabrepo.models.ftt.generate import generate_configs_ftt
 
 
 if __name__ == '__main__':
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     configs_xt = generate_configs_extra_trees()
     configs_lr = generate_configs_lr()
     configs_tabpfn = generate_configs_tabpfn()
+    configs_ftt = generate_configs_ftt()
     json_root = Path(__file__).parent.parent / 'data' / 'configs'
     save_json.save(path=str(json_root / 'configs_lightgbm.json'), obj=configs_lightgbm)
     save_json.save(path=str(json_root / 'configs_catboost.json'), obj=configs_catboost)
@@ -35,3 +37,4 @@ if __name__ == '__main__':
     save_json.save(path=str(json_root / 'configs_xt.json'), obj=configs_xt)
     save_json.save(path=str(json_root / 'configs_lr.json'), obj=configs_lr)
     save_json.save(path=str(json_root / 'configs_tabpfn.json'), obj=configs_tabpfn)
+    save_json.save(path=str(json_root / 'configs_ftt.json'), obj=configs_ftt)

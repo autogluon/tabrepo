@@ -359,6 +359,9 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         metadata = self.metadata_dict[dataset][fold]
         model_indices_all = metadata["model_indices"]
         model_indices_available = {m: model_indices_all[m] for m in metadata['models']}
+        if model_fallback is None:
+            # FIXME HACK
+            model_fallback = "ExtraTrees_c1_BAG_L1"
         if model_fallback:
             # we use the model fallback if a model is not present
             models = [m if m in model_indices_available else model_fallback for m in models]

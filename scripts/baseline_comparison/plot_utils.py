@@ -29,18 +29,35 @@ def iqm(x):
     return np.mean(x[start:end])
 
 
-def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs=None, n_digits=None):
+def show_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs=None, n_digits=None, save_prefix=None):
     metrics = ["normalized-error", "rank", "time fit (s)", "time infer (s)"]
     df_metrics = compute_avg_metrics(df, metrics)
-    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs, n_digits=n_digits)
+    save_latex_table(df=df_metrics, title=title, show_table=show_table, latex_kwargs=latex_kwargs, n_digits=n_digits, save_prefix=save_prefix)
 
 
-def figure_path():
-    fig_save_path_dir = output_path / "figures"
+def figure_path(prefix: str = None, suffix: str = None):
+    fig_save_path_dir = output_path
+    if prefix:
+        fig_save_path_dir = fig_save_path_dir / prefix
+    fig_save_path_dir = fig_save_path_dir / "figures"
+    if suffix:
+        fig_save_path_dir = fig_save_path_dir / suffix
     fig_save_path_dir.mkdir(parents=True, exist_ok=True)
     return fig_save_path_dir
 
-def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None, n_digits = None):
+
+def table_path(prefix: str = None, suffix: str = None):
+    table_save_path_dir = output_path
+    if prefix:
+        table_save_path_dir = table_save_path_dir / prefix
+    table_save_path_dir = table_save_path_dir / "tables"
+    if suffix:
+        table_save_path_dir = table_save_path_dir / suffix
+    table_save_path_dir.mkdir(parents=True, exist_ok=True)
+    return table_save_path_dir
+
+
+def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, latex_kwargs: dict | None = None, n_digits = None, save_prefix: str = None):
     if n_digits:
         for col in df.columns:
             if (not df[col].dtype == "object") and (not df[col].dtype == "int64"):
@@ -50,8 +67,7 @@ def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, lat
     if latex_kwargs is None:
         latex_kwargs = dict()
     s = df.to_latex(**latex_kwargs)
-    latex_folder = output_path / "tables"
-    latex_folder.mkdir(exist_ok=True)
+    latex_folder = table_path(prefix=save_prefix)
     latex_file = latex_folder / f"{title}.tex"
     print(f"Writing latex result in {latex_file}")
     with open(latex_file, "w") as f:
@@ -90,7 +106,7 @@ def show_cdf(df: pd.DataFrame, method_styles: List[MethodStyle] = None):
             MethodStyle(method, color=None, linestyle=None, label=method)
             for method in df.method.unique()
         ]
-    fig, axes = plt.subplots(1, 2, figsize=(8, 3), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5), sharey=True)
     metrics = ["normalized-error", "rank"]
     for i, metric in enumerate(metrics):
         for j, method_style in enumerate(method_styles):
@@ -130,10 +146,11 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
     plt.rcParams.update({'font.size': 16})
 
     df_metrics = compute_avg_metrics(df, ["normalized-error", "rank", "time fit (s)", "time infer (s)", "fit budget"])
-    colors = [sns.color_palette("bright")[j] for j in range(10)]
+    colors = [sns.color_palette("pastel")[j] for j in range(10)]
 
     # makes autogluon black to respect colors used in previous plots
     colors[6] = "black"
+    colors[7] = sns.color_palette("bright")[6]
     # colors[6] = "yellow"
     markers = ['x', 'v', '^', "8", "D", 'v', "s", '*', ]
     # cash_methods = df_metrics.index.str.match("All \(.* samples.*ensemble\)")
@@ -150,15 +167,16 @@ def show_scatter_performance_vs_time(df: pd.DataFrame, metric_cols):
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
-            fitting_budget_hour = df_framework["fit budget"] / 3600
+            df_framework_sorted = df_framework.sort_values(by="fit budget", ascending=True)
+            fitting_budget_hour = df_framework_sorted["fit budget"] / 3600
 
             axes[i].scatter(
                 fitting_budget_hour,
-                df_framework[metric_col],
+                df_framework_sorted[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                s=100.0 if markers[j] == "*" else 70.0,
+                s=100 if markers[j] == "*" else 70,
             )
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
@@ -202,15 +220,16 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
 
     for i, metric_col in enumerate(metric_cols):
         for j, (framework, df_framework) in enumerate(df_frameworks.items()):
-            fitting_budget_hour = df_framework["fit budget"] / 3600
+            df_framework_sorted = df_framework.sort_values(by="fit budget", ascending=True)
+            fitting_budget_hour = df_framework_sorted["fit budget"] / 3600
 
             axes[i].scatter(
                 fitting_budget_hour,
-                df_framework[metric_col],
+                df_framework_sorted[metric_col],
                 label=framework,
                 color=colors[j],
                 marker=markers[j],
-                s=100.0 if markers[j] == "*" else 70.0,
+                s=100 if markers[j] == "*" else 70,
             )
             axes[i].set_xlabel("Fitting budget (time)")
             axes[i].set_ylabel(metric_col)
@@ -234,7 +253,7 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
     return fig, axes, bbox_extra_artists
 
 
-def plot_critical_diagrams(df):
+def plot_critical_diagrams(df, save_prefix: str = None):
     plt.rcParams.update({'font.size': 12})
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 2))
@@ -256,12 +275,13 @@ def plot_critical_diagrams(df):
             f'CatBoost (tuned + ens)',
         ])]
         data = df_sub.pivot_table(index="dataset", columns="method", values="rank")
-        result = autorank(data, alpha=0.05, verbose=False, order="ascending")
+        result = autorank(data, alpha=0.05, verbose=False, order="ascending", force_mode="nonparametric")
         ax = axes[i]
         ax.set_title(budget)
         plot_stats(result, ax=ax, width=4, allow_insignificant=True)
 
-    fig_save_path = figure_path() / f"critical-diagram.pdf"
+    fig_path = figure_path(prefix=save_prefix)
+    fig_save_path = fig_path / f"critical-diagram.pdf"
     plt.tight_layout()
     plt.savefig(fig_save_path)
     plt.show()
