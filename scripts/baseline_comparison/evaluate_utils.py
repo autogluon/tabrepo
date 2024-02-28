@@ -165,8 +165,8 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
         if add_ylabel:
             ax.set_ylabel(f"{metric}")
         ax.grid()
-        ax.hlines(ag_mean, xmin=0, xmax=200, color="black", label="AutoGluon", ls="--")
         ax.hlines(askl2_mean, xmin=0, xmax=200, color="darkgray", label="Autosklearn2", ls="--")
+        ax.hlines(ag_mean, xmin=0, xmax=200, color="black", label="AutoGluon", ls="--")
 
     for i, (dimension, legend) in enumerate(dimensions):
         regex = f"Portfolio-N.*-{dimension}.*4h"
@@ -180,7 +180,7 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
         # Drop instances where dimension=1
         df_portfolio = df_portfolio.loc[df_portfolio[dimension] != 1, :]
 
-        for is_ens in [True, False]:
+        for is_ens in [False, True]:
             df_portfolio_agg = df_portfolio.loc[is_ensemble] if is_ens else df_portfolio.loc[~is_ensemble]
             df_portfolio_agg = df_portfolio_agg[[dimension, metric, "seed"]].groupby([dimension, "seed"]).mean()[
                 metric]
@@ -196,7 +196,8 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
                 label=label,
                 linestyle="-",
                 marker="o",
-                linewidth=0.7,
+                linewidth=0.6,
+                markersize=4,
             )
 
             ax.fill_between(
@@ -244,7 +245,7 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
 
         is_ensemble = df_portfolio.method.str.contains("(ensemble)")
 
-        for is_ens in [True, False]:
+        for is_ens in [False, True]:
             df_portfolio_agg = df_portfolio.loc[is_ensemble] if is_ens else df_portfolio.loc[~is_ensemble]
             df_portfolio_agg = df_portfolio_agg[[dimension, metric]].groupby(dimension).mean()[metric]
             dim, mean = df_portfolio_agg.reset_index().values.T
@@ -258,7 +259,8 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
                 label=label,
                 linestyle="-",
                 marker="o",
-                linewidth=0.7,
+                linewidth=0.6,
+                markersize=4,
             )
         decorate(ax, add_ylabel=False)
     axes[-1].legend()
