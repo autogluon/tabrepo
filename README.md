@@ -9,7 +9,7 @@ We give scripts from the paper so that one can reproduce all experiments that co
 strategies against state-of-the-art AutoML systems.
 
 The key features of the repo are:
-* 1206 models evaluated on 200 datasets with 3 distinct folds
+* 1310 models evaluated on 200 datasets with 3 distinct folds
 * 273 GB of model predictions
 * code to compare methods against state-of-the-art AutoML systems and random model configurations
 * fast evaluations of any ensemble of models from table lookups with a few engineering tricks:
@@ -24,7 +24,6 @@ The key features of the repo are:
 To install the repository, run
 
 ```bash
-# TODO update repo address and name
 git clone https://github.com/autogluon/tabrepo.git
 cd tabrepo  
 pip install -e .
@@ -134,7 +133,6 @@ We have been using TabRepo to study potential data leakage in AutoGluon stacking
 potential interesting future work directions:
 
 * finding good dataset features to enable strategies that condition on the dataset at hand
-* adding transformer model evaluations in the dataset (FT-transformer, TabPFN, ...)
 * adding evaluations from other domains such as time-series, CV or NLP
 * improve the portfolio selection which currently use a greedy approach unaware of the ensembling effect
 
