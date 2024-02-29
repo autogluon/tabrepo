@@ -3,7 +3,8 @@ from ..loaders import Paths
 from .context_2023_08_21 import datasets
 
 
-s3_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2023_11_14/'
+# s3_prefix = 's3://automl-benchmark-ag/aggregated/ec2/2023_11_14/'
+s3_prefix = "https://tabrepo.s3.us-west-2.amazonaws.com/contexts/2023_11_14/"
 
 folds = [0, 1, 2]
 local_prefix = "2023_11_14"
