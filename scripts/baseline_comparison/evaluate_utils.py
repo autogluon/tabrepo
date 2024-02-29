@@ -445,12 +445,13 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
     df_plot_w_mean_2 = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] != "Autosklearn2 (4h)"]
     framework_type_order = list(df_plot_w_mean_2["framework_type"].values)
 
-    # boxplot
     # sns.set_color_codes("pastel")
     with sns.axes_style("whitegrid"):
-        fig, ax = plt.subplots(1, 1, figsize=(10, 2.2))
         colors = sns.color_palette("pastel").as_hex()
         errcolors = sns.color_palette("deep").as_hex()
+        fig, ax = plt.subplots(1, 1, figsize=(12, 3))
+        ax.axhline(y=askl2_mean, label="Autosklearn2", color="darkgray", linewidth=2.0, ls="--")
+        ax.axhline(y=baseline_mean, label="AutoGluon", color="black", linewidth=2.0, ls="--")
         sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
@@ -474,7 +475,7 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
         boxplot = sns.barplot(
             x="framework_type", y=metric,
             # hue="tune_method",  # palette=["m", "g", "r],
-            label="Tuned + ens)",
+            label="Tuned + Ensembled",
             data=df_plot[df_plot["tune_method"] == "tuned_ensembled"], ax=ax,
             order=framework_type_order, color=colors[2],
             width=0.4,
@@ -484,11 +485,19 @@ def plot_tuning_impact(df: pd.DataFrame, framework_types: list, save_prefix: str
         #boxplot.set_title("Effect of tuning and ensembling")
         ax.set_ylim([0, 1])
 
-        ax.axhline(y=baseline_mean, label="AutoGluon", color="black", linewidth=2.0, ls="--")
-        ax.axhline(y=askl2_mean, label="Autosklearn2", color="darkgray", linewidth=2.0, ls="--")
 
         #ax.legend(loc="upper center", ncol=5)
         ax.legend(loc="upper center", ncol=5, bbox_to_anchor=[0.5, 1.2])
+
+        # specify order
+        order = [2, 3, 4, 0, 1]
+
+        # reordering the labels
+        handles, labels = ax.get_legend_handles_labels()
+
+        # pass handle & labels lists along with order as below
+        ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=5, bbox_to_anchor=[0.5, 1.2])
+
         #ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
         plt.tight_layout()
 
