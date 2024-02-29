@@ -12,11 +12,12 @@ from .context_2023_08_21 import (
     D244_F3_C1416_3,
 )
 from .context_2023_11_14 import (
-    D244_F3_REBUTTAL,
-    D244_F3_REBUTTAL_200,
-    D244_F3_REBUTTAL_100,
-    D244_F3_REBUTTAL_30,
-    D244_F3_REBUTTAL_10,
+    D244_F3_C1530,
+    D244_F3_C1530_200,
+    D244_F3_C1530_100,
+    D244_F3_C1530_30,
+    D244_F3_C1530_10,
+    D244_F3_C1530_3,
 )
 
 __all__ = [
@@ -45,11 +46,12 @@ for c in [
     D244_F3_C1416_30,
     D244_F3_C1416_10,
     D244_F3_C1416_3,
-    D244_F3_REBUTTAL,
-    D244_F3_REBUTTAL_200,
-    D244_F3_REBUTTAL_100,
-    D244_F3_REBUTTAL_30,
-    D244_F3_REBUTTAL_10,
+    D244_F3_C1530,
+    D244_F3_C1530_200,
+    D244_F3_C1530_100,
+    D244_F3_C1530_30,
+    D244_F3_C1530_10,
+    D244_F3_C1530_3,
 ]:
     if c.name in _context_map:
         raise AssertionError(f'ERROR: Multiple contexts have the same name: {c.name}')

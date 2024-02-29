@@ -37,42 +37,50 @@ kwargs = dict(
 )
 
 
-D244_F3_REBUTTAL: BenchmarkContext = construct_context(
-    name="D244_F3_REBUTTAL",
-    description="FTT Test",
+D244_F3_C1530: BenchmarkContext = construct_context(
+    name="D244_F3_C1530",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (330 GB, 211 datasets)",
     datasets=datasets,
     has_baselines=True,
     **kwargs,
 )
 
-D244_F3_REBUTTAL_200: BenchmarkContext = construct_context(
-    name="D244_F3_REBUTTAL_200",
-    description="FTT Test (200 smallest datasets)",
+D244_F3_C1530_200: BenchmarkContext = construct_context(
+    name="D244_F3_C1530_200",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (120 GB, 200 smallest datasets)",
     datasets=datasets[-200:],
     has_baselines=True,
     **kwargs,
 )
 
-D244_F3_REBUTTAL_100: BenchmarkContext = construct_context(
-    name="D244_F3_REBUTTAL_100",
-    description="FTT Test (100 smallest datasets)",
+D244_F3_C1530_100: BenchmarkContext = construct_context(
+    name="D244_F3_C1530_100",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (9.5 GB, 100 smallest datasets)",
     datasets=datasets[-100:],
     has_baselines=True,
     **kwargs,
 )
 
-D244_F3_REBUTTAL_30: BenchmarkContext = construct_context(
-    name="D244_F3_REBUTTAL_30",
-    description="FTT Test (30 smallest datasets)",
+D244_F3_C1530_30: BenchmarkContext = construct_context(
+    name="D244_F3_C1530_30",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (1.1 GB, 30 smallest datasets)",
     datasets=datasets[-30:],
     has_baselines=True,
     **kwargs,
 )
 
-D244_F3_REBUTTAL_10: BenchmarkContext = construct_context(
-    name="D244_F3_REBUTTAL_10",
-    description="FTT Test (10 smallest datasets)",
+D244_F3_C1530_10: BenchmarkContext = construct_context(
+    name="D244_F3_C1530_10",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (220 MB, 10 smallest datasets)",
     datasets=datasets[-10:],
+    has_baselines=True,
+    **kwargs,
+)
+
+D244_F3_C1530_3: BenchmarkContext = construct_context(
+    name="D244_F3_C1530_3",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (33 MB, 3 smallest datasets)",
+    datasets=datasets[-3:],
     has_baselines=True,
     **kwargs,
 )

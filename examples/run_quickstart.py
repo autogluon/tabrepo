@@ -11,7 +11,7 @@ if __name__ == '__main__':
         context = get_context(context_name)
         print(f"\t{context_name}\t: {context.description}")
 
-    context_name = "D244_F3_C1416_30"
+    context_name = "D244_F3_C1530_30"
     context = get_context(name=context_name)
 
     config_hyperparameters = context.load_configs_hyperparameters()

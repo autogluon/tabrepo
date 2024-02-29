@@ -196,8 +196,9 @@ def sample_and_pick_best(
     df_sub = df_score_val[mask]
 
     if len(df_sub) == 0:
+        pass
         # assert len(df_sub) > 0, f"missing data {tid} {framework_type}"
-        print(f"missing data {tid} {fold} {framework_type}")
+        # print(f"missing data {tid} {fold} {framework_type}")
 
     # shuffle the rows
     df_sub = df_sub.sample(frac=1, random_state=random_state).reset_index(drop=True)

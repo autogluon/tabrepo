@@ -49,6 +49,7 @@ def run_evaluate_baselines(
     all_configs: bool = False,
     n_datasets: int = None,
     n_eval_folds: int = -1,
+    run_expensive_simulations: bool = True,
 ):
     as_paper = not all_configs
     if isinstance(repo, EvaluationRepository):
@@ -122,7 +123,7 @@ def run_evaluate_baselines(
     framework_counts_dict = {
         f: len([f2 for f2 in framework_counts if f2 == f]) for f in framework_counts_unique
     }
-    print(framework_counts_dict)
+    print(f"Config Family Counts: {framework_counts_dict}")
 
     expname_outdir = str(Path("output") / expname)
 
@@ -183,27 +184,30 @@ def run_evaluate_baselines(
         ),
     ]
 
-    # Use more seeds
-    seeds = [s for s in range(n_seeds)]
-    experiments.append(Experiment(
-        expname=expname, name=f"zeroshot-num-configs-n-seeds-{n_seeds}",
-        run_fun=lambda: zeroshot_results(
-            n_training_configs=n_training_configs,
-            n_ensembles=[1, default_ensemble_size],
-            seeds=seeds,
-            **experiment_common_kwargs,
-        )
-    ))
+    if run_expensive_simulations:
+        # Use more seeds
+        seeds = [s for s in range(n_seeds)]
+        experiments.append(Experiment(
+            expname=expname, name=f"zeroshot-num-configs-n-seeds-{n_seeds}",
+            run_fun=lambda: zeroshot_results(
+                n_training_configs=n_training_configs,
+                n_ensembles=[1, default_ensemble_size],
+                seeds=seeds,
+                **experiment_common_kwargs,
+            )
+        ))
 
-    experiments.append(Experiment(
-        expname=expname, name=f"zeroshot-num-training-datasets-n-seeds-{n_seeds}",
-        run_fun=lambda: zeroshot_results(
-            n_training_datasets=n_training_datasets,
-            n_ensembles=[1, default_ensemble_size],
-            seeds=seeds,
-            **experiment_common_kwargs,
-        )
-    ))
+        experiments.append(Experiment(
+            expname=expname, name=f"zeroshot-num-training-datasets-n-seeds-{n_seeds}",
+            run_fun=lambda: zeroshot_results(
+                n_training_datasets=n_training_datasets,
+                n_ensembles=[1, default_ensemble_size],
+                seeds=seeds,
+                **experiment_common_kwargs,
+            )
+        ))
+    else:
+        print(f"SKipping expensive simulations because `run_expensive_simulations={run_expensive_simulations}`")
 
     with catchtime("total time to generate evaluations"):
         df = pd.concat([
@@ -326,12 +330,14 @@ def run_evaluate_baselines(
 if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="D244_F3_REBUTTAL_200")
+    parser.add_argument("--repo", type=str, help="Name of the repo to load", default="D244_F3_C1530_200")
     parser.add_argument("--n_folds", type=int, default=-1, required=False,
                         help="Number of folds to consider when evaluating all baselines. Uses all if set to -1.")
     parser.add_argument("--n_datasets", type=int, required=False, help="Number of datasets to consider when evaluating all baselines.")
     parser.add_argument("--ignore_cache", action="store_true", help="Ignore previously generated results and recompute them from scratch.")
     parser.add_argument("--all_configs", action="store_true", help="If True, will use all configs rather than filtering out NeuralNetFastAI. If True, results will differ from the paper.")
+    parser.add_argument("--skip_expensive_simulations", action="store_true",
+                        help="If True, will skip the most expensive simulations that take up the bulk of the runtime.")
     parser.add_argument("--expname", type=str, help="Name of the experiment. If None, defaults to the value specified in `repo`.", required=False, default=None)
     parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
                         help="Engine used for embarrassingly parallel loop.")
@@ -349,4 +355,5 @@ if __name__ == "__main__":
         expname=args.expname,
         engine=args.engine,
         ray_process_ratio=args.ray_process_ratio,
+        run_expensive_simulations=not args.skip_expensive_simulations,
     )

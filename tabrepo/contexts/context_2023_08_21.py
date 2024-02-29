@@ -323,7 +323,7 @@ D244_F3_C1416_30: BenchmarkContext = construct_context(
 
 D244_F3_C1416_10: BenchmarkContext = construct_context(
     name="D244_F3_C1416_10",
-    description="Large-scale Benchmark on 244 datasets and 3 folds (10 smallest datasets)",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (200 MB, 10 smallest datasets)",
     datasets=datasets[-10:],
     **kwargs,
 )
@@ -331,7 +331,7 @@ D244_F3_C1416_10: BenchmarkContext = construct_context(
 
 D244_F3_C1416_3: BenchmarkContext = construct_context(
     name="D244_F3_C1416_3",
-    description="Large-scale Benchmark on 244 datasets and 3 folds (3 smallest datasets)",
+    description="Large-scale Benchmark on 244 datasets and 3 folds (30 MB, 3 smallest datasets)",
     datasets=datasets[-3:],
     **kwargs,
 )
