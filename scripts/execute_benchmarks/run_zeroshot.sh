@@ -17,10 +17,13 @@ fi
 # Copy the custom configs to the current directory so we can specify them in the runbenchmark.py arguments
 cp -r ../automlbenchmark/custom_configs/ ./
 
-# Run the full TabRepo experiments
+# Run the full TabRepo experiments to generate the pre-computed results for all 1310 configs
+# This will launch 92,232 m6i.2xlarge EC2 instances on AWS, each running for ~1 hour.
+# This script will only work as-is out of the box if you have an AWS account with extremely large instance limit permissions.
+# Otherwise, you will need to edit the max parallelization value.
 # Wait 6500 seconds between each command
 #  6500 seconds due to 8 seconds between instance startup, and needing to start 244*3 instances = 5856 seconds, plus some overhead
-#  117 commands to execute, for a total of 6500*117 seconds = 760500 seconds = 211 hours = 9 days
+#  126 commands to execute, for a total of 6500*126 seconds = 819000 seconds = 228 hours = 10 days
 SLEEP_TIME=6500
 FILES=(
   "python ../automlbenchmark/runbenchmark.py AutoGluon_bq:latest ag_244 1h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
@@ -140,6 +143,16 @@ FILES=(
   "python ../automlbenchmark/runbenchmark.py ZS_BAG_xt_b10:zeroshot ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
   "python ../automlbenchmark/runbenchmark.py ZS_BAG_xt_b11:zeroshot ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
   "python ../automlbenchmark/runbenchmark.py ZS_BAG_xt_b12:zeroshot ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_lr_b0:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_lr_b1:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_lr_b2:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_lr_b3:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_knn_b0:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_knn_b1:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_knn_b2:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_knn_b3:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_tabpfn_b0:zeroshot_v2 ag_244 60h8c -u custom_configs -f 0 1 2 -m aws -p 3000"
+  "python ../automlbenchmark/runbenchmark.py ZS_BAG_ftt_b0:zeroshot_ftt ag_244 60h8c_gpu -u custom_configs -f 0 1 2 -m aws -p 3000"
 )
 
 i=0
