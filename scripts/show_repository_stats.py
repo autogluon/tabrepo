@@ -79,7 +79,7 @@ def get_stats(expname_outdir: str, context: str = None, repo=None):
 
 
 if __name__ == "__main__":
-    context = "D244_F3_REBUTTAL_200"
-    expname = "D244_F3_REBUTTAL_200"
+    context = "D244_F3_C1530_200"
+    expname = "D244_F3_C1530_200"
     expname_outdir = str(Path("output") / expname)
     get_stats(context=context, expname_outdir=expname_outdir)
