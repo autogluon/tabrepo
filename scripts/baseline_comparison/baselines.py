@@ -407,6 +407,8 @@ def zeroshot_results(
             n_ensemble_in_name=n_ensemble_in_name,
         )
 
+        rng = np.random.default_rng(seed=seed)
+
         # restrict number of evaluation fold
         if n_training_fold is None:
             n_training_fold = n_eval_folds
@@ -414,7 +416,7 @@ def zeroshot_results(
         # gets all tids that are possible available
         test_tid = repo.dataset_to_tid(test_dataset)
         available_tids = [repo.dataset_to_tid(dataset) for dataset in dataset_names if dataset != test_dataset]
-        np.random.shuffle(available_tids)
+        rng.shuffle(available_tids)
         if n_training_dataset is None:
             n_training_dataset = len(available_tids)
 
@@ -427,10 +429,9 @@ def zeroshot_results(
             if not (n_training_config) or len(models_framework) <= n_training_config:
                 configs += models_framework
             else:
-                configs += list(np.random.choice(models_framework, n_training_config, replace=False))
+                configs += list(rng.choice(models_framework, n_training_config, replace=False))
 
         # Randomly shuffle the config order with the passed seed
-        rng = np.random.default_rng(seed=seed)
         configs = list(rng.choice(configs, len(configs), replace=False))
 
         # # exclude configurations from zeroshot selection whose runtime exceeds runtime budget by large amount
