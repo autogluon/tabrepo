@@ -4,16 +4,15 @@ Writes latex file that can be copied to the latex directory into automl_conf/tab
 Requires to have run run_eval_tabrepo_v1.py before which will generate the csv file.
 * Repo: https://github.com/Innixma/autogluon-benchmark
 * Install via README.md: https://github.com/Innixma/autogluon-benchmark?tab=readme-ov-file#development-installation
-* Script to run: https://github.com/Innixma/autogluon-benchmark/blob/master/scripts/run_eval/tabrepo/run_eval_tabrepo_v1.py
+* Script to run: https://github.com/Innixma/autogluon-benchmark/blob/master/v1_results/run_eval_tabrepo_v1.py
 """
 from pathlib import Path
 
 from autogluon.common.loaders.load_pd import load
 
-
 if __name__ == "__main__":
-    path = Path(__file__).parent.parent.parent / 'autogluon-benchmark/scripts/run_eval/tabrepo/data/results/output/openml' \
-                                          '/autogluon_v1/4h8c_fillna/all/pairwise/AutoGluon with Portfolio (Best, 4h8c).csv'
+    path = Path(__file__).parent.parent.parent / ('autogluon-benchmark/v1_results/data/results/output/openml/autogluon_v1/4h8c_fillna/'
+                                                  'all/pairwise/AutoGluon with Portfolio (Best, 4h8c).csv')
     df = load(str(path))
     cols = ['framework', 'Winrate', '% Loss Reduction']
     df_sub = df.loc[:, cols]
