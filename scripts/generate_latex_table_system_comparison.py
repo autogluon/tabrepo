@@ -11,7 +11,7 @@ from pathlib import Path
 from autogluon.common.loaders.load_pd import load
 
 if __name__ == "__main__":
-    path = Path(__file__).parent.parent.parent / ('autogluon-benchmark/v1_results/data/results/output/openml/autogluon_v1/4h8c_fillna/'
+    path = Path(__file__).parent.parent.parent / ('autogluon-benchmark/v1_results/data/results/output/openml/tabrepo_v1/4h8c_fillna/'
                                                   'all/pairwise/AutoGluon with Portfolio (Best, 4h8c).csv')
     df = load(str(path))
     cols = ['framework', 'Winrate', '% Loss Reduction']
