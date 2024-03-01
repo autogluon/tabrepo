@@ -207,7 +207,7 @@ def run_evaluate_baselines(
             )
         ))
     else:
-        print(f"SKipping expensive simulations because `run_expensive_simulations={run_expensive_simulations}`")
+        print(f"Skipping expensive simulations because `run_expensive_simulations={run_expensive_simulations}`")
 
     with catchtime("total time to generate evaluations"):
         df = pd.concat([
@@ -229,12 +229,14 @@ def run_evaluate_baselines(
     print(f"Total time of experiments: {total_time_h} hours")
     save_total_runtime_to_file(total_time_h, save_prefix=expname_outdir)
 
-    generate_sensitivity_plots(df, n_portfolios=n_portfolios, n_ensemble_iterations=n_ensemble_iterations, show=True, save_prefix=expname_outdir)
+    if run_expensive_simulations:
+        generate_sensitivity_plots(df, n_portfolios=n_portfolios, n_ensemble_iterations=n_ensemble_iterations, show=True, save_prefix=expname_outdir)
+
+    # Save results
+    save_pd.save(path=str(Paths.data_root / "simulation" / expname / "results.csv"), df=df)
 
     # Drop multiple seeds after generating sensitivity plots
     df = df.drop_duplicates(subset=["method", "dataset", "fold"])
-    # Save results
-    save_pd.save(path=str(Paths.data_root / "simulation" / expname / "results.csv"), df=df)
 
     # df = time_cutoff_baseline(df)
 
