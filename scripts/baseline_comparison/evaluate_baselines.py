@@ -299,15 +299,15 @@ def run_evaluate_baselines(
     fig.show()
 
     plot_critical_diagrams(df, save_prefix=expname_outdir)
-    plot_cdf(
-        df=df,
-        framework_types=framework_types,
-        expname_outdir=expname_outdir,
-        n_training_datasets=n_training_datasets,
-        n_portfolios=n_portfolios,
-        n_training_configs=n_training_configs,
-        max_runtimes=max_runtimes,
-    )
+    # plot_cdf(
+    #     df=df,
+    #     framework_types=framework_types,
+    #     expname_outdir=expname_outdir,
+    #     n_training_datasets=n_training_datasets,
+    #     n_portfolios=n_portfolios,
+    #     n_training_configs=n_training_configs,
+    #     max_runtimes=max_runtimes,
+    # )
 
     hue_order_family_proportion = [
         "CatBoost",
