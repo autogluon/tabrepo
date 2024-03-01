@@ -1,9 +1,12 @@
 # Reproducing TabRepo
 
+Before starting, please note that TabRepo is the largest collection of tabular benchmarking results that exists to our knowledge.
+Regenerating the TabRepo artifacts requires a minimum of 500,000 CPU hours of compute spread across 92,000 EC2 instances taking a minimum of 10 days.
+
 To reproduce TabRepo, we must:
 
 1. Install AutoMLBenchmark
-2. (TODO) Setup AWS credentials
+2. Setup AWS credentials
 3. Edit the `custom_configs/config.yaml` file
 4. Execute the `run_zeroshot.sh` script
 5. Aggregate the results

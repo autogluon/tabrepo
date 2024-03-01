@@ -1,6 +1,6 @@
 # TabRepo
 
-TabRepo contains the predictions and metrics of 1206 models evaluated on 200 classification and regression datasets. 
+TabRepo contains the predictions and metrics of 1310 models evaluated on 200 classification and regression datasets. 
 This allows to compare for free against state-of-the-art AutoML systems or random configurations by just querying 
 precomputed results. We also store and expose model predictions so any ensembling strategy can also be benchmarked 
 cheaply by just querying precomputed results.
@@ -21,26 +21,30 @@ The key features of the repo are:
  
 ## Installation
 
-To install the repository, run
+To install the repository, ensure you are using Python 3.9-3.11. Other Python versions are not supported. Then, run the following:
 
 ```bash
 git clone https://github.com/autogluon/tabrepo.git
-cd tabrepo  
-pip install -e .
+pip install -e tabrepo
 ```
 
-In addition, if you are interested in reproducing the experiments of the paper, you will need those extra dependencies:
+Only Linux support has been tested. Support for Windows and MacOS is not confirmed, and you may run into bugs or a suboptimal experience (especially if you are unable to install ray).
+
+### Reproducing AutoML Conf 2024 Paper
+
+If you are interested in reproducing the experiments of the paper, you will need these extra dependencies:
 
 ```bash
 # Install AG benchmark, required only to reproduce results showing win-rate tables
-git clone https://github.com/Innixma/autogluon-benchmark.git
-pushd autogluon-benchmark
-pip install -e .
-popd
 
-# Install extra dependencies used for experimental scripts
-pip install "autorank"
-pip install "seaborn"
+git clone https://github.com/autogluon/autogluon-bench.git
+pip install -e autogluon-bench
+
+git clone https://github.com/Innixma/autogluon-benchmark.git
+pip install -e autogluon-benchmark
+
+# Install extra dependencies used for results scripts
+pip install autorank seaborn
 ```
 
 You are all set!
@@ -56,7 +60,7 @@ Now lets see how to do basic things with TabRepo.
 ```python
 from tabrepo import load_repository
 
-repo = load_repository("D244_F3_C1416_30")
+repo = load_repository("D244_F3_C1530_30")
 repo.metrics(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
 ```
 
@@ -73,7 +77,7 @@ with `D244_F3_C1416_30`.
 To query model predictions, run the following code:
 ```python
 from tabrepo import load_repository
-repo = load_repository("D244_F3_C1416_30")
+repo = load_repository("D244_F3_C1530_30")
 print(repo.predict_val_multi(dataset="Australian", fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
@@ -84,7 +88,7 @@ You can also use `predict_test` to get the predictions on the test set.
 To evaluate an ensemble of any list of configuration, you can run the following:
 ```python
 from tabrepo import load_repository
-repo = load_repository("D244_F3_C1416_30")
+repo = load_repository("D244_F3_C1530_30")
 print(repo.evaluate_ensemble(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
@@ -118,14 +122,14 @@ Below is a list of the available contexts in TabRepo.
 To reproduce the experiments from the paper, run:
 
 ```bash
-python scripts/baseline_comparison/evaluate_baselines.py --expname v1
+python scripts/baseline_comparison/evaluate_baselines.py
 ```
 
 The experiment will require ~200GB of disk storage and 32GB of memory (although we use memmap to load model predictions
 on the fly, large dataset still have a significant memory footprint even for a couple of models). In particular, we
-used a `m6i.4xlarge` machine for our experiments which took 1h 42m (less than $2 of compute).
+used a `m6i.4xlarge` machine for our experiments which took under 24 hrs (less than $7 of compute).
 
-All the table and figures of the paper will be generated under `scripts/figures` and `scripts/tables`.
+All the table and figures of the paper will be generated under `scripts/output/{expname}`.
 
 ## Future work
 
