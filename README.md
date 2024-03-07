@@ -10,7 +10,7 @@ strategies against state-of-the-art AutoML systems.
 
 The key features of the repo are:
 * 1310 models evaluated on 200 datasets with 3 distinct folds
-* 273 GB of model predictions
+* 330 GB of model predictions
 * code to compare methods against state-of-the-art AutoML systems and random model configurations
 * fast evaluations of any ensemble of models from table lookups with a few engineering tricks:
   * fast metric evaluations with specific optimized cpp code (for instance to compute roc auc)
@@ -70,7 +70,7 @@ The example loads a smaller version of TabRepo with only a few datasets for illu
 the evaluations of one ensemble and how to query the stored predictions of a given model.
 When calling `load_repository` models predictions and TabRepo metadata will be fetched from the internet. We use a smaller version 
 here as it can take a long time to download all predictions, in case you want to query all datasets, replace the context
-with `D244_F3_C1416_30`.
+with `D244_F3_C1530`.
 
 
 **Querying model predictions.**
@@ -107,14 +107,14 @@ repo = load_repository(context_name)
 Below is a list of the available contexts in TabRepo.
 
 | Context Name      | # Datasets | # Folds | # Configs | Disk Size | Notes                                                                                 |
-|-------------------|------------|---------|-----------|-----------|---------------------------------------------------------------------------------------|
-| D244_F3_C1416     | 211        | 3       | 1416      | 273 GB    | All successful datasets. 64 GB+ memory recommended. May take a few hours to download. |
-| D244_F3_C1416_200 | 200        | 3       | 1416      | 107 GB    | Used for results in paper. 32 GB memory recommended                                   |
-| D244_F3_C1416_175 | 175        | 3       | 1416      | 50 GB     | 16 GB memory recommended                                                              |
-| D244_F3_C1416_100 | 100        | 3       | 1416      | 8.7 GB    | Ideal for fast prototyping                                                            |
-| D244_F3_C1416_30  | 30         | 3       | 1416      | 1.0 GB    | Toy context                                                                           |
-| D244_F3_C1416_10  | 10         | 3       | 1416      | 0.2 GB    | Toy context                                                                           |
-| D244_F3_C1416_3   | 3          | 3       | 1416      | 30 MB     | Toy context                                                                           |
+|:------------------|-----------:|--------:|----------:|----------:|:--------------------------------------------------------------------------------------|
+| D244_F3_C1530     |        211 |       3 |      1416 |    330 GB | All successful datasets. 64 GB+ memory recommended. May take a few hours to download. |
+| D244_F3_C1530_200 |        200 |       3 |      1416 |    120 GB | Used for results in paper. 32 GB memory recommended                                   |
+| D244_F3_C1530_175 |        175 |       3 |      1416 |     57 GB | 16 GB memory recommended                                                              |
+| D244_F3_C1530_100 |        100 |       3 |      1416 |    9.5 GB | Ideal for fast prototyping                                                            |
+| D244_F3_C1530_30  |         30 |       3 |      1416 |    1.1 GB | Toy context                                                                           |
+| D244_F3_C1530_10  |         10 |       3 |      1416 |    220 MB | Toy context                                                                           |
+| D244_F3_C1530_3   |          3 |       3 |      1416 |     33 MB | Toy context                                                                           |
 
 
 ## Reproducing paper experiments
@@ -128,6 +128,7 @@ python scripts/baseline_comparison/evaluate_baselines.py
 The experiment will require ~200GB of disk storage and 32GB of memory (although we use memmap to load model predictions
 on the fly, large dataset still have a significant memory footprint even for a couple of models). In particular, we
 used a `m6i.4xlarge` machine for our experiments which took under 24 hrs (less than $7 of compute).
+Excluding the 10-repeat seeded ablations, the experiments take under 1 hour.
 
 All the table and figures of the paper will be generated under `scripts/output/{expname}`.
 
