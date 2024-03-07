@@ -132,6 +132,10 @@ Excluding the 10-repeat seeded ablations, the experiments take under 1 hour.
 
 All the table and figures of the paper will be generated under `scripts/output/{expname}`.
 
+### Colab Notebook
+
+To run a subset of experiments on a Colab notebook, refer to [https://colab.research.google.com/github/autogluon/tabrepo/blob/main/examples/TabRepo_Reproducibility.ipynb](https://colab.research.google.com/github/autogluon/tabrepo/blob/main/examples/TabRepo_Reproducibility.ipynb)
+
 ### Reproducing the raw TabRepo dataset
 
 To reproduce the entire TabRepo dataset (context `"D244_F3_C1530"`) from scratch, refer to the [benchmark execution README](scripts/execute_benchmarks/README.md).
