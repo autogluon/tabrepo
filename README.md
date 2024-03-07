@@ -51,7 +51,7 @@ You are all set!
 
 ## Quick-start
 
-**Recommended: Refer to `examples/run_quickstart.py` for a full runnable tutorial.**
+**Recommended: Refer to [examples/run_quickstart.py](examples/run_quickstart.py) for a full runnable tutorial.**
 
 Now lets see how to do basic things with TabRepo.
 
@@ -126,11 +126,17 @@ python scripts/baseline_comparison/evaluate_baselines.py
 ```
 
 The experiment will require ~200GB of disk storage and 32GB of memory (although we use memmap to load model predictions
-on the fly, large dataset still have a significant memory footprint even for a couple of models). In particular, we
-used a `m6i.4xlarge` machine for our experiments which took under 24 hrs (less than $7 of compute).
+on the fly, large datasets still have a significant memory footprint even for a couple of models). In particular, we
+used a `m6i.4xlarge` machine for our experiments which took under 24 hrs (less than $7 of compute with spot instance pricing).
 Excluding the 10-repeat seeded ablations, the experiments take under 1 hour.
 
 All the table and figures of the paper will be generated under `scripts/output/{expname}`.
+
+### Reproducing the raw TabRepo dataset
+
+To reproduce the entire TabRepo dataset (context `"D244_F3_C1530"`) from scratch, refer to the [benchmark execution README](scripts/execute_benchmarks/README.md).
+
+To instead reproduce a small subset of the TabRepo dataset in a few minutes, run [examples/run_quickstart_from_scratch.py](examples/run_quickstart_from_scratch.py).
 
 ## Future work
 

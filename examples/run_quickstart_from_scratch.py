@@ -13,22 +13,15 @@ from tabrepo.contexts.subcontext import BenchmarkSubcontext
 from tabrepo.simulation.ground_truth import GroundTruth
 
 
-def get_artifacts(task: OpenMLTaskWrapper, fold: int, dataset: str = None):
+def get_artifacts(task: OpenMLTaskWrapper, fold: int, hyperparameters: dict, dataset: str = None, time_limit=60):
     if dataset is None:
         dataset = str(task.task_id)
+    print(f"Fitting configs on dataset: {dataset}\t| fold: {fold}")
     train_data, test_data = task.get_train_test_split_combined(fold=fold)
     predictor: TabularPredictor = TabularPredictor(label=task.label).fit(
         train_data=train_data,
-        hyperparameters={
-            "GBM": {},
-            "XGB": {},
-            "CAT": {},
-            "FASTAI": {},
-            "NN_TORCH": {},
-            "RF": {},
-            "XT": {},
-        },
-        time_limit=60,
+        hyperparameters=hyperparameters,
+        ag_args_fit={"ag.max_time_limit": time_limit},
         fit_weighted_ensemble=False,
         calibrate=False,
         verbosity=0,
@@ -58,33 +51,50 @@ def convert_leaderboard_to_configs(leaderboard: pd.DataFrame) -> pd.DataFrame:
 
 
 """
-This tutorial showcases how to generate a context from scratch using AutoGluon.
+This tutorial showcases how to generate a small context from scratch using AutoGluon.
+
+For the code to generate the full context, refer to https://github.com/autogluon/tabrepo/tree/main/scripts/execute_benchmarks
 
 Required dependencies:
 ```bash
-# FIXME: Requires a specific version of AutoGluon installed via this PR: https://github.com/autogluon/autogluon/pull/3555
-#  This will be changed in future
-
 # Requires autogluon-benchmark
 git clone https://github.com/Innixma/autogluon-benchmark.git
-pushd autogluon-benchmark
-pip install -e .
-popd
+pip install -e autogluon-benchmark
 ```
+
+This example script runs 7 configs on 3 tiny datasets with 2 folds, for a total of 42 trained models.
+The full TabRepo runs 1530 configs on 244 datasets with 3 folds, using 8-fold bagging, for a total of 1,119,960 trained bagged models consisting of 8,959,680 fold models.
+
 """
 if __name__ == '__main__':
+    # list of datasets to train on
     datasets = [
         "Australian",
         "blood-transfusion",
         "meta",
     ]
+    # dataset to task id map to reference the appropriate OpenML task.
     dataset_to_tid_dict = {
         "Australian": 146818,
         "blood-transfusion": 359955,
         "meta": 3623,
     }
+    # time limit in seconds each config gets to train per dataset. Early stopped if exceeded.
+    time_limit_per_config = 60  # 3600 in paper
 
-    folds = [0]
+    # the configs to train on each dataset
+    hyperparameters = {
+        "GBM": {},
+        "XGB": {},
+        "CAT": {},
+        "FASTAI": {},
+        "NN_TORCH": {},
+        "RF": {},
+        "XT": {},
+    }
+
+    # the folds to train on each dataset
+    folds = [0, 1]
 
     artifacts = []
     # Fit models on the datasets and get their artifacts
@@ -92,7 +102,15 @@ if __name__ == '__main__':
         task_id = dataset_to_tid_dict[dataset]
         for fold in folds:
             task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
-            artifacts.append(get_artifacts(task=task, fold=fold, dataset=dataset))
+            artifacts.append(
+                get_artifacts(
+                    task=task,
+                    fold=fold,
+                    dataset=dataset,
+                    hyperparameters=hyperparameters,
+                    time_limit=time_limit_per_config,
+                )
+            )
 
     # TODO: Move into AutoGluonTaskWrapper
     simulation_artifacts_full = dict()
@@ -135,7 +153,7 @@ if __name__ == '__main__':
 
     # Note: Can also skip all the above code if you want to use a readily available context rather than generating from scratch:
     # from tabrepo.contexts import get_subcontext
-    # subcontext = get_subcontext(name="D244_F3_C1416_30")
+    # subcontext = get_subcontext(name="D244_F3_C1530_30")
 
     repo: EvaluationRepository = subcontext.load_from_parent()
     repo: EvaluationRepositoryZeroshot = repo.to_zeroshot()
