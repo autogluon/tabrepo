@@ -35,7 +35,7 @@ if __name__ == '__main__':
         context_name = 'D104_F10_C608_FULL'
     benchmark_context = get_context(context_name)
 
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(load_predictions=True, lazy_format=True)
+    zsc, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load(load_predictions=True, lazy_format=True)
     print(sort_datasets_linkage(zsc))
 
     sub_datasets = [359949.0, 359950.0, 359951.0, 359954.0, 359955.0, 359959.0,]

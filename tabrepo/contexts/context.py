@@ -285,7 +285,7 @@ class BenchmarkContext:
              load_predictions: bool = True,
              download_files: bool = True,
              prediction_format: str = "memmap",
-             exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, dict, TabularModelPredictions, GroundTruth]:
+             exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, TabularModelPredictions, GroundTruth]:
         """
         :param folds: If None, uses self.folds as default.
             If specified, must be a subset of `self.folds`. This will filter the results to only the specified folds.
@@ -302,10 +302,6 @@ class BenchmarkContext:
         :return: Returns four objects in the following order:
             zsc: ZeroshotSimulatorContext
                 The zeroshot simulator context object.
-            configs_hyperparameters: dict
-                # TODO: Consider making a part of zsc.
-                The dictionary of config names to hyperparameters.
-                This is useful when wanting to understand what hyperparameters a particular model config is using.
             zeroshot_pred_proba: TabularModelPredictions
                 # TODO: Consider making a part of zsc.
                 The prediction probabilities of all configs for all tasks.
@@ -338,9 +334,9 @@ class BenchmarkContext:
                 self.download(include_zs=load_predictions, exists=exists)
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
 
-            zsc = self._load_zsc(folds=folds)
-            print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
             configs_hyperparameters = self.load_configs_hyperparameters()
+            zsc = self._load_zsc(folds=folds, configs_hyperparameters=configs_hyperparameters)
+            print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
 
             if load_predictions:
                 zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format)
@@ -348,7 +344,7 @@ class BenchmarkContext:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
 
-        return zsc, configs_hyperparameters, zeroshot_pred_proba, zeroshot_gt
+        return zsc, zeroshot_pred_proba, zeroshot_gt
 
     def _load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         df_configs, df_metadata = self.benchmark_paths.load_results()
@@ -362,7 +358,7 @@ class BenchmarkContext:
                           prediction_format: str) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
         return self.benchmark_paths.load_predictions(zsc=zsc, prediction_format=prediction_format)
 
-    def _load_zsc(self, folds: List[int]) -> ZeroshotSimulatorContext:
+    def _load_zsc(self, folds: List[int], configs_hyperparameters: dict) -> ZeroshotSimulatorContext:
         df_configs, df_metadata = self._load_results()
 
         # Load in real framework results to score against
@@ -377,6 +373,7 @@ class BenchmarkContext:
             df_baselines=df_baselines,
             df_metadata=df_metadata,
             score_against_only_baselines=score_against_only_baselines,
+            configs_hyperparameters=configs_hyperparameters,
         )
         return zsc
 

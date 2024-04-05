@@ -26,6 +26,7 @@ class ZeroshotSimulatorContext:
             df_configs: pd.DataFrame,
             df_baselines: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
+            configs_hyperparameters: dict = None,
             folds: List[int] | None = None,
             pct: bool = False,
             score_against_only_baselines: bool = True,
@@ -62,6 +63,7 @@ class ZeroshotSimulatorContext:
             score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
+        self.configs_hyperparameters = configs_hyperparameters
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(

@@ -1,5 +1,4 @@
 from __future__ import annotations
-from autorank import autorank, plot_stats, create_report, latex_table
 
 from dataclasses import dataclass
 from scripts import output_path
@@ -254,6 +253,7 @@ def show_scatter_performance_vs_time_lower_budgets(df: pd.DataFrame, metric_cols
 
 
 def plot_critical_diagrams(df, save_prefix: str = None):
+    from autorank import autorank, plot_stats, create_report, latex_table
     plt.rcParams.update({'font.size': 12})
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 2))
