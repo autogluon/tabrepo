@@ -169,19 +169,19 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     # runtime figure
     df = zsc.df_configs_ranked
     ax = axes[2]
-    df['framework_type'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
-    df['framework_type'] = df['framework_type'].map({"NeuralNetTorch": "MLP"}).fillna(df["framework_type"])
-    df_grouped = df[["framework_type", "tid", "time_train_s"]].groupby(["framework_type", "tid"]).max()["time_train_s"].sort_values()
+    df['method'] = df.apply(lambda x: x["framework"].split("_")[0], axis=1)
+    df['method'] = df['method'].map({"NeuralNetTorch": "MLP"}).fillna(df["method"])
+    df_grouped = df[["method", "tid", "time_train_s"]].groupby(["method", "tid"]).max()["time_train_s"].sort_values()
     df_grouped = df_grouped.reset_index(drop=False)
-    df_grouped["group_index"] = df_grouped.groupby("framework_type")["time_train_s"].cumcount()
+    df_grouped["group_index"] = df_grouped.groupby("method")["time_train_s"].cumcount()
     df_grouped["group_index"] += 1
 
     sns.lineplot(
         data=df_grouped,
         x="group_index",
         y="time_train_s",
-        hue="framework_type",
-        hue_order=sorted(list(df_grouped["framework_type"].unique())),
+        hue="method",
+        hue_order=sorted(list(df_grouped["method"].unique())),
         linewidth=3,
         palette=[  # category10 color palette
             '#1f77b4',
@@ -211,7 +211,7 @@ def generate_dataset_analysis(repo, expname_outdir: str):
 
 
 if __name__ == "__main__":
-    repo_version = "D244_F3_REBUTTAL_200"
+    repo_version = "D244_F3_C1530_200"
     repo: EvaluationRepository = load_context(version=repo_version)
     expname_outdir = str(Path("output") / repo_version)
     generate_dataset_analysis(repo=repo, expname_outdir=expname_outdir)
