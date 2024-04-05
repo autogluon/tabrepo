@@ -209,6 +209,164 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     plt.savefig(fig_save_path)
     plt.show()
 
+    plot_train_time_deep_dive(df, expname_outdir=expname_outdir)
+
+
+def plot_train_time_deep_dive(df, expname_outdir: str):
+    df = df.copy(deep=True)
+    title_size = 20
+    figsize = (26, 7)
+    fig, axes = plt.subplots(1, 4, figsize=figsize, dpi=300)
+
+    # runtime max stats
+    index_above_time_limit = df["time_train_s"] >= 2800
+    proportion_of_models_reaching_time_limit = index_above_time_limit.mean()
+    num_models_reaching_time_limit = index_above_time_limit.sum()
+    models_by_family_reaching_time_limit = df.loc[index_above_time_limit].value_counts("method")
+    models_by_config_reaching_time_limit = df.loc[index_above_time_limit].value_counts("framework")
+    datasets_reaching_time_limit = df.loc[index_above_time_limit].value_counts("dataset")
+    datasets_type_reaching_time_limit = df.loc[index_above_time_limit].value_counts(["dataset", "method"])
+
+    latex_kwargs = dict(
+        index=False,
+    )
+
+    print(f"Percentage of models reaching time limit: {proportion_of_models_reaching_time_limit * 100:.2f}%")
+    print(f"Number of models reaching time limit: {num_models_reaching_time_limit} (out of {len(df)})")
+    save_latex_table(
+        df=datasets_type_reaching_time_limit.reset_index(drop=False),
+        title="early_stopping_counts_dataset_family",
+        save_prefix=expname_outdir,
+        show_table=True,
+        latex_kwargs=latex_kwargs,
+    )
+
+    save_latex_table(
+        df=datasets_reaching_time_limit.reset_index(drop=False),
+        title="early_stopping_counts_dataset",
+        save_prefix=expname_outdir,
+        show_table=True,
+        latex_kwargs=latex_kwargs,
+    )
+    save_latex_table(
+        df=models_by_family_reaching_time_limit.reset_index(drop=False),
+        title="early_stopping_counts_family",
+        save_prefix=expname_outdir,
+        show_table=True,
+        latex_kwargs=latex_kwargs,
+    )
+
+    print(datasets_type_reaching_time_limit.reset_index(drop=False).to_markdown(index=False))
+    print(datasets_reaching_time_limit.reset_index(drop=False).to_markdown(index=False))
+    print(models_by_family_reaching_time_limit.reset_index(drop=False).to_markdown(index=False))
+
+    df_sorted_by_time = df.sort_values(by=["time_train_s"]).reset_index(drop=True)
+    df_sorted_by_time["index"] = df_sorted_by_time.index + 1
+    df_sorted_by_time["time_train_s_cumsum"] = df_sorted_by_time["time_train_s"].cumsum()
+    # df_sorted_by_time["time_train_s_cumsum"] = df_sorted_by_time["time_train_s_cumsum"] / df_sorted_by_time["time_train_s_cumsum"].max()
+    df_sorted_by_time["index"] = df_sorted_by_time["index"] / df_sorted_by_time["index"].max()
+    df_sorted_by_time["group_time_train_s_cumsum"] = df_sorted_by_time.groupby("method")["time_train_s"].cumsum()
+    df_sorted_by_time["group_index"] = df_sorted_by_time.groupby("method")["time_train_s"].cumcount()
+    df_sorted_by_time["group_index_max"] = df_sorted_by_time["method"].map(df_sorted_by_time.value_counts("method"))
+    df_sorted_by_time["group_index"] = df_sorted_by_time["group_index"] / df_sorted_by_time["group_index_max"]
+
+    ax = axes[0]
+    sns.lineplot(
+        data=df_sorted_by_time,
+        x="index",
+        y="time_train_s",
+        linewidth=3,
+        ax=ax,
+    )
+    ax.set_yscale('log')
+    ax.grid()
+    ax.hlines(3600, xmin=0, xmax=df_sorted_by_time["index"].max(), color="black", label="3600 Seconds", ls="--")
+    ax.legend()
+    ax.set_xlabel("Configs (Proportion)", fontdict={'size': title_size})
+    ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
+    ax.set_title("Config runtime distribution", fontdict={'size': title_size})
+    plt.tight_layout()
+
+    ax = axes[1]
+    sns.lineplot(
+        data=df_sorted_by_time,
+        x="group_index",
+        y="time_train_s",
+        hue="method",
+        hue_order=sorted(list(df["method"].unique())),
+        linewidth=3,
+        palette=[  # category10 color palette
+            '#1f77b4',
+            '#ff7f0e',
+            '#2ca02c',
+            '#d62728',
+            '#9467bd',
+            '#8c564b',
+            '#e377c2',
+            '#7f7f7f',
+            '#bcbd22',
+            '#17becf',
+        ],
+        ax=ax,
+    )
+    ax.set_yscale('log')
+    ax.grid()
+    ax.hlines(3600, xmin=0, xmax=df_sorted_by_time["group_index"].max(), color="black", label="3600 Seconds", ls="--")
+    ax.legend()
+    ax.set_xlabel("Family configs (Proportion)", fontdict={'size': title_size})
+    ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
+    ax.set_title("Family runtime distribution", fontdict={'size': title_size})
+    plt.tight_layout()
+
+    ax = axes[2]
+    sns.lineplot(
+        data=df_sorted_by_time,
+        x="index",
+        y="time_train_s_cumsum",
+        linewidth=3,
+        ax=ax,
+    )
+    ax.set_yscale('log')
+    ax.grid()
+    ax.set_xlabel("Configs (Proportion)", fontdict={'size': title_size})
+    ax.set_ylabel("Cumulative training runtime (s)", fontdict={'size': title_size})
+    ax.set_title("Cumulative config runtime distribution", fontdict={'size': title_size})
+    plt.tight_layout()
+
+    ax = axes[3]
+    sns.lineplot(
+        data=df_sorted_by_time,
+        x="group_index",
+        y="group_time_train_s_cumsum",
+        hue="method",
+        hue_order=sorted(list(df["method"].unique())),
+        linewidth=3,
+        palette=[  # category10 color palette
+            '#1f77b4',
+            '#ff7f0e',
+            '#2ca02c',
+            '#d62728',
+            '#9467bd',
+            '#8c564b',
+            '#e377c2',
+            '#7f7f7f',
+            '#bcbd22',
+            '#17becf',
+        ],
+        ax=ax,
+    )
+    ax.set_yscale('log')
+    ax.grid()
+    ax.legend()
+    ax.set_xlabel("Family configs (Proportion)", fontdict={'size': title_size})
+    ax.set_ylabel("Cumulative training runtime (s)", fontdict={'size': title_size})
+    ax.set_title("Cumulative family runtime distribution", fontdict={'size': title_size})
+    plt.tight_layout()
+
+    fig_save_path = figure_path(prefix=expname_outdir) / f"data-analysis-runtime.pdf"
+    plt.savefig(fig_save_path)
+    plt.show()
+
 
 if __name__ == "__main__":
     repo_version = "D244_F3_C1530_200"
