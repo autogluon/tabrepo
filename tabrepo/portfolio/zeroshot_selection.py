@@ -1,18 +1,26 @@
-from typing import List
+from typing import List, Optional
 import pandas as pd
 import numpy as np
 
-def zeroshot_configs(val_scores: np.array, output_size: int) -> List[int]:
+
+def zeroshot_configs(val_scores: np.array, output_size: int, weights: Optional[np.array] = None) -> List[int]:
     """
     :param val_scores: a tensor with shape (n_task, n_configs) that contains evaluations to consider
     :param output_size: number of configurations to return, in some case where no configuration helps anymore,
     the portfolio can have smaller length.
+    :param weights: a tensor of weights with shape (n_tasks,) which is used to weight the average of error across dataset
+    can be for instance a task similarity to a current task computed with meta features or partial model evaluations
     :return: a list of index configuration for the portfolio where all indices are in [0, `n_configs` - 1]
     """
     assert val_scores.ndim == 2
 
+    n_task, n_configs = val_scores.shape
     df_val_scores = pd.DataFrame(val_scores)
     ranks = pd.DataFrame(df_val_scores).rank(axis=1)
+    if weights is not None:
+        assert weights.shape == (n_task,)
+        ranks = ranks * weights.reshape(-1, 1)
+
     res = []
     for _ in range(output_size):
         # Select greedy-best configuration considering all others

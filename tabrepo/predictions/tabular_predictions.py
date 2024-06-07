@@ -370,7 +370,7 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         pred = np.memmap(
             str(task_folder / f"pred-{split}.dat"),
             dtype=dtype,
-            mode='r',
+            mode='r+',
             shape=tuple(metadata[f"pred_{split}_shape"])
         )
         pred = pred[model_indices]
