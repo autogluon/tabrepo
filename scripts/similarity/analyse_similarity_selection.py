@@ -1,11 +1,11 @@
-from typing import Dict
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
 from scripts.baseline_comparison.plot_utils import figure_path
-from tabrepo import load_repository
+from tabrepo import load_repository, EvaluationRepository
 from tabrepo.portfolio.similarity import distance_tasks_from_repo
 from tabrepo.portfolio.zeroshot_selection import zeroshot_configs
 
@@ -46,19 +46,19 @@ def vary_temperature(repo, distances, test_dataset):
     )
 
 
-def vary_nclosest(repo, distances, test_dataset):
+def vary_nclosest(repo: EvaluationRepository, distances: Dict[Tuple[str, int], float], test_dataset: str):
     errors = []
-    nclosests = [5, 10, 20, 40, 100, 200, 400, 600]
+    nclosests = [1, 5, 10, 20, 40, 100, 200, 400, 600]
 
-    df_distance = pd.DataFrame([
-        (dataset, fold, value)
-        for (dataset, fold), value in distances.items() if dataset != test_dataset
-    ], columns=["dataset", "fold", "metric_error"])
-    closest_datasets = df_distance.groupby("dataset").mean()["metric_error"].sort_values()
-    selected_tids = [
+    tasks_with_distances = [
+        ((dataset, fold), distance)
+        for (dataset, fold), distance in distances.items() if dataset != test_dataset
+    ]
+    tasks_with_distances = list(sorted(tasks_with_distances, key=lambda x: x[1]))
+    closest_tasks = [
         repo.task_name_from_tid(repo.dataset_to_tid(dataset), fold)
-        for dataset in closest_datasets.index
-        for fold in range(3)
+        for (dataset, fold), distance in tasks_with_distances
+        if dataset != test_dataset
     ]
     for nclosest in nclosests:
         # weights = 1 + (1 + temperature * np.array(list(distances.values())))
@@ -68,9 +68,8 @@ def vary_nclosest(repo, distances, test_dataset):
         # TODO use normalized scores
         df_rank = dd.pivot_table(index="framework", columns="task", values="metric_error").rank(ascending=False)
         df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
-        train_tasks = selected_tids[:nclosest]
-        val_scores = - df_rank[train_tasks].values.T
-        portfolio_indices = zeroshot_configs(val_scores=-val_scores, output_size=20)
+        train_tasks = closest_tasks[:nclosest]
+        portfolio_indices = zeroshot_configs(val_scores=df_rank[train_tasks].values.T, output_size=20)
         portfolio_configs = np.array(repo.configs())[portfolio_indices]
 
         # print("**Computing portfolio with weights**")
@@ -86,6 +85,7 @@ def vary_nclosest(repo, distances, test_dataset):
     )
 
 def compute_portfolio_scores(repo, df_rank, test_dataset, test_fold) -> Dict[str, float]:
+    # first compute portfolio on tasks different than the test dataset and then report the scores of its configurations
     train_tasks = [
         (dataset, fold)
         for dataset in repo.datasets() if dataset != test_dataset
@@ -102,7 +102,7 @@ def compute_portfolio_scores(repo, df_rank, test_dataset, test_fold) -> Dict[str
 def plot():
     from pathlib import Path
     import pandas as pd
-    path = Path(__file__).parent / "similarity/figures/"
+    path = Path(__file__).parent / "figures/"
     dfs = []
     for csv_file in Path(path).glob("*csv"):
         dfs.append(pd.read_csv(csv_file))
@@ -124,6 +124,7 @@ def plot():
     plt.savefig(figure_path("similarity") / "similarity-analysis.pdf")
     plt.show()
 
+    plt.figure()
     xx = df_nclosest.pivot_table(index="nclosest", columns="dataset", values="test-error")
     xx /= xx.values[-1, :]
     improvement = (100 * (1 - xx))
@@ -132,6 +133,7 @@ def plot():
     plt.savefig(figure_path("similarity") / "avg-improvement-nclosest.pdf")
     plt.show()
 
+    plt.figure()
     xx = df_temperatures.pivot_table(index="temperature", columns="dataset", values="test-error")
     xx /= xx.values[0, :]
     improvement = (100 * (1 - xx))
@@ -141,8 +143,7 @@ def plot():
     plt.show()
 
 
-
-def main():
+def main(recompute: bool):
     """
     This script first selects a task where a framework performs well.
     Then it studies the performance of portfolio selection when filtering task closest in performance either by applying
@@ -164,7 +165,6 @@ def main():
     best_dataset_for_framework = dd.loc[linear_models].mean(axis=0).sort_values().index.tolist()
     print(f"Best tasks for {framework} models: {best_dataset_for_framework[:10]}")
 
-    recompute = False
     if recompute:
         # Picks a task where model from frameworks works well, dont pick the first as may come from anomaly
         for i in range(10):
@@ -189,4 +189,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(recompute=True)
