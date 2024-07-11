@@ -201,6 +201,7 @@ class EvaluationRepository(SaveLoadMixin):
 
         Output is a multi-index pandas DataFrame ("dataset", "fold", "framework").
         Each row is a result for a particular config on a given task.
+        If a config does not have a result for a given task, it will not have a row present in the DataFrame for that task.
         Columns:
             metric_error : Test error of the config
             metric_error_val : Validation error of the config
@@ -223,43 +224,135 @@ class EvaluationRepository(SaveLoadMixin):
 
         return df
 
-    def predict_test(self, dataset: str, fold: int, config: str) -> np.ndarray:
+    def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
         """
         Returns the predictions on the test set for a given configuration on a given dataset and fold
-        :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
-        """
-        return self.predict_test_multi(dataset=dataset, fold=fold, configs=[config]).squeeze()
 
-    def predict_val(self, dataset: str, fold: int, config: str) -> np.ndarray:
-        """
-        Returns the predictions on the validation set for a given configuration on a given dataset and fold
-        :return: the model predictions with shape (n_rows, n_classes) or (n_rows) in case of regression
-        """
-        return self.predict_val_multi(dataset=dataset, fold=fold, configs=[config]).squeeze()
+        Parameters
+        ----------
+        dataset: str
+            The dataset to get predictions from. Must be a value in `self.datasets()`.
+        fold: int
+            The fold of the dataset to get predictions from.
+        config: str
+            The model config to get predictions from. Must be a value in `self.configs()`.
+        binary_as_multiclass: bool, default = False
+            If True, will return binary predictions in shape (n_rows, n_classes).
+            If False, will return binary predictions in shape (n_rows), with the value being class 1 (the positive class).
 
-    def predict_test_multi(self, dataset: str, fold: int, configs: List[str] = None) -> np.ndarray:
+            You can convert from (n_rows, n_classes) -> (n_rows) via `predictions[:, 1]`.
+            You can convert from (n_rows) -> (n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
+
+            The internal representation is of form (n_rows) as it requires less memory,
+            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
+
+        Returns
+        -------
+        The model predictions on the test set with shape (n_rows, n_classes) for multiclass or (n_rows) in case of regression.
+        For binary, shape depends on `binary_as_multiclass` value.
+        """
+        return self.predict_test_multi(dataset=dataset, fold=fold, configs=[config], binary_as_multiclass=binary_as_multiclass).squeeze()
+
+    def predict_val(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
+        """
+        Parameters
+        ----------
+        dataset: str
+            The dataset to get predictions from. Must be a value in `self.datasets()`.
+        fold: int
+            The fold of the dataset to get predictions from.
+        config: str
+            The model config to get predictions from. Must be a value in `self.configs()`.
+        binary_as_multiclass: bool, default = False
+            If True, will return binary predictions in shape (n_rows, n_classes).
+            If False, will return binary predictions in shape (n_rows), with the value being class 1 (the positive class).
+
+            You can convert from (n_rows, n_classes) -> (n_rows) via `predictions[:, 1]`.
+            You can convert from (n_rows) -> (n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
+
+            The internal representation is of form (n_rows) as it requires less memory,
+            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
+
+        Returns
+        -------
+        The model predictions on the validation set with shape (n_rows, n_classes) for multiclass or (n_rows) in case of regression.
+        For binary, shape depends on `binary_as_multiclass` value.
+        """
+        return self.predict_val_multi(dataset=dataset, fold=fold, configs=[config], binary_as_multiclass=binary_as_multiclass).squeeze()
+
+    def predict_test_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         """
         Returns the predictions on the test set for a given list of configurations on a given dataset and fold
-        :return: the model predictions with shape (n_configs, n_rows, n_classes) or (n_configs, n_rows) in case of regression
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset to get predictions from. Must be a value in `self.datasets()`.
+        fold: int
+            The fold of the dataset to get predictions from.
+        configs: List[str], default = None
+            The model configs to get predictions from.
+            If None, will use `self.configs()`.
+        binary_as_multiclass: bool, default = False
+            If True, will return binary predictions in shape (n_configs, n_rows, n_classes).
+            If False, will return binary predictions in shape (n_configs, n_rows), with the value being class 1 (the positive class).
+
+            You can convert from (n_configs, n_rows, n_classes) -> (n_configs, n_rows) via `predictions[:, :, 1]`.
+            You can convert from (n_configs, n_rows) -> (n_configs, n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
+
+            The internal representation is of form (n_configs, n_rows) as it requires less memory,
+            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
+
+        Returns
+        -------
+        The model predictions with shape (n_configs, n_rows, n_classes) for multiclass or (n_configs, n_rows) in case of regression.
+        For binary, shape depends on `binary_as_multiclass` value.
+        The output order will be the same order as `configs`.
         """
-        return self._tabular_predictions.predict_test(
+        predictions = self._tabular_predictions.predict_test(
             dataset=dataset,
             fold=fold,
             models=configs,
             model_fallback=self._config_fallback,
         )
+        return self._convert_binary_to_multiclass(dataset=dataset, predictions=predictions) if binary_as_multiclass else predictions
 
-    def predict_val_multi(self, dataset: str, fold: int, configs: List[str] = None) -> np.ndarray:
+    def predict_val_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         """
         Returns the predictions on the validation set for a given list of configurations on a given dataset and fold
-        :return: the model predictions with shape (n_configs, n_rows, n_classes) or (n_configs, n_rows) in case of regression
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset to get predictions from. Must be a value in `self.datasets()`.
+        fold: int
+            The fold of the dataset to get predictions from.
+        configs: List[str], default = None
+            The model configs to get predictions from.
+            If None, will use `self.configs()`.
+        binary_as_multiclass: bool, default = False
+            If True, will return binary predictions in shape (n_configs, n_rows, n_classes).
+            If False, will return binary predictions in shape (n_configs, n_rows), with the value being class 1 (the positive class).
+
+            You can convert from (n_configs, n_rows, n_classes) -> (n_configs, n_rows) via `predictions[:, :, 1]`.
+            You can convert from (n_configs, n_rows) -> (n_configs, n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
+
+            The internal representation is of form (n_configs, n_rows) as it requires less memory,
+            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
+
+        Returns
+        -------
+        The model predictions with shape (n_configs, n_rows, n_classes) for multiclass or (n_configs, n_rows) in case of regression.
+        For binary, shape depends on `binary_as_multiclass` value.
+        The output order will be the same order as `configs`.
         """
-        return self._tabular_predictions.predict_val(
+        predictions = self._tabular_predictions.predict_val(
             dataset=dataset,
             fold=fold,
             models=configs,
             model_fallback=self._config_fallback,
         )
+        return self._convert_binary_to_multiclass(dataset=dataset, predictions=predictions) if binary_as_multiclass else predictions
 
     def labels_test(self, dataset: str, fold: int) -> np.array:
         return self._ground_truth.labels_test(dataset=dataset, fold=fold)
@@ -397,6 +490,28 @@ class EvaluationRepository(SaveLoadMixin):
             **kwargs,
         )
         return config_scorer
+
+    def _convert_binary_to_multiclass(self, predictions: np.ndarray, dataset: str) -> np.ndarray:
+        """
+        Converts binary predictions in (n_rows) format to (n_rows, n_classes) format.
+        Converts binary predictions in (n_configs, n_rows) format to (n_configs, n_rows, n_classes) format.
+        Skips conversion if dataset's problem_type != "binary".
+
+        Parameters
+        ----------
+        predictions: np.ndarray
+            The predictions to convert.
+        dataset: str
+            The dataset the predictions originate from.
+
+        Returns
+        -------
+        Returns converted predictions if binary, else returns original predictions.
+        """
+        if self.dataset_info(dataset)["problem_type"] == "binary":
+            return np.stack([1 - predictions, predictions], axis=predictions.ndim)
+        else:
+            return predictions
 
     @classmethod
     def from_context(cls, version: str = None, prediction_format: str = "memmap"):

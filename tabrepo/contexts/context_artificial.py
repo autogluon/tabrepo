@@ -22,7 +22,7 @@ def make_random_metric(model):
     return {output_col: (i + 1) * metric_value for i, output_col in enumerate(output_cols)}
 
 
-def load_context_artificial(**kwargs):
+def load_context_artificial(n_classes: int = 25, problem_type: str = "regression", **kwargs):
     # TODO write specification of dataframes schema, this code produces a minimal example that enables
     #  to use all the features required in evaluation such as listing datasets, evaluating ensembles or
     #  comparing to baselines
@@ -45,7 +45,7 @@ def load_context_artificial(**kwargs):
         "dataset": dataset,
         "fold": fold,
         "framework": baseline,
-        "problem_type": "regression",
+        "problem_type": problem_type,
         "metric": "root_mean_squared_error",
         **make_random_metric(baseline)
     } for fold in range(n_folds) for baseline in baselines for dataset in datasets
@@ -55,7 +55,7 @@ def load_context_artificial(**kwargs):
         "tid": tid,
         "fold": fold,
         "framework": model,
-        "problem_type": "regression",
+        "problem_type": problem_type,
         "metric": "root_mean_squared_error",
         **make_random_metric(model)
     } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
@@ -70,11 +70,11 @@ def load_context_artificial(**kwargs):
         dataset_name: {
             fold: {
                 "pred_proba_dict_val": {
-                    m: np.random.rand(123, 25)
+                    m: np.random.rand(123, n_classes) if n_classes > 2 else np.random.rand(123)
                     for m in models
                 },
                 "pred_proba_dict_test": {
-                    m: np.random.rand(13, 25)
+                    m: np.random.rand(13, n_classes) if n_classes > 2 else np.random.rand(13)
                     for m in models
                 }
             }
@@ -86,7 +86,7 @@ def load_context_artificial(**kwargs):
 
     make_dict = lambda size: {
         dataset: {
-            fold: pd.Series(np.random.randint(low=0, high=25, size=size))
+            fold: pd.Series(np.random.randint(low=0, high=n_classes, size=size))
             for fold in range(n_folds)
         }
         for dataset in datasets
@@ -97,8 +97,8 @@ def load_context_artificial(**kwargs):
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
 
-def load_repo_artificial() -> EvaluationRepository:
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
+def load_repo_artificial(**kwargs) -> EvaluationRepository:
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial(**kwargs)
     return EvaluationRepository(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,
@@ -107,4 +107,4 @@ def load_repo_artificial() -> EvaluationRepository:
 
 
 if __name__ == '__main__':
-    load_context_artificial()
+    load_context_artificial(num_classes=2, problem_type="binary")
