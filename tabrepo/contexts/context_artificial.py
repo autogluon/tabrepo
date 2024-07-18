@@ -7,9 +7,6 @@ from tabrepo.simulation.ground_truth import GroundTruth
 from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 
 
-np.random.seed(0)
-
-
 def make_random_metric(model):
     output_cols = ['time_train_s', 'time_infer_s', 'metric_error', 'metric_error_val']
     metric_value_dict = {
@@ -22,10 +19,12 @@ def make_random_metric(model):
     return {output_col: (i + 1) * metric_value for i, output_col in enumerate(output_cols)}
 
 
-def load_context_artificial(**kwargs):
+def load_context_artificial(n_classes: int = 25, problem_type: str = "regression", seed=0, **kwargs):
     # TODO write specification of dataframes schema, this code produces a minimal example that enables
     #  to use all the features required in evaluation such as listing datasets, evaluating ensembles or
     #  comparing to baselines
+    rng = np.random.default_rng(seed)
+
     datasets = ["ada", "abalone"]
     tids = [359944, 359946]
     n_folds = 3
@@ -45,7 +44,7 @@ def load_context_artificial(**kwargs):
         "dataset": dataset,
         "fold": fold,
         "framework": baseline,
-        "problem_type": "regression",
+        "problem_type": problem_type,
         "metric": "root_mean_squared_error",
         **make_random_metric(baseline)
     } for fold in range(n_folds) for baseline in baselines for dataset in datasets
@@ -55,7 +54,7 @@ def load_context_artificial(**kwargs):
         "tid": tid,
         "fold": fold,
         "framework": model,
-        "problem_type": "regression",
+        "problem_type": problem_type,
         "metric": "root_mean_squared_error",
         **make_random_metric(model)
     } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
@@ -70,11 +69,11 @@ def load_context_artificial(**kwargs):
         dataset_name: {
             fold: {
                 "pred_proba_dict_val": {
-                    m: np.random.rand(123, 25)
+                    m: rng.random((123, n_classes)) if n_classes > 2 else rng.random(123)
                     for m in models
                 },
                 "pred_proba_dict_test": {
-                    m: np.random.rand(13, 25)
+                    m: rng.random((13, n_classes)) if n_classes > 2 else rng.random(13)
                     for m in models
                 }
             }
@@ -86,7 +85,7 @@ def load_context_artificial(**kwargs):
 
     make_dict = lambda size: {
         dataset: {
-            fold: pd.Series(np.random.randint(low=0, high=25, size=size))
+            fold: pd.Series(rng.integers(low=0, high=n_classes, size=size))
             for fold in range(n_folds)
         }
         for dataset in datasets
@@ -97,8 +96,8 @@ def load_context_artificial(**kwargs):
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 
 
-def load_repo_artificial() -> EvaluationRepository:
-    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial()
+def load_repo_artificial(**kwargs) -> EvaluationRepository:
+    zsc, configs_full, zeroshot_pred_proba, zeroshot_gt = load_context_artificial(**kwargs)
     return EvaluationRepository(
         zeroshot_context=zsc,
         tabular_predictions=zeroshot_pred_proba,

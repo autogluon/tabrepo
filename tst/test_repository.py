@@ -1,5 +1,7 @@
 import copy
 
+from typing import Callable
+
 import numpy as np
 import pytest
 
@@ -115,3 +117,57 @@ def test_repository_force_to_dense():
     repo3 = copy.deepcopy(repo1)
     repo3 = repo3.subset(folds=[1, 2])
     verify_equivalent_repository(repo2, repo3)
+
+
+def test_repository_predict_binary_as_multiclass():
+    """
+    Test to verify that binary_as_multiclass logic works for binary problem_type
+    """
+    dataset = 'abalone'
+    configs = ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+
+    for problem_type in ["binary", "multiclass", "regression"]:
+        if problem_type == "multiclass":
+            n_classes = 3
+        else:
+            n_classes = 2
+        repo = load_repo_artificial(n_classes=n_classes, problem_type=problem_type)
+        assert repo.dataset_info(dataset)["problem_type"] == problem_type
+        _assert_predict_multi_binary_as_multiclass(repo=repo, fun=repo.predict_val_multi, dataset=dataset, configs=configs, n_rows=123, n_classes=n_classes)
+        _assert_predict_multi_binary_as_multiclass(repo=repo, fun=repo.predict_test_multi, dataset=dataset, configs=configs, n_rows=13, n_classes=n_classes)
+        _assert_predict_binary_as_multiclass(repo=repo, fun=repo.predict_val, dataset=dataset, config=configs[0], n_rows=123, n_classes=n_classes)
+        _assert_predict_binary_as_multiclass(repo=repo, fun=repo.predict_test, dataset=dataset, config=configs[0], n_rows=13, n_classes=n_classes)
+
+
+def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):
+    problem_type = repo.dataset_info(dataset=dataset)["problem_type"]
+    predict_multi = fun(dataset=dataset, fold=2, configs=configs)
+    predict_multi_as_multiclass = fun(dataset=dataset, fold=2, configs=configs, binary_as_multiclass=True)
+    if problem_type in ["binary", "regression"]:
+        assert predict_multi.shape == (2, n_rows)
+    else:
+        assert predict_multi.shape == (2, n_rows, n_classes)
+    if problem_type == "binary":
+        assert predict_multi_as_multiclass.shape == (2, n_rows, 2)
+        predict_multi_as_multiclass_to_binary = predict_multi_as_multiclass[:, :, 1]
+        assert (predict_multi == predict_multi_as_multiclass_to_binary).all()
+        assert (predict_multi_as_multiclass[:, :, 0] + predict_multi_as_multiclass[:, :, 1] == 1).all()
+    else:
+        assert (predict_multi == predict_multi_as_multiclass).all()
+
+
+def _assert_predict_binary_as_multiclass(repo, fun: Callable, dataset, config, n_rows, n_classes):
+    problem_type = repo.dataset_info(dataset=dataset)["problem_type"]
+    predict = fun(dataset=dataset, fold=2, config=config)
+    predict_as_multiclass = fun(dataset=dataset, fold=2, config=config, binary_as_multiclass=True)
+    if problem_type in ["binary", "regression"]:
+        assert predict.shape == (n_rows,)
+    else:
+        assert predict.shape == (n_rows, n_classes)
+    if problem_type == "binary":
+        assert predict_as_multiclass.shape == (n_rows, 2)
+        predict_as_multiclass_to_binary = predict_as_multiclass[:, 1]
+        assert (predict == predict_as_multiclass_to_binary).all()
+        assert (predict_as_multiclass[:, 0] + predict_as_multiclass[:, 1] == 1).all()
+    else:
+        assert (predict == predict_as_multiclass).all()
