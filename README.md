@@ -108,13 +108,13 @@ Below is a list of the available contexts in TabRepo.
 
 | Context Name      | # Datasets | # Folds | # Configs | Disk Size | Notes                                                                                 |
 |:------------------|-----------:|--------:|----------:|----------:|:--------------------------------------------------------------------------------------|
-| D244_F3_C1530     |        211 |       3 |      1416 |    330 GB | All successful datasets. 64 GB+ memory recommended. May take a few hours to download. |
-| D244_F3_C1530_200 |        200 |       3 |      1416 |    120 GB | Used for results in paper. 32 GB memory recommended                                   |
-| D244_F3_C1530_175 |        175 |       3 |      1416 |     57 GB | 16 GB memory recommended                                                              |
-| D244_F3_C1530_100 |        100 |       3 |      1416 |    9.5 GB | Ideal for fast prototyping                                                            |
-| D244_F3_C1530_30  |         30 |       3 |      1416 |    1.1 GB | Toy context                                                                           |
-| D244_F3_C1530_10  |         10 |       3 |      1416 |    220 MB | Toy context                                                                           |
-| D244_F3_C1530_3   |          3 |       3 |      1416 |     33 MB | Toy context                                                                           |
+| D244_F3_C1530     |        211 |       3 |      1530 |    330 GB | All successful datasets. 64 GB+ memory recommended. May take a few hours to download. |
+| D244_F3_C1530_200 |        200 |       3 |      1530 |    120 GB | Used for results in paper. 32 GB memory recommended                                   |
+| D244_F3_C1530_175 |        175 |       3 |      1530 |     57 GB | 16 GB memory recommended                                                              |
+| D244_F3_C1530_100 |        100 |       3 |      1530 |    9.5 GB | Ideal for fast prototyping                                                            |
+| D244_F3_C1530_30  |         30 |       3 |      1530 |    1.1 GB | Toy context                                                                           |
+| D244_F3_C1530_10  |         10 |       3 |      1530 |    220 MB | Toy context                                                                           |
+| D244_F3_C1530_3   |          3 |       3 |      1530 |     33 MB | Toy context                                                                           |
 
 
 ## Reproducing paper experiments
