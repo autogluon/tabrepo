@@ -1,11 +1,11 @@
 # TabRepo
 
 TabRepo contains the predictions and metrics of 1530 models evaluated on 211 classification and regression datasets. 
-This allows to compare for free against state-of-the-art AutoML systems or random configurations by just querying 
+This allows to compare against state-of-the-art AutoML systems or random configurations by querying 
 precomputed results. We also store and expose model predictions so any ensembling strategy can also be benchmarked 
 cheaply by just querying precomputed results.
 
-We give scripts from the paper so that one can reproduce all experiments that compare different models and portfolio
+We give scripts from our paper, [TabRepo: A Large Scale Repository of Tabular Model Evaluations and its AutoML Applications](https://arxiv.org/abs/2311.02971), so that one can reproduce all experiments that compare different models and portfolio
 strategies against state-of-the-art AutoML systems.
 
 The key features of the repo are:
