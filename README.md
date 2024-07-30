@@ -16,6 +16,8 @@ The key features of the repo are:
   * fast metric evaluations with specific optimized cpp code (for instance to compute roc auc)
   * efficient format that loads model evaluation on the fly with low memory footprint
 
+![tuning-impact.png](data/tuning-impact.png)
+![sensitivity.png](data/sensitivity.png)
 ![paper-figure.png](data/paper-figure.png)
 
  
