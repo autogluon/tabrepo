@@ -9,7 +9,7 @@ We give scripts from the paper so that one can reproduce all experiments that co
 strategies against state-of-the-art AutoML systems.
 
 The key features of the repo are:
-* 1530 models evaluated on 211 datasets with 3 distinct folds
+* 1530 models densely evaluated on 211 datasets with 3 distinct folds using 8-fold bagged CV (`1530*8*211*3 = 7.75M` models)
 * 330 GB of model predictions
 * code to compare methods against state-of-the-art AutoML systems and random model configurations
 * fast evaluations of any ensemble of models from table lookups with a few engineering tricks:
