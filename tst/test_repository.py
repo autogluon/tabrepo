@@ -59,6 +59,14 @@ def test_repository():
     task_0 = repo.task_name(dataset=dataset, fold=0)
     assert np.allclose(result_ensemble_weights.loc[(dataset, 0)], [1.0, 0.0])
 
+    # Test `max_models_per_type`
+    result_errors_w_max_models, result_ensemble_weights_w_max_models = repo.evaluate_ensemble(
+        datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native", ensemble_kwargs={"max_models_per_type": 1}
+    )
+    assert result_errors_w_max_models.shape == (3,)
+    assert len(result_ensemble_weights_w_max_models) == 3
+    assert np.allclose(result_ensemble_weights_w_max_models.loc[(dataset, 0)], [1.0, 0.0])
+
     assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
                                   ensemble_size=5, folds=[2], backend="native")[0].shape == (1,)
 

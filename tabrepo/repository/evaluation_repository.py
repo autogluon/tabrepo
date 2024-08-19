@@ -1,6 +1,6 @@
 from __future__ import annotations
 import copy
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ import pandas as pd
 from .. import repository
 from ..predictions.tabular_predictions import TabularModelPredictions
 from ..simulation.configuration_list_scorer import ConfigurationListScorer
-from ..simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
+from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, EnsembleScorerMaxModels, EnsembleSelectionConfigScorer
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
@@ -408,6 +408,8 @@ class EvaluationRepository(SaveLoadMixin):
         datasets: List[str],
         configs: List[str] = None,
         *,
+        ensemble_cls: Type[EnsembleScorer] = EnsembleScorerMaxModels,
+        ensemble_kwargs: dict = None,
         ensemble_size: int = 100,
         rank: bool = True,
         folds: Optional[List[int]] = None,
@@ -417,6 +419,8 @@ class EvaluationRepository(SaveLoadMixin):
         :param datasets: list of datasets to compute errors on.
         :param configs: list of config to consider for ensembling. Uses all configs if None.
         :param ensemble_size: number of members to select with Caruana.
+        :param ensemble_cls: class used for the ensemble model.
+        :param ensemble_kwargs: kwargs to pass to the init of the ensemble class.
         :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
         automl framework.
         :param folds: list of folds that need to be evaluated, use all folds if not provided.
@@ -437,6 +441,8 @@ class EvaluationRepository(SaveLoadMixin):
         scorer = self._construct_ensemble_selection_config_scorer(
             tasks=tasks,
             ensemble_size=ensemble_size,
+            ensemble_cls=ensemble_cls,
+            ensemble_kwargs=ensemble_kwargs,
             backend=backend,
         )
 
