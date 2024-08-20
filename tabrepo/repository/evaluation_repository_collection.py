@@ -55,7 +55,6 @@ class EvaluationRepositoryCollection:
                 task = repo.task_name(dataset=dataset, fold=fold)
                 configs = repo.configs(tasks=[task])
                 if config in configs:
-                    print(f"FOUND {config} | {dataset} | {fold}! (repo={i})")
                     return i
         return None
 
