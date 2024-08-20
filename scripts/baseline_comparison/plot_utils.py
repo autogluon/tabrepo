@@ -61,6 +61,7 @@ def save_latex_table(df: pd.DataFrame, title: str, show_table: bool = False, lat
         for col in df.columns:
             if (not df[col].dtype == "object") and (not df[col].dtype == "int64"):
                 n_digit = n_digits.get(col, 2)
+                df[col] = df[col].astype("object")
                 df.loc[:, col] = df.loc[:, col].apply(lambda s: f'{s:.{n_digit}f}')
 
     if latex_kwargs is None:

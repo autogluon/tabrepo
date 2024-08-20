@@ -249,9 +249,9 @@ def run_evaluate_baselines(
         # df = df[~df.method.str.contains("All")]
         df_selected = df[
             (df.method.str.contains(f"AutoGluon .*{budget_suffix}")) |
-            (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
+            (df.method.str.contains(".*(?:" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
             (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{budget_suffix}")) |
-            (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
+            (df.method.str.contains(".*(?:" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
             (df.method.str.contains(".*default.*"))
         ].copy()
         df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
@@ -266,10 +266,10 @@ def run_evaluate_baselines(
         if budget in ["4h"]:
             df_selected = df[
                 (df.method.str.contains(f"AutoGluon .*{budget_suffix}")) |
-                (df.method.str.contains(".*(" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
+                (df.method.str.contains(".*(?:" + "|".join(automl_frameworks) + f").*{budget_suffix}")) |
                 (df.method.str.contains(f"Portfolio-GPU-N{n_portfolios_default} .*{budget_suffix}")) |
                 (df.method.str.contains(f"Portfolio-N{n_portfolios_default} .*{budget_suffix}")) |
-                (df.method.str.contains(".*(" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
+                (df.method.str.contains(".*(?:" + "|".join(framework_types) + ")" + f".*{budget_suffix}")) |
                 (df.method.str.contains(".*default.*"))
             ].copy()
             df_selected.method = df_selected.method.str.replace(f" {budget_suffix_str}", "").str.replace(f"-N{n_portfolios_default}", "")
