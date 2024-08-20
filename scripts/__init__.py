@@ -26,6 +26,7 @@ def load_context(version: str = "D244_F3_C1416_200", as_paper: bool = True, igno
         repo = repo.subset(
             configs=models_only_c1_or_r,
             force_to_dense=False,
+            inplace=True,
         )
         return repo
     else:

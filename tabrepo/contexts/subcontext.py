@@ -76,6 +76,7 @@ class BenchmarkSubcontext:
             folds=self.folds,
             configs=self.configs,
             force_to_dense=False,
+            inplace=True,
         )
         return repo
 

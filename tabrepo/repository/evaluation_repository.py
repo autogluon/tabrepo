@@ -75,8 +75,9 @@ class EvaluationRepository(SaveLoadMixin):
                configs: List[str] = None,
                problem_types: List[str] = None,
                force_to_dense: bool = True,
+               inplace: bool = False,
                verbose: bool = True,
-               ):
+               ) -> "EvaluationRepository":
         """
         Method to subset the repository object and force to a dense representation.
 
@@ -85,9 +86,20 @@ class EvaluationRepository(SaveLoadMixin):
         :param configs: The list of configs to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param force_to_dense: If True, forces the output to dense representation.
+        :param inplace: If True, will perform subset logic inplace.
         :param verbose: Whether to log verbose details about the force to dense operation.
-        :return: Return self after in-place updates in this call.
+        :return: Return subsetted repo if inplace=False or self after inplace updates in this call.
         """
+        if not inplace:
+            return copy.deepcopy(self).subset(
+                datasets=datasets,
+                folds=folds,
+                configs=configs,
+                problem_types=problem_types,
+                force_to_dense=force_to_dense,
+                inplace=True,
+                verbose=verbose,
+            )
         if folds is not None:
             self._zeroshot_context.subset_folds(folds=folds)
         if configs is not None:
@@ -97,20 +109,25 @@ class EvaluationRepository(SaveLoadMixin):
         if problem_types is not None:
             self._zeroshot_context.subset_problem_types(problem_types=problem_types)
         if force_to_dense:
-            self.force_to_dense(verbose=verbose)
+            self.force_to_dense(inplace=True, verbose=verbose)
         return self
 
+    # TODO: Make a better docstring, confusing what this `exactly` does
     # TODO: Add `is_dense` method to assist in unit tests + sanity checks
-    def force_to_dense(self, verbose: bool = True):
+    def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> "EvaluationRepository":
         """
         Method to force the repository to a dense representation inplace.
 
         This will ensure that all datasets contain the same folds, and all tasks contain the same models.
         Calling this method when already in a dense representation will result in no changes.
 
+        :param inplace: If True, will perform logic inplace.
         :param verbose: Whether to log verbose details about the force to dense operation.
-        :return: Return self after in-place updates in this call.
+        :return: Return dense repo if inplace=False or self after inplace updates in this call.
         """
+        if not inplace:
+            return copy.deepcopy(self).force_to_dense(inplace=True, verbose=verbose)
+
         # TODO: Move these util functions to simulations or somewhere else to avoid circular imports
         from tabrepo.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
         # keep only dataset whose folds are all present

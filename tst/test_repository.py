@@ -97,13 +97,11 @@ def test_repository_force_to_dense():
     assert repo1.folds == [0, 1, 2]
     verify_equivalent_repository(repo1, repo1)
 
-    repo2 = copy.deepcopy(repo1)
-    repo2 = repo2.force_to_dense()  # no-op because already dense
+    repo2 = repo1.force_to_dense()  # no-op because already dense
 
     verify_equivalent_repository(repo1, repo2)
 
-    repo2 = copy.deepcopy(repo1)
-    repo2 = repo2.subset()  # no-op because already dense
+    repo2 = repo1.subset()  # no-op because already dense
 
     verify_equivalent_repository(repo1, repo2)
 
@@ -111,11 +109,12 @@ def test_repository_force_to_dense():
     assert repo2.folds == [1, 2]
     with pytest.raises(AssertionError):
         verify_equivalent_repository(repo1, repo2)
+
     repo2 = repo2.force_to_dense()
     with pytest.raises(AssertionError):
         verify_equivalent_repository(repo1, repo2)
-    repo3 = copy.deepcopy(repo1)
-    repo3 = repo3.subset(folds=[1, 2])
+
+    repo3 = repo1.subset(folds=[1, 2])
     verify_equivalent_repository(repo2, repo3)
 
 
@@ -137,6 +136,30 @@ def test_repository_predict_binary_as_multiclass():
         _assert_predict_multi_binary_as_multiclass(repo=repo, fun=repo.predict_test_multi, dataset=dataset, configs=configs, n_rows=13, n_classes=n_classes)
         _assert_predict_binary_as_multiclass(repo=repo, fun=repo.predict_val, dataset=dataset, config=configs[0], n_rows=123, n_classes=n_classes)
         _assert_predict_binary_as_multiclass(repo=repo, fun=repo.predict_test, dataset=dataset, config=configs[0], n_rows=13, n_classes=n_classes)
+
+
+def test_repository_subset():
+    """
+    Verify repo.subset() works as intended and `inplace` argument works as intended.
+    """
+    repo = load_repo_artificial()
+    assert repo.datasets() == ["abalone", "ada"]
+
+    repo_og = copy.deepcopy(repo)
+
+    repo_subset = repo.subset(datasets=["abalone"])
+    assert repo_subset.datasets() == ["abalone"]
+    assert repo.datasets() == ["abalone", "ada"]
+
+    verify_equivalent_repository(repo_og, repo)
+
+    repo_subset_2 = repo.subset(datasets=["abalone"], inplace=True)
+
+    verify_equivalent_repository(repo_subset, repo_subset_2)
+    verify_equivalent_repository(repo, repo_subset_2)
+
+    assert repo.datasets() == ["abalone"]
+    assert repo_og.datasets() == ["abalone", "ada"]
 
 
 def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):

@@ -106,7 +106,7 @@ def run_evaluate_baselines(
     problem_types = None
     if problem_types is not None:
         expname += f"-{'_'.join(sorted(problem_types))}"
-        repo = repo.subset(problem_types=problem_types)
+        repo = repo.subset(problem_types=problem_types, inplace=True)
 
     rank_scorer, normalized_scorer = make_scorers(repo)
     dataset_names = repo.datasets()
