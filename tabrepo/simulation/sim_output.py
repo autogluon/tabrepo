@@ -86,10 +86,8 @@ class SimulationOutputGenerator:
         if tasks is None:
             tasks = self.repo._zeroshot_context.get_tasks()
 
-        repo = copy.deepcopy(self.repo)
-
         # TODO: subset datasets
-        repo = repo.subset(configs=portfolio, verbose=False)
+        repo = self.repo.subset(configs=portfolio, verbose=False)
 
         config_scorer_test = repo._construct_config_scorer(
             tasks=tasks,

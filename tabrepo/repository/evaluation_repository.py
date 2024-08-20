@@ -75,6 +75,7 @@ class EvaluationRepository(SaveLoadMixin):
                configs: List[str] = None,
                problem_types: List[str] = None,
                force_to_dense: bool = True,
+               inplace: bool = False,
                verbose: bool = True,
                ):
         """
@@ -85,9 +86,21 @@ class EvaluationRepository(SaveLoadMixin):
         :param configs: The list of configs to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param force_to_dense: If True, forces the output to dense representation.
+        :param inplace: If True, will perform subset logic inplace.
         :param verbose: Whether to log verbose details about the force to dense operation.
-        :return: Return self after in-place updates in this call.
+        :return: Return subsetted repo if inplace=False or self after inplace updates in this call.
         """
+        if not inplace:
+            clone = copy.deepcopy(self)
+            return clone.subset(
+                datasets=datasets,
+                folds=folds,
+                configs=configs,
+                problem_types=problem_types,
+                force_to_dense=force_to_dense,
+                inplace=True,
+                verbose=verbose,
+            )
         if folds is not None:
             self._zeroshot_context.subset_folds(folds=folds)
         if configs is not None:
@@ -101,7 +114,7 @@ class EvaluationRepository(SaveLoadMixin):
         return self
 
     # TODO: Add `is_dense` method to assist in unit tests + sanity checks
-    def force_to_dense(self, verbose: bool = True):
+    def force_to_dense(self, verbose: bool = True) -> "EvaluationRepository":
         """
         Method to force the repository to a dense representation inplace.
 

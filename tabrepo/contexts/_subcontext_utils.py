@@ -1,18 +1,8 @@
-import copy
 import random
-from typing import Callable, List
+from typing import Callable
 
 from tabrepo.repository import EvaluationRepository
 from tabrepo.utils.cache import cache_function
-
-
-def gen_sample_repo_exact(
-        repo: EvaluationRepository,
-        datasets: List[str] = None,
-        folds: List[int] = None,
-        models: List[str] = None,
-) -> EvaluationRepository:
-    return copy.deepcopy(repo).subset(datasets=datasets, folds=folds, configs=models)
 
 
 def gen_sample_repo(
@@ -39,11 +29,10 @@ def gen_sample_repo(
     if n_models is not None:
         models_sample = random.sample(models, n_models)
 
-    return gen_sample_repo_exact(
-        repo=repo,
+    return repo.subset(
         folds=folds_sample,
         datasets=datasets_sample,
-        models=models_sample,
+        configs=models_sample,
     )
 
 
