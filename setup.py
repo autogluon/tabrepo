@@ -2,6 +2,7 @@ from setuptools import setup, find_packages
 
 requirements = [
     'autogluon.core[all]',
+    'typing-extensions>=4.11,<5',  # used for `Self` type hint
 ]
 
 setup(

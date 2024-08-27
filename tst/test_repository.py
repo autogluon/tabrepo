@@ -15,14 +15,16 @@ def verify_equivalent_repository(repo1: EvaluationRepository, repo2: EvaluationR
     assert repo1.configs() == repo2.configs()
     assert repo1.datasets() == repo2.datasets()
     for dataset in repo1.datasets():
-        for c in repo1.configs():
-            for f in repo1.folds:
+        for f in repo1.folds:
+            for c in repo1.configs():
                 repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
                 repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
                 repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
                 repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
                 assert np.array_equal(repo1_test, repo2_test)
                 assert np.array_equal(repo1_val, repo2_val)
+            assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
+            assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
 
 
 def test_repository():

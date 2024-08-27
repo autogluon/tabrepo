@@ -1,21 +1,23 @@
 from __future__ import annotations
+
 import copy
 from typing import Dict, List, Optional, Tuple, Type
 
 import numpy as np
 import pandas as pd
+from typing_extensions import Self
 
+from .abstract_repository import AbstractRepository
+from .ground_truth_mixin import GroundTruthMixin
 from .. import repository
 from ..predictions.tabular_predictions import TabularModelPredictions
 from ..simulation.configuration_list_scorer import ConfigurationListScorer
 from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, EnsembleScorerMaxModels, EnsembleSelectionConfigScorer
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
-from ..simulation.single_best_config_scorer import SingleBestConfigScorer
-from ..utils.cache import SaveLoadMixin
 
 
-class EvaluationRepository(SaveLoadMixin):
+class EvaluationRepository(AbstractRepository, GroundTruthMixin):
     """
     Simple Repository class that implements core functionality related to
     fetching model predictions, available datasets, folds, etc.
@@ -35,17 +37,11 @@ class EvaluationRepository(SaveLoadMixin):
         specified an error is thrown when querying a config that does not exist. A cheap baseline such as the result
         of a mean predictor can be used for the fallback.
         """
+        super().__init__(zeroshot_context=zeroshot_context, config_fallback=config_fallback)
         self._tabular_predictions: TabularModelPredictions = tabular_predictions
-        self._zeroshot_context: ZeroshotSimulatorContext = zeroshot_context
         self._ground_truth = ground_truth
         if self._tabular_predictions is not None:
             assert all(self._zeroshot_context.dataset_to_tid_dict[x] in self._tid_to_dataset_dict for x in self._tabular_predictions.datasets)
-        self.set_config_fallback(config_fallback)
-
-    def set_config_fallback(self, config_fallback: str = None):
-        if config_fallback:
-            assert config_fallback in self.configs()
-        self._config_fallback = config_fallback
 
     def to_zeroshot(self) -> repository.EvaluationRepositoryZeroshot:
         """
@@ -58,17 +54,6 @@ class EvaluationRepository(SaveLoadMixin):
         self_zeroshot.__class__ = EvaluationRepositoryZeroshot
         return self_zeroshot
 
-    def print_info(self):
-        self._zeroshot_context.print_info()
-
-    @property
-    def _dataset_to_tid_dict(self) -> Dict[str, int]:
-        return self._zeroshot_context.dataset_to_tid_dict
-
-    @property
-    def _tid_to_dataset_dict(self) -> Dict[int, str]:
-        return {v: k for k, v in self._dataset_to_tid_dict.items()}
-
     def subset(self,
                datasets: List[str] = None,
                folds: List[int] = None,
@@ -77,7 +62,7 @@ class EvaluationRepository(SaveLoadMixin):
                force_to_dense: bool = True,
                inplace: bool = False,
                verbose: bool = True,
-               ) -> "EvaluationRepository":
+               ) -> Self:
         """
         Method to subset the repository object and force to a dense representation.
 
@@ -114,7 +99,7 @@ class EvaluationRepository(SaveLoadMixin):
 
     # TODO: Make a better docstring, confusing what this `exactly` does
     # TODO: Add `is_dense` method to assist in unit tests + sanity checks
-    def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> "EvaluationRepository":
+    def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
         """
         Method to force the repository to a dense representation inplace.
 
@@ -150,152 +135,6 @@ class EvaluationRepository(SaveLoadMixin):
                                                dataset_to_tid_dict=self._dataset_to_tid_dict,
                                                verbose=verbose, )
         return self
-
-    @property
-    def _df_metadata(self) -> pd.DataFrame:
-        return self._zeroshot_context.df_metadata
-
-    def tids(self, problem_type: str = None) -> List[int]:
-        """
-        Note: returns the taskid of the datasets rather than the string name.
-
-        :param problem_type: If specified, only datasets with the given problem_type are returned.
-        """
-        return self._zeroshot_context.get_tids(problem_type=problem_type)
-
-    def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
-        """
-        Return all valid datasets.
-        By default, will return all datasets that appear in any config at least once.
-
-        Parameters
-        ----------
-        problem_type : str, default = None
-            If specified, will only consider datasets with the given problem type
-        union: bool, default = True
-            If True, will return the union of datasets present in each config.
-            If False, will return the intersection of datasets present in each config.
-
-        Returns
-        -------
-        A list of dataset names satisfying the above conditions.
-        """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
-
-    def configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
-        """
-        Return all valid configs.
-        By default, will return all configs that appear in any task at least once.
-
-        Parameters
-        ----------
-        datasets : List[str], default = None
-            If specified, will only consider the configs present in the given datasets
-        tasks: List[str], default = None
-            If specified, will only consider the configs present in the given tasks
-        union: bool, default = True
-            If True, will return the union of configs present in each task.
-            If False, will return the intersection of configs present in each task.
-
-        Returns
-        -------
-        A list of config names satisfying the above conditions.
-        """
-        return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, union=union)
-
-    def dataset_to_tid(self, dataset: str) -> int:
-        return self._dataset_to_tid_dict[dataset]
-
-    def tid_to_dataset(self, tid: int) -> str:
-        return self._tid_to_dataset_dict.get(tid, "Not found")
-
-    def metrics(self, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
-        """
-        :param datasets:
-        :param folds:
-        :param configs: list of configs to query metrics
-        :return: pd.DataFrame of metrics for each dataset-fold-framework combination.
-
-        Output is a multi-index pandas DataFrame ("dataset", "fold", "framework").
-        Each row is a result for a particular config on a given task.
-        If a config does not have a result for a given task, it will not have a row present in the DataFrame for that task.
-        Columns:
-            metric_error : Test error of the config
-            metric_error_val : Validation error of the config
-            time_train_s : Training time of the config
-            time_infer_s : Inference time of the config
-            rank : Rank of the config
-        """
-        df = self._zeroshot_context.df_configs_ranked.set_index(["dataset", "fold", "framework"], drop=True)[
-            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank"]
-        ]
-        if datasets is None:
-            datasets = self.datasets()
-
-        mask = df.index.get_level_values("dataset").isin(datasets)
-        if folds is not None:
-            mask = mask & df.index.get_level_values("fold").isin(folds)
-        if configs is not None:
-            mask = mask & df.index.get_level_values("framework").isin(configs)
-        df = df[mask]
-
-        return df
-
-    def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
-        """
-        Returns the predictions on the test set for a given configuration on a given dataset and fold
-
-        Parameters
-        ----------
-        dataset: str
-            The dataset to get predictions from. Must be a value in `self.datasets()`.
-        fold: int
-            The fold of the dataset to get predictions from.
-        config: str
-            The model config to get predictions from. Must be a value in `self.configs()`.
-        binary_as_multiclass: bool, default = False
-            If True, will return binary predictions in shape (n_rows, n_classes).
-            If False, will return binary predictions in shape (n_rows), with the value being class 1 (the positive class).
-
-            You can convert from (n_rows, n_classes) -> (n_rows) via `predictions[:, 1]`.
-            You can convert from (n_rows) -> (n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
-
-            The internal representation is of form (n_rows) as it requires less memory,
-            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
-
-        Returns
-        -------
-        The model predictions on the test set with shape (n_rows, n_classes) for multiclass or (n_rows) in case of regression.
-        For binary, shape depends on `binary_as_multiclass` value.
-        """
-        return self.predict_test_multi(dataset=dataset, fold=fold, configs=[config], binary_as_multiclass=binary_as_multiclass).squeeze()
-
-    def predict_val(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
-        """
-        Parameters
-        ----------
-        dataset: str
-            The dataset to get predictions from. Must be a value in `self.datasets()`.
-        fold: int
-            The fold of the dataset to get predictions from.
-        config: str
-            The model config to get predictions from. Must be a value in `self.configs()`.
-        binary_as_multiclass: bool, default = False
-            If True, will return binary predictions in shape (n_rows, n_classes).
-            If False, will return binary predictions in shape (n_rows), with the value being class 1 (the positive class).
-
-            You can convert from (n_rows, n_classes) -> (n_rows) via `predictions[:, 1]`.
-            You can convert from (n_rows) -> (n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
-
-            The internal representation is of form (n_rows) as it requires less memory,
-            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
-
-        Returns
-        -------
-        The model predictions on the validation set with shape (n_rows, n_classes) for multiclass or (n_rows) in case of regression.
-        For binary, shape depends on `binary_as_multiclass` value.
-        """
-        return self.predict_val_multi(dataset=dataset, fold=fold, configs=[config], binary_as_multiclass=binary_as_multiclass).squeeze()
 
     def predict_test_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         """
@@ -370,55 +209,6 @@ class EvaluationRepository(SaveLoadMixin):
             model_fallback=self._config_fallback,
         )
         return self._convert_binary_to_multiclass(dataset=dataset, predictions=predictions) if binary_as_multiclass else predictions
-
-    def labels_test(self, dataset: str, fold: int) -> np.array:
-        return self._ground_truth.labels_test(dataset=dataset, fold=fold)
-
-    def labels_val(self, dataset: str, fold: int) -> np.array:
-        return self._ground_truth.labels_val(dataset=dataset, fold=fold)
-
-    def dataset_metadata(self, dataset: str) -> dict:
-        metadata = self._df_metadata[self._df_metadata["dataset"] == dataset]
-        return dict(zip(metadata.columns, metadata.values[0]))
-
-    def dataset_info(self, dataset: str) -> dict:
-        """
-        Parameters
-        ----------
-        dataset: str
-
-        Returns
-        -------
-        Dictionary with two keys:
-            "metric": The evaluation metric name used for scoring on the dataset
-            "problem_type": The problem type of the dataset
-        """
-        return self._zeroshot_context.df_metrics.loc[dataset].to_dict()
-
-    @property
-    def folds(self) -> List[int]:
-        return self._zeroshot_context.folds
-
-    def n_folds(self) -> int:
-        return len(self.folds)
-
-    def n_datasets(self) -> int:
-        return len(self.datasets())
-
-    def n_configs(self) -> int:
-        return len(self.configs())
-
-    def task_name_from_tid(self, tid: int, fold: int) -> str:
-        return self._zeroshot_context.task_name_from_tid(tid=tid, fold=fold)
-
-    def task_name(self, dataset: str, fold: int) -> str:
-        return self.task_name_from_tid(tid=self.dataset_to_tid(dataset), fold=fold)
-
-    def task_to_dataset(self, task: str) -> str:
-        return self._zeroshot_context.task_to_dataset_dict[task]
-
-    def task_to_fold(self, task: str) -> int:
-        return self._zeroshot_context.task_to_fold(task=task)
 
     def evaluate_ensemble(
         self,
@@ -506,35 +296,6 @@ class EvaluationRepository(SaveLoadMixin):
             **kwargs,
         )
         return config_scorer
-
-    def _construct_single_best_config_scorer(self, **kwargs) -> SingleBestConfigScorer:
-        config_scorer = SingleBestConfigScorer.from_zsc(
-            zeroshot_simulator_context=self._zeroshot_context,
-            **kwargs,
-        )
-        return config_scorer
-
-    def _convert_binary_to_multiclass(self, predictions: np.ndarray, dataset: str) -> np.ndarray:
-        """
-        Converts binary predictions in (n_rows) format to (n_rows, n_classes) format.
-        Converts binary predictions in (n_configs, n_rows) format to (n_configs, n_rows, n_classes) format.
-        Skips conversion if dataset's problem_type != "binary".
-
-        Parameters
-        ----------
-        predictions: np.ndarray
-            The predictions to convert.
-        dataset: str
-            The dataset the predictions originate from.
-
-        Returns
-        -------
-        Returns converted predictions if binary, else returns original predictions.
-        """
-        if self.dataset_info(dataset)["problem_type"] == "binary":
-            return np.stack([1 - predictions, predictions], axis=predictions.ndim)
-        else:
-            return predictions
 
     @classmethod
     def from_context(cls, version: str = None, prediction_format: str = "memmap"):

@@ -7,6 +7,7 @@ from .test_repository import verify_equivalent_repository
 
 
 # TODO: Test more functionality
+# TODO: Test different datasets, different folds, etc.
 def test_repository_collection():
     repo = load_repo_artificial()
 
@@ -25,6 +26,8 @@ def test_repository_collection():
 
     repo_collection = EvaluationRepositoryCollection(repos=[repo_1, repo_2])
 
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+
     for dataset in datasets:
         for fold in folds:
             for config in configs:
@@ -37,5 +40,3 @@ def test_repository_collection():
             predict_val = repo.predict_val_multi(dataset=dataset, fold=fold, configs=configs)
             predict_val_collection = repo_collection.predict_val_multi(dataset=dataset, fold=fold, configs=configs)
             assert np.array_equal(predict_val, predict_val_collection)
-
-    # TODO: verify_equivalent_repository(repo, repo_collection)
