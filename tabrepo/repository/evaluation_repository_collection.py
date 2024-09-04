@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections import defaultdict
-from typing import List
+from typing import List, Literal, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,17 +22,24 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
     fetching model predictions, available datasets, folds, etc.
     """
     def __init__(
-            self,
-            repos: list[EvaluationRepository],
-            config_fallback: str = None,
+        self,
+        repos: list[EvaluationRepository],
+        config_fallback: str = None,
+        overlap: Literal["raise", "first", "last"] = "raise",
     ):
+        self.overlap = overlap
         self.repos: list[EvaluationRepository] = repos
+
+        combinations = self._generate_dataset_fold_config_combinations(repos=self.repos)
+        self._mapping = self._combination_mapping_to_repo_index(combinations=combinations, overlap=self.overlap)
+
         zeroshot_context = merge_zeroshot([repo._zeroshot_context for repo in self.repos])
         self._ground_truth: GroundTruth = merge_ground_truth([repo._ground_truth for repo in self.repos])
         super().__init__(zeroshot_context=zeroshot_context, config_fallback=config_fallback)
 
         # DONE: Create AbstractRepository to avoid code-dupe
-        # TODO: raise exception if overlap in (dataset, fold, config)
+        # DONE: raise exception if overlap in (dataset, fold, config)
+        # TODO: Improve error message for overlap
         # TODO: implement config_fallback
         # DONE: Merge ground_truth -> Easy
         # DONE: Merge zeroshot_context -> Hard
@@ -41,19 +48,11 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
         #  Need to implement `force_to_dense`
         # TODO: Implement `evaluate_ensemble`: Can use a mixin?
 
-    # TODO: Optimize? Can pre-populate dict mapping to be a bit faster
-    # TODO: Bigger optimization: Make `predict_multi` get all configs from a given repo at the same time instead of one call per config.
     def goes_where(self, dataset: str, fold: int, config: str) -> int | None:
         """
         Returns the repo idx containing the specified config in a given dataset fold. Returns None if no such repo exists.
         """
-        for i, repo in enumerate(self.repos):
-            if dataset in repo.datasets():
-                task = repo.task_name(dataset=dataset, fold=fold)
-                configs = repo.configs(tasks=[task])
-                if config in configs:
-                    return i
-        return None
+        return self._mapping.get((dataset, fold, config), None)
 
     def predict_test_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         return self._predict_multi(predict_func="predict_test_multi", dataset=dataset, fold=fold, configs=configs, binary_as_multiclass=binary_as_multiclass)
@@ -71,6 +70,8 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
         config_idx_lst = []
         for i, config in enumerate(configs):
             repo_idx = self.goes_where(dataset=dataset, fold=fold, config=config)
+            if repo_idx is None:
+                raise ValueError(f"The following combination is not present in this repository: (dataset='{dataset}', fold={fold}, config='{config}')")
             repo_map[repo_idx].append(config)
             repo_idx_map[repo_idx].append(i)
             config_idx_lst.append(repo_idx)
@@ -96,10 +97,48 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
     def force_to_dense(self, inplace: bool = False, verbose: bool = True):
         raise NotImplementedError
 
+    @staticmethod
+    def _generate_dataset_fold_config_combinations(repos: list[EvaluationRepository]) -> list[list[Tuple[str, int, str]]]:
+        """
+        Returns the combinations (dataset, fold, config) for each repository
+        """
+        return [repo.dataset_fold_config_pairs() for repo in repos]
+
+    @staticmethod
+    def _combination_mapping_to_repo_index(
+        combinations: list[list[Tuple[str, int, str]]],
+        overlap: Literal["raise", "first", "last"] = "raise",
+    ) -> dict[Tuple[str, int, str], int]:
+        """
+        Returns a dictionary mapping each (dataset, fold, config) to the repository index
+        """
+        if overlap == "first":
+            len_combinations = len(combinations)
+            mapping = {
+                (dataset, fold, config): repo_index
+                for repo_index in range(len_combinations-1, -1, -1)
+                for (dataset, fold, config) in combinations[repo_index]
+            }
+        elif overlap in ["last", "raise"]:
+            mapping = {
+                (dataset, fold, config): repo_index
+                for repo_index, repo_combinations in enumerate(combinations)
+                for (dataset, fold, config) in repo_combinations
+            }
+            if overlap == "raise":
+                len_combinations_total = 0
+                for c in combinations:
+                    len_combinations_total += len(c)
+                if len_combinations_total != len(mapping):
+                    # TODO: Improve error message
+                    raise AssertionError(f"Overlap detected in provided repositories! (overlap='{overlap}')")
+        else:
+            raise ValueError(f"Unknown overlap value: '{overlap}'")
+        return mapping
+
 
 def merge_zeroshot(zeroshot_contexts: list[ZeroshotSimulatorContext], require_matching_flags: bool = False) -> ZeroshotSimulatorContext:
     assert isinstance(zeroshot_contexts, list)
-    assert len(zeroshot_contexts) >= 2
 
     if any([z.df_baselines is not None for z in zeroshot_contexts]):
         df_baselines = pd.concat([z.df_baselines for z in zeroshot_contexts], ignore_index=True)
@@ -159,7 +198,6 @@ def merge_zeroshot(zeroshot_contexts: list[ZeroshotSimulatorContext], require_ma
 # TODO: Does not yet verify equivalence
 def merge_ground_truth(ground_truths: list[GroundTruth]) -> GroundTruth:
     assert isinstance(ground_truths, list)
-    assert len(ground_truths) >= 2
 
     label_test_dict = copy.copy(ground_truths[0]._label_test_dict)
     label_val_dict = copy.copy(ground_truths[0]._label_val_dict)

@@ -186,6 +186,21 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
         return df
 
+    def dataset_fold_config_pairs(self, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> list:
+        """
+        Returns a list of all (dataset, fold, config) tuples available in the repo.
+
+        Parameters
+        ----------
+        datasets: List[str], default None
+            Filters the output to only contain datasets in the specified list.
+        folds: List[int], default None
+            Filters the output to only contain folds in the specified list.
+        configs: List[str], default None
+            Filters the output to only contain configs in the specified list.
+        """
+        return self.metrics(datasets=datasets, folds=folds, configs=configs).index.tolist()
+
     def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
         """
         Returns the predictions on the test set for a given configuration on a given dataset and fold

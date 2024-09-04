@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tabrepo.contexts.context_artificial import load_repo_artificial
 from tabrepo.repository.evaluation_repository_collection import EvaluationRepositoryCollection
@@ -40,3 +41,41 @@ def test_repository_collection():
             predict_val = repo.predict_val_multi(dataset=dataset, fold=fold, configs=configs)
             predict_val_collection = repo_collection.predict_val_multi(dataset=dataset, fold=fold, configs=configs)
             assert np.array_equal(predict_val, predict_val_collection)
+
+
+def test_repository_collection_overlap_raise():
+    repo = load_repo_artificial()
+    with pytest.raises(AssertionError):
+        EvaluationRepositoryCollection(repos=[repo, repo])
+
+
+def test_repository_collection_overlap_first():
+    repo = load_repo_artificial()
+    repo_collection = EvaluationRepositoryCollection(repos=[repo, repo], overlap="first")
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    for v in repo_collection._mapping.values():
+        assert v == 0
+
+
+def test_repository_collection_overlap_last():
+    repo = load_repo_artificial()
+    repo_collection = EvaluationRepositoryCollection(repos=[repo, repo, repo], overlap="last")
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    for v in repo_collection._mapping.values():
+        assert v == 2
+    repo_collection_nested = EvaluationRepositoryCollection(repos=[repo, repo_collection], overlap="last")
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection_nested)
+    for v in repo_collection_nested._mapping.values():
+        assert v == 1
+
+
+def test_repository_collection_single():
+    repo = load_repo_artificial()
+    repo_collection = EvaluationRepositoryCollection(repos=[repo])
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    for v in repo_collection._mapping.values():
+        assert v == 0
+    repo_collection_nested = EvaluationRepositoryCollection(repos=[repo_collection])
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection_nested)
+    for v in repo_collection_nested._mapping.values():
+        assert v == 0
