@@ -121,6 +121,8 @@ Below is a list of the available contexts in TabRepo.
 
 ## Reproducing paper experiments
 
+To ensure reproducibility, you can use the `AutoML2024` [branch](https://github.com/autogluon/tabrepo/tree/AutoML2024) which provides a snapshot of the code that is able to reproduce the results.
+
 To reproduce the experiments from the paper, run:
 
 ```bash
