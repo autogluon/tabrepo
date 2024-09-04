@@ -529,3 +529,44 @@ class ZeroshotSimulatorContext:
                 else:
                     res = res.intersection(methods)
         return sorted(list(res))
+
+    def get_config_hyperparameters(self, config: str) -> dict:
+        if self.configs_hyperparameters is None:
+            return {}
+        # FIXME: (TabRepo v2) Hardcoding _BAG name, avoid this
+        config_base = config.rsplit("_BAG_", 1)[0]
+        return self.configs_hyperparameters[config_base]
+
+    @property
+    def configs_type(self) -> dict[str, str | None]:
+        """
+        Returns a dict of config name -> config type.
+        If model type is unknown, the value will be `None`.
+
+        For example:
+        "CatBoost_c1_BAG_L1": "CAT"
+        "ExtraTrees_r13_BAG_L1": "XT"
+        """
+        configs = self.get_configs()
+        return {config: self.get_config_hyperparameters(config=config).get("model_type", None) for config in configs}
+
+    def df_configs_task(self, dataset: str, fold: int, configs: list[str] = None) -> pd.DataFrame:
+        df_configs_task = self.df_configs[(self.df_configs["dataset"] == dataset) & (self.df_configs["fold"] == fold)]
+        if configs is not None:
+            configs = set(configs)
+            df_configs_task = df_configs_task[df_configs_task["framework"].isin(configs)]
+        return df_configs_task
+
+    # TODO: Support max_models and max_models_per_type for simulation
+    def get_top_configs(self, dataset: str, fold: int, configs: list[str] = None, max_models: int = None, max_models_per_type: int = None) -> List[str]:
+        df_configs_task = self.df_configs_task(dataset=dataset, fold=fold, configs=configs)
+        df_configs_task_sorted = df_configs_task.sort_values(by=["metric_error_val", "framework"])
+        df_configs_task_sorted["type"] = df_configs_task_sorted["framework"].map(self.configs_type).fillna("nan")
+
+        if max_models_per_type is not None:
+            df_configs_task_sorted["rank_by_type"] = df_configs_task_sorted.groupby(["type", "task"])["metric_error_val"].rank("first").astype(int)
+            df_configs_task_sorted = df_configs_task_sorted[df_configs_task_sorted["rank_by_type"] <= max_models_per_type]
+        if max_models is not None:
+            df_configs_task_sorted["rank"] = df_configs_task_sorted.groupby("task")["metric_error_val"].rank("first").astype(int)
+            df_configs_task_sorted = df_configs_task_sorted[df_configs_task_sorted["rank"] <= max_models]
+        return list(df_configs_task_sorted["framework"])

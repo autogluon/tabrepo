@@ -50,6 +50,7 @@ def run_evaluate_baselines(
     n_datasets: int = None,
     n_eval_folds: int = -1,
     run_expensive_simulations: bool = True,
+    run_max_models_simulations: bool = False,
 ):
     as_paper = not all_configs
     if isinstance(repo, EvaluationRepository):
@@ -209,6 +210,28 @@ def run_evaluate_baselines(
     else:
         print(f"Skipping expensive simulations because `run_expensive_simulations={run_expensive_simulations}`")
 
+    if run_max_models_simulations:
+        experiments += [
+            Experiment(
+                expname=expname, name=f"zeroshot-max-models-per-type",
+                run_fun=lambda: zeroshot_results(
+                    n_max_models_per_type=[
+                        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                    ],
+                    max_runtimes=[3600 * 1, 3600 * 4, 3600 * 24],
+                    n_portfolios=[n_portfolios_default],
+                    **experiment_common_kwargs)
+            ),
+            Experiment(
+                expname=expname, name=f"zeroshot-max-models-per-type-auto",
+                run_fun=lambda: zeroshot_results(
+                    n_max_models_per_type=["auto"],
+                    max_runtimes=[3600 * 1, 3600 * 4, 3600 * 24],
+                    n_portfolios=[n_portfolios_default],
+                    **experiment_common_kwargs)
+            ),
+        ]
+
     with catchtime("total time to generate evaluations"):
         df = pd.concat([
             experiment.data(ignore_cache=ignore_cache) for experiment in experiments
@@ -340,6 +363,8 @@ if __name__ == "__main__":
     parser.add_argument("--all_configs", action="store_true", help="If True, will use all configs rather than filtering out NeuralNetFastAI. If True, results will differ from the paper.")
     parser.add_argument("--skip_expensive_simulations", action="store_true",
                         help="If True, will skip the most expensive simulations that take up the bulk of the runtime.")
+    parser.add_argument("--run_max_models_simulations", action="store_true",
+                        help="If True, will run the max_models simulations (added after original paper). `max_models` simulations achieve a better normalized error.")
     parser.add_argument("--expname", type=str, help="Name of the experiment. If None, defaults to the value specified in `repo`.", required=False, default=None)
     parser.add_argument("--engine", type=str, required=False, default="ray", choices=["sequential", "ray", "joblib"],
                         help="Engine used for embarrassingly parallel loop.")
@@ -358,4 +383,5 @@ if __name__ == "__main__":
         engine=args.engine,
         ray_process_ratio=args.ray_process_ratio,
         run_expensive_simulations=not args.skip_expensive_simulations,
+        run_max_models_simulations=args.run_max_models_simulations,
     )

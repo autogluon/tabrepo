@@ -46,6 +46,7 @@ def evaluate_configs(
         method: str,
         config_selected: List[str],
         ensemble_size: int = default_ensemble_size,
+        ensemble_kwargs=None,
         config_sampled: List[str] = None,
         folds: List[int] = range(10),
         seed: int = 0,
@@ -67,6 +68,8 @@ def evaluate_configs(
         config_sampled = config_selected
     if ensemble_size is None:
         ensemble_size = default_ensemble_size
+    if ensemble_kwargs is None:
+        ensemble_kwargs = {}
 
     # Makes results invariant to config order (otherwise tie breaking logic in Caruana selection can make the
     # result depend on configuration order)
@@ -77,6 +80,7 @@ def evaluate_configs(
         datasets=[dataset],
         configs=config_selected,
         ensemble_size=ensemble_size,
+        ensemble_kwargs=ensemble_kwargs,
         backend='native',
         folds=folds,
         rank=False,
@@ -320,19 +324,22 @@ def time_suffix(max_runtime: float) -> str:
 def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
-        max_runtime: float = default_runtime, prefix: str = None, n_ensemble_in_name: bool = False
+        max_runtime: float = default_runtime, prefix: str = None, n_ensemble_in_name: bool = False,
+        max_models: int = None, max_models_per_type: int = None,
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
     None, suffixes "-D{n_training_dataset}" and "-S{n_training_folds}" are added, for instance "Zeroshot-N20-C40-D30-S5"
     would be the name if n_training_dataset=30 and n_training_fold=5
     """
+    if max_models_per_type is not None and isinstance(max_models_per_type, str) and max_models_per_type == "auto":
+        max_models_per_type = 0  # FIXME: HACK, using 0 because otherwise regex parsing fails if "auto". Switch to not rely on name parsing in experiments.
     if prefix is None:
         prefix = ""
     suffix = [
         f"-{letter}{x}" if x is not None else ""
         for letter, x in
-        [("N", n_portfolio), ("D", n_training_dataset), ("S", n_training_fold), ("M", n_training_config)]
+        [("N", n_portfolio), ("D", n_training_dataset), ("S", n_training_fold), ("M", n_training_config), ("X", max_models), ("Z", max_models_per_type)]
     ]
     # if n_ensemble:
     #     suffix += f"-C{n_ensemble}"
@@ -373,6 +380,8 @@ def zeroshot_results(
         n_training_datasets: List[int] = [None],
         n_training_folds: List[int] = [None],
         n_training_configs: List[int] = [None],
+        n_max_models: List[int] = [None],
+        n_max_models_per_type: List[int] = [None],
         max_runtimes: List[float] = [default_runtime],
         engine: str = "ray",
         seeds: list = [0],
@@ -387,6 +396,8 @@ def zeroshot_results(
     :param n_training_datasets: number of dataset to use when fitting zeroshot
     :param n_training_folds: number of folds to use when fitting zeroshot
     :param n_training_configs: number of configurations available when fitting zeroshot TODO per framework
+    :param n_max_models: maximum number of models considered when fitting ensemble
+    :param n_max_models_per_type: maximum number of models for each framework considered when fitting ensemble
     :param max_runtimes: max runtime available when evaluating zeroshot configuration at test time
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
     :param seeds: the seeds for the random number generator used for shuffling the configs
@@ -394,7 +405,7 @@ def zeroshot_results(
     """
 
     def evaluate_dataset(test_dataset, n_portfolio, n_ensemble, n_training_dataset, n_training_fold, n_training_config,
-                         max_runtime, seed: int, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
+                         max_runtime, max_models, max_models_per_type, seed: int, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
                          model_frameworks):
         method_name = zeroshot_name(
             n_portfolio=n_portfolio,
@@ -405,6 +416,8 @@ def zeroshot_results(
             n_training_config=n_training_config,
             prefix=method_prefix,
             n_ensemble_in_name=n_ensemble_in_name,
+            max_models=max_models,
+            max_models_per_type=max_models_per_type
         )
 
         rng = np.random.default_rng(seed=seed)
@@ -466,12 +479,18 @@ def zeroshot_results(
             # configuration that takes <1s to be evaluated
             portfolio_configs = [backup_fast_config]
 
+        ensemble_kwargs = {
+            "max_models": max_models,
+            "max_models_per_type": max_models_per_type,
+        }
+
         return evaluate_configs(
             repo=repo,
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
             config_selected=portfolio_configs,
             ensemble_size=n_ensemble,
+            ensemble_kwargs=ensemble_kwargs,
             tid=test_tid,
             method=method_name,
             folds=range(n_eval_folds),
@@ -493,7 +512,7 @@ def zeroshot_results(
     list_rows = parallel_for(
         evaluate_dataset,
         inputs=list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds,
-                                      n_training_configs, max_runtimes, seeds)),
+                                      n_training_configs, max_runtimes, n_max_models, n_max_models_per_type, seeds)),
         context=dict(repo=repo, df_rank=df_rank, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer,
                      model_frameworks=model_frameworks),
         engine=engine,
