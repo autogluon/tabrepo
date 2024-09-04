@@ -30,8 +30,8 @@ def test_repository_collection():
 
     for dataset in datasets:
         for fold in folds:
-            for config in configs:
-                repo_collection.goes_where(dataset=dataset, fold=fold, config=config)
+            assert repo_collection.goes_where(dataset=dataset, fold=fold, config="NeuralNetFastAI_r2") == 0
+            assert repo_collection.goes_where(dataset=dataset, fold=fold, config="NeuralNetFastAI_r1") == 1            
 
             predict_test = repo.predict_test_multi(dataset=dataset, fold=fold, configs=configs)
             predict_test_collection = repo_collection.predict_test_multi(dataset=dataset, fold=fold, configs=configs)
