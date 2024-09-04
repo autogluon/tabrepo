@@ -396,8 +396,8 @@ def zeroshot_results(
     :param n_training_datasets: number of dataset to use when fitting zeroshot
     :param n_training_folds: number of folds to use when fitting zeroshot
     :param n_training_configs: number of configurations available when fitting zeroshot TODO per framework
-    :param n_max_models: `max_models` kwarg value during ensemble fit.
-    :param n_max_models_per_type: `max_models_per_type` kwarg value during ensemble fit.
+    :param n_max_models: maximum number of models considered when fitting ensemble
+    :param n_max_models_per_type: maximum number of models for each framework considered when fitting ensemble
     :param max_runtimes: max runtime available when evaluating zeroshot configuration at test time
     :param engine: engine to use, must be "sequential", "joblib" or "ray"
     :param seeds: the seeds for the random number generator used for shuffling the configs
