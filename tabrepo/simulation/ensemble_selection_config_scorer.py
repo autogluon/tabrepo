@@ -188,12 +188,20 @@ class EnsembleScorerMaxModels(EnsembleScorer):
     max_models: int, default = None
         If specified, will limit ensemble candidates to the top `max_models` highest validation score models.
         This logic is applied after the filtering from `max_models_per_type`.
-    max_models_per_type: int, default = None
+    max_models_per_type: int | str, default = None
         If specified, will limit ensemble candidates of a given model type to the top `max_models_per_type` highest validation score models.
+        If "auto", scales dynamically with the number of rows in the dataset.
     """
-    def __init__(self, zeroshot_context: ZeroshotSimulatorContext, max_models: int = None, max_models_per_type: int = None, **kwargs):
+    def __init__(self, zeroshot_context: ZeroshotSimulatorContext, max_models: int = None, max_models_per_type: int | str = None, **kwargs):
         super().__init__(zeroshot_context=zeroshot_context, **kwargs)
         assert self.zeroshot_context is not None
+        if max_models is not None:
+            assert max_models >= 0
+        if max_models_per_type is not None:
+            if isinstance(max_models_per_type, str):
+                assert max_models_per_type == "auto"
+            else:
+                assert max_models_per_type >= 0
         self.max_models = max_models
         self.max_models_per_type = max_models_per_type
 
@@ -202,14 +210,49 @@ class EnsembleScorerMaxModels(EnsembleScorer):
         Filters models by user-defined logic. Used in class extensions.
         """
         if self.max_models is not None or self.max_models_per_type is not None:
+            if self.max_models_per_type is not None and isinstance(self.max_models_per_type, str) and self.max_models_per_type == "auto":
+                max_models_per_type = self._get_max_models_per_type_auto(dataset=dataset)
+            else:
+                max_models_per_type = self.max_models_per_type
             models = self.zeroshot_context.get_top_configs(
                 dataset=dataset,
                 fold=fold,
                 configs=models,
                 max_models=self.max_models,
-                max_models_per_type=self.max_models_per_type,
+                max_models_per_type=max_models_per_type,
             )
         return models
+
+    def _get_max_models_per_type_auto(self, dataset: str) -> int:
+        """
+        Logic to mimic AutoGluon's default setting for `max_models_per_type`.
+        """
+        num_rows = int(self.zeroshot_context.df_metadata[self.zeroshot_context.df_metadata["dataset"] == dataset].iloc[0]["NumberOfInstances"] * 9 / 10)
+        if num_rows < 1000:
+            max_models_per_type = 1
+        elif num_rows < 5000:
+            max_models_per_type = 2
+        elif num_rows < 10000:
+            max_models_per_type = 3
+        elif num_rows < 15000:
+            max_models_per_type = 4
+        elif num_rows < 20000:
+            max_models_per_type = 5
+        elif num_rows < 25000:
+            max_models_per_type = 6
+        elif num_rows < 30000:
+            max_models_per_type = 7
+        elif num_rows < 35000:
+            max_models_per_type = 8
+        elif num_rows < 40000:
+            max_models_per_type = 9
+        elif num_rows < 45000:
+            max_models_per_type = 10
+        elif num_rows < 50000:
+            max_models_per_type = 11
+        else:
+            max_models_per_type = 12
+        return max_models_per_type
 
 
 # FIXME: Add temperature scaling!!

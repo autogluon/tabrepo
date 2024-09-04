@@ -564,43 +564,9 @@ class ZeroshotSimulatorContext:
         df_configs_task_sorted["type"] = df_configs_task_sorted["framework"].map(self.configs_type).fillna("nan")
 
         if max_models_per_type is not None:
-            if isinstance(max_models_per_type, str):
-                assert max_models_per_type == "auto"
-                max_models_per_type = self._get_max_models_per_type_auto(dataset=dataset)
             df_configs_task_sorted["rank_by_type"] = df_configs_task_sorted.groupby(["type", "task"])["metric_error_val"].rank("first").astype(int)
             df_configs_task_sorted = df_configs_task_sorted[df_configs_task_sorted["rank_by_type"] <= max_models_per_type]
         if max_models is not None:
             df_configs_task_sorted["rank"] = df_configs_task_sorted.groupby("task")["metric_error_val"].rank("first").astype(int)
             df_configs_task_sorted = df_configs_task_sorted[df_configs_task_sorted["rank"] <= max_models]
         return list(df_configs_task_sorted["framework"])
-
-    def _get_max_models_per_type_auto(self, dataset: str) -> int:
-        """
-        Logic to mimic AutoGluon's default setting for `max_models_per_type`.
-        """
-        num_rows = int(self.df_metadata[self.df_metadata["dataset"] == dataset].iloc[0]["NumberOfInstances"] * 9 / 10)
-        if num_rows < 1000:
-            max_models_per_type = 1
-        elif num_rows < 5000:
-            max_models_per_type = 2
-        elif num_rows < 10000:
-            max_models_per_type = 3
-        elif num_rows < 15000:
-            max_models_per_type = 4
-        elif num_rows < 20000:
-            max_models_per_type = 5
-        elif num_rows < 25000:
-            max_models_per_type = 6
-        elif num_rows < 30000:
-            max_models_per_type = 7
-        elif num_rows < 35000:
-            max_models_per_type = 8
-        elif num_rows < 40000:
-            max_models_per_type = 9
-        elif num_rows < 45000:
-            max_models_per_type = 10
-        elif num_rows < 50000:
-            max_models_per_type = 11
-        else:
-            max_models_per_type = 12
-        return max_models_per_type
