@@ -161,10 +161,10 @@ class EnsembleScorer:
         """
         models_filtered_set = set(models_filtered)
 
-        # Preserve `models` order without duplicates
-        seen = set()
-        seen_add = seen.add
-        models_filtered = [m for m in models if (m in models_filtered_set) and not (m in seen or seen_add(m))]
+        # Preserve `models` order without duplicates (optimized)
+        models_seen = set()
+        # not (m in models_seen or models_seen.add(m) only adds `m` to models_seen if `m` was not already in models_seen.
+        models_filtered = [m for m in models if (m in models_filtered_set) and not (m in models_seen or models_seen.add(m))]
 
         if len(models_filtered_set) < len(models_filtered):
             # Duplicate names in `models`, have special handling
