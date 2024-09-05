@@ -27,7 +27,7 @@ def test_repository_collection():
 
     repo_collection = EvaluationRepositoryCollection(repos=[repo_1, repo_2])
 
-    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
 
     for dataset in datasets:
         for fold in folds:
@@ -52,7 +52,7 @@ def test_repository_collection_overlap_raise():
 def test_repository_collection_overlap_first():
     repo = load_repo_artificial()
     repo_collection = EvaluationRepositoryCollection(repos=[repo, repo], overlap="first")
-    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
     for v in repo_collection._mapping.values():
         assert v == 0
 
@@ -60,11 +60,11 @@ def test_repository_collection_overlap_first():
 def test_repository_collection_overlap_last():
     repo = load_repo_artificial()
     repo_collection = EvaluationRepositoryCollection(repos=[repo, repo, repo], overlap="last")
-    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
     for v in repo_collection._mapping.values():
         assert v == 2
     repo_collection_nested = EvaluationRepositoryCollection(repos=[repo, repo_collection], overlap="last")
-    verify_equivalent_repository(repo1=repo, repo2=repo_collection_nested)
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection_nested, verify_ensemble=True)
     for v in repo_collection_nested._mapping.values():
         assert v == 1
 
@@ -72,10 +72,10 @@ def test_repository_collection_overlap_last():
 def test_repository_collection_single():
     repo = load_repo_artificial()
     repo_collection = EvaluationRepositoryCollection(repos=[repo])
-    verify_equivalent_repository(repo1=repo, repo2=repo_collection)
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
     for v in repo_collection._mapping.values():
         assert v == 0
     repo_collection_nested = EvaluationRepositoryCollection(repos=[repo_collection])
-    verify_equivalent_repository(repo1=repo, repo2=repo_collection_nested)
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection_nested, verify_ensemble=True)
     for v in repo_collection_nested._mapping.values():
         assert v == 0
