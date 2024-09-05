@@ -41,12 +41,25 @@ def get_artifacts(task: OpenMLTaskWrapper, fold: int, hyperparameters: dict, dat
     return simulation_artifacts, leaderboard
 
 
-def convert_leaderboard_to_configs(leaderboard: pd.DataFrame) -> pd.DataFrame:
+def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = True) -> pd.DataFrame:
     df_configs = leaderboard.rename(columns=dict(
         model="framework",
         fit_time="time_train_s",
         pred_time_test="time_infer_s"
     ))
+    if minimal:
+        df_configs = df_configs[[
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric_error_val",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+            "tid",
+        ]]
     return df_configs
 
 
