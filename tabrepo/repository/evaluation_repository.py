@@ -53,49 +53,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         self_zeroshot.__class__ = EvaluationRepositoryZeroshot
         return self_zeroshot
 
-    def subset(self,
-               datasets: List[str] = None,
-               folds: List[int] = None,
-               configs: List[str] = None,
-               problem_types: List[str] = None,
-               force_to_dense: bool = True,
-               inplace: bool = False,
-               verbose: bool = True,
-               ) -> Self:
-        """
-        Method to subset the repository object and force to a dense representation.
-
-        :param datasets: The list of datasets to subset. Ignored if unspecified.
-        :param folds: The list of folds to subset. Ignored if unspecified.
-        :param configs: The list of configs to subset. Ignored if unspecified.
-        :param problem_types: The list of problem types to subset. Ignored if unspecified.
-        :param force_to_dense: If True, forces the output to dense representation.
-        :param inplace: If True, will perform subset logic inplace.
-        :param verbose: Whether to log verbose details about the force to dense operation.
-        :return: Return subsetted repo if inplace=False or self after inplace updates in this call.
-        """
-        if not inplace:
-            return copy.deepcopy(self).subset(
-                datasets=datasets,
-                folds=folds,
-                configs=configs,
-                problem_types=problem_types,
-                force_to_dense=force_to_dense,
-                inplace=True,
-                verbose=verbose,
-            )
-        if folds is not None:
-            self._zeroshot_context.subset_folds(folds=folds)
-        if configs is not None:
-            self._zeroshot_context.subset_configs(configs=configs)
-        if datasets is not None:
-            self._zeroshot_context.subset_datasets(datasets=datasets)
-        if problem_types is not None:
-            self._zeroshot_context.subset_problem_types(problem_types=problem_types)
-        if force_to_dense:
-            self.force_to_dense(inplace=True, verbose=verbose)
-        return self
-
     # TODO: Make a better docstring, confusing what this `exactly` does
     # TODO: Add `is_dense` method to assist in unit tests + sanity checks
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
@@ -113,22 +70,16 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             return copy.deepcopy(self).force_to_dense(inplace=True, verbose=verbose)
 
         # TODO: Move these util functions to simulations or somewhere else to avoid circular imports
-        from tabrepo.contexts.utils import intersect_folds_and_datasets, force_to_dense, prune_zeroshot_gt
+        from tabrepo.contexts.utils import intersect_folds_and_datasets, prune_zeroshot_gt
         # keep only dataset whose folds are all present
         intersect_folds_and_datasets(self._zeroshot_context, self._tabular_predictions, self._ground_truth)
 
-        # TODO do we still need it? At the moment, we are using the fallback for models so this may not be necessary
-        #  anymore
-        # force_to_dense(self._tabular_predictions,
-        #                first_prune_method='task',
-        #                second_prune_method='dataset',
-        #                verbose=verbose)
+        self.subset(configs=self._tabular_predictions.models, inplace=inplace, force_to_dense=False)
 
-        self._zeroshot_context.subset_configs(self._tabular_predictions.models)
         datasets = [d for d in self._tabular_predictions.datasets if d in self._dataset_to_tid_dict]
-        self._zeroshot_context.subset_datasets(datasets)
+        self.subset(datasets=datasets, inplace=inplace, force_to_dense=False)
 
-        self._tabular_predictions.restrict_models(self._zeroshot_context.get_configs())
+        self._tabular_predictions.restrict_models(self.configs())
         self._ground_truth = prune_zeroshot_gt(zeroshot_pred_proba=self._tabular_predictions,
                                                zeroshot_gt=self._ground_truth,
                                                dataset_to_tid_dict=self._dataset_to_tid_dict,

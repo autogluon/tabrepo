@@ -6,16 +6,18 @@ from typing import List, Literal, Tuple
 
 import numpy as np
 import pandas as pd
+from typing_extensions import Self
 
 from .abstract_repository import AbstractRepository
 from .ensemble_mixin import EnsembleMixin
 from .ground_truth_mixin import GroundTruthMixin
 from .evaluation_repository import EvaluationRepository
+from ..contexts.utils import prune_zeroshot_gt
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 
 
-# TODO: WIP. This is not a fully functional class yet.
+# TODO: Improve error message for overlap
 class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     """
     Simple Repository class that implements core functionality related to
@@ -23,30 +25,21 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
     """
     def __init__(
         self,
-        repos: list[EvaluationRepository],
+        repos: list[EvaluationRepository | "EvaluationRepositoryCollection"],
         config_fallback: str = None,
         overlap: Literal["raise", "first", "last"] = "raise",
     ):
         self.overlap = overlap
-        self.repos: list[EvaluationRepository] = repos
-
-        combinations = self._generate_dataset_fold_config_combinations(repos=self.repos)
-        self._mapping = self._combination_mapping_to_repo_index(combinations=combinations, overlap=self.overlap)
+        self.repos: list[EvaluationRepository | "EvaluationRepositoryCollection"] = repos
 
         zeroshot_context = merge_zeroshot([repo._zeroshot_context for repo in self.repos])
         self._ground_truth: GroundTruth = merge_ground_truth([repo._ground_truth for repo in self.repos])
+        self._mapping = self._update_mapping()
         super().__init__(zeroshot_context=zeroshot_context, config_fallback=config_fallback)
 
-        # DONE: Create AbstractRepository to avoid code-dupe
-        # DONE: raise exception if overlap in (dataset, fold, config)
-        # TODO: Improve error message for overlap
-        # DONE: implement config_fallback
-        # DONE: Merge ground_truth
-        # DONE: Merge zeroshot_context
-        # TODO: Merge tabular_predictions
-        #  TODO: Need to implement `force_to_dense`
-        # DONE: Implement `evaluate_ensemble`: Can use a mixin?
-        # DONE: implement _construct_ensemble_selection_config_scorer
+    def _update_mapping(self):
+        combinations = self._generate_dataset_fold_config_combinations(repos=self.repos)
+        return self._combination_mapping_to_repo_index(combinations=combinations, overlap=self.overlap)
 
     def goes_where(self, dataset: str, fold: int, config: str) -> int | None:
         """
@@ -98,8 +91,56 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 
         return predict_multi
 
-    def force_to_dense(self, inplace: bool = False, verbose: bool = True):
-        raise NotImplementedError
+    # TODO: Make a better docstring, confusing what this `exactly` does
+    def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
+        """
+        Method to force the repository to a dense representation inplace.
+
+        This will ensure that all datasets contain the same folds, and all tasks contain the same models.
+        Calling this method when already in a dense representation will result in no changes.
+
+        :param inplace: If True, will perform logic inplace.
+        :param verbose: Whether to log verbose details about the force to dense operation.
+        :return: Return dense repo if inplace=False or self after inplace updates in this call.
+        """
+        if not inplace:
+            return copy.deepcopy(self).force_to_dense(inplace=True, verbose=verbose)
+
+        datasets = self.datasets(union=True)
+        df_dataset_folds = self._zeroshot_context.df_dataset_folds()
+
+        n_folds = self.n_folds()
+        n_folds_per_dataset = df_dataset_folds["dataset"].value_counts()
+        datasets_dense = list(n_folds_per_dataset[n_folds_per_dataset == n_folds].index)
+
+        # subset to only datasets that contain at least one result for all folds
+        if set(datasets) != set(datasets_dense):
+            self.subset(datasets=datasets_dense, inplace=inplace, force_to_dense=False)
+
+        # subset to only configs that have results in all tasks
+        configs = self.configs(union=True)
+        configs_dense = self.configs(union=False)
+        if set(configs) != set(configs_dense):
+            self.subset(configs=configs_dense, inplace=inplace, force_to_dense=False)
+
+        # subset all repos in collection so they do not contain invalid results
+        for repo in self.repos:
+            repo.subset(
+                datasets=self.datasets(),
+                configs=self.configs(),
+                folds=self.folds,
+                inplace=inplace,
+                force_to_dense=False,
+            )
+
+        self._mapping = self._update_mapping()
+        self._ground_truth = prune_zeroshot_gt(
+            zeroshot_pred_proba=None,
+            zeroshot_gt=self._ground_truth,
+            dataset_to_tid_dict=self._dataset_to_tid_dict,
+            verbose=verbose,
+        )
+        return self
 
     @staticmethod
     def _generate_dataset_fold_config_combinations(repos: list[EvaluationRepository]) -> list[list[Tuple[str, int, str]]]:

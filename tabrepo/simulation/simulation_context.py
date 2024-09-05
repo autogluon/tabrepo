@@ -253,6 +253,15 @@ class ZeroshotSimulatorContext:
             rank_scorer,
         )
 
+    def df_dataset_folds(self) -> pd.DataFrame:
+        df_dataset_folds = self.df_configs[["dataset", "fold"]].drop_duplicates().reset_index(drop=True)
+        return df_dataset_folds
+
+    def dataset_folds(self) -> list[tuple]:
+        dataset_folds = self.df_dataset_folds().values.tolist()
+        dataset_folds = [tuple(dataset_fold) for dataset_fold in dataset_folds]
+        return dataset_folds
+
     @staticmethod
     def _validate_df(df: pd.DataFrame, name: str, required_columns: List[str]):
         df_columns = list(df.columns)
