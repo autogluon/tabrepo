@@ -44,7 +44,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
                folds: List[int] = None,
                configs: List[str] = None,
                problem_types: List[str] = None,
-               force_to_dense: bool = True,
+               force_to_dense: bool = False,
                inplace: bool = False,
                verbose: bool = True,
                ) -> Self:
