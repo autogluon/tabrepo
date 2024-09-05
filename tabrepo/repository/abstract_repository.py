@@ -341,7 +341,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
     @property
     def folds(self) -> List[int]:
-        return self._zeroshot_context.folds
+        return sorted(self._zeroshot_context.folds)
 
     def n_folds(self) -> int:
         return len(self.folds)

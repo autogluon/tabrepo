@@ -42,6 +42,25 @@ def test_repository_collection():
             predict_val_collection = repo_collection.predict_val_multi(dataset=dataset, fold=fold, configs=configs)
             assert np.array_equal(predict_val, predict_val_collection)
 
+    repo_1 = repo.subset(datasets=['abalone'])
+    repo_2 = repo.subset(datasets=["ada"])
+    repo_collection = EvaluationRepositoryCollection(repos=[repo_1, repo_2])
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
+    for config in configs:
+        for fold in folds:
+            assert repo_collection.goes_where(dataset="abalone", fold=fold, config=config) == 0
+            assert repo_collection.goes_where(dataset="ada", fold=fold, config=config) == 1
+
+    repo_1 = repo.subset(folds=[2, 0])
+    repo_2 = repo.subset(folds=[1])
+    repo_collection = EvaluationRepositoryCollection(repos=[repo_1, repo_2])
+    verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
+    for config in configs:
+        for dataset in datasets:
+            assert repo_collection.goes_where(dataset=dataset, fold=0, config=config) == 0
+            assert repo_collection.goes_where(dataset=dataset, fold=1, config=config) == 1
+            assert repo_collection.goes_where(dataset=dataset, fold=2, config=config) == 0
+
 
 def test_repository_collection_overlap_raise():
     repo = load_repo_artificial()

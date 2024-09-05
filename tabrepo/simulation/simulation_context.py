@@ -197,6 +197,7 @@ class ZeroshotSimulatorContext:
             unique_datasets = sorted(list(datasets_with_all_folds.index))
             unique_datasets_set = set(unique_datasets)
             unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["dataset"].isin(unique_datasets_set)]
+            unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["fold"].isin(folds)]
             df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
             if df_baselines is not None:
                 df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
