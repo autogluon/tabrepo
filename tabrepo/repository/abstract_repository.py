@@ -365,11 +365,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         return self._zeroshot_context.task_to_fold(task=task)
 
     def _construct_single_best_config_scorer(self, **kwargs) -> SingleBestConfigScorer:
-        config_scorer = SingleBestConfigScorer.from_zsc(
-            zeroshot_simulator_context=self._zeroshot_context,
-            **kwargs,
-        )
-        return config_scorer
+        return SingleBestConfigScorer.from_repo(repo=self, **kwargs)
 
     def _convert_binary_to_multiclass(self, predictions: np.ndarray, dataset: str) -> np.ndarray:
         """

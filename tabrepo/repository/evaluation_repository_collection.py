@@ -8,15 +8,15 @@ import numpy as np
 import pandas as pd
 
 from .abstract_repository import AbstractRepository
+from .ensemble_mixin import EnsembleMixin
 from .ground_truth_mixin import GroundTruthMixin
 from .evaluation_repository import EvaluationRepository
-from ..simulation.ensemble_selection_config_scorer import EnsembleSelectionConfigScorer
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 
 
 # TODO: WIP. This is not a fully functional class yet.
-class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
+class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     """
     Simple Repository class that implements core functionality related to
     fetching model predictions, available datasets, folds, etc.
@@ -40,13 +40,13 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
         # DONE: Create AbstractRepository to avoid code-dupe
         # DONE: raise exception if overlap in (dataset, fold, config)
         # TODO: Improve error message for overlap
-        # TODO: implement config_fallback
-        # DONE: Merge ground_truth -> Easy
-        # DONE: Merge zeroshot_context -> Hard
-        # TODO: Merge tabular_predictions -> Hard
-        #  Mostly done, need to implement _construct_ensemble_selection_config_scorer
-        #  Need to implement `force_to_dense`
-        # TODO: Implement `evaluate_ensemble`: Can use a mixin?
+        # DONE: implement config_fallback
+        # DONE: Merge ground_truth
+        # DONE: Merge zeroshot_context
+        # TODO: Merge tabular_predictions
+        #  TODO: Need to implement `force_to_dense`
+        # DONE: Implement `evaluate_ensemble`: Can use a mixin?
+        # DONE: implement _construct_ensemble_selection_config_scorer
 
     def goes_where(self, dataset: str, fold: int, config: str) -> int | None:
         """
@@ -71,8 +71,18 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
         for i, config in enumerate(configs):
             repo_idx = self.goes_where(dataset=dataset, fold=fold, config=config)
             if repo_idx is None:
-                raise ValueError(f"The following combination is not present in this repository: (dataset='{dataset}', fold={fold}, config='{config}')")
-            repo_map[repo_idx].append(config)
+                if self._config_fallback is None:
+                    raise ValueError(f"The following combination is not present in this repository: (dataset='{dataset}', fold={fold}, config='{config}')")
+                # get fallback
+                repo_idx = self.goes_where(dataset=dataset, fold=fold, config=self._config_fallback)
+                if repo_idx is None:
+                    raise ValueError(
+                        f"The following combination is not present in this repository: (dataset='{dataset}', fold={fold}, config='{config}')"
+                        f"\nAdditionally, the fallback config is not present in (dataset='{dataset}', fold={fold}, config='{self._config_fallback}')"
+                    )
+                repo_map[repo_idx].append(self._config_fallback)
+            else:
+                repo_map[repo_idx].append(config)
             repo_idx_map[repo_idx].append(i)
             config_idx_lst.append(repo_idx)
 
@@ -87,12 +97,6 @@ class EvaluationRepositoryCollection(AbstractRepository, GroundTruthMixin):
             predict_multi[repo_idx_map[repo_idx], :] = predict
 
         return predict_multi
-
-    def _construct_ensemble_selection_config_scorer(self,
-                                                    ensemble_size: int = 10,
-                                                    backend='ray',
-                                                    **kwargs) -> EnsembleSelectionConfigScorer:
-        raise NotImplementedError
 
     def force_to_dense(self, inplace: bool = False, verbose: bool = True):
         raise NotImplementedError

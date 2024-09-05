@@ -13,12 +13,12 @@ if __name__ == '__main__':
     # NOTE: For speed of simulation, it is recommended backend='ray'
     backend = 'ray'
     configs = None
-    datasets = zsc.get_tasks()
-    # datasets = zsc.get_dataset_folds(problem_type=['binary', 'multiclass'])
+    tasks = zsc.get_tasks()
+    # tasks = zsc.get_dataset_folds(problem_type=['binary', 'multiclass'])
 
-    config_scorer = SingleBestConfigScorer.from_zsc(
-        zeroshot_simulator_context=zsc,
-        datasets=datasets,
+    config_scorer = SingleBestConfigScorer(
+        df_results=zsc.df_configs_ranked,
+        tasks=tasks,
     )
 
     run_zs_simulation_debug(
