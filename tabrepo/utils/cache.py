@@ -74,6 +74,54 @@ def cache_function_dataframe(
             return pd.read_csv(cache_file)
 
 
+@contextmanager
+def catchtime(name: str, logger=None) -> float:
+    start = perf_counter()
+    print_fun = print if logger is None else logger.info
+    try:
+        print_fun(f"start: {name}")
+        yield lambda: perf_counter() - start
+    finally:
+        print_fun(f"Time for {name}: {perf_counter() - start:.4f} secs")
+
+
+@dataclass
+class Experiment:
+    expname: str  # name of the parent experiment used to store the file
+    name: str  # name of the specific experiment, e.g. "localsearch"
+    run_fun: Callable[[], list]  # function to execute to obtain results
+
+    def data(self, ignore_cache: bool = False):
+        return cache_function_dataframe(
+            lambda: pd.DataFrame(self.run_fun()),
+            cache_name=self.name,
+            cache_path=self.expname,
+            ignore_cache=ignore_cache,
+        )
+
+
+@dataclass
+class SimulationExperiment(Experiment):
+    def data(self, ignore_cache: bool = False) -> dict:
+        return cache_function(
+            lambda: self.run_fun(),
+            cache_name=self.name,
+            cache_path=self.expname,
+            ignore_cache=ignore_cache,
+        )
+
+
+@dataclass
+class DummyExperiment(Experiment):
+    """
+    Dummy Experiment class that doesn't perform caching and simply runs the run_fun and returns the result.
+    """
+
+    def data(self, ignore_cache: bool = False):
+        return self.run_fun()
+
+
+
 class SaveLoadMixin:
     """
     Mixin class to add generic pickle save/load methods.
