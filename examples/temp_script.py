@@ -35,6 +35,7 @@ if __name__ == '__main__':
     task_metadata = load_task_metadata('task_metadata.csv')
 
     tids = [359955, 146818]
+    # tids = [146818]
     folds = [0, 1, 2]
 
     methods_dict = {
@@ -68,23 +69,25 @@ if __name__ == '__main__':
         val_error="metric_error_val",
     ))
 
+    results_df = convert_leaderboard_to_configs(results_df)
+
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width', 1000):
         print(results_df)
 
     evaluator = Evaluator(
-        # frameworks=frameworks_run,
+        # frameworks=frameworks_run,    #why do we not pass frameworks_run here?
         task_metadata=task_metadata,
         # treat_folds_as_datasets=treat_folds_as_datasets,
     )
     evaluator_output = evaluator.transform(data=results_df)
 
-    results_ranked_df = evaluator_output.results_ranked
+    # results_ranked_df = evaluator_output.results_ranked
 
     context_name = "D244_F3_C1530_30"
     context = get_context(name=context_name)
     config_hyperparameters = context.load_configs_hyperparameters()
     repo: EvaluationRepository = load_repository(context_name, cache=True)
-    metrics = repo.compare_metrics(results_df, datasets=["blood-transfusion-service-center", "Australian"], configs=["CatBoost_r1_BAG_L1", "LightGBM_r41_BAG_L1"])
+    metrics = repo.compare_metrics(results_df, datasets=["blood-transfusion-service-center", "Australian"], configs=["CatBoost_r1_BAG_L1", "LightGBM_r41_BAG_L1"], folds=[0,1])
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
         print(f"Config Metrics Example:\n{metrics}")
 
