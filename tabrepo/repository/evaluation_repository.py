@@ -240,6 +240,23 @@ class EvaluationRepository(SaveLoadMixin):
         df = df[mask]
 
         return df
+    
+    def compare_metrics(self, results_df: pd.DataFrame, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
+        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[
+            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s"]
+        ]
+
+        #TO DO: use self._zeroshot_context.df_configs to match fit df and tab repo df
+        # Will yield incorrect result - still in progress
+        df_tr = self.metrics(datasets=datasets, folds=folds, configs=configs)
+        #Future Question - Dropping rank as it is not in the results_df
+        df_tr.drop(columns=['rank'], inplace=True)
+        df_tr = df_tr.reset_index().set_index(["dataset", "fold","framework"])
+        df = pd.concat([df_exp, df_tr], axis=0)
+        df = df.sort_index()
+
+        # Future question - for plotting how do match the 15 cols in results_df with the tabrepo columns?
+        return df
 
     def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
         """
