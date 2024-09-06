@@ -65,6 +65,55 @@ def generate_configs_realmlp_regression(num_random_configs=200, seed=1234):
     return [generate_single_config_realmlp(rng, is_classification=False) for _ in range(num_random_configs)]
 
 
+def convert_numpy_dtypes(data):
+    """Converts NumPy dtypes in a dictionary to Python dtypes."""
+    converted_data = {}
+    for key, value in data.items():
+        if isinstance(value, np.generic):
+            converted_data[key] = value.item()
+        elif isinstance(value, dict):
+            converted_data[key] = convert_numpy_dtypes(value)
+        elif isinstance(value, list):
+            converted_data[key] = [convert_numpy_dtypes({i: v})[i] if isinstance(v, (dict, np.generic)) else v for i, v in enumerate(value)]
+        else:
+            converted_data[key] = value
+    return converted_data
+
+
 if __name__ == '__main__':
-    for config in generate_configs_realmlp_classification(20):
-        print(config)
+    configs_yaml = []
+    config_defaults = [{}]
+    for i, config in enumerate(config_defaults):
+        config = convert_numpy_dtypes(config)
+        config_yaml = dict(
+            type="AGModelBagExperiment",
+            name=f"RealMLP_c{i+1}_BAG_L1",
+            model_cls="RealMLPModel",
+            model_hyperparameters=config,
+            num_bag_folds=8,
+            time_limit=3600,
+        )
+        configs_yaml.append(config_yaml)
+
+    configs = generate_configs_realmlp_classification(50, seed=1234) + generate_configs_realmlp_regression(50, seed=1)
+    for i, config in enumerate(configs):
+        config = convert_numpy_dtypes(config)
+        config_yaml = dict(
+            type="AGModelBagExperiment",
+            name=f"RealMLP_r{i+1}_BAG_L1",
+            model_cls="RealMLPModel",
+            model_hyperparameters=config,
+            num_bag_folds=8,
+            time_limit=3600,
+        )
+        configs_yaml.append(config_yaml)
+        print(config_yaml)
+    configs_yaml = {"methods": configs_yaml}
+    print(configs_yaml)
+
+    import yaml
+    a = yaml.dump(configs_yaml)
+    print(a)
+
+    with open('configs_realmlp.yaml', 'w') as outfile:
+        yaml.dump(configs_yaml, outfile, default_flow_style=False)

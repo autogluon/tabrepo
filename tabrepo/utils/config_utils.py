@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import copy
+from typing import Type
 
 from autogluon.core.searcher.local_random_searcher import LocalRandomSearcher
+from autogluon.core.models import AbstractModel
 
 from ..constants.model_constants import MODEL_TYPE_DICT
 
@@ -29,6 +33,8 @@ def combine_manual_and_random_configs(manual_configs, random_configs):
 
 
 def add_suffix_to_config(config, suffix):
+    if "ag_args" in config:
+        raise AssertionError(f"ag_args already exists in config!")
     config = copy.deepcopy(config)
     config['ag_args'] = {'name_suffix': suffix}
     return config
@@ -41,12 +47,21 @@ def get_random_searcher(search_space):
 
 
 class ConfigGenerator:
-    def __init__(self, name, manual_configs, search_space):
-        self.name = name
-        self.model_type = MODEL_TYPE_DICT[name]
+    def __init__(self, name, manual_configs, search_space, model_cls: Type[AbstractModel] | None = None):
+        if model_cls is not None:
+            self.name = model_cls.ag_name
+            self.model_type = model_cls.ag_key
+        else:
+            self.name = name
+            self.model_type = MODEL_TYPE_DICT[name]
         self.manual_configs = manual_configs
         self.search_space = search_space
         self.searcher = get_random_searcher(search_space)
+
+    @classmethod
+    def from_cls(cls, model_cls, manual_configs, search_space):
+        name = model_cls
+        return cls(name=name, manual_configs=manual_configs, search_space=search_space)
 
     def get_searcher_config(self):
         return self.searcher.get_config()
