@@ -98,6 +98,169 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
                                                verbose=verbose, )
         return self
 
+    @property
+    def _df_metadata(self) -> pd.DataFrame:
+        return self._zeroshot_context.df_metadata
+
+    def tids(self, problem_type: str = None) -> List[int]:
+        """
+        Note: returns the taskid of the datasets rather than the string name.
+
+        :param problem_type: If specified, only datasets with the given problem_type are returned.
+        """
+        return self._zeroshot_context.get_tids(problem_type=problem_type)
+
+    def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
+        """
+        Return all valid datasets.
+        By default, will return all datasets that appear in any config at least once.
+
+        Parameters
+        ----------
+        problem_type : str, default = None
+            If specified, will only consider datasets with the given problem type
+        union: bool, default = True
+            If True, will return the union of datasets present in each config.
+            If False, will return the intersection of datasets present in each config.
+
+        Returns
+        -------
+        A list of dataset names satisfying the above conditions.
+        """
+        return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
+
+    def configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+        """
+        Return all valid configs.
+        By default, will return all configs that appear in any task at least once.
+
+        Parameters
+        ----------
+        datasets : List[str], default = None
+            If specified, will only consider the configs present in the given datasets
+        tasks: List[str], default = None
+            If specified, will only consider the configs present in the given tasks
+        union: bool, default = True
+            If True, will return the union of configs present in each task.
+            If False, will return the intersection of configs present in each task.
+
+        Returns
+        -------
+        A list of config names satisfying the above conditions.
+        """
+        return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, union=union)
+
+    def dataset_to_tid(self, dataset: str) -> int:
+        return self._dataset_to_tid_dict[dataset]
+
+    def tid_to_dataset(self, tid: int) -> str:
+        return self._tid_to_dataset_dict.get(tid, "Not found")
+
+    def metrics(self, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
+        """
+        :param datasets:
+        :param folds:
+        :param configs: list of configs to query metrics
+        :return: pd.DataFrame of metrics for each dataset-fold-framework combination.
+
+        Output is a multi-index pandas DataFrame ("dataset", "fold", "framework").
+        Each row is a result for a particular config on a given task.
+        If a config does not have a result for a given task, it will not have a row present in the DataFrame for that task.
+        Columns:
+            metric_error : Test error of the config
+            metric_error_val : Validation error of the config
+            time_train_s : Training time of the config
+            time_infer_s : Inference time of the config
+            rank : Rank of the config
+        """
+        df = self._zeroshot_context.df_configs_ranked.set_index(["dataset", "fold", "framework"], drop=True)[
+            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank"]
+        ]
+        if datasets is None:
+            datasets = self.datasets()
+
+        mask = df.index.get_level_values("dataset").isin(datasets)
+        if folds is not None:
+            mask = mask & df.index.get_level_values("fold").isin(folds)
+        if configs is not None:
+            mask = mask & df.index.get_level_values("framework").isin(configs)
+        df = df[mask]
+
+        return df
+
+    def compare_metrics(self, results_df: pd.DataFrame, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
+        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[
+            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s"]
+        ]
+
+        #TO DO: use self._zeroshot_context.df_configs to match fit df and tab repo df
+        # Will yield incorrect result - still in progress
+        df_tr = self.metrics(datasets=datasets, folds=folds, configs=configs)
+        #Future Question - Dropping rank as it is not in the results_df
+        df_tr.drop(columns=['rank'], inplace=True)
+        df_tr = df_tr.reset_index().set_index(["dataset", "fold","framework"])
+        df = pd.concat([df_exp, df_tr], axis=0)
+        df = df.sort_index()
+
+        # Future question - for plotting how do match the 15 cols in results_df with the tabrepo columns?
+        return df
+
+    def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
+        """
+        Returns the predictions on the test set for a given configuration on a given dataset and fold
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset to get predictions from. Must be a value in `self.datasets()`.
+        fold: int
+            The fold of the dataset to get predictions from.
+        config: str
+            The model config to get predictions from. Must be a value in `self.configs()`.
+        binary_as_multiclass: bool, default = False
+            If True, will return binary predictions in shape (n_rows, n_classes).
+            If False, will return binary predictions in shape (n_rows), with the value being class 1 (the positive class).
+
+            You can convert from (n_rows, n_classes) -> (n_rows) via `predictions[:, 1]`.
+            You can convert from (n_rows) -> (n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
+
+            The internal representation is of form (n_rows) as it requires less memory,
+            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
+
+        Returns
+        -------
+        The model predictions on the test set with shape (n_rows, n_classes) for multiclass or (n_rows) in case of regression.
+        For binary, shape depends on `binary_as_multiclass` value.
+        """
+        return self.predict_test_multi(dataset=dataset, fold=fold, configs=[config], binary_as_multiclass=binary_as_multiclass).squeeze()
+
+    def predict_val(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
+        """
+        Parameters
+        ----------
+        dataset: str
+            The dataset to get predictions from. Must be a value in `self.datasets()`.
+        fold: int
+            The fold of the dataset to get predictions from.
+        config: str
+            The model config to get predictions from. Must be a value in `self.configs()`.
+        binary_as_multiclass: bool, default = False
+            If True, will return binary predictions in shape (n_rows, n_classes).
+            If False, will return binary predictions in shape (n_rows), with the value being class 1 (the positive class).
+
+            You can convert from (n_rows, n_classes) -> (n_rows) via `predictions[:, 1]`.
+            You can convert from (n_rows) -> (n_rows, n_classes) via `np.stack([1 - predictions, predictions], axis=predictions.ndim)`.
+
+            The internal representation is of form (n_rows) as it requires less memory,
+            so there is a conversion overhead introduced when `binary_as_multiclass=True`.
+
+        Returns
+        -------
+        The model predictions on the validation set with shape (n_rows, n_classes) for multiclass or (n_rows) in case of regression.
+        For binary, shape depends on `binary_as_multiclass` value.
+        """
+        return self.predict_val_multi(dataset=dataset, fold=fold, configs=[config], binary_as_multiclass=binary_as_multiclass).squeeze()
+
     def predict_test_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         """
         Returns the predictions on the test set for a given list of configurations on a given dataset and fold
