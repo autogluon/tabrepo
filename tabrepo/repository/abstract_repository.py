@@ -39,6 +39,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def _tid_to_dataset_dict(self) -> Dict[int, str]:
         return {v: k for k, v in self._dataset_to_tid_dict.items()}
 
+    # TODO: tasks
     def subset(self,
                datasets: List[str] = None,
                folds: List[int] = None,
@@ -127,7 +128,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
     def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
-        """
+        """repo_subset2.datasets()
         Return all valid datasets.
         By default, will return all datasets that appear in any config at least once.
 
@@ -584,3 +585,27 @@ class AbstractRepository(ABC, SaveLoadMixin):
             return np.stack([1 - predictions, predictions], axis=predictions.ndim)
         else:
             return predictions
+
+    # TODO: repo.reproduce(config, dataset, fold)
+    def get_openml_task(self, dataset: str) -> "OpenMLTaskWrapper":
+        """
+        Fetch an OpenML task given a dataset name
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset name used to fetch the OpenML task.
+            Must be part of `repo.datasets`
+
+        Returns
+        -------
+        OpenMLTaskWrapper object from autogluon_benchmark
+        """
+        try:
+            from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
+        except ImportError:
+            raise ImportError(f"To use `repo.get_openml_task, you must first install autogluon_benchmark.")
+
+        tid = self.dataset_to_tid(dataset=dataset)
+        task = OpenMLTaskWrapper.from_task_id(task_id=tid)
+        return task

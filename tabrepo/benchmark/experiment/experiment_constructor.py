@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import copy
-from typing import Type
+import inspect
+from typing import Type, Self
+
+import yaml
 
 from autogluon.core.models import AbstractModel
 
@@ -9,6 +12,7 @@ from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGSingleWrapper
 from tabrepo.benchmark.models.wrapper.ag_model import AGModelWrapper
 from tabrepo.benchmark.experiment.experiment_runner import ExperimentRunner, OOFExperimentRunner
+from tabrepo.benchmark.models.model_register import infer_model_cls
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 
@@ -36,6 +40,47 @@ class Experiment:
         The kwargs passed to the init of `experiment_cls`.
 
     """
+
+    def __new__(cls, *args, **kwargs):
+        # Logic executed before __init__
+        sig = inspect.signature(cls.__init__)
+        params = sig.parameters
+        _args = copy.deepcopy(args)
+        _kwargs = copy.deepcopy(kwargs)
+        arg_names = [param.name for param in params.values() if param.name != 'self']
+        for i, arg in enumerate(_args):
+            arg_name = arg_names[i]
+            assert arg_name not in kwargs
+            _kwargs[arg_name] = arg
+
+        instance = super().__new__(cls)
+        instance._locals = {**_kwargs}
+        return instance
+
+    def to_yaml(self):
+        locals = self._locals
+        out = dict()
+        out["type"] = self.__class__.__name__
+        locals_new = {}
+        for k, v in locals.items():
+            if inspect.isclass(v):
+                v = v.__name__
+            locals_new[k] = v
+        return self.__class__.__name__, locals_new
+
+    @classmethod
+    def from_yaml(cls, method_cls, _context=None, **kwargs) -> Self:
+        if _context is None:
+            _context = globals()
+        # Convert string class names to actual class references
+        method_cls = eval(method_cls, _context)
+
+        if "experiment_cls" in kwargs:
+            kwargs["experiment_cls"] = eval(kwargs["experiment_cls"], _context)
+
+        obj = cls(method_cls=method_cls, **kwargs)
+        return obj
+
     def __init__(
         self,
         name: str,
@@ -126,6 +171,24 @@ class AGModelOuterExperiment(Experiment):
             experiment_kwargs=experiment_kwargs,
         )
 
+    @classmethod
+    def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
+        model_cls = infer_model_cls(model_cls)
+        if _context is None:
+            _context = globals()
+
+        # Evaluate all values in ag_args_fit
+        if "model_hyperparameters" in kwargs:
+            if "ag_args_fit" in kwargs["model_hyperparameters"]:
+                for key, value in kwargs["model_hyperparameters"]["ag_args_fit"].items():
+                    if isinstance(value, str):
+                        try:
+                            kwargs["model_hyperparameters"]["ag_args_fit"][key] = eval(value, _context)
+                        except NameError:
+                            pass  # If eval fails, keep the original string value
+        obj = cls(model_cls=model_cls, **kwargs)
+        return obj
+
 
 # convenience wrapper
 class AGModelExperiment(Experiment):
@@ -197,6 +260,24 @@ class AGModelExperiment(Experiment):
             experiment_cls=OOFExperimentRunner,
             experiment_kwargs=experiment_kwargs,
         )
+
+    @classmethod
+    def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
+        model_cls = infer_model_cls(model_cls)
+        if _context is None:
+            _context = globals()
+
+        # Evaluate all values in ag_args_fit
+        if "model_hyperparameters" in kwargs:
+            if "ag_args_fit" in kwargs["model_hyperparameters"]:
+                for key, value in kwargs["model_hyperparameters"]["ag_args_fit"].items():
+                    if isinstance(value, str):
+                        try:
+                            kwargs["model_hyperparameters"]["ag_args_fit"][key] = eval(value, _context)
+                        except NameError:
+                            pass  # If eval fails, keep the original string value
+        obj = cls(model_cls=model_cls, **kwargs)
+        return obj
 
     def _insert_time_limit(self, model_hyperparameters: dict, time_limit: float | None, method_kwargs: dict) -> dict:
         is_bag = False
@@ -282,3 +363,57 @@ class AGModelBagExperiment(AGModelExperiment):
             method_kwargs=method_kwargs,
             experiment_kwargs=experiment_kwargs,
         )
+
+
+class YamlExperimentSerializer:
+    @classmethod
+    def parse_method(cls, method_config: dict, context=None) -> Experiment:
+        # Creating copy as we perform pop() which can lead to errors in subsequent calls
+        method_config = method_config.copy()
+
+        if context is None:
+            context = globals()
+
+        method_type = eval(method_config.pop('type'), context)
+        method_obj = method_type.from_yaml(**method_config)
+        return method_obj
+
+    @classmethod
+    def from_yaml(cls, path: str, context=None) -> list[Experiment]:
+        assert path.endswith(".yaml")
+
+        with open(path, 'r') as file:
+            yaml_out = yaml.safe_load(file)
+
+        experiments = []
+        for experiment in yaml_out["methods"]:
+            experiments.append(cls.parse_method(experiment, context=context))
+
+        return experiments
+
+    @classmethod
+    def to_yaml(cls, experiments: list[Experiment], path: str):
+        assert path.endswith(".yaml")
+
+        yaml_out = cls._to_yaml_format(experiments=experiments)
+
+        with open(path, 'w') as outfile:
+            yaml.dump(yaml_out, outfile, default_flow_style=False)
+
+    @classmethod
+    def to_yaml_str(cls, experiments: list[Experiment]) -> str:
+        yaml_out = cls._to_yaml_format(experiments=experiments)
+        return yaml.dump(yaml_out)
+
+    @classmethod
+    def _to_yaml_format(cls, experiments: list[Experiment]) -> dict[list[dict]]:
+        yaml_lst = []
+        for experiment in experiments:
+            cls_name, cls_kwargs = experiment.to_yaml()
+            yaml_dict = dict(
+                type=cls_name,
+                **cls_kwargs,
+            )
+            yaml_lst.append(yaml_dict)
+        yaml_out = {"methods": yaml_lst}
+        return yaml_out
