@@ -257,6 +257,7 @@ class TabularPredictionsInMemory(TabularModelPredictions):
 
         return get_split(split, models)
 
+    # TODO: Improve exception logging if model is missing, refer to exception logging in MemMap version
     def _get_model_results(self, model: str, model_pred_probas: dict) -> np.array:
         return model_pred_probas[model]
 
@@ -359,14 +360,30 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         assert fold in self.metadata_dict[dataset], f"Fold {fold} of {dataset} not available."
 
         assert split in ["val", "test"]
-        task_folder = path_memmap(self.data_dir, dataset, fold)
+        task_folder = path_memmap(folder_memmap=self.data_dir, dataset=dataset, fold=fold)
         metadata = self.metadata_dict[dataset][fold]
         model_indices_all = metadata["model_indices"]
         model_indices_available = {m: model_indices_all[m] for m in metadata['models']}
         if model_fallback:
             # we use the model fallback if a model is not present
             models = [m if m in model_indices_available else model_fallback for m in models]
-        model_indices = [model_indices_available[m] for m in models]
+        try:
+            model_indices = [model_indices_available[m] for m in models]
+        except KeyError as e:
+            missing_models = [m for m in models if m not in model_indices_available]
+            missing_model_fallback = model_fallback is not None and model_fallback in missing_models
+            if missing_model_fallback:
+                raise Exception(
+                    f"Tried to get predictions on dataset={dataset}, fold={fold}, split={split}, model_fallback={model_fallback} | "
+                    f"The specified `model_fallback` does not exist for this task ..."
+                    f"\n\tPlease specify a valid `model_fallback`."
+                ) from e
+            else:
+                raise Exception(
+                    f"Tried to get predictions on dataset={dataset}, fold={fold}, split={split}, model_fallback={model_fallback} | "
+                    f"Missing {len(missing_models)} out of {len(models)} requested model results for this task: {missing_models}"
+                    f"\n\tEither remove these models from the request or specify `model_fallback` to fill missing values."
+                ) from e
         dtype = metadata["dtype"]
         pred = np.memmap(
             str(task_folder / f"pred-{split}.dat"),

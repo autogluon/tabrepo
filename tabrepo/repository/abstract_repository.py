@@ -168,6 +168,30 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, union=union)
 
+    # TODO: unit test
+    def baselines(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
+        """
+        Return all valid baselines.
+        By default, will return all baselines that appear in any task at least once.
+
+        Parameters
+        ----------
+        datasets : list[str], default = None
+            If specified, will only consider the baselines present in the given datasets.
+        tasks: list[tuple[str, int]], default = None
+            If specified, will only consider the baselines present in the given tasks.
+            Tasks are in the form `(dataset, fold)`.
+            For example, `("abalone", 1)`.
+        union: bool, default = True
+            If True, will return the union of baselines present in each task.
+            If False, will return the intersection of baselines present in each task.
+
+        Returns
+        -------
+        A list of baseline names satisfying the above conditions.
+        """
+        return self._zeroshot_context.get_baselines(datasets=datasets, tasks=tasks, union=union)
+
     def dataset_to_tid(self, dataset: str) -> int:
         return self._dataset_to_tid_dict[dataset]
 
