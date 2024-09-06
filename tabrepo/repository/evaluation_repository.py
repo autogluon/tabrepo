@@ -14,6 +14,9 @@ from ..predictions.tabular_predictions import TabularModelPredictions
 from ..simulation.configuration_list_scorer import ConfigurationListScorer
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
+from autogluon_benchmark.evaluation.evaluator import Evaluator, EvaluatorOutput
+from autogluon_benchmark.plotting.plotter import Plotter
+from autogluon.common.savers import save_pd
 
 
 class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
@@ -188,6 +191,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         return df
 
+    # Q:Whether to keep these functions a part of TabRepo or keep them separate as a part of new fit()-package
     def compare_metrics(self, results_df: pd.DataFrame, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
         df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[
             ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
@@ -208,6 +212,41 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         df = df.sort_index()
 
         return df
+
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, task_metadata: pd.DataFrame, save_dir: str) -> EvaluatorOutput:
+        results_df = results_df.reset_index()
+        evaluator = Evaluator(task_metadata=task_metadata)
+        evaluator_output = evaluator.transform(results_df)
+        output_path = f"{save_dir}/output"
+        figure_savedir = f"{output_path}/figures"
+        save_pd.save(path=f"{output_path}/results.csv", df=results_df)
+        save_pd.save(path=f"{output_path}/results_ranked_agg.csv", df=evaluator_output.results_ranked_agg)
+        save_pd.save(path=f"{output_path}/results_ranked.csv", df=evaluator_output.results_ranked)
+
+        plotter = Plotter(
+            results_ranked_fillna_df=evaluator_output.results_ranked,
+            results_ranked_df=evaluator_output.results_ranked,
+            save_dir=figure_savedir,
+            show=False,
+        )
+
+        # NOTE WIP: ELO throws error, rest work
+        plotter.plot_all(
+            # calibration_framework="RandomForest (2023, 4h8c)",
+            calibration_elo=1000,
+            BOOTSTRAP_ROUNDS=100,  # Reduce this to lower values for a faster execution. Use 1000 for the final plot.
+            plot_critical_difference=False,
+        )
+
+        return evaluator_output
+
+    # WIP
+    # def plot_pairwise_comparison(self, data: pd.DataFrame, task_metadata: pd.DataFrame) -> EvaluatorOutput:
+    #     data = data.reset_index()
+    #     evaluator = Evaluator(task_metadata=task_metadata)
+    #     evaluator_output = evaluator.transform(data)
+    #
+    #     return evaluator_output
 
     def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
         """
