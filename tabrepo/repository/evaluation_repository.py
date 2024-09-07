@@ -105,6 +105,10 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     def _df_metadata(self) -> pd.DataFrame:
         return self._zeroshot_context.df_metadata
 
+    @property
+    def task_metadata(self) -> pd.DataFrame:
+        return self._df_metadata
+
     def tids(self, problem_type: str = None) -> List[int]:
         """
         Note: returns the taskid of the datasets rather than the string name.
@@ -191,8 +195,29 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         return df
 
+    def _convert_time_infer_s_from_sample_to_batch(self, df: pd.DataFrame):
+        """
+        Temp: Multiply by 0.1 since 90% of the instances are used for training and 10% for test
+        # TODO: Change this in future, not all tasks will use 90% train / 10% test. Instead keep track of train/test rows per dataset_fold pair.
+        """
+        df = df.copy(deep=True)
+        df["time_infer_s"] = df["time_infer_s"] * df.index.get_level_values("dataset").map(
+            self.task_metadata.set_index("dataset")["NumberOfInstances"]
+        ) * 0.1
+        return df
+
+    # TODO: repo time_infer_s is per row, results_df is the total time for all rows, need to align later
+    # TODO: Error if unknown configs/baselines requested
+    # TODO: Add fillna
     # Q:Whether to keep these functions a part of TabRepo or keep them separate as a part of new fit()-package
-    def compare_metrics(self, results_df: pd.DataFrame, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
+    def compare_metrics(
+        self,
+        results_df: pd.DataFrame,
+        datasets: List[str] = None,
+        folds: List[int] = None,
+        configs: List[str] = None,
+        baselines: List[str] = None,
+    ) -> pd.DataFrame:
         df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[
             ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
         ]
@@ -208,14 +233,37 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         if configs is not None:
             mask = mask & df_tr.index.get_level_values("framework").isin(configs)
         df_tr = df_tr[mask]
-        df = pd.concat([df_exp, df_tr], axis=0)
+
+        if self.task_metadata is not None:
+            df_tr = self._convert_time_infer_s_from_sample_to_batch(df_tr)
+
+        if self._zeroshot_context.df_baselines is not None:
+            df_baselines = self._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[
+                ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+            ]
+
+            mask = df_baselines.index.get_level_values("dataset").isin(datasets)
+            if folds is not None:
+                mask = mask & df_baselines.index.get_level_values("fold").isin(folds)
+            if baselines is not None:
+                mask = mask & df_baselines.index.get_level_values("framework").isin(baselines)
+            df_baselines = df_baselines[mask]
+
+            if self.task_metadata is not None:
+                df_baselines = self._convert_time_infer_s_from_sample_to_batch(df_baselines)
+        else:
+            if baselines:
+                raise AssertionError(f"Baselines specified but no baseline methods exist! (baselines={baselines})")
+            df_baselines = None
+
+        df = pd.concat([df_exp, df_tr, df_baselines], axis=0)
         df = df.sort_index()
 
         return df
 
-    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, task_metadata: pd.DataFrame, save_dir: str) -> EvaluatorOutput:
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str) -> EvaluatorOutput:
         results_df = results_df.reset_index()
-        evaluator = Evaluator(task_metadata=task_metadata)
+        evaluator = Evaluator(task_metadata=self.task_metadata)
         evaluator_output = evaluator.transform(results_df)
         output_path = f"{save_dir}/output"
         figure_savedir = f"{output_path}/figures"
