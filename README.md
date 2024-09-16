@@ -159,12 +159,12 @@ potential interesting future work directions:
 
 If you find this work useful for you research, please cite the following:
 ```
-@misc{tabrepo2023,
-      title={TabRepo: A Large Scale Repository of Tabular Model Evaluations and its AutoML Applications}, 
-      author={David Salinas and Nick Erickson},
-      year={2023},
-      eprint={2311.02971},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{
+  tabrepo,
+  title={TabRepo: A Large Scale Repository of Tabular Model Evaluations and its Auto{ML} Applications},
+  author={David Salinas and Nick Erickson},
+  booktitle={AutoML Conference 2024 (ABCD Track)},
+  year={2024},
+  url={https://openreview.net/forum?id=03V2bjfsFC}
 }
 ```
