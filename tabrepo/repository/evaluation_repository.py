@@ -240,6 +240,27 @@ class EvaluationRepository(SaveLoadMixin):
         df = df[mask]
 
         return df
+    
+    def compare_metrics(self, results_df: pd.DataFrame, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
+        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[
+            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+        ]
+
+       # Dropping task column in df_tr
+        df_tr = self._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[
+            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+        ]
+
+        mask = df_tr.index.get_level_values("dataset").isin(datasets)
+        if folds is not None:
+            mask = mask & df_tr.index.get_level_values("fold").isin(folds)
+        if configs is not None:
+            mask = mask & df_tr.index.get_level_values("framework").isin(configs)
+        df_tr = df_tr[mask]
+        df = pd.concat([df_exp, df_tr], axis=0)
+        df = df.sort_index()
+
+        return df
 
     def predict_test(self, dataset: str, fold: int, config: str, binary_as_multiclass: bool = False) -> np.ndarray:
         """
