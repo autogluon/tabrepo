@@ -218,14 +218,12 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         configs: List[str] = None,
         baselines: List[str] = None,
     ) -> pd.DataFrame:
-        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[
-            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
-        ]
+        columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+
+        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
 
        # Dropping task column in df_tr
-        df_tr = self._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[
-            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
-        ]
+        df_tr = self._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[columns]
 
         mask = df_tr.index.get_level_values("dataset").isin(datasets)
         if folds is not None:
@@ -238,9 +236,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             df_tr = self._convert_time_infer_s_from_sample_to_batch(df_tr)
 
         if self._zeroshot_context.df_baselines is not None:
-            df_baselines = self._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[
-                ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
-            ]
+            df_baselines = self._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[columns]
 
             mask = df_baselines.index.get_level_values("dataset").isin(datasets)
             if folds is not None:
@@ -439,6 +435,82 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     @classmethod
     def from_context(cls, version: str = None, prediction_format: str = "memmap"):
         return load_repository(version=version, prediction_format=prediction_format)
+
+    def config_hyperparameters(self, config: str, include_ag_args: bool = True) -> dict:
+        """
+        Returns config hyperparameters as defined in AutoGluon
+        """
+        return self._zeroshot_context.get_config_hyperparameters(config=config, include_ag_args=include_ag_args)["hyperparameters"]
+
+    def configs_hyperparameters(self, configs: list[str], include_ag_args: bool = True) -> dict[str, dict]:
+        """
+        Returns a dictionary mapping of config names to hyperparameters as defined in AutoGluon
+
+        Note that this is not the same as the `hyperparameters` argument to AutoGluon's `TabularPredictor.fit()`.
+        To get this, refer to `self.autogluon_hyperparameters_dict()`.
+        """
+        configs_hyperparameters = self._zeroshot_context.get_configs_hyperparameters(configs=configs, include_ag_args=include_ag_args)
+        configs_hyperparameters = {k: v["hyperparameters"] for k, v in configs_hyperparameters.items()}
+        return configs_hyperparameters
+
+    def config_type(self, config: str) -> str:
+        """
+        Returns the AutoGluon `hyperparameters` type string for a given config.
+
+        For example:
+            "LightGBM_c1_BAG_L1" -> "GBM"
+            "RandomForest_c1_BAG_L1" -> "RF"
+        """
+        return self.configs_type(configs=[config])[config]
+
+    def configs_type(self, configs: list[str] | None = None) -> dict[str, str]:
+        """
+        Returns the AutoGluon `hyperparameters` type strings for a given config list, returned as a dict of config -> type
+
+        For example:
+            "LightGBM_c1_BAG_L1" -> "GBM"
+            "RandomForest_c1_BAG_L1" -> "RF"
+        """
+        configs_type = self._zeroshot_context.configs_type
+        if configs is not None:
+            configs_type = {c: configs_type[c] for c in configs}
+        return configs_type
+
+    def autogluon_hyperparameters_dict(self, configs: list[str], ordered: bool = True, include_ag_args: bool = True) -> dict[str, list[dict]]:
+        """
+        Returns the AutoGluon hyperparameters dict to fit the given list of configs in AutoGluon.
+
+        The output `hyperparameters` would be passed to AutoGluon via:
+
+        hyperparameters = repo.autogluon_hyperparameters_dict(configs=configs)
+        predictor = TabularPredictor(...).fit(..., hyperparameters=hyperparameters)
+
+        Parameters
+        ----------
+        configs : list[str]
+            List of configs available in this repo (must be present in self.configs())
+        ordered : bool, default True
+            If True, will add a `priority` hyperparameter to each config so that AutoGluon fits them in the order specified in `configs`.
+        include_ag_args : bool, default True
+            If True, will include the `ag_args` hyperparameters for the configs. This determines the name suffix for the model.
+        """
+        configs_hyperparameters = self.configs_hyperparameters(configs=configs, include_ag_args=include_ag_args)
+        configs_type = self.configs_type(configs=configs)
+
+        ordered_priority = -1
+        hyperparameters = {}
+        for config in configs:
+            config_type = configs_type[config]
+            config_hyperparameters = copy.deepcopy(configs_hyperparameters[config])
+            if ordered:
+                if "ag_args" not in config_hyperparameters:
+                    config_hyperparameters["ag_args"] = {}
+                config_hyperparameters["ag_args"]["priority"] = ordered_priority
+                ordered_priority -= 1
+            if config_type not in hyperparameters:
+                hyperparameters[config_type] = []
+            hyperparameters[config_type].append(config_hyperparameters)
+        return hyperparameters
 
 
 def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
