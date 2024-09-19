@@ -63,7 +63,7 @@ def calc_error(
 
 
 def fit_custom_clean(X_train, y_train, X_test, y_test, problem_type: str = None, eval_metric: str = None, **kwargs):
-    label_cleaner = LabelCleaner.construct(problem_type=problem_type, y=y_train, y_uncleaned=y_train)
+    label_cleaner = LabelCleaner.construct(problem_type=problem_type, y=y_train)
     y_train_clean = label_cleaner.transform(y_train)
     y_test_clean = label_cleaner.transform(y_test)
 
