@@ -87,12 +87,26 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         Method to force the repository to a dense representation inplace.
 
+        The following operations will be applied in order:
+        1. subset to only datasets that contain at least one result for all folds (self.n_folds())
+        2. subset to only configs that have results in all tasks (configs that have results in every fold of every dataset)
+
         This will ensure that all datasets contain the same folds, and all tasks contain the same models.
         Calling this method when already in a dense representation will result in no changes.
 
-        :param inplace: If True, will perform logic inplace.
-        :param verbose: Whether to log verbose details about the force to dense operation.
-        :return: Return dense repo if inplace=False or self after inplace updates in this call.
+        If you have different folds for different datasets or different configs for different datasets,
+        this may result in an empty repository. Consider first calling `subset()` in this scenario.
+
+        Parameters
+        ----------
+        inplace: bool, default = False
+            If True, will perform logic inplace.
+        verbose: bool, default = True
+            Whether to log verbose details about the force to dense operation.
+
+        Returns
+        -------
+        Return dense repo if inplace=False or self after inplace updates in this call.
         """
         raise NotImplementedError
 
@@ -341,27 +355,35 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
     @property
     def folds(self) -> List[int]:
+        """Folds with any result"""
         return sorted(self._zeroshot_context.folds)
 
     def n_folds(self) -> int:
+        """Number of folds with any result"""
         return len(self.folds)
 
     def n_datasets(self) -> int:
+        """Number of datasets with any result"""
         return len(self.datasets())
 
     def n_configs(self) -> int:
+        """Number of configs with any result"""
         return len(self.configs())
 
     def task_name_from_tid(self, tid: int, fold: int) -> str:
+        """Returns the task associated with a (tid, fold)"""
         return self._zeroshot_context.task_name_from_tid(tid=tid, fold=fold)
 
     def task_name(self, dataset: str, fold: int) -> str:
+        """Returns the task associated with a (dataset, fold)"""
         return self.task_name_from_tid(tid=self.dataset_to_tid(dataset), fold=fold)
 
     def task_to_dataset(self, task: str) -> str:
+        """Returns the dataset associated with a task"""
         return self._zeroshot_context.task_to_dataset_dict[task]
 
     def task_to_fold(self, task: str) -> int:
+        """Returns the fold associated with a task"""
         return self._zeroshot_context.task_to_fold(task=task)
 
     def _construct_single_best_config_scorer(self, **kwargs) -> SingleBestConfigScorer:

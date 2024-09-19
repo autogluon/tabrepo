@@ -7,8 +7,6 @@ from tabrepo.repository.evaluation_repository_collection import EvaluationReposi
 from .test_repository import verify_equivalent_repository
 
 
-# TODO: Test more functionality
-# TODO: Test different datasets, different folds, etc.
 def test_repository_collection():
     repo = load_repo_artificial()
 
@@ -31,8 +29,8 @@ def test_repository_collection():
 
     for dataset in datasets:
         for fold in folds:
-            assert repo_collection.goes_where(dataset=dataset, fold=fold, config="NeuralNetFastAI_r2") == 0
-            assert repo_collection.goes_where(dataset=dataset, fold=fold, config="NeuralNetFastAI_r1") == 1            
+            assert repo_collection.get_result_to_repo_idx(dataset=dataset, fold=fold, config="NeuralNetFastAI_r2") == 0
+            assert repo_collection.get_result_to_repo_idx(dataset=dataset, fold=fold, config="NeuralNetFastAI_r1") == 1
 
             predict_test = repo.predict_test_multi(dataset=dataset, fold=fold, configs=configs)
             predict_test_collection = repo_collection.predict_test_multi(dataset=dataset, fold=fold, configs=configs)
@@ -48,8 +46,8 @@ def test_repository_collection():
     verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
     for config in configs:
         for fold in folds:
-            assert repo_collection.goes_where(dataset="abalone", fold=fold, config=config) == 0
-            assert repo_collection.goes_where(dataset="ada", fold=fold, config=config) == 1
+            assert repo_collection.get_result_to_repo_idx(dataset="abalone", fold=fold, config=config) == 0
+            assert repo_collection.get_result_to_repo_idx(dataset="ada", fold=fold, config=config) == 1
 
     repo_1 = repo.subset(folds=[2, 0])
     repo_2 = repo.subset(folds=[1])
@@ -57,9 +55,9 @@ def test_repository_collection():
     verify_equivalent_repository(repo1=repo, repo2=repo_collection, verify_ensemble=True)
     for config in configs:
         for dataset in datasets:
-            assert repo_collection.goes_where(dataset=dataset, fold=0, config=config) == 0
-            assert repo_collection.goes_where(dataset=dataset, fold=1, config=config) == 1
-            assert repo_collection.goes_where(dataset=dataset, fold=2, config=config) == 0
+            assert repo_collection.get_result_to_repo_idx(dataset=dataset, fold=0, config=config) == 0
+            assert repo_collection.get_result_to_repo_idx(dataset=dataset, fold=1, config=config) == 1
+            assert repo_collection.get_result_to_repo_idx(dataset=dataset, fold=2, config=config) == 0
 
 
 def test_repository_collection_overlap_raise():

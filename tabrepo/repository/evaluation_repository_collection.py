@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections import defaultdict
-from typing import List, Literal, Tuple
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -20,8 +20,35 @@ from ..simulation.simulation_context import ZeroshotSimulatorContext
 # TODO: Improve error message for overlap
 class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     """
-    Simple Repository class that implements core functionality related to
+    Repository collection class that implements core functionality related to
     fetching model predictions, available datasets, folds, etc.
+
+    This class allows to merge a list of other repositories together into a single object.
+    The merge operation is low-overhead and does not create any expensive objects.
+
+    For example:
+        repo1 has models A, B on datasets F, G
+        repo2 has models B. C on datasets H
+    Creating a repo collection with `repos=[repo1, repo2]` would then have access to:
+        model A on datasets F, G
+        model B on datasets F, G, H
+        model C on datasets H
+
+    Parameters
+    ----------
+    repos: list[EvaluationRepository | "EvaluationRepositoryCollection"]
+        List of repos to merge.
+    config_fallback: str, default None
+        If specified, when a result is requested for a config on a task that has no result,
+        instead of crashing, it will use the result from `config_fallback`.
+        Recommended to use configs such as a constant predictor or a default random forest (cheap, robust, weak),
+        otherwise weak models that fail on many tasks will actually benefit
+        from crashing in terms of their rank during evaluation, which isn't ideal.
+    overlap: Literal["raise", "first", "last"], default "raise"
+        Determines the logic for handling (dataset, fold, config) overlaps in results in the specified `repos`.
+        If "raise", will raise an exception if any overlap exists.
+        If "first", will use the result from the repo earlier in the `repos` list.
+        If "last", will use the result from the repo later in the `repos` list.
     """
     def __init__(
         self,
@@ -34,26 +61,38 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 
         zeroshot_context = merge_zeroshot([repo._zeroshot_context for repo in self.repos])
         self._ground_truth: GroundTruth = merge_ground_truth([repo._ground_truth for repo in self.repos])
-        self._mapping = self._update_mapping()
+        self._mapping = self._compute_repo_mapping()
         super().__init__(zeroshot_context=zeroshot_context, config_fallback=config_fallback)
 
-    def _update_mapping(self):
-        combinations = self._generate_dataset_fold_config_combinations(repos=self.repos)
-        return self._combination_mapping_to_repo_index(combinations=combinations, overlap=self.overlap)
+    def _compute_repo_mapping(self) -> dict[tuple[str, int, str], int]:
+        repo_result_combinations = self._generate_dataset_fold_config_combinations(repos=self.repos)
+        return self._combination_mapping_to_repo_index(repo_result_combinations=repo_result_combinations, overlap=self.overlap)
 
-    def goes_where(self, dataset: str, fold: int, config: str) -> int | None:
+    def get_result_to_repo_idx(self, dataset: str, fold: int, config: str) -> int | None:
         """
-        Returns the repo idx containing the specified config in a given dataset fold. Returns None if no such repo exists.
+        Returns the repo idx in `self.repos` containing the specified (dataset, fold, config) result.
+        Returns None if no such repo exists.
         """
         return self._mapping.get((dataset, fold, config), None)
 
-    def predict_test_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
+    def get_result_to_repo(self, dataset: str, fold: int, config: str) -> EvaluationRepository | "EvaluationRepositoryCollection" | None:
+        """
+        Returns the repo in `self.repos` containing the specified (dataset, fold, config) result.
+        Returns None if no such repo exists.
+        """
+        repo_idx = self._mapping.get((dataset, fold, config), None)
+        if repo_idx is None:
+            return repo_idx
+        else:
+            return self.repos[repo_idx]
+
+    def predict_test_multi(self, dataset: str, fold: int, configs: list[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         return self._predict_multi(predict_func="predict_test_multi", dataset=dataset, fold=fold, configs=configs, binary_as_multiclass=binary_as_multiclass)
 
-    def predict_val_multi(self, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
+    def predict_val_multi(self, dataset: str, fold: int, configs: list[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         return self._predict_multi(predict_func="predict_val_multi", dataset=dataset, fold=fold, configs=configs, binary_as_multiclass=binary_as_multiclass)
 
-    def _predict_multi(self, predict_func: str, dataset: str, fold: int, configs: List[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
+    def _predict_multi(self, predict_func: str, dataset: str, fold: int, configs: list[str] = None, binary_as_multiclass: bool = False) -> np.ndarray:
         if configs is None:
             configs = self.configs()
 
@@ -62,12 +101,12 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
         predict_map = dict()
         config_idx_lst = []
         for i, config in enumerate(configs):
-            repo_idx = self.goes_where(dataset=dataset, fold=fold, config=config)
+            repo_idx = self.get_result_to_repo_idx(dataset=dataset, fold=fold, config=config)
             if repo_idx is None:
                 if self._config_fallback is None:
                     raise ValueError(f"The following combination is not present in this repository: (dataset='{dataset}', fold={fold}, config='{config}')")
                 # get fallback
-                repo_idx = self.goes_where(dataset=dataset, fold=fold, config=self._config_fallback)
+                repo_idx = self.get_result_to_repo_idx(dataset=dataset, fold=fold, config=self._config_fallback)
                 if repo_idx is None:
                     raise ValueError(
                         f"The following combination is not present in this repository: (dataset='{dataset}', fold={fold}, config='{config}')"
@@ -83,6 +122,12 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
             f = getattr(self.repos[repo_idx], predict_func)
             predict_map[repo_idx] = f(dataset=dataset, fold=fold, configs=config_lst, binary_as_multiclass=binary_as_multiclass)
 
+        # predict_map[repo_idx] has shape
+        #  (n_configs, n_rows, n_classes) if multiclass classification
+        #  (n_configs, n_rows, n_classes) if binary classification and binary_as_multiclass=True
+        #  (n_configs, n_rows) otherwise
+        # We ignore the first dimension because we need all configs in the final result,
+        # and each repo could only have a subset of the configs.
         shape = predict_map[repo_idx].shape[1:]
         predict_multi = np.zeros(shape=(len(configs),) + shape, dtype=predict_map[repo_idx].dtype)
 
@@ -91,17 +136,30 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 
         return predict_multi
 
-    # TODO: Make a better docstring, confusing what this `exactly` does
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
         """
         Method to force the repository to a dense representation inplace.
 
+        The following operations will be applied in order:
+        1. subset to only datasets that contain at least one result for all folds (self.n_folds())
+        2. subset to only configs that have results in all tasks (configs that have results in every fold of every dataset)
+
         This will ensure that all datasets contain the same folds, and all tasks contain the same models.
         Calling this method when already in a dense representation will result in no changes.
 
-        :param inplace: If True, will perform logic inplace.
-        :param verbose: Whether to log verbose details about the force to dense operation.
-        :return: Return dense repo if inplace=False or self after inplace updates in this call.
+        If you have different folds for different datasets or different configs for different datasets,
+        this may result in an empty repository. Consider first calling `subset()` in this scenario.
+
+        Parameters
+        ----------
+        inplace: bool, default = False
+            If True, will perform logic inplace.
+        verbose: bool, default = True
+            Whether to log verbose details about the force to dense operation.
+
+        Returns
+        -------
+        Return dense repo if inplace=False or self after inplace updates in this call.
         """
         if not inplace:
             return copy.deepcopy(self).force_to_dense(inplace=True, verbose=verbose)
@@ -133,7 +191,7 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
                 force_to_dense=False,
             )
 
-        self._mapping = self._update_mapping()
+        self._mapping = self._compute_repo_mapping()
         self._ground_truth = prune_zeroshot_gt(
             zeroshot_pred_proba=None,
             zeroshot_gt=self._ground_truth,
@@ -143,7 +201,7 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
         return self
 
     @staticmethod
-    def _generate_dataset_fold_config_combinations(repos: list[EvaluationRepository]) -> list[list[Tuple[str, int, str]]]:
+    def _generate_dataset_fold_config_combinations(repos: list[EvaluationRepository]) -> list[list[tuple[str, int, str]]]:
         """
         Returns the combinations (dataset, fold, config) for each repository
         """
@@ -151,28 +209,29 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 
     @staticmethod
     def _combination_mapping_to_repo_index(
-        combinations: list[list[Tuple[str, int, str]]],
+        repo_result_combinations: list[list[tuple[str, int, str]]],
         overlap: Literal["raise", "first", "last"] = "raise",
-    ) -> dict[Tuple[str, int, str], int]:
+    ) -> dict[tuple[str, int, str], int]:
         """
         Returns a dictionary mapping each (dataset, fold, config) to the repository index
         """
         if overlap == "first":
-            len_combinations = len(combinations)
+            len_combinations = len(repo_result_combinations)
+            # traverse the repositories in reverse order to match `overlap` order
             mapping = {
                 (dataset, fold, config): repo_index
                 for repo_index in range(len_combinations-1, -1, -1)
-                for (dataset, fold, config) in combinations[repo_index]
+                for (dataset, fold, config) in repo_result_combinations[repo_index]
             }
         elif overlap in ["last", "raise"]:
             mapping = {
                 (dataset, fold, config): repo_index
-                for repo_index, repo_combinations in enumerate(combinations)
+                for repo_index, repo_combinations in enumerate(repo_result_combinations)
                 for (dataset, fold, config) in repo_combinations
             }
             if overlap == "raise":
                 len_combinations_total = 0
-                for c in combinations:
+                for c in repo_result_combinations:
                     len_combinations_total += len(c)
                 if len_combinations_total != len(mapping):
                     # TODO: Improve error message
