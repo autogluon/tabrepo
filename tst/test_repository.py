@@ -5,11 +5,16 @@ from typing import Callable
 import numpy as np
 import pytest
 
+from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
 from tabrepo.contexts.context_artificial import load_repo_artificial
-from tabrepo.repository import EvaluationRepository
 
 
-def verify_equivalent_repository(repo1: EvaluationRepository, repo2: EvaluationRepository, verify_ensemble: bool = False, backend: str = "native"):
+def verify_equivalent_repository(
+    repo1: EvaluationRepository | EvaluationRepositoryCollection,
+    repo2: EvaluationRepository | EvaluationRepositoryCollection,
+    verify_ensemble: bool = False,
+    backend: str = "native",
+):
     assert repo1.folds == repo2.folds
     assert repo1.tids() == repo2.tids()
     assert repo1.configs() == repo2.configs()

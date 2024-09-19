@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
+from tabrepo import EvaluationRepositoryCollection
 from tabrepo.contexts.context_artificial import load_repo_artificial
-from tabrepo.repository.evaluation_repository_collection import EvaluationRepositoryCollection
 
 from .test_repository import verify_equivalent_repository
 
