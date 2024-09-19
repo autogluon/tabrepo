@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 
-from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
+if TYPE_CHECKING:
+    from ..repository.abstract_repository import AbstractRepository
 
 
 class ConfigurationListScorer:
@@ -8,7 +9,7 @@ class ConfigurationListScorer:
         self.tasks: List[str] = tasks
 
     @classmethod
-    def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
+    def from_repo(cls, repo: "AbstractRepository", **kwargs):
         raise NotImplementedError()
 
     def score(self, configs: List[str]) -> float:

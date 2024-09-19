@@ -5,24 +5,37 @@ from typing import Callable
 import numpy as np
 import pytest
 
+from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
 from tabrepo.contexts.context_artificial import load_repo_artificial
-from tabrepo.repository import EvaluationRepository
 
 
-def verify_equivalent_repository(repo1: EvaluationRepository, repo2: EvaluationRepository):
+def verify_equivalent_repository(
+    repo1: EvaluationRepository | EvaluationRepositoryCollection,
+    repo2: EvaluationRepository | EvaluationRepositoryCollection,
+    verify_ensemble: bool = False,
+    backend: str = "native",
+):
     assert repo1.folds == repo2.folds
     assert repo1.tids() == repo2.tids()
     assert repo1.configs() == repo2.configs()
     assert repo1.datasets() == repo2.datasets()
+    assert sorted(repo1.dataset_fold_config_pairs()) == sorted(repo2.dataset_fold_config_pairs())
     for dataset in repo1.datasets():
-        for c in repo1.configs():
-            for f in repo1.folds:
+        for f in repo1.folds:
+            for c in repo1.configs():
                 repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
                 repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
                 repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
                 repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
                 assert np.array_equal(repo1_test, repo2_test)
                 assert np.array_equal(repo1_val, repo2_val)
+            assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
+            assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
+    if verify_ensemble:
+        df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensemble(datasets=repo1.datasets(), ensemble_size=10, backend=backend)
+        df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensemble(datasets=repo2.datasets(), ensemble_size=10, backend=backend)
+        assert df_out_1.equals(df_out_2)
+        assert df_ensemble_weights_1.equals(df_ensemble_weights_2)
 
 
 def test_repository():
@@ -103,27 +116,27 @@ def test_repository_force_to_dense():
     repo1 = load_repo_artificial()
 
     assert repo1.folds == [0, 1, 2]
-    verify_equivalent_repository(repo1, repo1)
+    verify_equivalent_repository(repo1, repo1, verify_ensemble=True)
 
     repo2 = repo1.force_to_dense()  # no-op because already dense
 
-    verify_equivalent_repository(repo1, repo2)
+    verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
 
     repo2 = repo1.subset()  # no-op because already dense
 
-    verify_equivalent_repository(repo1, repo2)
+    verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
 
     repo2._zeroshot_context.subset_folds([1, 2])
     assert repo2.folds == [1, 2]
     with pytest.raises(AssertionError):
-        verify_equivalent_repository(repo1, repo2)
+        verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
 
     repo2 = repo2.force_to_dense()
     with pytest.raises(AssertionError):
-        verify_equivalent_repository(repo1, repo2)
+        verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
 
     repo3 = repo1.subset(folds=[1, 2])
-    verify_equivalent_repository(repo2, repo3)
+    verify_equivalent_repository(repo2, repo3, verify_ensemble=True)
 
 
 def test_repository_predict_binary_as_multiclass():
@@ -159,12 +172,12 @@ def test_repository_subset():
     assert repo_subset.datasets() == ["abalone"]
     assert repo.datasets() == ["abalone", "ada"]
 
-    verify_equivalent_repository(repo_og, repo)
+    verify_equivalent_repository(repo_og, repo, verify_ensemble=True)
 
     repo_subset_2 = repo.subset(datasets=["abalone"], inplace=True)
 
-    verify_equivalent_repository(repo_subset, repo_subset_2)
-    verify_equivalent_repository(repo, repo_subset_2)
+    verify_equivalent_repository(repo_subset, repo_subset_2, verify_ensemble=True)
+    verify_equivalent_repository(repo, repo_subset_2, verify_ensemble=True)
 
     assert repo.datasets() == ["abalone"]
     assert repo_og.datasets() == ["abalone", "ada"]

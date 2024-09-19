@@ -1,9 +1,11 @@
-from typing import List
+from typing import List, TYPE_CHECKING
 
 import pandas as pd
 
 from .configuration_list_scorer import ConfigurationListScorer
-from .simulation_context import ZeroshotSimulatorContext
+
+if TYPE_CHECKING:
+    from ..repository.abstract_repository import AbstractRepository
 
 
 class SingleBestConfigScorer(ConfigurationListScorer):
@@ -25,7 +27,7 @@ class SingleBestConfigScorer(ConfigurationListScorer):
         :param model_col:
         :param task_col:
         """
-        super(SingleBestConfigScorer, self).__init__(tasks=tasks)
+        super().__init__(tasks=tasks)
 
         assert all(col in df_results for col in [score_col, score_val_col, model_col, task_col])
         self.score_col = score_col
@@ -40,9 +42,9 @@ class SingleBestConfigScorer(ConfigurationListScorer):
         self.df_pivot_val = self.df_results.pivot_table(index=self.model_col, columns=self.task_col, values=self.score_val_col)
 
     @classmethod
-    def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
+    def from_repo(cls, repo: "AbstractRepository", **kwargs):
         return cls(
-            df_results=zeroshot_simulator_context.df_configs_ranked,
+            df_results=repo._zeroshot_context.df_configs_ranked,
             **kwargs,
         )
 

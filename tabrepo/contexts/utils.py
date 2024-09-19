@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from typing import List, Tuple
 
-from ..simulation.dense_utils import force_to_dense
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..predictions.tabular_predictions import TabularModelPredictions
@@ -53,10 +54,13 @@ def load_zeroshot_input(path_pred_proba: str,
     return zeroshot_pred_proba, zeroshot_gt, zsc
 
 
-def prune_zeroshot_gt(dataset_to_tid_dict, zeroshot_pred_proba: TabularModelPredictions, zeroshot_gt: GroundTruth, verbose: bool = True) -> GroundTruth:
+def prune_zeroshot_gt(dataset_to_tid_dict, zeroshot_pred_proba: TabularModelPredictions | None, zeroshot_gt: GroundTruth, verbose: bool = True) -> GroundTruth:
 
     num_datasets_start = len(zeroshot_gt.datasets)
-    dataset_pred = set(dataset for dataset in zeroshot_pred_proba.datasets if dataset in dataset_to_tid_dict)
+    if zeroshot_pred_proba is not None:
+        dataset_pred = set(dataset for dataset in zeroshot_pred_proba.datasets if dataset in dataset_to_tid_dict)
+    else:
+        dataset_pred = set(dataset_to_tid_dict.keys())
     for dataset in zeroshot_gt.datasets:
         if dataset not in dataset_pred:
             zeroshot_gt.remove_dataset(dataset=dataset)

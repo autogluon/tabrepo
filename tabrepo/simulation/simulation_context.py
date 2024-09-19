@@ -197,6 +197,7 @@ class ZeroshotSimulatorContext:
             unique_datasets = sorted(list(datasets_with_all_folds.index))
             unique_datasets_set = set(unique_datasets)
             unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["dataset"].isin(unique_datasets_set)]
+            unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["fold"].isin(folds)]
             df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
             if df_baselines is not None:
                 df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
@@ -252,6 +253,15 @@ class ZeroshotSimulatorContext:
             unique_datasets,
             rank_scorer,
         )
+
+    def df_dataset_folds(self) -> pd.DataFrame:
+        df_dataset_folds = self.df_configs[["dataset", "fold"]].drop_duplicates().reset_index(drop=True)
+        return df_dataset_folds
+
+    def dataset_folds(self) -> list[tuple]:
+        dataset_folds = self.df_dataset_folds().values.tolist()
+        dataset_folds = [tuple(dataset_fold) for dataset_fold in dataset_folds]
+        return dataset_folds
 
     @staticmethod
     def _validate_df(df: pd.DataFrame, name: str, required_columns: List[str]):

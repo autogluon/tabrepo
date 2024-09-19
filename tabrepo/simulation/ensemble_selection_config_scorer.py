@@ -1,23 +1,21 @@
 from __future__ import annotations
 
 import copy
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union, TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 import ray
 
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSelection
 from .configuration_list_scorer import ConfigurationListScorer
-from .ground_truth import GroundTruth
 
-from .simulation_context import ZeroshotSimulatorContext
-from .simulation_context import TabularModelPredictions
 from ..utils.rank_utils import RankScorer
 from ..utils import task_to_tid_fold
 from ..metrics import _fast_log_loss, _fast_roc_auc
+
+if TYPE_CHECKING:
+    from ..repository.evaluation_repository import EvaluationRepository
 
 
 @ray.remote
@@ -28,10 +26,8 @@ def compute_error_ray(config_scorer, configs: List[str], task: str) -> (float, d
 
 class EnsembleScorer:
     def __init__(self,
-                 zeroshot_pp: TabularModelPredictions,
-                 zeroshot_gt: GroundTruth,
+                 repo: "EvaluationRepository",
                  task_metrics_metadata,
-                 zeroshot_context: ZeroshotSimulatorContext = None,
                  ensemble_method: callable = EnsembleSelection,
                  ensemble_method_kwargs: dict = None,
                  proxy_fit_metric_map: dict = None,
@@ -44,11 +40,9 @@ class EnsembleScorer:
         ensemble_method_kwargs = copy.deepcopy(ensemble_method_kwargs)
         if "ensemble_size" not in ensemble_method_kwargs:
             ensemble_method_kwargs["ensemble_size"] = 100
+        self.repo = repo
         self.ensemble_method: callable = ensemble_method
         self.ensemble_method_kwargs = ensemble_method_kwargs
-        self.zeroshot_pp: TabularModelPredictions = zeroshot_pp
-        self.zeroshot_gt = zeroshot_gt
-        self.zeroshot_context = zeroshot_context
         self.task_metrics_metadata = task_metrics_metadata
         self.proxy_fit_metric_map = proxy_fit_metric_map
         self.use_fast_metrics = use_fast_metrics
@@ -77,8 +71,8 @@ class EnsembleScorer:
         return eval_metric
 
     def get_preds_from_models(self, dataset: str, fold: int, models: List[str]):
-        pred_val = self.zeroshot_pp.predict_val(dataset=dataset, fold=fold, models=models)
-        pred_test = self.zeroshot_pp.predict_test(dataset=dataset, fold=fold, models=models)
+        pred_val = self.repo.predict_val_multi(dataset=dataset, fold=fold, configs=models)
+        pred_test = self.repo.predict_test_multi(dataset=dataset, fold=fold, configs=models)
         return pred_val, pred_test
 
     def filter_models(self, dataset: str, fold: int, models: List[str]) -> List[str]:
@@ -93,8 +87,8 @@ class EnsembleScorer:
         metric_name = task_metadata["metric"]
         problem_type = task_metadata["problem_type"]
 
-        y_val = self.zeroshot_gt.labels_val(dataset=dataset, fold=fold)
-        y_test = self.zeroshot_gt.labels_test(dataset=dataset, fold=fold)
+        y_val = self.repo.labels_val(dataset=dataset, fold=fold)
+        y_test = self.repo.labels_test(dataset=dataset, fold=fold)
 
         # If filtering models, need to keep track of original model order to return ensemble weights list
         models_filtered = self.filter_models(dataset=dataset, fold=fold, models=models)
@@ -192,9 +186,9 @@ class EnsembleScorerMaxModels(EnsembleScorer):
         If specified, will limit ensemble candidates of a given model type to the top `max_models_per_type` highest validation score models.
         If "auto", scales dynamically with the number of rows in the dataset.
     """
-    def __init__(self, zeroshot_context: ZeroshotSimulatorContext, max_models: int = None, max_models_per_type: int | str = None, **kwargs):
-        super().__init__(zeroshot_context=zeroshot_context, **kwargs)
-        assert self.zeroshot_context is not None
+    def __init__(self, repo: "EvaluationRepository", max_models: int = None, max_models_per_type: int | str = None, **kwargs):
+        super().__init__(repo=repo, **kwargs)
+        assert self.repo is not None
         if max_models is not None:
             assert max_models >= 0
         if max_models_per_type is not None:
@@ -214,7 +208,7 @@ class EnsembleScorerMaxModels(EnsembleScorer):
                 max_models_per_type = self._get_max_models_per_type_auto(dataset=dataset)
             else:
                 max_models_per_type = self.max_models_per_type
-            models = self.zeroshot_context.get_top_configs(
+            models = self.repo._zeroshot_context.get_top_configs(
                 dataset=dataset,
                 fold=fold,
                 configs=models,
@@ -227,7 +221,9 @@ class EnsembleScorerMaxModels(EnsembleScorer):
         """
         Logic to mimic AutoGluon's default setting for `max_models_per_type`.
         """
-        num_rows = int(self.zeroshot_context.df_metadata[self.zeroshot_context.df_metadata["dataset"] == dataset].iloc[0]["NumberOfInstances"] * 9 / 10)
+        # TODO: Make it easier to get this info without accessing private variables in repo
+        df_metadata = self.repo._zeroshot_context.df_metadata
+        num_rows = int(df_metadata[df_metadata["dataset"] == dataset].iloc[0]["NumberOfInstances"] * 9 / 10)
         if num_rows < 1000:
             max_models_per_type = 1
         elif num_rows < 5000:
@@ -259,10 +255,8 @@ class EnsembleScorerMaxModels(EnsembleScorer):
 class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def __init__(self,
                  tasks: List[str],
-                 zeroshot_gt: GroundTruth,
-                 zeroshot_pred_proba: TabularModelPredictions,
+                 repo: "EvaluationRepository",
                  ranker: RankScorer,
-                 zeroshot_simulator_context: ZeroshotSimulatorContext,
                  tid_to_dataset_name_dict: Dict[int, str],
                  task_metrics_metadata: Dict[int, Dict[str, str]],
                  ensemble_size=100,
@@ -277,16 +271,10 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         A scorer object to evaluate configs via simulating ensemble selection.
 
         :param tasks: The list of tasks to consider for scoring.
-        :param zeroshot_gt: The ground truth information and task metadata for all tasks.
-        :param zeroshot_pred_proba: The TabularModelPredictions object that contains the predictions of all configs on all tasks.
         :param ranker: The ranking object used to compute scores on each task.
-        :param zeroshot_simulator_context: The ZSC used to obtain metadata for advanced `ensemble_cls`.
-        :param dataset_name_to_tid_dict: Mapping of dataset names to corresponding TIDs. TODO: Remove?
-        :param dataset_name_to_fold_dict: Mapping of dataset names to available folds. TODO: Remove?
         :param task_metrics_metadata: dictionary containing metric information and problem type for all tasks
         :param ensemble_size: The maximum ensemble selection iterations when fitting the ensemble. TODO: Remove?
         :param ensemble_selection_kwargs: kwargs to pass to the init of the ensemble selection model.
-        :param max_fold: The maximum number of folds to consider for each dataset. TODO: Remove?
         :param backend: Options include ["native", "ray"].
         :param use_fast_metrics: If True, will leverage optimized eval metrics to speed up config scoring.
         :param proxy_fit_metric_map:
@@ -299,14 +287,9 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         :param: ensemble_kwargs: The kwargs to pass to the init call of `ensemble_cls`.
         """
         super().__init__(tasks=tasks)
-        if zeroshot_gt is None:
-            raise ValueError(f'zeroshot_gt cannot be None!')
-        if zeroshot_pred_proba is None:
-            raise ValueError(f'zeroshot_pred_proba cannot be None!')
         if ensemble_kwargs is None:
             ensemble_kwargs = {}
-        self.zeroshot_gt = zeroshot_gt
-        self.zeroshot_pred_proba = zeroshot_pred_proba
+        self.repo = repo
         self.ranker = ranker
         self.tid_to_dataset_name_dict = tid_to_dataset_name_dict
         self.ensemble_size = ensemble_size
@@ -327,18 +310,17 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         ensemble_selection_kwargs["ensemble_size"] = ensemble_size
 
         self.ensemble_scorer = ensemble_cls(
-            zeroshot_pp=zeroshot_pred_proba,
-            zeroshot_gt=zeroshot_gt,
+            repo=repo,
             task_metrics_metadata=task_metrics_metadata,
             ensemble_method_kwargs=ensemble_selection_kwargs,
             proxy_fit_metric_map=proxy_fit_metric_map,
             use_fast_metrics=use_fast_metrics,
-            zeroshot_context=zeroshot_simulator_context,
             **ensemble_kwargs,
         )
 
     @classmethod
-    def from_zsc(cls, zeroshot_simulator_context: ZeroshotSimulatorContext, **kwargs):
+    def from_repo(cls, repo: "EvaluationRepository", **kwargs):
+        zeroshot_simulator_context = repo._zeroshot_context
         if 'tasks' not in kwargs:
             kwargs['tasks'] = zeroshot_simulator_context.get_tasks()
 
@@ -350,10 +332,10 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         }
 
         return cls(
+            repo=repo,
             ranker=zeroshot_simulator_context.rank_scorer,
             tid_to_dataset_name_dict=zeroshot_simulator_context.tid_to_dataset_dict,
             task_metrics_metadata=task_metrics_metadata,
-            zeroshot_simulator_context=zeroshot_simulator_context,
             **kwargs,
         )
 
@@ -424,8 +406,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
     def subset(self, tasks):
         return self.__class__(
             tasks=tasks,
-            zeroshot_gt=self.zeroshot_gt,
-            zeroshot_pred_proba=self.zeroshot_pred_proba,
+            repo=self.repo,
             ranker=self.ranker,
             ensemble_size=self.ensemble_size,
             ensemble_selection_kwargs=self.ensemble_selection_kwargs,
