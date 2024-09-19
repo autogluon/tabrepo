@@ -8,6 +8,9 @@ from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, Ensemb
 
 
 class EnsembleMixin:
+    # TODO: rank=False by default, include way more information like fit time and infer time?
+    # TODO: Add time_train_s
+    # TODO: Add infer_limit
     def evaluate_ensemble(
         self,
         datasets: list[str],

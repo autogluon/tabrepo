@@ -540,12 +540,29 @@ class ZeroshotSimulatorContext:
                     res = res.intersection(methods)
         return sorted(list(res))
 
-    def get_config_hyperparameters(self, config: str) -> dict:
+    def get_configs_hyperparameters(self, configs: List[str], include_ag_args: bool = True) -> dict:
+        if self.configs_hyperparameters is None:
+            return {}
+        # FIXME: (TabRepo v2) Hardcoding _BAG name, avoid this
+        configs_hyperparameters = {
+            c: self.configs_hyperparameters[c.rsplit("_BAG_", 1)[0]] for c in configs
+        }
+        if not include_ag_args:
+            configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
+            for v in configs_hyperparameters.values():
+                v["hyperparameters"].pop("ag_args", None)
+        return configs_hyperparameters
+
+    def get_config_hyperparameters(self, config: str, include_ag_args: bool = True) -> dict:
         if self.configs_hyperparameters is None:
             return {}
         # FIXME: (TabRepo v2) Hardcoding _BAG name, avoid this
         config_base = config.rsplit("_BAG_", 1)[0]
-        return self.configs_hyperparameters[config_base]
+        config_hyperparameters = self.configs_hyperparameters[config_base]
+        if not include_ag_args:
+            config_hyperparameters = copy.deepcopy(config_hyperparameters)
+            config_hyperparameters["hyperparameters"].pop("ag_args", None)
+        return config_hyperparameters
 
     @property
     def configs_type(self) -> dict[str, str | None]:
