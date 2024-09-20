@@ -183,6 +183,65 @@ def test_repository_subset():
     assert repo_og.datasets() == ["abalone", "ada"]
 
 
+def test_repository_configs_hyperparameters():
+    repo1 = load_repo_artificial()
+    repo2 = load_repo_artificial(include_hyperparameters=True)
+    verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
+
+    configs = ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+
+    configs_type_1 = repo1.configs_type()
+    for c in configs:
+        assert repo1.config_type(c) is None
+        assert configs_type_1[c] is None
+
+    configs_hyperparameters_1 = repo1.configs_hyperparameters()
+    for c in configs:
+        assert repo1.config_hyperparameters(c) is None
+        assert configs_hyperparameters_1[c] is None
+    with pytest.raises(AssertionError):
+        repo1.autogluon_hyperparameters_dict(configs=configs)
+
+    configs_type_2 = repo2.configs_type()
+    for c in configs:
+        assert repo2.config_type(c) == "FASTAI"
+        assert configs_type_2[c] == "FASTAI"
+
+    configs_hyperparameters_2 = repo2.configs_hyperparameters()
+    assert repo2.config_hyperparameters("NeuralNetFastAI_r1") == {"foo": 10, "bar": "hello"}
+    assert configs_hyperparameters_2["NeuralNetFastAI_r1"] == {"foo": 10, "bar": "hello"}
+    assert repo2.config_hyperparameters("NeuralNetFastAI_r2") == {"foo": 15, "x": "y"}
+    assert configs_hyperparameters_2["NeuralNetFastAI_r2"] == {"foo": 15, "x": "y"}
+
+    autogluon_hyperparameters_dict = repo2.autogluon_hyperparameters_dict(configs=configs)
+    assert autogluon_hyperparameters_dict == {'FASTAI': [
+        {'ag_args': {'priority': -1}, 'bar': 'hello', 'foo': 10},
+        {'ag_args': {'priority': -2}, 'foo': 15, 'x': 'y'}
+    ]}
+
+    # reverse order
+    autogluon_hyperparameters_dict = repo2.autogluon_hyperparameters_dict(configs=['NeuralNetFastAI_r2', 'NeuralNetFastAI_r1'])
+    assert autogluon_hyperparameters_dict == {'FASTAI': [
+        {'ag_args': {'priority': -1}, 'foo': 15, 'x': 'y'},
+        {'ag_args': {'priority': -2}, 'bar': 'hello', 'foo': 10}
+    ]}
+
+    # no priority
+    autogluon_hyperparameters_dict = repo2.autogluon_hyperparameters_dict(configs=configs, ordered=False)
+    assert autogluon_hyperparameters_dict == {'FASTAI': [
+        {'bar': 'hello', 'foo': 10},
+        {'foo': 15, 'x': 'y'}
+    ]}
+
+    repo2_subset = repo2.subset(configs=['NeuralNetFastAI_r2'])
+    with pytest.raises(ValueError):
+        repo2_subset.autogluon_hyperparameters_dict(configs=configs, ordered=False)
+    autogluon_hyperparameters_dict = repo2_subset.autogluon_hyperparameters_dict(configs=['NeuralNetFastAI_r2'])
+    assert autogluon_hyperparameters_dict == {'FASTAI': [
+        {'ag_args': {'priority': -1}, 'foo': 15, 'x': 'y'}
+    ]}
+
+
 def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):
     problem_type = repo.dataset_info(dataset=dataset)["problem_type"]
     predict_multi = fun(dataset=dataset, fold=2, configs=configs)

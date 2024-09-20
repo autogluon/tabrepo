@@ -14,8 +14,6 @@ if __name__ == '__main__':
     context_name = "D244_F3_C1530_30"
     context = get_context(name=context_name)
 
-    config_hyperparameters = context.load_configs_hyperparameters()
-
     repo: EvaluationRepository = load_repository(context_name, cache=True)
 
     repo.print_info()
@@ -34,12 +32,18 @@ if __name__ == '__main__':
     print(f"Configs (first 10): {configs[:10]}")
 
     config = "CatBoost_r1_BAG_L1"
-    config_key = config.rsplit("_BAG_L1", 1)[0]
-    config_type = config_hyperparameters[config_key]["model_type"]
-    config_hyperparameters = config_hyperparameters[config_key]["hyperparameters"]
-    print(f"Config: {config}\n"
-          f"\tType           : {config_type}\n"
-          f"\tHyperparameters: {config_hyperparameters}")
+    config_type = repo.config_type(config=config)
+    config_hyperparameters = repo.config_hyperparameters(config=config)
+
+    # You can pass the below autogluon_hyperparameters into AutoGluon's TabularPredictor.fit call to fit the specific config on a new dataset:
+    # from autogluon.tabular import TabularPredictor
+    # predictor = TabularPredictor(...).fit(..., hyperparameters=autogluon_hyperparameters)
+    autogluon_hyperparameters = repo.autogluon_hyperparameters_dict(configs=[config])
+    print(f"Config Info:\n"
+          f"\t                     Name: {config}\n"
+          f"\t                     Type: {config_type}\n"
+          f"\t          Hyperparameters: {config_hyperparameters}\n"
+          f"\tAutoGluon Hyperparameters: {autogluon_hyperparameters}\n")
 
     metrics = repo.metrics(datasets=["Australian", "balance-scale"], configs=["CatBoost_r1_BAG_L1", "LightGBM_r41_BAG_L1"])
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):

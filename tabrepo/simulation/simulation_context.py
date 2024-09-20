@@ -55,15 +55,16 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
         self.unique_datasets, \
+        self.configs_hyperparameters, \
         self.rank_scorer = self._align_valid_folds(
             df_configs=df_configs,
             df_baselines=df_baselines,
             df_metadata=df_metadata,
+            configs_hyperparameters=configs_hyperparameters,
             folds=folds,
             score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
-        self.configs_hyperparameters = configs_hyperparameters
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
@@ -104,10 +105,12 @@ class ZeroshotSimulatorContext:
         self.dataset_to_tid_dict, \
         self.unique_tasks, \
         self.unique_datasets, \
+        self.configs_hyperparameters, \
         self.rank_scorer = self._align_valid_folds(
             df_configs=self.df_configs,
             df_baselines=self.df_baselines,
             df_metadata=self.df_metadata,
+            configs_hyperparameters=self.configs_hyperparameters,
             folds=folds,
             score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
@@ -124,6 +127,7 @@ class ZeroshotSimulatorContext:
                            df_configs: pd.DataFrame,
                            df_baselines: pd.DataFrame,
                            df_metadata: pd.DataFrame,
+                           configs_hyperparameters: dict | None = None,
                            folds: List[int] | None,
                            score_against_only_automl: bool,
                            pct: bool):
@@ -241,6 +245,17 @@ class ZeroshotSimulatorContext:
             assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
             assert len(df_metadata) == len(unique_datasets)
 
+        if configs_hyperparameters is not None:
+            cls._verify_configs_hyperparameters(configs_hyperparameters=configs_hyperparameters)
+            configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
+            unique_configs = sorted(list(df_configs["framework"].unique()))
+            # TODO: Avoid needing to do configs_base, make the names match to begin with
+            configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs])
+            configs_hyperparameters_keys = list(configs_hyperparameters.keys())
+            for c in configs_hyperparameters_keys:
+                if c not in configs_base:
+                    configs_hyperparameters.pop(c)
+
         return (
             df_configs,
             df_baselines,
@@ -251,6 +266,7 @@ class ZeroshotSimulatorContext:
             dataset_to_tid_dict,
             unique_tasks,
             unique_datasets,
+            configs_hyperparameters,
             rank_scorer,
         )
 
@@ -540,12 +556,30 @@ class ZeroshotSimulatorContext:
                     res = res.intersection(methods)
         return sorted(list(res))
 
-    def get_config_hyperparameters(self, config: str) -> dict:
+    def get_configs_hyperparameters(self, configs: List[str] | None = None, include_ag_args: bool = True) -> dict[str, dict | None]:
+        if configs is None:
+            configs = self.get_configs()
+        return {c: self.get_config_hyperparameters(config=c, include_ag_args=include_ag_args) for c in configs}
+
+    def get_config_hyperparameters(self, config: str, include_ag_args: bool = True) -> dict | None:
+        if config not in self.get_configs():
+            raise ValueError(f"User-specified config does not exist: '{config}'")
         if self.configs_hyperparameters is None:
-            return {}
+            return None
         # FIXME: (TabRepo v2) Hardcoding _BAG name, avoid this
-        config_base = config.rsplit("_BAG_", 1)[0]
-        return self.configs_hyperparameters[config_base]
+        config_base = self._config_name_to_config_base(config=config)
+        if config_base not in self.configs_hyperparameters:
+            return None
+        config_hyperparameters = self.configs_hyperparameters[config_base]
+        if not include_ag_args:
+            config_hyperparameters = copy.deepcopy(config_hyperparameters)
+            config_hyperparameters["hyperparameters"].pop("ag_args", None)
+        return config_hyperparameters
+
+    # FIXME: This should be removed eventually
+    @classmethod
+    def _config_name_to_config_base(cls, config: str) -> str:
+        return config.rsplit("_BAG_", 1)[0]
 
     @property
     def configs_type(self) -> dict[str, str | None]:
@@ -558,7 +592,14 @@ class ZeroshotSimulatorContext:
         "ExtraTrees_r13_BAG_L1": "XT"
         """
         configs = self.get_configs()
-        return {config: self.get_config_hyperparameters(config=config).get("model_type", None) for config in configs}
+        configs_type = {}
+        for config in configs:
+            config_hyperparameters = self.get_config_hyperparameters(config=config)
+            if config_hyperparameters is None:
+                configs_type[config] = None
+            else:
+                configs_type[config] = config_hyperparameters.get("model_type", None)
+        return configs_type
 
     def df_configs_task(self, dataset: str, fold: int, configs: list[str] = None) -> pd.DataFrame:
         df_configs_task = self.df_configs[(self.df_configs["dataset"] == dataset) & (self.df_configs["fold"] == fold)]
@@ -580,3 +621,14 @@ class ZeroshotSimulatorContext:
             df_configs_task_sorted["rank"] = df_configs_task_sorted.groupby("task")["metric_error_val"].rank("first").astype(int)
             df_configs_task_sorted = df_configs_task_sorted[df_configs_task_sorted["rank"] <= max_models]
         return list(df_configs_task_sorted["framework"])
+
+    # TODO: Potentially change the format in future
+    # TODO: Check for `model_type` key?
+    # TODO: What about `name_prefix` and `name_suffix`?
+    @classmethod
+    def _verify_configs_hyperparameters(cls, configs_hyperparameters: dict[str, dict[str, str | dict]]):
+        for config, v in configs_hyperparameters.items():
+            assert isinstance(v, dict), f"configs_hyperparameters value for key {config} must be of type dict, found: {type(v)}"
+            assert "hyperparameters" in v, f"configs_hyperparameters value for key {config} must include a `hyperparameters` key"
+            assert isinstance(v["hyperparameters"], dict), (f"configs_hyperparameters['{config}']['hyperparameters'] "
+                                                            f"must be of type dict, found: {type(v['hyperparameters'])}")

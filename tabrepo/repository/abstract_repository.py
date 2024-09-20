@@ -114,6 +114,10 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def _df_metadata(self) -> pd.DataFrame:
         return self._zeroshot_context.df_metadata
 
+    @property
+    def task_metadata(self) -> pd.DataFrame:
+        return self._df_metadata
+
     def tids(self, problem_type: str = None) -> List[int]:
         """
         Note: returns the taskid of the datasets rather than the string name.
@@ -385,6 +389,124 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def task_to_fold(self, task: str) -> int:
         """Returns the fold associated with a task"""
         return self._zeroshot_context.task_to_fold(task=task)
+
+    def config_hyperparameters(self, config: str, include_ag_args: bool = True) -> dict | None:
+        """
+        Returns config hyperparameters as defined in AutoGluon
+        If no hyperparameters exist for the config, return None
+
+        Parameters
+        ----------
+        config: str
+            The config to get hyperparameters for
+        include_ag_args: bool, default = True
+            If True, includes the `ag_args` hyperparameter which is used in determining the name of the model in AutoGluon
+        """
+        config_hyperparameters = self._zeroshot_context.get_config_hyperparameters(config=config, include_ag_args=include_ag_args)
+        if config_hyperparameters is not None:
+            return config_hyperparameters["hyperparameters"]
+        return None
+
+    def configs_hyperparameters(self, configs: list[str] | None = None, include_ag_args: bool = True) -> dict[str, dict | None]:
+        """
+        Returns a dictionary mapping of config names to hyperparameters as defined in AutoGluon
+        If no hyperparameters exist for a config, its value will be None
+
+        Note that this is not the same as the `hyperparameters` argument to AutoGluon's `TabularPredictor.fit()`.
+        To get this, refer to `self.autogluon_hyperparameters_dict()`.
+
+        Parameters
+        ----------
+        configs: list[str], default = None
+            The list of configs to get hyperparameters for
+            If None, uses all configs
+        include_ag_args: bool, default = True
+            If True, includes the `ag_args` hyperparameter which is used in determining the name of the model in AutoGluon
+        """
+        configs_hyperparameters = self._zeroshot_context.get_configs_hyperparameters(configs=configs, include_ag_args=include_ag_args)
+        configs_hyperparameters = {k: v["hyperparameters"] if v is not None else v for k, v in configs_hyperparameters.items()}
+        return configs_hyperparameters
+
+    def config_type(self, config: str) -> str | None:
+        """
+        Returns the AutoGluon `hyperparameters` type string for a given config.
+        If no type string exists, the value will be None
+
+        For example:
+            "LightGBM_c1_BAG_L1" -> "GBM"
+            "RandomForest_c1_BAG_L1" -> "RF"
+        """
+        return self.configs_type(configs=[config])[config]
+
+    def configs_type(self, configs: list[str] | None = None) -> dict[str, str | None]:
+        """
+        Returns the AutoGluon `hyperparameters` type strings for a given config list, returned as a dict of config -> type
+        If no type string exists, the value will be None
+
+        For example:
+            "LightGBM_c1_BAG_L1" -> "GBM"
+            "RandomForest_c1_BAG_L1" -> "RF"
+        """
+        configs_type = self._zeroshot_context.configs_type
+        if configs is not None:
+            configs_type = {c: configs_type[c] for c in configs}
+        return configs_type
+
+    def autogluon_hyperparameters_dict(self, configs: list[str], ordered: bool = True, include_ag_args: bool = True) -> dict[str, list[dict]]:
+        """
+        Returns the AutoGluon hyperparameters dict to fit the given list of configs in AutoGluon.
+
+        The output `hyperparameters` would be passed to AutoGluon via:
+
+        hyperparameters = repo.autogluon_hyperparameters_dict(configs=configs)
+        predictor = TabularPredictor(...).fit(..., hyperparameters=hyperparameters)
+
+        Parameters
+        ----------
+        configs : list[str]
+            List of configs available in this repo (must be present in self.configs())
+        ordered : bool, default True
+            If True, will add a `priority` hyperparameter to each config so that AutoGluon fits them in the order specified in `configs`.
+        include_ag_args : bool, default True
+            If True, will include the `ag_args` hyperparameters for the configs. This determines the name suffix for the model.
+        """
+        configs_hyperparameters = self.configs_hyperparameters(configs=configs, include_ag_args=include_ag_args)
+        configs_type = self.configs_type(configs=configs)
+
+        self._verify_autogluon_hyperparameters(configs=configs, configs_hyperparameters=configs_hyperparameters, configs_type=configs_type)
+
+        ordered_priority = -1
+        hyperparameters = {}
+        for config in configs:
+            config_type = configs_type[config]
+            config_hyperparameters = copy.deepcopy(configs_hyperparameters[config])
+            if ordered:
+                if "ag_args" not in config_hyperparameters:
+                    config_hyperparameters["ag_args"] = {}
+                config_hyperparameters["ag_args"]["priority"] = ordered_priority
+                ordered_priority -= 1
+            if config_type not in hyperparameters:
+                hyperparameters[config_type] = []
+            hyperparameters[config_type].append(config_hyperparameters)
+        return hyperparameters
+
+    @staticmethod
+    def _verify_autogluon_hyperparameters(configs: list[str], configs_hyperparameters, configs_type):
+        invalid_configs = set()
+        for c in configs:
+            if configs_hyperparameters[c] is None or configs_type[c] is None:
+                invalid_configs.add(c)
+        if invalid_configs:
+            invalid_configs = list(invalid_configs)
+            invalid_str = ""
+            for c in invalid_configs:
+                invalid_str += f"\t'{c}':\ttype={configs_type[c]}, hyperparameters={configs_hyperparameters[c]}\n"
+            raise AssertionError(
+                f"Cannot create AutoGluon hyperparameters dict using {len(configs)} configs={configs}...\n"
+                f"Found {len(invalid_configs)} invalid configs: {invalid_configs}\n"
+                f"These configs either have no hyperparameters or no type specified:\n"
+                f"{invalid_str}"
+            )
 
     def _construct_single_best_config_scorer(self, **kwargs) -> SingleBestConfigScorer:
         return SingleBestConfigScorer.from_repo(repo=self, **kwargs)
