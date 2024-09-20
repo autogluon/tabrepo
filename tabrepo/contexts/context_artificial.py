@@ -19,7 +19,13 @@ def make_random_metric(model):
     return {output_col: (i + 1) * metric_value for i, output_col in enumerate(output_cols)}
 
 
-def load_context_artificial(n_classes: int = 25, problem_type: str = "regression", seed=0, **kwargs):
+def load_context_artificial(
+    n_classes: int = 25,
+    problem_type: str = "regression",
+    seed=0,
+    include_hyperparameters: bool = False,
+    **kwargs,
+):
     # TODO write specification of dataframes schema, this code produces a minimal example that enables
     #  to use all the features required in evaluation such as listing datasets, evaluating ensembles or
     #  comparing to baselines
@@ -30,6 +36,18 @@ def load_context_artificial(n_classes: int = 25, problem_type: str = "regression
     n_folds = 3
     models = ["NeuralNetFastAI_r1", "NeuralNetFastAI_r2"]
     baselines = ["b1", "b2"]
+    configs_hyperparameters = None
+    if include_hyperparameters:
+        configs_hyperparameters = {
+            "NeuralNetFastAI_r1": {
+                "hyperparameters": {"foo": 10, "bar": "hello"},
+                "model_type": "FASTAI",
+            },
+            "NeuralNetFastAI_r2": {
+                "hyperparameters": {"foo": 15, "x": "y"},
+                "model_type": "FASTAI",
+            },
+        }
 
     configs_full = {model: {} for model in models}
 
@@ -64,6 +82,7 @@ def load_context_artificial(n_classes: int = 25, problem_type: str = "regression
         df_baselines=df_results_by_dataset_automl,
         folds=list(range(n_folds)),
         df_metadata=df_metadata,
+        configs_hyperparameters=configs_hyperparameters,
     )
     pred_dict = {
         dataset_name: {
