@@ -12,6 +12,10 @@ from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
 
+from autogluon_benchmark.evaluation.evaluator import Evaluator, EvaluatorOutput
+from autogluon_benchmark.plotting.plotter import Plotter
+from autogluon.common.savers import save_pd
+
 
 class AbstractRepository(ABC, SaveLoadMixin):
     def __init__(
@@ -532,3 +536,100 @@ class AbstractRepository(ABC, SaveLoadMixin):
             return np.stack([1 - predictions, predictions], axis=predictions.ndim)
         else:
             return predictions
+
+    def _convert_time_infer_s_from_sample_to_batch(self, df: pd.DataFrame):
+        """
+        Temp: Multiply by 0.1 since 90% of the instances are used for training and 10% for test
+        # TODO: Change this in future, not all tasks will use 90% train / 10% test. Instead keep track of train/test rows per dataset_fold pair.
+        """
+        df = df.copy(deep=True)
+        df["time_infer_s"] = df["time_infer_s"] * df.index.get_level_values("dataset").map(
+            self.task_metadata.set_index("dataset")["NumberOfInstances"]
+        ) * 0.1
+        return df
+
+    # TODO: repo time_infer_s is per row, results_df is the total time for all rows, need to align later
+    # TODO: Error if unknown configs/baselines requested
+    # TODO: Add fillna
+    # Q:Whether to keep these functions a part of TabRepo or keep them separate as a part of new fit()-package
+    def compare_metrics(
+        self,
+        results_df: pd.DataFrame,
+        datasets: List[str] = None,
+        folds: List[int] = None,
+        configs: List[str] = None,
+        baselines: List[str] = None,
+    ) -> pd.DataFrame:
+        columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+
+        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
+
+        # Dropping task column in df_tr
+        df_tr = self._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[columns]
+
+        mask = df_tr.index.get_level_values("dataset").isin(datasets)
+        if folds is not None:
+            mask = mask & df_tr.index.get_level_values("fold").isin(folds)
+        if configs is not None:
+            mask = mask & df_tr.index.get_level_values("framework").isin(configs)
+        df_tr = df_tr[mask]
+
+        if self.task_metadata is not None:
+            df_tr = self._convert_time_infer_s_from_sample_to_batch(df_tr)
+
+        if self._zeroshot_context.df_baselines is not None:
+            df_baselines = self._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[columns]
+
+            mask = df_baselines.index.get_level_values("dataset").isin(datasets)
+            if folds is not None:
+                mask = mask & df_baselines.index.get_level_values("fold").isin(folds)
+            if baselines is not None:
+                mask = mask & df_baselines.index.get_level_values("framework").isin(baselines)
+            df_baselines = df_baselines[mask]
+
+            if self.task_metadata is not None:
+                df_baselines = self._convert_time_infer_s_from_sample_to_batch(df_baselines)
+        else:
+            if baselines:
+                raise AssertionError(f"Baselines specified but no baseline methods exist! (baselines={baselines})")
+            df_baselines = None
+
+        df = pd.concat([df_exp, df_tr, df_baselines], axis=0)
+        df = df.sort_index()
+
+        return df
+
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str) -> EvaluatorOutput:
+        results_df = results_df.reset_index()
+        evaluator = Evaluator(task_metadata=self.task_metadata)
+        evaluator_output = evaluator.transform(results_df)
+        output_path = f"{save_dir}/output"
+        figure_savedir = f"{output_path}/figures"
+        save_pd.save(path=f"{output_path}/results.csv", df=results_df)
+        save_pd.save(path=f"{output_path}/results_ranked_agg.csv", df=evaluator_output.results_ranked_agg)
+        save_pd.save(path=f"{output_path}/results_ranked.csv", df=evaluator_output.results_ranked)
+
+        plotter = Plotter(
+            results_ranked_fillna_df=evaluator_output.results_ranked,
+            results_ranked_df=evaluator_output.results_ranked,
+            save_dir=figure_savedir,
+            show=False,
+        )
+
+        # NOTE WIP: ELO throws error, rest work
+        plotter.plot_all(
+            # calibration_framework="RandomForest (2023, 4h8c)",
+            calibration_elo=1000,
+            BOOTSTRAP_ROUNDS=100,  # Reduce this to lower values for a faster execution. Use 1000 for the final plot.
+            plot_critical_difference=False,
+        )
+
+        return evaluator_output
+
+    # WIP
+    # def plot_pairwise_comparison(self, data: pd.DataFrame, task_metadata: pd.DataFrame) -> EvaluatorOutput:
+    #     data = data.reset_index()
+    #     evaluator = Evaluator(task_metadata=task_metadata)
+    #     evaluator_output = evaluator.transform(data)
+    #
+    #     return evaluator_output
