@@ -105,10 +105,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     def _df_metadata(self) -> pd.DataFrame:
         return self._zeroshot_context.df_metadata
 
-    @property
-    def task_metadata(self) -> pd.DataFrame:
-        return self._df_metadata
-
     def tids(self, problem_type: str = None) -> List[int]:
         """
         Note: returns the taskid of the datasets rather than the string name.
