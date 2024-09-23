@@ -4,6 +4,9 @@ import pandas as pd
 import pickle
 import sys
 from pathlib import Path
+from contextlib import contextmanager
+from time import perf_counter
+from dataclasses import dataclass
 from typing import Callable, Optional
 
 from autogluon.common.loaders import load_pkl
@@ -48,21 +51,19 @@ def cache_function(
 
 
 def cache_function_dataframe(
-        fun: Callable[[], pd.DataFrame],
-        cache_name: str,
-        ignore_cache: bool = False,
-        cache_path: Optional[Path] = None
-):
+    fun: Callable[[], pd.DataFrame],
+    cache_name: str,
+    cache_path: Path | str,
+    ignore_cache: bool = False,
+) -> pd.DataFrame:
     f"""
     :param fun: a function whose dataframe result obtained `fun()` will be cached
-    :param cache_name: the cache of the function result is written into `{cache_path}/{cache_name}.csv.zip`
+    :param cache_name: the cache of the function result is written into `{cache_path}/{cache_name}.csv`
+    :param cache_path: folder where to write cache files
     :param ignore_cache: whether to recompute even if the cache is present
-    :param cache_path: folder where to write cache files, default to ~/cache-zeroshot/
     :return: result of fun()
     """
-    if cache_path is None:
-        cache_path = default_cache_path
-    cache_file = cache_path / (cache_name + ".csv.zip")
+    cache_file = Path(cache_path) / (cache_name + ".csv")
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     if cache_file.exists() and not ignore_cache:
         print(f"Loading cache {cache_file}")
@@ -74,6 +75,43 @@ def cache_function_dataframe(
             assert isinstance(df, pd.DataFrame)
             df.to_csv(cache_file, index=False)
             return pd.read_csv(cache_file)
+
+
+@contextmanager
+def catchtime(name: str, logger=None) -> float:
+    start = perf_counter()
+    print_fun = print if logger is None else logger.info
+    try:
+        print_fun(f"start: {name}")
+        yield lambda: perf_counter() - start
+    finally:
+        print_fun(f"Time for {name}: {perf_counter() - start:.4f} secs")
+
+
+@dataclass
+class Experiment:
+    expname: str  # name of the parent experiment used to store the file
+    name: str  # name of the specific experiment, e.g. "localsearch"
+    run_fun: Callable[[], list]  # function to execute to obtain results
+
+    def data(self, ignore_cache: bool = False):
+        return cache_function_dataframe(
+            lambda: pd.DataFrame(self.run_fun()),
+            cache_name=self.name,
+            cache_path=self.expname,
+            ignore_cache=ignore_cache,
+        )
+
+
+@dataclass
+class DummyExperiment(Experiment):
+    """
+    Dummy Experiment class that doesn't perform caching and simply runs the run_fun and returns the result.
+    """
+
+    def data(self, ignore_cache: bool = False):
+        return self.run_fun()
+
 
 
 class SaveLoadMixin:
