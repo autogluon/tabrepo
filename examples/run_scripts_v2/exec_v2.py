@@ -56,9 +56,9 @@ def calc_error(
     if scorer.needs_pred:  # use y_pred
         error = scorer.error(y_true=y_true, y_pred=y_pred)
     elif problem_type == "binary":  # use y_pred_proba
-        error = scorer.error(y_true=y_true, y_pred=y_pred_proba.iloc[:, 1], labels=y_pred_proba.columns)
+        error = scorer.error(y_true=y_true, y_pred=y_pred_proba.iloc[:, 1])
     else:
-        error = scorer.error(y_true=y_true, y_pred=y_pred_proba, labels=y_pred_proba.columns)
+        error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
     return error
 
 
@@ -78,6 +78,7 @@ def fit_custom_clean(X_train, y_train, X_test, y_test, problem_type: str = None,
         X_test=X_test_clean,
         y_test=y_test_clean,
         problem_type=problem_type,
+        eval_metric=eval_metric,
         **kwargs,
     )
 
@@ -102,7 +103,7 @@ def fit_custom_clean(X_train, y_train, X_test, y_test, problem_type: str = None,
         out["probabilities"] = y_pred_proba_test
 
     out["test_error"] = test_error
-    out["eval_metric"] = scorer.name
+    out["eval_metric"] = eval_metric
     out["truth"] = y_test
 
     return out
@@ -113,6 +114,7 @@ def fit_custom(
     y_train: pd.Series,
     X_test: pd.DataFrame,
     y_test: pd.Series,
+    eval_metric: str,
     problem_type: str = None,
     label: str = None,
 ) -> dict:
