@@ -194,7 +194,7 @@ class AbstractExecModel:
 
         Returns
         -------
-        predictions and inference time, probabilities will be none
+        predictions, prediction probabilities and inference time
         '''
         with Timer() as timer_predict:
             y_pred_proba = self._predict_proba(X_test)
