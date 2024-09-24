@@ -91,20 +91,16 @@ class AbstractExecModel:
                     print(
                         f"\n\tFitting {task_name} on fold {fold} for method {method}"
                     )
-                    experiment_obj = method_cls(
-                        label=task.label,
-                        problem_type=task.problem_type,
-                        eval_metric=ag_eval_metric_map[task.problem_type],
-                        **fit_args,
-                    )
                     experiment = cache_class(
                         expname=expname,
                         name=cache_name,
-                        run_fun=lambda: experiment_obj.run_experiment(
+                        run_fun=lambda: AbstractExecModel.run_experiment(
+                            method_cls=method_cls,
                             task=task,
                             fold=fold,
                             task_name=task_name,
                             method=method,
+                            fit_args=fit_args,
                         ),
                         **cache_class_kwargs
                     )
@@ -116,17 +112,26 @@ class AbstractExecModel:
         return result_lst
 
     # TODO: Nick: This should not be part of this class.
-    def run_experiment(self, task, fold: int, task_name: str, method: str, init_args: dict = None, **kwargs):
+    @staticmethod
+    def run_experiment(method_cls, task, fold: int, task_name: str, method: str, fit_args: dict = None, **kwargs):
+
+        model = method_cls(
+            label=task.label,
+            problem_type=task.problem_type,
+            eval_metric=ag_eval_metric_map[task.problem_type],
+            **fit_args,
+        )
+
         X_train, y_train, X_test, y_test = task.get_train_test_split(fold=fold)
 
-        out = self.fit_custom2(X=X_train, y=y_train, X_test=X_test, y_test=y_test)
+        out = model.fit_custom2(X=X_train, y=y_train, X_test=X_test, y_test=y_test)
 
         out["framework"] = method
         out["dataset"] = task_name
         out["tid"] = task.task_id
         out["fold"] = fold
         out["problem_type"] = task.problem_type
-        out["eval_metric"] = self.eval_metric
+        out["eval_metric"] = model.eval_metric
         print(f"Task  Name: {out['dataset']}")
         print(f"Task    ID: {out['tid']}")
         print(f"Metric    : {out['eval_metric']}")
