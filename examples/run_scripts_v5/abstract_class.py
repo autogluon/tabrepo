@@ -55,24 +55,13 @@ class AbstractExecModel:
     # TODO: Nick: Temporary name
     def fit_custom2(self, X, y, X_test, y_test):
         out = self.fit_custom(X, y, X_test)
-
-        y_pred_test_clean = out["predictions"]
-        y_pred_proba_test_clean = out["probabilities"]
-
         scorer: Scorer = get_metric(metric=self.eval_metric, problem_type=self.problem_type)
-
         out["test_error"] = self.evaluate(
             y_true=y_test,
-            y_pred=y_pred_test_clean,
-            y_pred_proba=y_pred_proba_test_clean,
+            y_pred=out["predictions"],
+            y_pred_proba=out["probabilities"],
             scorer=scorer,
         )
-
-        if self.preprocess_label:
-            out["predictions"] = self._label_cleaner.inverse_transform(out["predictions"])
-            if out["probabilities"] is not None:
-                out["probabilities"] = self._label_cleaner.inverse_transform_proba(out["probabilities"], as_pandas=True)
-
         return out
 
     # TODO: Prateek, Add a toggle here to see if user wants to fit or fit and predict, also add model saving functionality
@@ -90,9 +79,12 @@ class AbstractExecModel:
             self.fit(X, y)
 
         if self.problem_type in ['binary', 'multiclass']:
-            y_pred, y_pred_proba, timer_predict = self.predict_proba_custom(X=X_test)
+            with Timer() as timer_predict:
+                y_pred_proba = self.predict_proba(X_test)
+            y_pred = self.predict_from_proba(y_pred_proba)
         else:
-            y_pred, timer_predict = self.predict_custom(X=X_test)
+            with Timer() as timer_predict:
+                y_pred = self.predict(X_test)
             y_pred_proba = None
 
         out = {
@@ -111,18 +103,6 @@ class AbstractExecModel:
     def _fit(self, X: pd.DataFrame, y: pd.Series):
         raise NotImplementedError
 
-    def predict_custom(self, X: pd.DataFrame):
-        '''
-        Calls the predict function of the inheriting class and proceeds to perform predictions for regression problems
-        Returns
-        -------
-        predictions and inference time, probabilities will be none
-        '''
-        with Timer() as timer_predict:
-            y_pred = self.predict(X)
-
-        return y_pred, timer_predict
-
     def predict_from_proba(self, y_pred_proba: pd.DataFrame) -> pd.Series:
         return y_pred_proba.idxmax(axis=1)
 
@@ -133,21 +113,6 @@ class AbstractExecModel:
 
     def _predict(self, X: pd.DataFrame):
         raise NotImplementedError
-
-    def predict_proba_custom(self, X: pd.DataFrame):
-        '''
-        Calls the predict function of the inheriting class and proceeds to perform predictions for classification
-        problems - binary and multiclass
-
-        Returns
-        -------
-        predictions and inference time, probabilities will be none
-        '''
-        with Timer() as timer_predict:
-            y_pred_proba = self.predict_proba(X)
-        y_pred = self.predict_from_proba(y_pred_proba)
-
-        return y_pred, y_pred_proba, timer_predict
 
     def predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         X = self.transform_X(X=X)
