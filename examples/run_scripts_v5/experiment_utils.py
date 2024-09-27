@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from typing import Callable, List
 
+from autogluon.core.data.label_cleaner import LabelCleaner
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
@@ -111,11 +112,15 @@ def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: st
     X, y, X_test, y_test = task.get_train_test_split(fold=fold)
 
     out = model.fit_custom(X, y, X_test)
-    out["test_error"] = model.evaluate(
+
+    label_cleaner = LabelCleaner.construct(problem_type=task.problem_type, y=y)
+    out["test_error"] = evaluate(
         y_true=y_test,
         y_pred=out["predictions"],
         y_pred_proba=out["probabilities"],
         scorer=eval_metric,
+        label_cleaner=label_cleaner,
+        problem_type=task.problem_type,
     )
 
     out["framework"] = method
@@ -162,3 +167,17 @@ def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = Tr
             "tid",
         ]]
     return df_configs
+
+
+def evaluate(y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer, label_cleaner: LabelCleaner, problem_type: str):
+    y_true = label_cleaner.transform(y_true)
+    if scorer.needs_pred:
+        y_pred = label_cleaner.transform(y_pred)
+        test_error = scorer.error(y_true=y_true, y_pred=y_pred)
+    elif problem_type == "binary":
+        y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
+        test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba.iloc[:, 1])
+    else:
+        y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
+        test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
+    return test_error

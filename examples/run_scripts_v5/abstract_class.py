@@ -43,7 +43,7 @@ class AbstractExecModel:
 
     def _preprocess_fit_transform(self, X: pd.DataFrame, y: pd.Series):
         if self.preprocess_label:
-            self.label_cleaner = LabelCleaner.construct(problem_type=self.problem_type, y=y, y_uncleaned=y)
+            self.label_cleaner = LabelCleaner.construct(problem_type=self.problem_type, y=y)
         else:
             self.label_cleaner = LabelCleanerDummy(problem_type=self.problem_type)
         if self.preprocess_data:
@@ -109,16 +109,3 @@ class AbstractExecModel:
 
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
-
-    def evaluate(self, y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer):
-        y_true = self.transform_y(y_true)
-        if scorer.needs_pred:
-            y_pred = self.transform_y(y_pred)
-            test_error = scorer.error(y_true=y_true, y_pred=y_pred)
-        elif self.problem_type == "binary":
-            y_pred_proba = self.transform_y_pred_proba(y_pred_proba)
-            test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba.iloc[:, 1])
-        else:
-            y_pred_proba = self.transform_y_pred_proba(y_pred_proba)
-            test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
-        return test_error
