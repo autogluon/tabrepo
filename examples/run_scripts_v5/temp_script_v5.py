@@ -4,6 +4,7 @@ import pandas as pd
 
 from tabrepo import load_repository, EvaluationRepository
 from TabPFN_class import CustomTabPFN
+from TabPFNv2_class import CustomTabPFNv2
 from experiment_utils import run_experiments, convert_leaderboard_to_configs
 
 if __name__ == '__main__':
@@ -22,7 +23,7 @@ if __name__ == '__main__':
     # Add a check here if the dataset belong to repo
     tids = [repo.dataset_to_tid(dataset) for dataset in datasets]
 
-    methods_dict_tabpfn = {"TABPFN": {}}
+    methods_dict_tabpfn = {"TABPFNv2": {}}
     methods_tabpfn = list(methods_dict_tabpfn.keys())
 
     results_lst = run_experiments(
@@ -31,7 +32,7 @@ if __name__ == '__main__':
         folds=repo.folds,
         methods=methods_tabpfn,
         methods_dict=methods_dict_tabpfn,
-        method_cls=CustomTabPFN,
+        method_cls=CustomTabPFNv2,
         task_metadata=repo.task_metadata,
         ignore_cache=ignore_cache,
     )
