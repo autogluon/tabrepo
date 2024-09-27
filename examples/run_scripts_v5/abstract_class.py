@@ -13,7 +13,7 @@ class AbstractExecModel:
     def __init__(
         self,
         problem_type: str,
-        eval_metric: str,
+        eval_metric: Scorer,
         preprocess_data: bool = True,
         preprocess_label: bool = True,
     ):
@@ -51,18 +51,6 @@ class AbstractExecModel:
             X = self._feature_generator.fit_transform(X=X, y=y)
         y = self.transform_y(y)
         return X, y
-
-    # TODO: Nick: Temporary name
-    def fit_custom2(self, X, y, X_test, y_test):
-        out = self.fit_custom(X, y, X_test)
-        scorer: Scorer = get_metric(metric=self.eval_metric, problem_type=self.problem_type)
-        out["test_error"] = self.evaluate(
-            y_true=y_test,
-            y_pred=out["predictions"],
-            y_pred_proba=out["probabilities"],
-            scorer=scorer,
-        )
-        return out
 
     # TODO: Prateek, Add a toggle here to see if user wants to fit or fit and predict, also add model saving functionality
     # TODO: Nick: Temporary name

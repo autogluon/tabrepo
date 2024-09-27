@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 from typing import Callable, List
+
+from autogluon.core.metrics import get_metric, Scorer
 from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.utils.cache import DummyExperiment, Experiment
@@ -98,15 +100,23 @@ def run_experiments(
 # TODO: Nick: This should not be part of this class.
 def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None,
                    **kwargs):
+    eval_metric = ag_eval_metric_map[task.problem_type]
+    eval_metric: Scorer = get_metric(metric=eval_metric, problem_type=task.problem_type)
     model = method_cls(
         problem_type=task.problem_type,
-        eval_metric=ag_eval_metric_map[task.problem_type],
+        eval_metric=eval_metric,
         **fit_args,
     )
 
-    X_train, y_train, X_test, y_test = task.get_train_test_split(fold=fold)
+    X, y, X_test, y_test = task.get_train_test_split(fold=fold)
 
-    out = model.fit_custom2(X=X_train, y=y_train, X_test=X_test, y_test=y_test)
+    out = model.fit_custom(X, y, X_test)
+    out["test_error"] = model.evaluate(
+        y_true=y_test,
+        y_pred=out["predictions"],
+        y_pred_proba=out["probabilities"],
+        scorer=eval_metric,
+    )
 
     out["framework"] = method
     out["dataset"] = task_name
