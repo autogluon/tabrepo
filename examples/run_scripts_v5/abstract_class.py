@@ -12,13 +12,11 @@ class AbstractExecModel:
     # TODO: Prateek: Find a way to put AutoGluon as default - in the case the user does not want their own class
     def __init__(
         self,
-        label: str,
         problem_type: str,
         eval_metric: str,
         preprocess_data: bool = True,
         preprocess_label: bool = True,
     ):
-        self.label = label
         self.problem_type = problem_type
         self.eval_metric = eval_metric
         self.preprocess_data = preprocess_data
@@ -105,9 +103,12 @@ class AbstractExecModel:
         '''
         with Timer() as timer_predict:
             y_pred = self._predict(X)
-            y_pred = pd.Series(y_pred, name=self.label, index=X.index)
+            y_pred = pd.Series(y_pred, index=X.index)
 
         return y_pred, timer_predict
+
+    def predict_from_proba(self, y_pred_proba: pd.DataFrame) -> pd.Series:
+        return y_pred_proba.idxmax(axis=1)
 
     def _predict(self, X: pd.DataFrame):
         raise NotImplementedError
@@ -123,12 +124,11 @@ class AbstractExecModel:
         '''
         with Timer() as timer_predict:
             y_pred_proba = self._predict_proba(X)
-            y_pred_proba = pd.DataFrame(y_pred_proba, columns=self.model.classes_, index=X.index)
-        y_pred = y_pred_proba.idxmax(axis=1)
+        y_pred = self.predict_from_proba(y_pred_proba)
 
         return y_pred, y_pred_proba, timer_predict
 
-    def _predict_proba(self, X: pd.DataFrame):
+    def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
 
     def evaluate(self, y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer):

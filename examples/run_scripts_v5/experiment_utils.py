@@ -93,7 +93,6 @@ def run_experiments(
 def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None,
                    **kwargs):
     model = method_cls(
-        label=task.label,
         problem_type=task.problem_type,
         eval_metric=ag_eval_metric_map[task.problem_type],
         **fit_args,
