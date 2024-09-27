@@ -11,12 +11,12 @@ class AbstractExecModel:
 
     # TODO: Prateek: Find a way to put AutoGluon as default - in the case the user does not want their own class
     def __init__(
-            self,
-            label: str,
-            problem_type: str,
-            eval_metric: str,
-            preprocess_data: bool = True,
-            preprocess_label: bool = True,
+        self,
+        label: str,
+        problem_type: str,
+        eval_metric: str,
+        preprocess_data: bool = True,
+        preprocess_label: bool = True,
     ):
         self.label = label
         self.problem_type = problem_type
@@ -66,7 +66,7 @@ class AbstractExecModel:
 
     # TODO: Prateek, Add a toggle here to see if user wants to fit or fit and predict, also add model saving functionality
     # TODO: Nick: Temporary name
-    def fit_custom(self, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame):
+    def fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
         '''
         Calls the fit function of the inheriting class and proceeds to perform predictions based on the problem type
 
@@ -76,7 +76,7 @@ class AbstractExecModel:
         Returns predictions, probabilities, fit time and inference time
         '''
         with (Timer() as timer_fit):
-            self._fit(X_train, y_train)
+            self._fit(X, y)
 
         if self.problem_type in ['binary', 'multiclass']:
             y_pred, y_pred_proba, timer_predict = self.predict_proba_custom(X=X_test)
@@ -93,7 +93,7 @@ class AbstractExecModel:
 
         return out
 
-    def _fit(self, X_train: pd.DataFrame, y_train: pd.Series):
+    def _fit(self, X: pd.DataFrame, y: pd.Series):
         raise NotImplementedError
 
     def predict_custom(self, X: pd.DataFrame):
