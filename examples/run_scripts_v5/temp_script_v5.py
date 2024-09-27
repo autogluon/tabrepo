@@ -5,6 +5,7 @@ import pandas as pd
 from tabrepo import load_repository, EvaluationRepository
 from TabPFN_class import CustomTabPFN
 from TabPFNv2_class import CustomTabPFNv2
+from LGBM_class import CustomLGBM
 from experiment_utils import run_experiments, convert_leaderboard_to_configs
 
 if __name__ == '__main__':
@@ -13,26 +14,43 @@ if __name__ == '__main__':
     repo: EvaluationRepository = load_repository(context_name, cache=True)
 
     expname = "./initial_experiment_tabpfn_v5"  # folder location of all experiment artifacts
-    ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
+    ignore_cache = True  # set to True to overwrite existing caches and re-run experiments from scratch
+
+    # To run everything:
+    # datasets = repo.datasets
+    # folds = repo.folds
 
     datasets = [
-        "blood-transfusion-service-center",
-        "Australian",
+        "blood-transfusion-service-center",  # binary
+        "Australian",  # binary
+        "balance-scale",  # multiclass
+        # "MIP-2016-regression",  # regression
     ]
+
+    folds = [0]
 
     # Add a check here if the dataset belong to repo
     tids = [repo.dataset_to_tid(dataset) for dataset in datasets]
 
-    methods_dict_tabpfn = {"TABPFNv2": {}}
-    methods_tabpfn = list(methods_dict_tabpfn.keys())
+    methods_dict = {
+        "LightGBM": {},
+        "TabPFN": {},
+        # "TabPFNv2": {},
+    }
+    method_cls_dict = {
+        "LightGBM": CustomLGBM,
+        "TabPFN": CustomTabPFN,
+        "TabPFNv2": CustomTabPFNv2,
+    }
+    methods = list(methods_dict.keys())
 
     results_lst = run_experiments(
         expname=expname,
         tids=tids,
         folds=repo.folds,
-        methods=methods_tabpfn,
-        methods_dict=methods_dict_tabpfn,
-        method_cls=CustomTabPFNv2,
+        methods=methods,
+        methods_dict=methods_dict,
+        method_cls=method_cls_dict,
         task_metadata=repo.task_metadata,
         ignore_cache=ignore_cache,
     )
