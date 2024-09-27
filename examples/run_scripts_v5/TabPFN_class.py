@@ -24,6 +24,10 @@ class CustomTabPFN(AbstractExecModel):
         )
         return self
 
+    def _predict(self, X: pd.DataFrame) -> pd.Series:
+        y_pred = self.model.predict(X)
+        return pd.Series(y_pred, index=X.index)
+
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         y_pred_proba = self.model.predict_proba(X)
         y_pred_proba = pd.DataFrame(y_pred_proba, columns=self.model.classes_, index=X.index)

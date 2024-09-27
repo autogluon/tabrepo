@@ -68,11 +68,17 @@ def run_experiments(
                 print(
                     f"\n\tFitting {task_name} on fold {fold} for method {method}"
                 )
+
+                if isinstance(method_cls, dict):
+                    cur_method_cls = method_cls[method]
+                else:
+                    cur_method_cls = method_cls
+
                 experiment = cache_class(
                     expname=expname,
                     name=cache_name,
                     run_fun=lambda: run_experiment(
-                        method_cls=method_cls,
+                        method_cls=cur_method_cls,
                         task=task,
                         fold=fold,
                         task_name=task_name,

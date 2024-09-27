@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from autogluon.core.data import LabelCleaner
+from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon.features import AutoMLPipelineFeatureGenerator
 from autogluon_benchmark.utils.time_utils import Timer
@@ -21,26 +21,39 @@ class AbstractExecModel:
         self.eval_metric = eval_metric
         self.preprocess_data = preprocess_data
         self.preprocess_label = preprocess_label
-        self._label_cleaner = None
+        self.label_cleaner: LabelCleaner = None
+        self._feature_generator = None
 
-    def _clean_label(self, y, y_test):
-        self._label_cleaner = LabelCleaner.construct(problem_type=self.problem_type, y=y, y_uncleaned=y)
-        y_clean = self._label_cleaner.transform(y)
-        y_test_clean = self._label_cleaner.transform(y_test)
-        return y_clean, y_test_clean
+    def transform_y(self, y: pd.Series) -> pd.Series:
+        return self.label_cleaner.transform(y)
 
-    def _clean_data(self, X, y, X_test):
-        feature_generator = AutoMLPipelineFeatureGenerator()
-        X = feature_generator.fit_transform(X=X, y=y)
-        X_test = feature_generator.transform(X=X_test)
-        return X, X_test
+    def inverse_transform_y(self, y: pd.Series) -> pd.Series:
+        return self.label_cleaner.inverse_transform(y)
+
+    def transform_y_pred_proba(self, y_pred_proba: pd.DataFrame) -> pd.DataFrame:
+        return self.label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
+
+    def inverse_transform_y_pred_proba(self, y_pred_proba: pd.DataFrame) -> pd.DataFrame:
+        return self.label_cleaner.inverse_transform_proba(y_pred_proba, as_pandas=True)
+
+    def transform_X(self, X: pd.DataFrame) -> pd.DataFrame:
+        if self.preprocess_data:
+            return self._feature_generator.transform(X)
+        return X
+
+    def _preprocess_fit_transform(self, X: pd.DataFrame, y: pd.Series):
+        if self.preprocess_label:
+            self.label_cleaner = LabelCleaner.construct(problem_type=self.problem_type, y=y, y_uncleaned=y)
+        else:
+            self.label_cleaner = LabelCleanerDummy(problem_type=self.problem_type)
+        if self.preprocess_data:
+            self._feature_generator = AutoMLPipelineFeatureGenerator()
+            X = self._feature_generator.fit_transform(X=X, y=y)
+        y = self.transform_y(y)
+        return X, y
 
     # TODO: Nick: Temporary name
     def fit_custom2(self, X, y, X_test, y_test):
-        if self.preprocess_label:
-            y, y_test = self._clean_label(y=y, y_test=y_test)
-        if self.preprocess_data:
-            X, X_test = self._clean_data(X=X, y=y, X_test=X_test)
         out = self.fit_custom(X, y, X_test)
 
         y_pred_test_clean = out["predictions"]
@@ -74,7 +87,7 @@ class AbstractExecModel:
         Returns predictions, probabilities, fit time and inference time
         '''
         with (Timer() as timer_fit):
-            self._fit(X, y)
+            self.fit(X, y)
 
         if self.problem_type in ['binary', 'multiclass']:
             y_pred, y_pred_proba, timer_predict = self.predict_proba_custom(X=X_test)
@@ -91,6 +104,10 @@ class AbstractExecModel:
 
         return out
 
+    def fit(self, X: pd.DataFrame, y: pd.Series):
+        X, y = self._preprocess_fit_transform(X=X, y=y)
+        return self._fit(X=X, y=y)
+
     def _fit(self, X: pd.DataFrame, y: pd.Series):
         raise NotImplementedError
 
@@ -102,13 +119,17 @@ class AbstractExecModel:
         predictions and inference time, probabilities will be none
         '''
         with Timer() as timer_predict:
-            y_pred = self._predict(X)
-            y_pred = pd.Series(y_pred, index=X.index)
+            y_pred = self.predict(X)
 
         return y_pred, timer_predict
 
     def predict_from_proba(self, y_pred_proba: pd.DataFrame) -> pd.Series:
         return y_pred_proba.idxmax(axis=1)
+
+    def predict(self, X: pd.DataFrame) -> pd.Series:
+        X = self.transform_X(X=X)
+        y_pred = self._predict(X)
+        return self.inverse_transform_y(y=y_pred)
 
     def _predict(self, X: pd.DataFrame):
         raise NotImplementedError
@@ -123,19 +144,28 @@ class AbstractExecModel:
         predictions and inference time, probabilities will be none
         '''
         with Timer() as timer_predict:
-            y_pred_proba = self._predict_proba(X)
+            y_pred_proba = self.predict_proba(X)
         y_pred = self.predict_from_proba(y_pred_proba)
 
         return y_pred, y_pred_proba, timer_predict
+
+    def predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
+        X = self.transform_X(X=X)
+        y_pred_proba = self._predict_proba(X=X)
+        return self.inverse_transform_y_pred_proba(y_pred_proba=y_pred_proba)
 
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
 
     def evaluate(self, y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer):
+        y_true = self.transform_y(y_true)
         if scorer.needs_pred:
+            y_pred = self.transform_y(y_pred)
             test_error = scorer.error(y_true=y_true, y_pred=y_pred)
         elif self.problem_type == "binary":
+            y_pred_proba = self.transform_y_pred_proba(y_pred_proba)
             test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba.iloc[:, 1])
         else:
+            y_pred_proba = self.transform_y_pred_proba(y_pred_proba)
             test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
         return test_error
