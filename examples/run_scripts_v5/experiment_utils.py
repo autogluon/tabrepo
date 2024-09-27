@@ -11,16 +11,16 @@ from tabrepo.utils.cache import DummyExperiment, Experiment
 # above to-do is mentioned again in fit_custom()
 # TODO: Nick: This should not be part of this class.
 def run_experiments(
-        expname: str,
-        tids: List[int],
-        folds: List[int],
-        methods: List[str],
-        methods_dict: dict,
-        method_cls,  # FIXME: Nick: This needs to be communicated on a per-method basis
-        task_metadata: pd.DataFrame,
-        ignore_cache: bool,
-        cache_class: Callable | None = Experiment,
-        cache_class_kwargs: dict = None,
+    expname: str,
+    tids: List[int],
+    folds: List[int],
+    methods: List[str],
+    methods_dict: dict,
+    method_cls,  # FIXME: Nick: This needs to be communicated on a per-method basis
+    task_metadata: pd.DataFrame,
+    ignore_cache: bool,
+    cache_class: Callable | None = Experiment,
+    cache_class_kwargs: dict = None,
 ) -> list:
     '''
 
