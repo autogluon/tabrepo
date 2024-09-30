@@ -11,8 +11,6 @@ from tabrepo.utils.cache import DummyExperiment, Experiment
 
 
 # TODO: Prateek: Give a toggle for just fitting and saving the model, if not call predict as well
-# above to-do is mentioned again in fit_custom()
-# TODO: Nick: This should not be part of this class.
 def run_experiments(
     expname: str,
     tids: List[int],
@@ -60,16 +58,18 @@ def run_experiments(
         f"\n\tMethods : {methods}"
     )
     result_lst = []
-    for tid in tids:
+    num_datasets = len(tids)
+    for i, tid in enumerate(tids):
         task = OpenMLTaskWrapper.from_task_id(task_id=tid)
         task_name = task_metadata[task_metadata["tid"] == tid]["name"].iloc[0]
+        print(f"Starting Dataset {i+1}/{num_datasets}...")
         for fold in folds:
             for method in methods:
                 cache_name = f"data/tasks/{tid}/{fold}/{method}/results"
                 # TODO: Prateek, yet to support fit_args
                 fit_args = methods_dict[method]
                 print(
-                    f"\n\tFitting {task_name} on fold {fold} for method {method}"
+                    f"\tFitting {task_name} on fold {fold} for method {method}"
                 )
 
                 if isinstance(method_cls, dict):
@@ -98,11 +98,10 @@ def run_experiments(
     return result_lst
 
 
-# TODO: Nick: This should not be part of this class.
 def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None,
                    **kwargs):
-    eval_metric = ag_eval_metric_map[task.problem_type]
-    eval_metric: Scorer = get_metric(metric=eval_metric, problem_type=task.problem_type)
+    eval_metric_name = ag_eval_metric_map[task.problem_type]
+    eval_metric: Scorer = get_metric(metric=eval_metric_name, problem_type=task.problem_type)
     model = method_cls(
         problem_type=task.problem_type,
         eval_metric=eval_metric,
@@ -128,7 +127,7 @@ def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: st
     out["tid"] = task.task_id
     out["fold"] = fold
     out["problem_type"] = task.problem_type
-    out["eval_metric"] = model.eval_metric
+    out["eval_metric"] = model.eval_metric_name
     print(f"Task  Name: {out['dataset']}")
     print(f"Task    ID: {out['tid']}")
     print(f"Metric    : {out['eval_metric']}")

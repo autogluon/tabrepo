@@ -599,9 +599,11 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
         return df
 
-    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str) -> EvaluatorOutput:
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str, evaluator_kwargs: dict = None) -> EvaluatorOutput:
+        if evaluator_kwargs is None:
+            evaluator_kwargs = {}
         results_df = results_df.reset_index()
-        evaluator = Evaluator(task_metadata=self.task_metadata)
+        evaluator = Evaluator(task_metadata=self.task_metadata, **evaluator_kwargs)
         evaluator_output = evaluator.transform(results_df)
         output_path = f"{save_dir}/output"
         figure_savedir = f"{output_path}/figures"
