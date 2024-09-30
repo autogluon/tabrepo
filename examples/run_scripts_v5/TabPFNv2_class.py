@@ -25,7 +25,7 @@ class CustomTabPFNv2(AbstractExecModel):
             "root_mean_squared_error": "rmse",
             "r2": "r2",
         }
-        optimize_metric_tabpfn = metric_map[self.eval_metric]
+        optimize_metric_tabpfn = metric_map[self.eval_metric.name]
         return optimize_metric_tabpfn
 
     def _fit(self, X: pd.DataFrame, y: pd.Series):
