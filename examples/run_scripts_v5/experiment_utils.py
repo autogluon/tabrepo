@@ -127,7 +127,7 @@ def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: st
     out["tid"] = task.task_id
     out["fold"] = fold
     out["problem_type"] = task.problem_type
-    out["eval_metric"] = model.eval_metric_name
+    out["eval_metric"] = eval_metric_name
     print(f"Task  Name: {out['dataset']}")
     print(f"Task    ID: {out['tid']}")
     print(f"Metric    : {out['eval_metric']}")
