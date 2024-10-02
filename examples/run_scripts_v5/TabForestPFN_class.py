@@ -33,7 +33,7 @@ class TabForestPFN_sklearn(BaseEstimator, ClassifierMixin):
         from tabularbench.core.dataset_split import make_stratified_dataset_split
         X = X.reset_index(drop=True)
         y = y.reset_index(drop=True)
-        X = X.values
+        X = X.values.astype(np.float64)
         y = y.values
         self.classes_ = unique_labels(y)
         self.X_ = X
@@ -48,12 +48,12 @@ class TabForestPFN_sklearn(BaseEstimator, ClassifierMixin):
         return self
 
     def predict(self, X):
-        X = X.values
+        X = X.values.astype(np.float64)
         logits = self.trainer.predict(self.X_, self.y_, X)
         return logits.argmax(axis=1)
 
     def predict_proba(self, X):
-        X = X.values
+        X = X.values.astype(np.float64)
         logits = self.trainer.predict(self.X_, self.y_, X)
         return np.exp(logits) / np.exp(logits).sum(axis=1)[:, None]
 
