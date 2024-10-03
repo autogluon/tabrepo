@@ -10,7 +10,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.multiclass import unique_labels
 
 
-class TabForestPFN_sklearn(BaseEstimator, ClassifierMixin):
+class TabForestPFNClassifier(BaseEstimator, ClassifierMixin):
 
     def __init__(self, n_classes, cfg, split_val, path_to_weights):
         from tabularbench.core.trainer_finetune import TrainerFinetune
@@ -30,17 +30,15 @@ class TabForestPFN_sklearn(BaseEstimator, ClassifierMixin):
         self.trainer = TrainerFinetune(cfg, model, n_classes=n_classes)
         super().__init__()
 
-    def fit(self, X, y):
+    def fit(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None):
         from tabularbench.core.dataset_split import make_stratified_dataset_split
-        X = X.reset_index(drop=True)
-        y = y.reset_index(drop=True)
-        X = X.values.astype(np.float64)
-        y = y.values
         self.classes_ = unique_labels(y)
         self.X_ = X
         self.y_ = y
 
-        if self.split_val:
+        if X_val is not None and y_val is not None:
+            X_train, X_valid, y_train, y_valid = X, X_val, y, y_val
+        elif self.split_val:
             X_train, X_valid, y_train, y_valid = make_stratified_dataset_split(X, y)
         else:
             X_train, X_valid, y_train, y_valid = X, X, y, y
@@ -49,12 +47,10 @@ class TabForestPFN_sklearn(BaseEstimator, ClassifierMixin):
         return self
 
     def predict(self, X):
-        X = X.values.astype(np.float64)
         logits = self.trainer.predict(self.X_, self.y_, X)
         return logits.argmax(axis=1)
 
     def predict_proba(self, X):
-        X = X.values.astype(np.float64)
         logits = self.trainer.predict(self.X_, self.y_, X)
         return np.exp(logits) / np.exp(logits).sum(axis=1)[:, None]
 
@@ -72,15 +68,14 @@ class CustomTabForestPFN(AbstractExecModel):
             path_weights = '/home/ubuntu/workspace/tabpfn_weights/tabforestpfn.pt'
         self.path_weights = path_weights
 
-
     def get_model_cls(self):
         if self.problem_type in ['binary', 'multiclass']:
-            model_cls = TabForestPFN_sklearn
+            model_cls = TabForestPFNClassifier
         else:
             raise AssertionError(f"TabForestPFN does not support problem_type='{self.problem_type}'")
         return model_cls
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
+    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, **kwargs):
         from tabularbench.config.config_run import ConfigRun
         model_cls = self.get_model_cls()
         cfg = ConfigRun.load(Path(self.path_config))
@@ -97,20 +92,27 @@ class CustomTabForestPFN(AbstractExecModel):
             cfg.task = "classification"
             n_classes = len(y.unique())
 
+        X = X.values.astype(np.float64)
+        y = y.values
+        if X_val is not None:
+            X_val = X_val.values.astype(np.float64)
+            y_val = y_val.values
+
         self.model = model_cls(
             cfg=cfg, n_classes=n_classes, split_val=self.split_val, path_to_weights=self.path_weights,
         )
         self.model.fit(
             X=X,
             y=y,
+            X_val=X_val,
+            y_val=y_val,
         )
         return self
 
     def _predict(self, X: pd.DataFrame) -> pd.Series:
-        y_pred = self.model.predict(X)
-        return pd.Series(y_pred, index=X.index)
+        y_pred = self.model.predict(X.values.astype(np.float64))
+        return y_pred
 
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
-        y_pred_proba = self.model.predict_proba(X)
-        y_pred_proba = pd.DataFrame(y_pred_proba, columns=self.model.classes_, index=X.index)
+        y_pred_proba = self.model.predict_proba(X.values.astype(np.float64))
         return y_pred_proba

@@ -29,7 +29,7 @@ class CustomTabPFNv2(AbstractExecModel):
         optimize_metric_tabpfn = metric_map[self.eval_metric.name]
         return optimize_metric_tabpfn
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
+    def _fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
         model_cls = self.get_model_cls()
         optimize_metric = self._get_optimize_metric_tabpfn()
         self.model = model_cls(

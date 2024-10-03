@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import get_metric, Scorer
@@ -84,15 +85,21 @@ class AbstractExecModel:
 
         return out
 
-    def fit(self, X: pd.DataFrame, y: pd.Series):
+    def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
         X, y = self._preprocess_fit_transform(X=X, y=y)
-        return self._fit(X=X, y=y)
+        if X_val is not None:
+            X_val = self.transform_X(X_val)
+            y_val = self.transform_y(y_val)
+        return self._fit(X=X, y=y, X_val=X_val, y_val=y_val)
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
+    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
         raise NotImplementedError
 
     def predict_from_proba(self, y_pred_proba: pd.DataFrame) -> pd.Series:
-        return y_pred_proba.idxmax(axis=1)
+        if isinstance(y_pred_proba, pd.DataFrame):
+            return y_pred_proba.idxmax(axis=1)
+        else:
+            return np.argmax(y_pred_proba, axis=1)
 
     def predict(self, X: pd.DataFrame) -> pd.Series:
         X = self.transform_X(X=X)
@@ -109,3 +116,6 @@ class AbstractExecModel:
 
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError
+
+    def cleanup(self):
+        pass

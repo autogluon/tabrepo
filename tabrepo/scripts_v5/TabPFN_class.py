@@ -15,7 +15,7 @@ class CustomTabPFN(AbstractExecModel):
             raise AssertionError(f"TabPFN does not support problem_type='{self.problem_type}'")
         return model_cls
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
+    def _fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
         model_cls = self.get_model_cls()
         self.model = model_cls(device='cpu', N_ensemble_configurations=32)
         self.model.fit(
