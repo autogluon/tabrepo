@@ -618,7 +618,6 @@ class AbstractRepository(ABC, SaveLoadMixin):
             show=False,
         )
 
-        # NOTE WIP: ELO throws error, rest work
         plotter.plot_all(
             # calibration_framework="RandomForest (2023, 4h8c)",
             calibration_elo=1000,
@@ -627,11 +626,3 @@ class AbstractRepository(ABC, SaveLoadMixin):
         )
 
         return evaluator_output
-
-    # WIP
-    # def plot_pairwise_comparison(self, data: pd.DataFrame, task_metadata: pd.DataFrame) -> EvaluatorOutput:
-    #     data = data.reset_index()
-    #     evaluator = Evaluator(task_metadata=task_metadata)
-    #     evaluator_output = evaluator.transform(data)
-    #
-    #     return evaluator_output
