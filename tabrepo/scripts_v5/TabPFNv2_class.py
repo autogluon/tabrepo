@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pandas as pd
-from abstract_class import AbstractExecModel
+
+from .abstract_class import AbstractExecModel
 
 
 class CustomTabPFNv2(AbstractExecModel):

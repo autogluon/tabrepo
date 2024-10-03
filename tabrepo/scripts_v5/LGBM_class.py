@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import pandas as pd
-from abstract_class import AbstractExecModel
-from lightgbm import LGBMClassifier, LGBMRegressor
+
+from .abstract_class import AbstractExecModel
 
 
 class CustomLGBM(AbstractExecModel):
     def get_model_cls(self):
+        from lightgbm import LGBMClassifier, LGBMRegressor
         is_classification = self.problem_type in ['binary', 'multiclass']
         if is_classification:
             model_cls = LGBMClassifier
