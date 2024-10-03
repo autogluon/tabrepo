@@ -98,7 +98,7 @@ def run_experiments(
     return result_lst
 
 
-def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None,
+def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None, cleanup: bool = True,
                    **kwargs):
     eval_metric_name = ag_eval_metric_map[task.problem_type]
     eval_metric: Scorer = get_metric(metric=eval_metric_name, problem_type=task.problem_type)
@@ -142,6 +142,10 @@ def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: st
     ordered_columns = ["dataset", "fold", "framework", "test_error", "eval_metric", "time_fit"]
     columns_reorder = ordered_columns + [c for c in df_results.columns if c not in ordered_columns]
     df_results = df_results[columns_reorder]
+
+    if cleanup:
+        model.cleanup()
+
     return df_results
 
 
@@ -175,7 +179,7 @@ def evaluate(y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, s
         test_error = scorer.error(y_true=y_true, y_pred=y_pred)
     elif problem_type == "binary":
         y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
-        test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba.iloc[:, 1])
+        test_error = scorer.error(y_true=y_true, y_pred=pd.DataFrame(y_pred_proba).iloc[:, 1])
     else:
         y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
         test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
