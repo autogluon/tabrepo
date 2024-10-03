@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import pandas as pd
-from abstract_class import AbstractExecModel
-from tabpfn import TabPFNClassifier
+
+from .abstract_class import AbstractExecModel
 
 
 class CustomTabPFN(AbstractExecModel):
     def get_model_cls(self):
+        from tabpfn import TabPFNClassifier
         is_classification = self.problem_type in ['binary', 'multiclass']
         if is_classification:
             model_cls = TabPFNClassifier

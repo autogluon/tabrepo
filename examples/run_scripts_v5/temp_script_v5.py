@@ -3,9 +3,9 @@ from __future__ import annotations
 import pandas as pd
 
 from tabrepo import load_repository, EvaluationRepository
-from TabPFN_class import CustomTabPFN
-from TabPFNv2_class import CustomTabPFNv2
-from LGBM_class import CustomLGBM
+from tabrepo.scripts_v5.TabPFN_class import CustomTabPFN
+from tabrepo.scripts_v5.TabPFNv2_class import CustomTabPFNv2
+from tabrepo.scripts_v5.LGBM_class import CustomLGBM
 from experiment_utils import run_experiments, convert_leaderboard_to_configs
 
 if __name__ == '__main__':
