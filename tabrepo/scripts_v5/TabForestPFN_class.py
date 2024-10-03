@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from abstract_class import AbstractExecModel
+
+from .abstract_class import AbstractExecModel
 
 from pathlib import Path
 from sklearn.base import BaseEstimator, ClassifierMixin
