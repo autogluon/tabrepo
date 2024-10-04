@@ -8,6 +8,8 @@ from .abstract_class import AbstractExecModel
 
 
 class CustomAutoGluon(AbstractExecModel):
+    can_get_oof = True
+
     def __init__(self, init_kwargs=None, fit_kwargs=None, preprocess_data=False, preprocess_label=False, **kwargs):
         super().__init__(preprocess_data=preprocess_data, preprocess_label=preprocess_label, **kwargs)
         if init_kwargs is None:
@@ -43,6 +45,18 @@ class CustomAutoGluon(AbstractExecModel):
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         y_pred_proba = self.predictor.predict_proba(X)
         return y_pred_proba
+
+    def get_oof(self):
+        # TODO: Rename method
+        simulation_artifact = self.predictor.simulation_artifact()
+        simulation_artifact["pred_proba_dict_val"] = simulation_artifact["pred_proba_dict_val"][self.predictor.model_best]
+        return simulation_artifact
+
+    def get_metric_error_val(self) -> float:
+        # FIXME: this shouldn't be calculating its own val score, that should be external. This should simply give val pred and val pred proba
+        leaderboard = self.predictor.leaderboard(score_format="error")
+        metric_error_val = leaderboard.set_index("model").loc[self.predictor.model_best]["metric_error_val"]
+        return metric_error_val
 
     def cleanup(self):
         shutil.rmtree(self.predictor.path, ignore_errors=True)

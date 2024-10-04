@@ -22,7 +22,7 @@ def cache_function(
         fun: Callable[[], object],
         cache_name: str,
         ignore_cache: bool = False,
-        cache_path: Optional[Path] = None
+        cache_path: Optional[Path | str] = None
 ):
     f"""
     :param fun: a function whose result obtained `fun()` will be cached, the output of the function must be serializable.
@@ -33,7 +33,7 @@ def cache_function(
     """
     if cache_path is None:
         cache_path = default_cache_path
-    cache_file = cache_path / (cache_name + ".pkl")
+    cache_file = Path(cache_path) / (cache_name + ".pkl")
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     if cache_file.exists() and not ignore_cache:
         print(f"Loading cache {cache_file}")
@@ -97,6 +97,17 @@ class Experiment:
     def data(self, ignore_cache: bool = False):
         return cache_function_dataframe(
             lambda: pd.DataFrame(self.run_fun()),
+            cache_name=self.name,
+            cache_path=self.expname,
+            ignore_cache=ignore_cache,
+        )
+
+
+@dataclass
+class SimulationExperiment(Experiment):
+    def data(self, ignore_cache: bool = False) -> dict:
+        return cache_function(
+            lambda: self.run_fun(),
             cache_name=self.name,
             cache_path=self.expname,
             ignore_cache=ignore_cache,

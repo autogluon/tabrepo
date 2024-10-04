@@ -8,6 +8,7 @@ from autogluon.core.metrics import get_metric, Scorer
 from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.utils.cache import DummyExperiment, Experiment
+from experiment_runner import ExperimentRunner, evaluate
 
 
 # TODO: Prateek: Give a toggle for just fitting and saving the model, if not call predict as well
@@ -20,8 +21,9 @@ def run_experiments(
     method_cls,  # FIXME: Nick: This needs to be communicated on a per-method basis
     task_metadata: pd.DataFrame,
     ignore_cache: bool,
-    cache_class: Callable | None = Experiment,
-    cache_class_kwargs: dict = None,
+    experiment_cls: Callable = ExperimentRunner,
+    cache_cls: Callable | None = Experiment,
+    cache_cls_kwargs: dict = None,
 ) -> list:
     '''
 
@@ -35,18 +37,18 @@ def run_experiments(
     task_metadata: pd.DataFrame,OpenML task metadata
     ignore_cache: bool, whether to use cached results (if present)
     method_cls: WIP
-    cache_class: WIP
-    cache_class_kwargs: WIP
+    cache_cls: WIP
+    cache_cls_kwargs: WIP
 
     Returns
     -------
     result_lst: list, containing all metrics from fit() and predict() of all the given OpenML tasks
     '''
     # TODO: Prateek, Check usage
-    if cache_class is None:
-        cache_class = DummyExperiment
-    if cache_class_kwargs is None:
-        cache_class_kwargs = {}
+    if cache_cls is None:
+        cache_cls = DummyExperiment
+    if cache_cls_kwargs is None:
+        cache_cls_kwargs = {}
     dataset_names = [task_metadata[task_metadata["tid"] == tid]["name"].iloc[0] for tid in tids]
     print(
         f"Running Experiments for expname: '{expname}'..."
@@ -77,18 +79,18 @@ def run_experiments(
                 else:
                     cur_method_cls = method_cls
 
-                experiment = cache_class(
+                experiment = cache_cls(
                     expname=expname,
                     name=cache_name,
-                    run_fun=lambda: run_experiment(
+                    run_fun=lambda: experiment_cls(
                         method_cls=cur_method_cls,
                         task=task,
                         fold=fold,
                         task_name=task_name,
                         method=method,
                         fit_args=fit_args,
-                    ),
-                    **cache_class_kwargs
+                    ).run(),
+                    **cache_cls_kwargs,
                 )
                 # FIXME: The output df still needs evaluation and formatting, currently just has predictions
                 # probabilities, fit and infer times
@@ -158,7 +160,7 @@ def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = Tr
         val_error="metric_error_val",
     ))
     if minimal:
-        df_configs = df_configs[[
+        minimal_columns = [
             "dataset",
             "fold",
             "framework",
@@ -168,19 +170,8 @@ def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = Tr
             "time_train_s",
             "time_infer_s",
             "tid",
-        ]]
+        ]
+        if "metric_error_val" in df_configs:
+            minimal_columns.append("metric_error_val")
+        df_configs = df_configs[minimal_columns]
     return df_configs
-
-
-def evaluate(y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer, label_cleaner: LabelCleaner, problem_type: str):
-    y_true = label_cleaner.transform(y_true)
-    if scorer.needs_pred:
-        y_pred = label_cleaner.transform(y_pred)
-        test_error = scorer.error(y_true=y_true, y_pred=y_pred)
-    elif problem_type == "binary":
-        y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
-        test_error = scorer.error(y_true=y_true, y_pred=pd.DataFrame(y_pred_proba).iloc[:, 1])
-    else:
-        y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
-        test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
-    return test_error
