@@ -554,15 +554,20 @@ class AbstractRepository(ABC, SaveLoadMixin):
     # Q:Whether to keep these functions a part of TabRepo or keep them separate as a part of new fit()-package
     def compare_metrics(
         self,
-        results_df: pd.DataFrame,
+        results_df: pd.DataFrame = None,
         datasets: List[str] = None,
         folds: List[int] = None,
         configs: List[str] = None,
         baselines: List[str] = None,
     ) -> pd.DataFrame:
+        if datasets is None:
+            datasets = self.datasets()
         columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
 
-        df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
+        if results_df is not None:
+            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
+        else:
+            df_exp = None
 
         # Dropping task column in df_tr
         df_tr = self._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[columns]

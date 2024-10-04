@@ -10,6 +10,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.multiclass import unique_labels
 
 
+# TODO: Test shuffling the data and see if it makes TabPFNv2 worse, same with TabForestPFN
 class TabForestPFNClassifier(BaseEstimator, ClassifierMixin):
 
     def __init__(self, n_classes, cfg, split_val, path_to_weights):
