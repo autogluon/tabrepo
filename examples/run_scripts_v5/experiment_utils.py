@@ -44,12 +44,16 @@ def run_experiments(
     -------
     result_lst: list, containing all metrics from fit() and predict() of all the given OpenML tasks
     '''
-    # TODO: Prateek, Check usage
     if cache_cls is None:
         cache_cls = DummyExperiment
     if cache_cls_kwargs is None:
         cache_cls_kwargs = {}
-    dataset_names = [task_metadata[task_metadata["tid"] == tid]["name"].iloc[0] for tid in tids]
+    # FIXME: dataset or name? Where does `dataset` come from, why can it be different from `name`?
+    #  Using dataset for now because for some datasets like "GAMETES", the name is slightly different with `.` in `name` being replaced with `_` in `dataset`.
+    #  This is probably because `.` isn't a valid name in a file in s3.
+    #  TODO: What if `dataset` doesn't exist as a column? Maybe fallback to `name`? Or do the `name` -> `dataset` conversion, or use tid.
+    dataset_name_column = "dataset"
+    dataset_names = [task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0] for tid in tids]
     print(
         f"Running Experiments for expname: '{expname}'..."
         f"\n\tFitting {len(tids)} datasets and {len(folds)} folds for a total of {len(tids) * len(folds)} tasks"
@@ -63,7 +67,7 @@ def run_experiments(
     num_datasets = len(tids)
     for i, tid in enumerate(tids):
         task = OpenMLTaskWrapper.from_task_id(task_id=tid)
-        task_name = task_metadata[task_metadata["tid"] == tid]["name"].iloc[0]
+        task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
         print(f"Starting Dataset {i+1}/{num_datasets}...")
         for fold in folds:
             for method in methods:

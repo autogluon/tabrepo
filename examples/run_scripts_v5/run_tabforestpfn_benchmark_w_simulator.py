@@ -18,8 +18,8 @@ from tabrepo.utils.cache import SimulationExperiment
 
 if __name__ == '__main__':
     # Load Context
-    context_name = "D244_F3_C1530_100"  # 100 smallest datasets. To run larger, set to "D244_F3_C1530_200"
-    expname = "./initial_experiment_tabpfn_v2_tmp5"  # folder location of all experiment artifacts
+    context_name = "D244_F3_C1530_200"  # 100 smallest datasets. To run larger, set to "D244_F3_C1530_200"
+    expname = "./initial_experiment_tabforestpfn_simulator"  # folder location of all experiment artifacts
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
     repo: EvaluationRepository = load_repository(context_name, cache=True)
@@ -32,8 +32,7 @@ if __name__ == '__main__':
     task_metadata = task_metadata[task_metadata["NumberOfClasses"] <= 10]
 
     datasets = list(task_metadata["dataset"])
-    datasets = datasets[:20]  # Capping to 50 because TabPFNv2 runs into daily limit with more
-    # datasets = datasets[:50]
+    # datasets = datasets[:50]  # Capping to 50 because TabPFNv2 runs into daily limit with more
 
     task_metadata = task_metadata[task_metadata["dataset"].isin(datasets)]
     task_metadata = task_metadata[task_metadata["NumberOfClasses"] >= 2]
@@ -41,7 +40,7 @@ if __name__ == '__main__':
     # task_metadata = task_metadata[task_metadata["NumberOfInstances"] > 1000]
     datasets = list(task_metadata["dataset"])
 
-    folds = [0]
+    folds = [0, 1, 2]
 
     # datasets = [
     #     "blood-transfusion-service-center",  # binary
@@ -171,16 +170,32 @@ if __name__ == '__main__':
         has_baselines=False)
     subcontext = BenchmarkSubcontext(parent=context)
     repo_2: EvaluationRepository = subcontext.load_from_parent()
+    # FIXME: infer_time is incorrect for TabForestPFN
+    # FIXME: infer_time is incorrect for ALL and ALL_PLUS_TabForestPFN during eval
 
     from tabrepo import EvaluationRepositoryCollection
     repo_combined = EvaluationRepositoryCollection(repos=[repo, repo_2], config_fallback="ExtraTrees_c1_BAG_L1")
+
+    repo_combined = repo_combined.subset(datasets=repo_2.datasets())
+
+    # FIXME: repo_combined._zeroshot_context.df_metrics contains 200 datasets when it should contain only 110
 
     configs = repo_combined.configs()
 
     configs_og = repo.configs()
 
-    result_ens_og = repo_combined.evaluate_ensemble(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25)
-    result_ens = repo_combined.evaluate_ensemble(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25)
+    result_ens_og, result_ens_og_weights = repo_combined.evaluate_ensemble_with_time(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25, rank=False)
+    result_ens, result_ens_weights = repo_combined.evaluate_ensemble_with_time(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25, rank=False)
+
+    result_ens_og = result_ens_og.reset_index()
+    result_ens_og["framework"] = "ALL"
+    result_ens = result_ens.reset_index()
+    result_ens["framework"] = "ALL_PLUS_TabForestPFN"
+
+    results_df_2 = pd.concat([result_ens, result_ens_og], ignore_index=True)
+
+    # print(f"AVG OG: {result_ens_og[0].mean()}")
+    # print(f"AVG: {result_ens[0].mean()}")
 
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width', 1000):
         print(results_df)
@@ -207,7 +222,7 @@ if __name__ == '__main__':
 
     metrics = repo_combined.compare_metrics(
         # results_df,
-        None,
+        results_df_2,
         datasets=datasets,
         folds=folds,
         baselines=baselines,

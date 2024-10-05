@@ -148,6 +148,9 @@ class OOFExperimentRunner(ExperimentRunner):
         df_results = df_results[columns_reorder]
 
         out["df_results"] = df_results
+        out.pop("predictions")
+        out.pop("probabilities")
+
         return out
 
 

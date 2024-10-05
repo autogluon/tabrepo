@@ -173,6 +173,11 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def dataset_to_tid(self, dataset: str) -> int:
         return self._dataset_to_tid_dict[dataset]
 
+    def datasets_to_tids(self, datasets: list[str] = None) -> pd.Series:
+        if datasets is None:
+            datasets = self.datasets()
+        return pd.Series({dataset: self._dataset_to_tid_dict[dataset] for dataset in datasets}, name="tid")
+
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_dataset_dict.get(tid, "Not found")
 
@@ -360,6 +365,23 @@ class AbstractRepository(ABC, SaveLoadMixin):
             "problem_type": The problem type of the dataset
         """
         return self._zeroshot_context.df_metrics.loc[dataset].to_dict()
+
+    def datasets_info(self, datasets: list[str] = None) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        datasets: list[str]. default = None
+            If None, uses all datasets
+
+        Returns
+        -------
+        Pandas DataFrame with index "dataset" and two columns:
+            "metric": The evaluation metric name used for scoring on the dataset
+            "problem_type": The problem type of the dataset
+        """
+        if datasets is None:
+            datasets = self.datasets()
+        return self._zeroshot_context.df_metrics.loc[datasets]
 
     @property
     def folds(self) -> List[int]:
