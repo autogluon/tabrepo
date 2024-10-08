@@ -626,13 +626,14 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
         return df
 
-    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str, evaluator_kwargs: dict = None) -> EvaluatorOutput:
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str, evaluator_kwargs: dict = None, calibration_framework: str = None) -> EvaluatorOutput:
         if evaluator_kwargs is None:
             evaluator_kwargs = {}
         results_df = results_df.reset_index()
         evaluator = Evaluator(task_metadata=self.task_metadata, **evaluator_kwargs)
         evaluator_output = evaluator.transform(results_df)
-        output_path = f"{save_dir}/output"
+        output_path = f"{save_dir}"
+        # FIXME: Use Path, don't use /
         figure_savedir = f"{output_path}/figures"
         save_pd.save(path=f"{output_path}/results.csv", df=results_df)
         save_pd.save(path=f"{output_path}/results_ranked_agg.csv", df=evaluator_output.results_ranked_agg)
@@ -646,7 +647,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         )
 
         plotter.plot_all(
-            # calibration_framework="RandomForest (2023, 4h8c)",
+            calibration_framework=calibration_framework,
             calibration_elo=1000,
             BOOTSTRAP_ROUNDS=100,  # Reduce this to lower values for a faster execution. Use 1000 for the final plot.
             plot_critical_difference=False,
