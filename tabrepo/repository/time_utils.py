@@ -1,11 +1,12 @@
 from typing import List, Optional, Dict
 import numpy as np
 import pandas as pd
-from tabrepo.repository.evaluation_repository import EvaluationRepository
+
+from .abstract_repository import AbstractRepository
 
 
 def get_runtime(
-        repo: EvaluationRepository,
+        repo: AbstractRepository,
         tid: int,
         fold: int,
         config_names: Optional[List[str]] = None,
@@ -52,7 +53,7 @@ def get_runtime(
 
 
 def sort_by_runtime(
-    repo: EvaluationRepository,
+    repo: AbstractRepository,
     config_names: List[str],
     ascending: bool = True,
 ) -> List[str]:
@@ -64,7 +65,7 @@ def sort_by_runtime(
 
 
 def filter_configs_by_runtime(
-        repo: EvaluationRepository,
+        repo: AbstractRepository,
         tid: int,
         fold: int,
         config_names: List[str],
