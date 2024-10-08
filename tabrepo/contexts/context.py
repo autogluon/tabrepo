@@ -102,6 +102,14 @@ class BenchmarkPaths:
         required_files = self.get_file_paths(include_zs=check_zs)
         return all(self.exists(f) for f in required_files)
 
+    def missing_files(self, check_zs: bool = True) -> list:
+        required_files = self.get_file_paths(include_zs=check_zs)
+        missing_files = []
+        for f in required_files:
+            if not self.exists(f):
+                missing_files.append(f)
+        return missing_files
+
     @staticmethod
     def exists(filepath: str) -> bool:
         if filepath is None:
@@ -330,6 +338,11 @@ class BenchmarkContext:
                     download_files = False
             if download_files:
                 self.benchmark_paths.print_summary()
+                if self.s3_download_map is None:
+                    missing_files = self.benchmark_paths.missing_files()
+                    if missing_files:
+                        missing_files_str = [f'\n\t"{m}"' for m in missing_files]
+                        raise FileNotFoundError(f'Missing {len(missing_files)} required files: \n[{",".join(missing_files_str)}\n]')
                 print(f'Downloading input files from s3...')
                 self.download(include_zs=load_predictions, exists=exists)
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)

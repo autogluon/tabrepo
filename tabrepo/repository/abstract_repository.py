@@ -12,6 +12,10 @@ from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
 
+from autogluon_benchmark.evaluation.evaluator import Evaluator, EvaluatorOutput
+from autogluon_benchmark.plotting.plotter import Plotter
+from autogluon.common.savers import save_pd
+
 
 class AbstractRepository(ABC, SaveLoadMixin):
     def __init__(
@@ -168,6 +172,11 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
     def dataset_to_tid(self, dataset: str) -> int:
         return self._dataset_to_tid_dict[dataset]
+
+    def datasets_to_tids(self, datasets: list[str] = None) -> pd.Series:
+        if datasets is None:
+            datasets = self.datasets()
+        return pd.Series({dataset: self._dataset_to_tid_dict[dataset] for dataset in datasets}, name="tid")
 
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_dataset_dict.get(tid, "Not found")
@@ -357,6 +366,23 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.df_metrics.loc[dataset].to_dict()
 
+    def datasets_info(self, datasets: list[str] = None) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        datasets: list[str]. default = None
+            If None, uses all datasets
+
+        Returns
+        -------
+        Pandas DataFrame with index "dataset" and two columns:
+            "metric": The evaluation metric name used for scoring on the dataset
+            "problem_type": The problem type of the dataset
+        """
+        if datasets is None:
+            datasets = self.datasets()
+        return self._zeroshot_context.df_metrics.loc[datasets]
+
     @property
     def folds(self) -> List[int]:
         """Folds with any result"""
@@ -532,3 +558,99 @@ class AbstractRepository(ABC, SaveLoadMixin):
             return np.stack([1 - predictions, predictions], axis=predictions.ndim)
         else:
             return predictions
+
+    def _convert_time_infer_s_from_sample_to_batch(self, df: pd.DataFrame):
+        """
+        Temp: Multiply by 0.1 since 90% of the instances are used for training and 10% for test
+        # TODO: Change this in future, not all tasks will use 90% train / 10% test. Instead keep track of train/test rows per dataset_fold pair.
+        """
+        df = df.copy(deep=True)
+        df["time_infer_s"] = df["time_infer_s"] * df.index.get_level_values("dataset").map(
+            self.task_metadata.set_index("dataset")["NumberOfInstances"]
+        ) * 0.1
+        return df
+
+    # TODO: repo time_infer_s is per row, results_df is the total time for all rows, need to align later
+    # TODO: Error if unknown configs/baselines requested
+    # TODO: Add fillna
+    # Q:Whether to keep these functions a part of TabRepo or keep them separate as a part of new fit()-package
+    def compare_metrics(
+        self,
+        results_df: pd.DataFrame = None,
+        datasets: List[str] = None,
+        folds: List[int] = None,
+        configs: List[str] = None,
+        baselines: List[str] = None,
+    ) -> pd.DataFrame:
+        if datasets is None:
+            datasets = self.datasets()
+        columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+
+        if results_df is not None:
+            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
+        else:
+            df_exp = None
+
+        # Dropping task column in df_tr
+        df_tr = self._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[columns]
+
+        mask = df_tr.index.get_level_values("dataset").isin(datasets)
+        if folds is not None:
+            mask = mask & df_tr.index.get_level_values("fold").isin(folds)
+        if configs is not None:
+            mask = mask & df_tr.index.get_level_values("framework").isin(configs)
+        df_tr = df_tr[mask]
+
+        if self.task_metadata is not None:
+            df_tr = self._convert_time_infer_s_from_sample_to_batch(df_tr)
+
+        if self._zeroshot_context.df_baselines is not None:
+            df_baselines = self._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[columns]
+
+            mask = df_baselines.index.get_level_values("dataset").isin(datasets)
+            if folds is not None:
+                mask = mask & df_baselines.index.get_level_values("fold").isin(folds)
+            if baselines is not None:
+                mask = mask & df_baselines.index.get_level_values("framework").isin(baselines)
+            df_baselines = df_baselines[mask]
+
+            if self.task_metadata is not None:
+                df_baselines = self._convert_time_infer_s_from_sample_to_batch(df_baselines)
+        else:
+            if baselines:
+                raise AssertionError(f"Baselines specified but no baseline methods exist! (baselines={baselines})")
+            df_baselines = None
+
+        df = pd.concat([df_exp, df_tr, df_baselines], axis=0)
+        df = df.sort_index()
+
+        return df
+
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str, evaluator_kwargs: dict = None, calibration_framework: str = None) -> EvaluatorOutput:
+        if evaluator_kwargs is None:
+            evaluator_kwargs = {}
+        results_df = results_df.reset_index()
+        evaluator = Evaluator(task_metadata=self.task_metadata, **evaluator_kwargs)
+        evaluator_output = evaluator.transform(results_df)
+        output_path = f"{save_dir}"
+        # FIXME: Use Path, don't use /
+        figure_savedir = f"{output_path}/figures"
+        save_pd.save(path=f"{output_path}/results.csv", df=results_df)
+        save_pd.save(path=f"{output_path}/results_ranked_agg.csv", df=evaluator_output.results_ranked_agg)
+        save_pd.save(path=f"{output_path}/results_ranked.csv", df=evaluator_output.results_ranked)
+
+        plotter = Plotter(
+            results_ranked_fillna_df=evaluator_output.results_ranked,
+            results_ranked_df=evaluator_output.results_ranked,
+            save_dir=figure_savedir,
+            show=False,
+        )
+
+        plotter.plot_all(
+            calibration_framework=calibration_framework,
+            calibration_elo=1000,
+            BOOTSTRAP_ROUNDS=100,  # Reduce this to lower values for a faster execution. Use 1000 for the final plot.
+            plot_critical_difference=False,
+        )
+
+        return evaluator_output
