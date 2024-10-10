@@ -40,11 +40,8 @@ if __name__ == '__main__':
         "TabPFN": {
             "device": 'cpu',
             "N_ensemble_configurations": 32,
+            "max_num_features": 50,
         },
-        # "TabPFNv2": {
-        #     "model": "latest_tabpfn_hosted",
-        #     "n_estimators": 32,
-        # },
     }
     method_cls_dict = {
         "LightGBM": CustomLGBM,

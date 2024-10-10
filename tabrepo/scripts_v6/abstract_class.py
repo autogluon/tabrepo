@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import Scorer
-from autogluon.features import AutoMLPipelineFeatureGenerator
+from autogluon.features import AutoMLPipelineFeatureGenerator, DummyFeatureGenerator
 from autogluon_benchmark.utils.time_utils import Timer
 
 
@@ -37,9 +37,7 @@ class AbstractExecModel:
         return self.label_cleaner.inverse_transform_proba(y_pred_proba, as_pandas=True)
 
     def transform_X(self, X: pd.DataFrame) -> pd.DataFrame:
-        if self.preprocess_data:
             return self._feature_generator.transform(X)
-        return X
 
     def _preprocess_fit_transform(self, X: pd.DataFrame, y: pd.Series):
         if self.preprocess_label:
@@ -48,13 +46,15 @@ class AbstractExecModel:
             self.label_cleaner = LabelCleanerDummy(problem_type=self.problem_type)
         if self.preprocess_data:
             self._feature_generator = AutoMLPipelineFeatureGenerator()
-            X = self._feature_generator.fit_transform(X=X, y=y)
+        else:
+            self._feature_generator = DummyFeatureGenerator()
+        X = self._feature_generator.fit_transform(X=X, y=y)
         y = self.transform_y(y)
         return X, y
 
     # TODO: Prateek, Add a toggle here to see if user wants to fit or fit and predict, also add model saving functionality
     # TODO: Nick: Temporary name
-    def fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
+    def fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame, **fit_args):
         '''
         Calls the fit function of the inheriting class and proceeds to perform predictions based on the problem type
 
@@ -64,7 +64,7 @@ class AbstractExecModel:
         Returns predictions, probabilities, fit time and inference time
         '''
         with (Timer() as timer_fit):
-            self.fit(X, y)
+            self.fit(X, y, **fit_args)
 
         if self.problem_type in ['binary', 'multiclass']:
             with Timer() as timer_predict:
@@ -84,11 +84,11 @@ class AbstractExecModel:
 
         return out
 
-    def fit(self, X: pd.DataFrame, y: pd.Series):
+    def fit(self, X: pd.DataFrame, y: pd.Series, **fit_args):
         X, y = self._preprocess_fit_transform(X=X, y=y)
-        return self._fit(X=X, y=y)
+        return self._fit(X=X, y=y, **fit_args)
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
+    def _fit(self, X: pd.DataFrame, y: pd.Series, **fit_args):
         raise NotImplementedError
 
     def predict_from_proba(self, y_pred_proba: pd.DataFrame) -> pd.Series:
