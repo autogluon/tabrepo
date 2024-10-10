@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import Scorer
-from autogluon.features import AutoMLPipelineFeatureGenerator, DummyFeatureGenerator
+from autogluon.features import AutoMLPipelineFeatureGenerator
 from autogluon_benchmark.utils.time_utils import Timer
 
 
@@ -37,7 +37,9 @@ class AbstractExecModel:
         return self.label_cleaner.inverse_transform_proba(y_pred_proba, as_pandas=True)
 
     def transform_X(self, X: pd.DataFrame) -> pd.DataFrame:
+        if self.preprocess_data:
             return self._feature_generator.transform(X)
+        return X
 
     def _preprocess_fit_transform(self, X: pd.DataFrame, y: pd.Series):
         if self.preprocess_label:
@@ -46,9 +48,7 @@ class AbstractExecModel:
             self.label_cleaner = LabelCleanerDummy(problem_type=self.problem_type)
         if self.preprocess_data:
             self._feature_generator = AutoMLPipelineFeatureGenerator()
-        else:
-            self._feature_generator = DummyFeatureGenerator()
-        X = self._feature_generator.fit_transform(X=X, y=y)
+            X = self._feature_generator.fit_transform(X=X, y=y)
         y = self.transform_y(y)
         return X, y
 
