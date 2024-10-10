@@ -29,16 +29,13 @@ class CustomTabPFNv2(AbstractExecModel):
         optimize_metric_tabpfn = metric_map[self.eval_metric.name]
         return optimize_metric_tabpfn
 
-    def __init__(self, problem_type: str, eval_metric: str, **init_args):
-        super().__init__(problem_type, eval_metric)
+    def _fit(self, X: pd.DataFrame, y: pd.Series, **fit_args):
         model_cls = self.get_model_cls()
         optimize_metric = self._get_optimize_metric_tabpfn()
         self.model = model_cls(
             optimize_metric=optimize_metric,
-            **init_args
+            **fit_args
         )
-
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
         self.model.fit(
             X=X,
             y=y,

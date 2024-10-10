@@ -17,12 +17,9 @@ class CustomLGBM(AbstractExecModel):
             raise AssertionError(f"LightGBM does not recognize the problem_type='{self.problem_type}'")
         return model_cls
 
-    def __init__(self, problem_type: str, eval_metric: str, **init_args):
-        super().__init__(problem_type, eval_metric)
+    def _fit(self, X: pd.DataFrame, y: pd.Series, **fit_args):
         model_cls = self.get_model_cls()
-        self.model = model_cls(**init_args)
-
-    def _fit(self, X: pd.DataFrame, y: pd.Series):
+        self.model = model_cls(**fit_args)
         self.model.fit(
             X=X,
             y=y

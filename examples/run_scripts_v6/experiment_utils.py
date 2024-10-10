@@ -66,8 +66,7 @@ def run_experiments(
         for fold in folds:
             for method in methods:
                 cache_name = f"data/tasks/{tid}/{fold}/{method}/results"
-                # Hyperparameters
-                init_args = methods_dict[method]
+                fit_args = methods_dict[method]
                 print(
                     f"\tFitting {task_name} on fold {fold} for method {method}"
                 )
@@ -86,7 +85,7 @@ def run_experiments(
                         fold=fold,
                         task_name=task_name,
                         method=method,
-                        init_args=init_args,
+                        fit_args=fit_args,
                     ),
                     **cache_class_kwargs
                 )
@@ -98,19 +97,18 @@ def run_experiments(
     return result_lst
 
 
-def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, init_args: dict = None,
+def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None,
                    **kwargs):
     eval_metric_name = ag_eval_metric_map[task.problem_type]
     eval_metric: Scorer = get_metric(metric=eval_metric_name, problem_type=task.problem_type)
     model = method_cls(
         problem_type=task.problem_type,
-        eval_metric=eval_metric,
-        **init_args,
+        eval_metric=eval_metric
     )
 
     X, y, X_test, y_test = task.get_train_test_split(fold=fold)
 
-    out = model.fit_custom(X, y, X_test)
+    out = model.fit_custom(X, y, X_test, **fit_args)
 
     label_cleaner = LabelCleaner.construct(problem_type=task.problem_type, y=y)
     out["test_error"] = evaluate(
