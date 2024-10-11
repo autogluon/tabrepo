@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Tuple, Type
 
+import numpy as np
 import pandas as pd
 
 from .time_utils import get_runtime
@@ -78,29 +79,52 @@ class EnsembleMixin:
     # FIXME: Delete this, move logic into evaluate_ensemble once evaluate_ensemble returns two DataFrames.
     def evaluate_ensemble_with_time(
         self,
-        datasets: list[str],
+        dataset: str,
+        fold: int,
         configs: list[str] = None,
         *,
         ensemble_cls: Type[EnsembleScorer] = EnsembleScorerMaxModels,
         ensemble_kwargs: dict = None,
         ensemble_size: int = 100,
+        time_limit: float = None,
+        fit_order: str = "original",
+        seed: int = 0,
         rank: bool = True,
-        folds: list[int] | None = None,
-        backend: str = "ray",
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        if folds is None:
-            folds = self.folds
         if configs is None:
             configs = self.configs()
+
+        if time_limit is not None:
+            if fit_order == "random":
+                rng = np.random.default_rng(seed=seed)
+                configs_fit_order = list(rng.permuted(configs))
+            else:
+                configs_fit_order = configs
+
+            from .time_utils import filter_configs_by_runtime
+            tid = self.dataset_to_tid(dataset)
+            configs = filter_configs_by_runtime(repo=self, tid=tid, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
+
+            if len(configs) == 0:
+                if self._config_fallback is None:
+                    if len(configs_fit_order) > 0:
+                        raise AssertionError(
+                            f"Can't fit an ensemble with no configs when self._config_fallback is None "
+                            f"(No configs are trainable in the provided time_limit={time_limit}.)"
+                        )
+                    else:
+                        raise AssertionError(f"Can't fit an ensemble with no configs when self._config_fallback is None.")
+                configs = [self._config_fallback]
+
         df_out, df_ensemble_weights = self.evaluate_ensemble(
-            datasets=datasets,
+            datasets=[dataset],
             configs=configs,
             ensemble_cls=ensemble_cls,
             ensemble_kwargs=ensemble_kwargs,
             ensemble_size=ensemble_size,
             rank=rank,
-            folds=folds,
-            backend=backend,
+            folds=[fold],
+            backend="native",
         )
 
         # FIXME: Make this for loop faster, it is noticeably slow currently
@@ -112,9 +136,7 @@ class EnsembleMixin:
             tid = self.dataset_to_tid(dataset=dataset)
             config_weights = df_ensemble_weights.loc[(dataset, fold)]
             config_selected_ensemble = [
-                config
-                for config, weight in zip(configs, config_weights)
-                if weight != 0
+                config for config in configs if config_weights[config] != 0
             ]
 
             runtimes = get_runtime(
@@ -140,9 +162,9 @@ class EnsembleMixin:
         df_out = df_out.to_frame()
         df_task_time = pd.DataFrame(task_time_map).T
         df_out[["time_train_s", "time_infer_s"]] = df_task_time
-        df_datasets_info = self.datasets_info(datasets=datasets)
+        df_datasets_info = self.datasets_info(datasets=[dataset])
         df_out = df_out.join(df_datasets_info, how="inner")
-        df_datasets_to_tids = self.datasets_to_tids(datasets=datasets).to_frame()
+        df_datasets_to_tids = self.datasets_to_tids(datasets=[dataset]).to_frame()
         df_datasets_to_tids.index.name = "dataset"
         df_out = df_out.join(df_datasets_to_tids, how="inner")
 
