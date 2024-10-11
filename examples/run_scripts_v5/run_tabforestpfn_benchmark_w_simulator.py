@@ -198,8 +198,16 @@ if __name__ == '__main__':
 
     configs_og = repo.configs()
 
-    result_ens_og, result_ens_og_weights = repo_combined.evaluate_ensemble_with_time(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25, rank=False)
-    result_ens, result_ens_weights = repo_combined.evaluate_ensemble_with_time(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25, rank=False)
+    result_ens_og, result_ens_og_weights = repo_combined.evaluate_ensemble_with_time_multi(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25, rank=False)
+
+    weights_og = result_ens_og_weights.mean(axis=0).sort_values(ascending=False)
+    print("weights_og")
+    print(weights_og)
+
+    result_ens, result_ens_weights = repo_combined.evaluate_ensemble_with_time_multi(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25, rank=False)
+    weights = result_ens_weights.mean(axis=0).sort_values(ascending=False)
+    print("weights")
+    print(weights)
 
     result_ens_og = result_ens_og.reset_index()
     result_ens_og["framework"] = "ALL"
