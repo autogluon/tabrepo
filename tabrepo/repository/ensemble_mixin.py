@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from typing import Tuple, Type
 
 import numpy as np
@@ -7,6 +8,7 @@ import pandas as pd
 
 from .time_utils import get_runtime
 from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, EnsembleScorerMaxModels, EnsembleSelectionConfigScorer
+from ..utils.parallel_for import parallel_for
 
 
 class EnsembleMixin:
@@ -167,6 +169,57 @@ class EnsembleMixin:
         df_datasets_to_tids = self.datasets_to_tids(datasets=[dataset]).to_frame()
         df_datasets_to_tids.index.name = "dataset"
         df_out = df_out.join(df_datasets_to_tids, how="inner")
+
+        return df_out, df_ensemble_weights
+
+    def evaluate_ensemble_with_time_multi(
+        self,
+        datasets: list[str] = None,
+        folds: list[int] = None,
+        configs: list[str] = None,
+        *,
+        ensemble_cls: Type[EnsembleScorer] = EnsembleScorerMaxModels,
+        ensemble_kwargs: dict = None,
+        ensemble_size: int = 100,
+        time_limit: float = None,
+        fit_order: str = "original",
+        seed: int = 0,
+        rank: bool = True,
+        backend: str = "ray",
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        if backend == "native":
+            backend = "sequential"
+        if configs is None:
+            configs = self.configs()
+        if folds is None:
+            folds = self.folds
+        if datasets is None:
+            datasets = self.datasets()
+
+        context = dict(
+            self=self,
+            configs=configs,
+            ensemble_cls=ensemble_cls,
+            ensemble_kwargs=ensemble_kwargs,
+            ensemble_size=ensemble_size,
+            time_limit=time_limit,
+            fit_order=fit_order,
+            seed=seed,
+            rank=rank,
+        )
+
+        inputs = list(itertools.product(datasets, folds))
+        inputs = [{"dataset": dataset, "fold": fold} for dataset, fold in inputs]
+
+        list_rows = parallel_for(
+            self.__class__.evaluate_ensemble_with_time,
+            inputs=inputs,
+            context=context,
+            engine=backend,
+        )
+
+        df_out = pd.concat([l[0] for l in list_rows], axis=0)
+        df_ensemble_weights = pd.concat([l[1] for l in list_rows], axis=0)  # FIXME: Is this guaranteed same columns in each?
 
         return df_out, df_ensemble_weights
 
