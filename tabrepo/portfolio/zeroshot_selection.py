@@ -14,14 +14,24 @@ def zeroshot_configs(val_scores: np.array, output_size: int) -> List[int]:
     df_val_scores = pd.DataFrame(val_scores)
     ranks = pd.DataFrame(df_val_scores).rank(axis=1)
     res = []
+    best_mean = None
     for _ in range(output_size):
         # Select greedy-best configuration considering all others
-        best_idx = ranks.mean(axis=0).idxmin()
+        if ranks.empty:
+            # Nothing more to add
+            break
+
+        cur_ranks_mean = ranks.mean(axis=0)
+        best_idx = cur_ranks_mean.idxmin()
+        cur_best_mean = cur_ranks_mean[best_idx]
+
+        if best_mean is not None and cur_best_mean == best_mean:
+            # No improvement
+            break
+        best_mean = cur_best_mean
 
         # Update ranks for choosing each configuration considering the previously chosen ones
         ranks.clip(upper=ranks[best_idx], axis=0, inplace=True)
-        if best_idx not in df_val_scores:
-            break
         # Drop the chosen configuration as a future candidate
         df_val_scores.drop(columns=best_idx, inplace=True)
         res.append(best_idx)
