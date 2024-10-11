@@ -26,7 +26,7 @@ class EnsembleMixin:
         rank: bool = True,
         folds: list[int] | None = None,
         backend: str = "ray",
-    ) -> Tuple[pd.Series, pd.DataFrame]:
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         :param datasets: list of datasets to compute errors on.
         :param configs: list of config to consider for ensembling. Uses all configs if None.
@@ -58,22 +58,29 @@ class EnsembleMixin:
             backend=backend,
         )
 
+        dataset_folds = [(self.task_to_dataset(task=task), self.task_to_fold(task=task)) for task in tasks]
         dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=configs)
+        metric_error_list = [dict_errors[task] for task in tasks]
+        datasets_info = self.datasets_info(datasets=datasets)
+        dataset_metric_list = [datasets_info.loc[d]["metric"] for d, f in dataset_folds]
+        problem_type_list = [datasets_info.loc[d]["problem_type"] for d, f in dataset_folds]
+
+        output_dict = {
+            "metric_error": metric_error_list,
+            "metric": dataset_metric_list,
+            "problem_type": problem_type_list,
+        }
 
         if rank:
-            dict_scores = scorer.compute_ranks(errors=dict_errors)
-            out = dict_scores
-        else:
-            out = dict_errors
+            dict_ranks = scorer.compute_ranks(errors=dict_errors)
+            rank_list = [dict_ranks[task] for task in tasks]
+            output_dict["rank"] = rank_list
 
-        dataset_folds = [(self.task_to_dataset(task=task), self.task_to_fold(task=task)) for task in tasks]
         ensemble_weights = [dict_ensemble_weights[task] for task in tasks]
-        out_list = [out[task] for task in tasks]
 
         multiindex = pd.MultiIndex.from_tuples(dataset_folds, names=["dataset", "fold"])
 
-        df_name = "rank" if rank else "metric_error"
-        df_out = pd.Series(data=out_list, index=multiindex, name=df_name)
+        df_out = pd.DataFrame(data=output_dict, index=multiindex)
         df_ensemble_weights = pd.DataFrame(data=ensemble_weights, index=multiindex, columns=configs)
 
         return df_out, df_ensemble_weights
@@ -161,11 +168,8 @@ class EnsembleMixin:
             time_infer_s = sum(latencies.values())
 
             task_time_map[(dataset, fold)] = {"time_train_s": time_train_s, "time_infer_s": time_infer_s}
-        df_out = df_out.to_frame()
         df_task_time = pd.DataFrame(task_time_map).T
         df_out[["time_train_s", "time_infer_s"]] = df_task_time
-        df_datasets_info = self.datasets_info(datasets=[dataset])
-        df_out = df_out.join(df_datasets_info, how="inner")
         df_datasets_to_tids = self.datasets_to_tids(datasets=[dataset]).to_frame()
         df_datasets_to_tids.index.name = "dataset"
         df_out = df_out.join(df_datasets_to_tids, how="inner")
