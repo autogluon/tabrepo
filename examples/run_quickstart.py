@@ -61,8 +61,8 @@ if __name__ == '__main__':
     y_val = repo.labels_val(dataset=dataset, fold=0)
     print(f"Ground Truth Val (dataset={dataset}, fold=0):\n{y_val[:10]}")
 
-    df_ranks, df_ensemble_weights = repo.evaluate_ensemble(datasets=[dataset], configs=configs, ensemble_size=100)
-    print(f"Ensemble rank per task:\n{df_ranks}")
+    df_result, df_ensemble_weights = repo.evaluate_ensemble(dataset=dataset, fold=0, configs=configs, ensemble_size=100)
+    print(f"Ensemble result:\n{df_result}")
 
     df_ensemble_weights_mean_sorted = df_ensemble_weights.mean(axis=0).sort_values(ascending=False)
     print(f"Top 10 highest mean ensemble weight configs:\n{df_ensemble_weights_mean_sorted.head(10)}")

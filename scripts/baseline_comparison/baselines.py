@@ -65,7 +65,7 @@ def evaluate_configs(
 
     rows = []
     for fold in folds:
-        metric_errors, ensemble_weights = repo.evaluate_ensemble_with_time(
+        metric_errors, ensemble_weights = repo.evaluate_ensemble(
             dataset=dataset,
             fold=fold,
             configs=configs,
