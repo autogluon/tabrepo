@@ -6,7 +6,7 @@ from typing import Tuple, Type
 import numpy as np
 import pandas as pd
 
-from .time_utils import get_runtime
+from .time_utils import filter_configs_by_runtime, get_runtime
 from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, EnsembleScorerMaxModels, EnsembleSelectionConfigScorer
 from ..utils.parallel_for import parallel_for
 
@@ -110,7 +110,6 @@ class EnsembleMixin:
             else:
                 configs_fit_order = configs
 
-            from .time_utils import filter_configs_by_runtime
             tid = self.dataset_to_tid(dataset)
             configs = filter_configs_by_runtime(repo=self, tid=tid, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
 
