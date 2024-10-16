@@ -127,9 +127,7 @@ if __name__ == '__main__':
 
     save_loc = "./tabforestpfn_sim/"
     repo_2: EvaluationRepository = EvaluationRepository.from_raw(
-        results_df=results_df,
-        datasets=datasets,
-        folds=folds,
+        df_configs=results_df,
         results_lst_simulation_artifacts=results_lst_simulation_artifacts,
         save_loc=save_loc,
     )
