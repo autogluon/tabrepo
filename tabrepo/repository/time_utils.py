@@ -7,7 +7,7 @@ from .abstract_repository import AbstractRepository
 
 def get_runtime(
         repo: AbstractRepository,
-        tid: int,
+        dataset: str,
         fold: int,
         config_names: Optional[List[str]] = None,
         task_col: str = "task",
@@ -16,14 +16,13 @@ def get_runtime(
 ) -> Dict[str, float]:
     """
     :param repo:
-    :param tid:
+    :param dataset:
     :param fold:
     :param config_names:
     :param fail_if_missing: whether to raise an error if some configurations are missing
     :return: a dictionary with keys are elements in `config_names` and the values are runtimes of the configuration
     on the task `tid`_`fold`.
     """
-    dataset = repo.tid_to_dataset(tid=tid)
     task = repo.task_name(dataset=dataset, fold=fold)
     if not config_names:
         config_names = repo.configs()
@@ -66,7 +65,7 @@ def sort_by_runtime(
 
 def filter_configs_by_runtime(
         repo: AbstractRepository,
-        tid: int,
+        dataset: str,
         fold: int,
         config_names: List[str],
         max_cumruntime: Optional[float] = None
@@ -83,9 +82,9 @@ def filter_configs_by_runtime(
     if not max_cumruntime:
         return config_names
     else:
-        assert tid in repo.tids()
+        assert dataset in repo.datasets()
         assert fold in repo.folds
-        runtime_configs = get_runtime(repo=repo, tid=tid, fold=fold, config_names=config_names, fail_if_missing=False)
+        runtime_configs = get_runtime(repo=repo, dataset=dataset, fold=fold, config_names=config_names, fail_if_missing=False)
         cumruntime = np.cumsum(list(runtime_configs.values()))
         # str_runtimes = ", ".join([f"{name}: {time}" for name, time in zip(runtime_configs.keys(), cumruntime)])
         # print(f"Cumulative runtime:\n {str_runtimes}")
