@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+import os
 from typing import List
 
 import numpy as np
+import pandas as pd
 from typing_extensions import Self
 
 from .abstract_repository import AbstractRepository
@@ -186,6 +188,70 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     def from_context(cls, version: str = None, prediction_format: str = "memmap"):
         return load_repository(version=version, prediction_format=prediction_format)
 
+    # FIXME: This is a placeholder
+    @classmethod
+    def from_raw(cls, results_df, datasets, folds, results_lst_simulation_artifacts, save_loc="./tabforestpfn_sim/"):
+        from tabrepo.predictions import TabularPredictionsInMemory
+        from tabrepo.simulation.ground_truth import GroundTruth
+        from autogluon.common.savers import save_pd
+        from tabrepo.contexts.context import BenchmarkContext, construct_context
+        from tabrepo.contexts.subcontext import BenchmarkSubcontext
+
+        save_loc = os.path.abspath(save_loc) + os.path.sep
+        save_loc_data_dir = save_loc + "model_predictions/"
+
+        num_rows_test_dict = {}
+
+        # FIXME: Don't require all results in memory at once
+        simulation_artifacts_full = {}
+        for simulation_artifacts in results_lst_simulation_artifacts:
+            for k in simulation_artifacts.keys():
+                if k not in simulation_artifacts_full:
+                    simulation_artifacts_full[k] = {}
+                for f in simulation_artifacts[k]:
+                    if f not in simulation_artifacts_full[k]:
+                        simulation_artifacts_full[k][f] = copy.deepcopy(simulation_artifacts[k][f])
+                    else:
+                        for method in simulation_artifacts[k][f]["pred_proba_dict_val"]:
+                            if method in simulation_artifacts_full[k][f]["pred_proba_dict_val"]:
+                                raise AssertionError(f"Two results exist for tid {k}, fold {f}, method {method}!")
+                            else:
+                                simulation_artifacts_full[k][f]["pred_proba_dict_val"][method] = simulation_artifacts[k][f]["pred_proba_dict_val"][method]
+                                simulation_artifacts_full[k][f]["pred_proba_dict_test"][method] = simulation_artifacts[k][f]["pred_proba_dict_test"][method]
+
+        for d in simulation_artifacts_full:
+            for f in simulation_artifacts_full[d]:
+                num_rows_test_dict[(d, f)] = len(list(simulation_artifacts_full[d][f]["pred_proba_dict_test"].values())[0])
+
+        from autogluon.common.utils.simulation_utils import convert_simulation_artifacts_to_tabular_predictions_dict
+        zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
+
+        predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
+        ground_truth = GroundTruth.from_dict(zeroshot_gt)
+        predictions.to_data_dir(data_dir=save_loc_data_dir)
+        ground_truth.to_data_dir(data_dir=save_loc_data_dir)
+
+        df_configs = convert_leaderboard_to_configs(leaderboard=results_df)
+
+        # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
+        # FIXME: Keep track of number of rows of train/test per task internally in Repository
+        tmp = df_configs[["dataset", "fold"]].apply(tuple, axis=1)
+        df_configs["time_infer_s"] = df_configs["time_infer_s"] / tmp.map(num_rows_test_dict)
+
+        save_pd.save(path=f"{save_loc}configs.parquet", df=df_configs)
+
+        # FIXME: Make this a repo constructor method?
+        context: BenchmarkContext = construct_context(
+            name="tabforestpfn_sim",
+            datasets=datasets,
+            folds=folds,
+            local_prefix=save_loc,
+            local_prefix_is_relative=False,
+            has_baselines=False)
+        subcontext = BenchmarkSubcontext(parent=context)
+        repo = subcontext.load_from_parent()
+        return repo
+
 
 def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
     """
@@ -222,3 +288,30 @@ def load_repository(version: str, *, load_predictions: bool = True, cache: bool 
     else:
         repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format)
     return repo
+
+
+# FIXME: Remove
+def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = True) -> pd.DataFrame:
+    df_configs = leaderboard.rename(columns=dict(
+        time_fit="time_train_s",
+        time_predict="time_infer_s",
+        test_error="metric_error",
+        eval_metric="metric",
+        val_error="metric_error_val",
+    ))
+    if minimal:
+        minimal_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+            "tid",
+        ]
+        if "metric_error_val" in df_configs:
+            minimal_columns.append("metric_error_val")
+        df_configs = df_configs[minimal_columns]
+    return df_configs

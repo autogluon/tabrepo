@@ -125,65 +125,18 @@ if __name__ == '__main__':
         "root_mean_squared_error": "rmse",
     }).fillna(results_df["metric"])
 
-    num_rows_test_dict = {}
-
-    # FIXME: Don't require all results in memory at once
-    simulation_artifacts_full = {}
-    for simulation_artifacts in results_lst_simulation_artifacts:
-        for k in simulation_artifacts.keys():
-            if k not in simulation_artifacts_full:
-                simulation_artifacts_full[k] = {}
-            for f in simulation_artifacts[k]:
-                if f not in simulation_artifacts_full[k]:
-                    simulation_artifacts_full[k][f] = copy.deepcopy(simulation_artifacts[k][f])
-                else:
-                    for method in simulation_artifacts[k][f]["pred_proba_dict_val"]:
-                        if method in simulation_artifacts_full[k][f]["pred_proba_dict_val"]:
-                            raise AssertionError(f"Two results exist for tid {k}, fold {f}, method {method}!")
-                        else:
-                            simulation_artifacts_full[k][f]["pred_proba_dict_val"][method] = simulation_artifacts[k][f]["pred_proba_dict_val"][method]
-                            simulation_artifacts_full[k][f]["pred_proba_dict_test"][method] = simulation_artifacts[k][f]["pred_proba_dict_test"][method]
-
-    for d in simulation_artifacts_full:
-        for f in simulation_artifacts_full[d]:
-            num_rows_test_dict[(d, f)] = len(list(simulation_artifacts_full[d][f]["pred_proba_dict_test"].values())[0])
-
-    from autogluon.common.utils.simulation_utils import convert_simulation_artifacts_to_tabular_predictions_dict
-    zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
-
     save_loc = "./tabforestpfn_sim/"
-    save_loc = os.path.abspath(save_loc)
-    save_loc_data_dir = save_loc + "model_predictions/"
-
-    from tabrepo.predictions import TabularPredictionsInMemory
-    from tabrepo.simulation.ground_truth import GroundTruth
-    from autogluon.common.savers import save_pd
-    from tabrepo.contexts.context import BenchmarkContext, construct_context
-    from tabrepo.contexts.subcontext import BenchmarkSubcontext
-
-    predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
-    ground_truth = GroundTruth.from_dict(zeroshot_gt)
-    predictions.to_data_dir(data_dir=save_loc_data_dir)
-    ground_truth.to_data_dir(data_dir=save_loc_data_dir)
-
-    df_configs = convert_leaderboard_to_configs(leaderboard=results_df)
-
-    # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
-    # FIXME: Keep track of number of rows of train/test per task internally in Repository
-    tmp = df_configs[["dataset", "fold"]].apply(tuple, axis=1)
-    df_configs["time_infer_s"] = df_configs["time_infer_s"] / tmp.map(num_rows_test_dict)
-
-    save_pd.save(path=f"{save_loc}configs.parquet", df=df_configs)
-
-    context: BenchmarkContext = construct_context(
-        name="tabforestpfn_sim",
+    repo_2: EvaluationRepository = EvaluationRepository.from_raw(
+        results_df=results_df,
         datasets=datasets,
         folds=folds,
-        local_prefix=save_loc,
-        local_prefix_is_relative=False,
-        has_baselines=False)
-    subcontext = BenchmarkSubcontext(parent=context)
-    repo_2: EvaluationRepository = subcontext.load_from_parent()
+        results_lst_simulation_artifacts=results_lst_simulation_artifacts,
+        save_loc=save_loc,
+    )
+
+    print(f"New Configs   : {repo_2.configs()}")
+
+    repo_2.save(path="repo_tabforestpfn.pkl")
     # FIXME: infer_time is incorrect for TabForestPFN
     # FIXME: infer_time is incorrect for ALL and ALL_PLUS_TabForestPFN during eval
 
@@ -195,6 +148,11 @@ if __name__ == '__main__':
     # FIXME: repo_combined._zeroshot_context.df_metrics contains 200 datasets when it should contain only 110
 
     configs = repo_combined.configs()
+
+    repo_combined.print_info()
+
+    # FIXME: Add boxplot of overfitting, basically, val vs test, percent loss delta
+    a = repo_combined.metrics()
 
     configs_og = repo.configs()
 
