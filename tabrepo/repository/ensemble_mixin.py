@@ -54,7 +54,7 @@ class EnsembleMixin:
             else:
                 configs_fit_order = configs
 
-            configs = filter_configs_by_runtime(repo=self, tid=tid, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
+            configs = filter_configs_by_runtime(repo=self, dataset=dataset, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
 
             if len(configs) == 0:
                 if self._config_fallback is None:
@@ -92,7 +92,7 @@ class EnsembleMixin:
 
         runtimes = get_runtime(
             repo=self,
-            tid=tid,
+            dataset=dataset,
             fold=fold,
             config_names=configs,
             runtime_col='time_train_s',
@@ -100,7 +100,7 @@ class EnsembleMixin:
         )
         latencies = get_runtime(
             repo=self,
-            tid=tid,
+            dataset=dataset,
             fold=fold,
             config_names=config_selected_ensemble,
             runtime_col='time_infer_s',
