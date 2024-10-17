@@ -185,7 +185,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
 
     @classmethod
-    def from_context(cls, version: str = None, prediction_format: str = "memmap"):
+    def from_context(cls, version: str = None, prediction_format: str = "memmap") -> Self:
         return load_repository(version=version, prediction_format=prediction_format)
 
     # FIXME: This is a placeholder
@@ -313,7 +313,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
                                 simulation_artifacts_full[k][f]["pred_proba_dict_val"][method] = simulation_artifacts[k][f]["pred_proba_dict_val"][method]
                                 simulation_artifacts_full[k][f]["pred_proba_dict_test"][method] = simulation_artifacts[k][f]["pred_proba_dict_test"][method]
         return simulation_artifacts_full
-
 
 
 def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
