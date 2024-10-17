@@ -27,7 +27,9 @@ def verify_equivalent_repository(
     assert repo1.datasets() == repo2.datasets()
     assert sorted(repo1.dataset_fold_config_pairs()) == sorted(repo2.dataset_fold_config_pairs())
     if verify_metrics:
-        assert repo1.metrics().equals(repo2.metrics())
+        metrics1 = repo1.metrics().sort_index()
+        metrics2 = repo2.metrics().sort_index()
+        assert metrics1.equals(metrics2)
     if verify_predictions:
         for dataset in repo1.datasets():
             for f in repo1.folds:
@@ -60,7 +62,9 @@ def verify_equivalent_repository(
             columns1 = sorted(list(baselines1.columns))
             columns2 = sorted(list(baselines2.columns))
             assert columns1 == columns2
-            assert baselines1[columns1].equals(baselines2[columns1])
+            baselines1 = baselines1[columns1].sort_values(by=columns1, ignore_index=True)
+            baselines2 = baselines2[columns1].sort_values(by=columns1, ignore_index=True)
+            assert baselines1.equals(baselines2)
         else:
             assert baselines1 == baselines2
     if verify_metadata:
@@ -71,9 +75,10 @@ def verify_equivalent_repository(
         else:
             columns1 = sorted(list(metadata1.columns))
             columns2 = sorted(list(metadata2.columns))
-            print(len(metadata1))
             assert columns1 == columns2
-            assert metadata1[columns1].equals(metadata2[columns1])
+            metadata1 = metadata1[columns1].sort_values(by=columns1, ignore_index=True)
+            metadata2 = metadata2[columns1].sort_values(by=columns1, ignore_index=True)
+            assert metadata1.equals(metadata2)
     if verify_configs_hyperparameters:
         assert repo1.configs_hyperparameters() == repo2.configs_hyperparameters()
 
