@@ -80,8 +80,8 @@ class AbstractExecModel:
         out = {
             'predictions': y_pred,
             'probabilities': y_pred_proba,
-            'time_fit': timer_fit.duration,
-            'time_predict': timer_predict.duration,
+            'time_train_s': timer_fit.duration,
+            'time_infer_s': timer_predict.duration,
         }
 
         return out
