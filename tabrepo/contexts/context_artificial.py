@@ -24,6 +24,7 @@ def load_context_artificial(
     problem_type: str = "regression",
     seed=0,
     include_hyperparameters: bool = False,
+    dtype=np.float32,
     **kwargs,
 ):
     # TODO write specification of dataframes schema, this code produces a minimal example that enables
@@ -88,11 +89,11 @@ def load_context_artificial(
         dataset_name: {
             fold: {
                 "pred_proba_dict_val": {
-                    m: rng.random((123, n_classes)) if n_classes > 2 else rng.random(123)
+                    m: rng.random((123, n_classes), dtype=dtype) if n_classes > 2 else rng.random(123, dtype=dtype)
                     for m in models
                 },
                 "pred_proba_dict_test": {
-                    m: rng.random((13, n_classes)) if n_classes > 2 else rng.random(13)
+                    m: rng.random((13, n_classes), dtype=dtype) if n_classes > 2 else rng.random(13, dtype=dtype)
                     for m in models
                 }
             }
