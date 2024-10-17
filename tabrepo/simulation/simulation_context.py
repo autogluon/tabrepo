@@ -4,9 +4,11 @@ import copy
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Optional, List, Union, Tuple
+from typing import Optional, List, Union, Self, Tuple
 
 import pandas as pd
+from autogluon.common.loaders import load_json, load_pd
+from autogluon.common.savers import save_json, save_pd
 
 from .ground_truth import GroundTruth
 
@@ -65,6 +67,8 @@ class ZeroshotSimulatorContext:
             score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
+        if self.folds is None:
+            self.folds = sorted(list(self.df_configs["fold"].unique()))
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
@@ -632,3 +636,69 @@ class ZeroshotSimulatorContext:
             assert "hyperparameters" in v, f"configs_hyperparameters value for key {config} must include a `hyperparameters` key"
             assert isinstance(v["hyperparameters"], dict), (f"configs_hyperparameters['{config}']['hyperparameters'] "
                                                             f"must be of type dict, found: {type(v['hyperparameters'])}")
+
+    def to_dir(self, path: str) -> dict:
+        path_configs = "configs.parquet"
+        save_pd.save(path=str(Path(path) / path_configs), df=self.df_configs)
+
+        path_baselines = None
+        if self.df_baselines is not None:
+            path_baselines = "baselines.parquet"
+            save_pd.save(path=str(Path(path) / path_baselines), df=self.df_baselines)
+
+        path_metadata = None
+        if self.df_metadata is not None:
+            path_metadata = "metadata.parquet"
+            save_pd.save(path=str(Path(path) / path_metadata), df=self.df_metadata)
+
+        path_configs_hyperparameters = None
+        if self.configs_hyperparameters is not None:
+            path_configs_hyperparameters = "configs_hyperparameters.json"
+            save_json.save(path=str(Path(path) / path_configs_hyperparameters), obj=self.configs_hyperparameters)
+
+        metadata = {
+            "df_configs": path_configs,
+            "df_baselines": path_baselines,
+            "df_metadata": path_metadata,
+            "configs_hyperparameters": path_configs_hyperparameters,
+            "pct": self.pct,
+            "score_against_only_baselines": self.score_against_only_baselines,
+        }
+        path_metadata_json = "metadata.json"
+        save_json.save(path=str(Path(path) / path_metadata_json), obj=metadata)
+        return metadata
+
+    @classmethod
+    def from_dir(cls, path: str) -> Self:
+        path_metadata_json = "metadata.json"
+        metadata = load_json.load(path=path_metadata_json)
+
+        path_configs = metadata["df_configs"]
+        df_configs = load_pd.load(str(Path(path) / path_configs))
+
+        df_baselines = None
+        path_baselines = metadata["df_baselines"]
+        if path_baselines is not None:
+            df_baselines = load_pd.load(str(Path(path) / path_baselines))
+
+        df_metadata = None
+        path_metadata = metadata["df_metadata"]
+        if path_metadata is not None:
+            df_metadata = load_pd.load(str(Path(path) / path_metadata))
+
+        configs_hyperparameters = None
+        path_configs_hyperparameters = metadata["configs_hyperparameters"]
+        if path_configs_hyperparameters is not None:
+            configs_hyperparameters = load_json.load(str(Path(path) / path_configs_hyperparameters))
+
+        pct = metadata["pct"]
+        score_against_only_baselines = metadata["score_against_only_baselines"]
+
+        return cls(
+            df_configs=df_configs,
+            df_baselines=df_baselines,
+            df_metadata=df_metadata,
+            configs_hyperparameters=configs_hyperparameters,
+            pct=pct,
+            score_against_only_baselines=score_against_only_baselines,
+        )
