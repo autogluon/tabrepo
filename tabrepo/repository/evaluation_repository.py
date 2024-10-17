@@ -211,16 +211,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         from tabrepo.predictions import TabularPredictionsInMemory
         from tabrepo.simulation.ground_truth import GroundTruth
-        from autogluon.common.savers import save_pd
-        from tabrepo.contexts.context import BenchmarkContext, construct_context
-        from tabrepo.contexts.subcontext import BenchmarkSubcontext
-
-        save_loc = os.path.abspath(save_loc) + os.path.sep
-        save_loc_data_dir = save_loc + "model_predictions/"
-
-        # FIXME: use tasks rather thank datasets and folds separately
-        datasets = list(df_configs["dataset"].unique())
-        folds = list(df_configs["fold"].unique())
+        from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
 
         df_configs = cls._fix_time_infer_s(df_configs=df_configs, simulation_artifacts_full=simulation_artifacts_full)
 
@@ -229,8 +220,40 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
         ground_truth = GroundTruth.from_dict(zeroshot_gt)
-        predictions.to_data_dir(data_dir=save_loc_data_dir)
-        ground_truth.to_data_dir(data_dir=save_loc_data_dir)
+
+        zeroshot_context = ZeroshotSimulatorContext(
+            df_configs=df_configs,
+            score_against_only_baselines=False,
+        )
+
+        repo = cls(
+            zeroshot_context=zeroshot_context,
+            tabular_predictions=predictions,
+            ground_truth=ground_truth,
+        )
+
+        # repo.save_repo(save_loc=save_loc)
+
+        return repo
+
+    # FIXME: How to load repo after save? Need metadata file that can be referenced to create BenchmarkContext
+    def save_repo(self, save_loc: str):
+        from tabrepo.contexts.context import BenchmarkContext, construct_context
+        from tabrepo.contexts.subcontext import BenchmarkSubcontext
+        from autogluon.common.savers import save_pd
+
+        df_configs = self._zeroshot_context.df_configs
+
+        save_loc = os.path.abspath(save_loc) + os.path.sep
+        save_loc_data_dir = save_loc + "model_predictions/"
+
+        # FIXME: use tasks rather thank datasets and folds separately
+        datasets = self.datasets()
+        folds = self.folds
+
+        print('TODO')
+        self._tabular_predictions.to_data_dir(data_dir=save_loc_data_dir)
+        self._ground_truth.to_data_dir(data_dir=save_loc_data_dir)
 
         save_pd.save(path=f"{save_loc}configs.parquet", df=df_configs)
 
@@ -241,10 +264,20 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             folds=folds,
             local_prefix=save_loc,
             local_prefix_is_relative=False,
-            has_baselines=False)
+            has_baselines=False,
+        )
         subcontext = BenchmarkSubcontext(parent=context)
         repo = subcontext.load_from_parent()
-        return repo
+
+    # FIXME
+    @classmethod
+    def load_repo(cls, path):
+        context = None
+        # context = BenchmarkContext.from_dir(path)
+        # subcontext = BenchmarkSubcontext(parent=context)
+        # repo = subcontext.load_from_parent()
+        # return repo
+
 
     # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
     # FIXME: Keep track of number of rows of train/test per task internally in Repository
