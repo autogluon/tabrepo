@@ -12,7 +12,9 @@ from tabrepo.contexts.context_artificial import load_repo_artificial
 def verify_equivalent_repository(
     repo1: EvaluationRepository | EvaluationRepositoryCollection,
     repo2: EvaluationRepository | EvaluationRepositoryCollection,
+    exact: bool = True,
     verify_ensemble: bool = False,
+    verify_configs_hyperparameters: bool = True,
     backend: str = "native",
 ):
     assert repo1.folds == repo2.folds
@@ -27,15 +29,25 @@ def verify_equivalent_repository(
                 repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
                 repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
                 repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
-                assert np.array_equal(repo1_test, repo2_test)
-                assert np.array_equal(repo1_val, repo2_val)
-            assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
-            assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
+                if exact:
+                    assert np.array_equal(repo1_test, repo2_test)
+                    assert np.array_equal(repo1_val, repo2_val)
+                else:
+                    assert np.isclose(repo1_test, repo2_test).all()
+                    assert np.isclose(repo1_val, repo2_val).all()
+            if exact:
+                assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
+                assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
+            else:
+                assert np.isclose(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f)).all()
+                assert np.isclose(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f)).all()
     if verify_ensemble:
         df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensembles(datasets=repo1.datasets(), ensemble_size=10, backend=backend)
         df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensembles(datasets=repo2.datasets(), ensemble_size=10, backend=backend)
         assert df_out_1.equals(df_out_2)
         assert df_ensemble_weights_1.equals(df_ensemble_weights_2)
+    if verify_configs_hyperparameters:
+        assert repo1.configs_hyperparameters() == repo2.configs_hyperparameters()
 
 
 def test_repository():
@@ -185,7 +197,10 @@ def test_repository_subset():
 def test_repository_configs_hyperparameters():
     repo1 = load_repo_artificial()
     repo2 = load_repo_artificial(include_hyperparameters=True)
-    verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
+    verify_equivalent_repository(repo1, repo2, verify_ensemble=True, verify_configs_hyperparameters=False)
+
+    with pytest.raises(AssertionError):
+        verify_equivalent_repository(repo1, repo2, verify_configs_hyperparameters=True)
 
     configs = ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
 
@@ -239,6 +254,22 @@ def test_repository_configs_hyperparameters():
     assert autogluon_hyperparameters_dict == {'FASTAI': [
         {'ag_args': {'priority': -1}, 'foo': 15, 'x': 'y'}
     ]}
+
+
+def test_repository_save_load():
+    """test repo save and load work"""
+    repo = load_repo_artificial(include_hyperparameters=True)
+    save_path = "tmp_repo"
+    repo.to_dir(path=save_path)
+    repo_loaded = EvaluationRepository.from_dir(path=save_path)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded, verify_ensemble=True, exact=True)
+
+    repo_float64 = load_repo_artificial(include_hyperparameters=True, dtype=np.float64)
+    save_path = "tmp_repo_from_float64"
+    repo_float64.to_dir(path=save_path)
+    repo_loaded_float64 = EvaluationRepository.from_dir(path=save_path)
+    # exact=False because the loaded version is float32 and the original is float64
+    verify_equivalent_repository(repo1=repo_float64, repo2=repo_loaded_float64, verify_ensemble=True, exact=False)
 
 
 def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):
