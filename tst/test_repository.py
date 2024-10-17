@@ -13,7 +13,11 @@ def verify_equivalent_repository(
     repo1: EvaluationRepository | EvaluationRepositoryCollection,
     repo2: EvaluationRepository | EvaluationRepositoryCollection,
     exact: bool = True,
+    verify_metrics: bool = True,
+    verify_predictions: bool = True,
     verify_ensemble: bool = False,
+    verify_baselines: bool = True,
+    verify_metadata: bool = True,
     verify_configs_hyperparameters: bool = True,
     backend: str = "native",
 ):
@@ -22,30 +26,54 @@ def verify_equivalent_repository(
     assert repo1.configs() == repo2.configs()
     assert repo1.datasets() == repo2.datasets()
     assert sorted(repo1.dataset_fold_config_pairs()) == sorted(repo2.dataset_fold_config_pairs())
-    for dataset in repo1.datasets():
-        for f in repo1.folds:
-            for c in repo1.configs():
-                repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
-                repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
-                repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
-                repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
+    if verify_metrics:
+        assert repo1.metrics().equals(repo2.metrics())
+    if verify_predictions:
+        for dataset in repo1.datasets():
+            for f in repo1.folds:
+                for c in repo1.configs():
+                    repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
+                    repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
+                    repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
+                    repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
+                    if exact:
+                        assert np.array_equal(repo1_test, repo2_test)
+                        assert np.array_equal(repo1_val, repo2_val)
+                    else:
+                        assert np.isclose(repo1_test, repo2_test).all()
+                        assert np.isclose(repo1_val, repo2_val).all()
                 if exact:
-                    assert np.array_equal(repo1_test, repo2_test)
-                    assert np.array_equal(repo1_val, repo2_val)
+                    assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
+                    assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
                 else:
-                    assert np.isclose(repo1_test, repo2_test).all()
-                    assert np.isclose(repo1_val, repo2_val).all()
-            if exact:
-                assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
-                assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
-            else:
-                assert np.isclose(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f)).all()
-                assert np.isclose(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f)).all()
+                    assert np.isclose(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f)).all()
+                    assert np.isclose(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f)).all()
     if verify_ensemble:
         df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensembles(datasets=repo1.datasets(), ensemble_size=10, backend=backend)
         df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensembles(datasets=repo2.datasets(), ensemble_size=10, backend=backend)
         assert df_out_1.equals(df_out_2)
         assert df_ensemble_weights_1.equals(df_ensemble_weights_2)
+    if verify_baselines:
+        baselines1 = repo1._zeroshot_context.df_baselines
+        baselines2 = repo2._zeroshot_context.df_baselines
+        if baselines1 is not None:
+            columns1 = sorted(list(baselines1.columns))
+            columns2 = sorted(list(baselines2.columns))
+            assert columns1 == columns2
+            assert baselines1[columns1].equals(baselines2[columns1])
+        else:
+            assert baselines1 == baselines2
+    if verify_metadata:
+        metadata1 = repo1.task_metadata
+        metadata2 = repo2.task_metadata
+        if metadata1 is None:
+            assert metadata1 == metadata2
+        else:
+            columns1 = sorted(list(metadata1.columns))
+            columns2 = sorted(list(metadata2.columns))
+            print(len(metadata1))
+            assert columns1 == columns2
+            assert metadata1[columns1].equals(metadata2[columns1])
     if verify_configs_hyperparameters:
         assert repo1.configs_hyperparameters() == repo2.configs_hyperparameters()
 
