@@ -4,7 +4,8 @@ import copy
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Optional, List, Union, Self, Tuple
+from typing import Optional, List, Union, Tuple
+from typing_extensions import Self
 
 import pandas as pd
 from autogluon.common.loaders import load_json, load_pd
