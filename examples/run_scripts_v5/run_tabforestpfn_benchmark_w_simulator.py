@@ -117,24 +117,24 @@ if __name__ == '__main__':
 
     results_lst_simulation_artifacts = [result["simulation_artifacts"] for result in results_lst]
     results_lst_df = [result["df_results"] for result in results_lst]
-
+    results_lst_df = [convert_leaderboard_to_configs(df) for df in results_lst_df]  # TODO: Remove later, keeping to make old runs compatible with new runs
     results_df = pd.concat(results_lst_df, ignore_index=True)
-    results_df = convert_leaderboard_to_configs(results_df)
 
     results_df["metric"] = results_df["metric"].map({
         "root_mean_squared_error": "rmse",
     }).fillna(results_df["metric"])
 
-    save_loc = "./tabforestpfn_sim/"
     repo_2: EvaluationRepository = EvaluationRepository.from_raw(
         df_configs=results_df,
         results_lst_simulation_artifacts=results_lst_simulation_artifacts,
-        save_loc=save_loc,
     )
+
+    # save_loc = "tabforestpfn_sim"
+    # repo_2.to_dir(path=save_loc)
+    # repo_2 = EvaluationRepository.from_dir(path=save_loc)
 
     print(f"New Configs   : {repo_2.configs()}")
 
-    repo_2.save(path="repo_tabforestpfn.pkl")
     # FIXME: infer_time is incorrect for TabForestPFN
     # FIXME: infer_time is incorrect for ALL and ALL_PLUS_TabForestPFN during eval
 

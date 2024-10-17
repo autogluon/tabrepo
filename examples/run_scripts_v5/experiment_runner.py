@@ -53,7 +53,7 @@ class ExperimentRunner:
         self.model = self.init_method()
         out = self.run_model_fit()
         out = self.post_fit(out=out)
-        out["test_error"] = self.evaluate(
+        out["metric_error"] = self.evaluate(
             y_true=self.y_test,
             y_pred=out["predictions"],
             y_pred_proba=out["probabilities"],
@@ -71,7 +71,7 @@ class ExperimentRunner:
         out["tid"] = self.task.task_id
         out["fold"] = self.fold
         out["problem_type"] = self.task.problem_type
-        out["eval_metric"] = self.eval_metric_name
+        out["metric"] = self.eval_metric_name
 
         if self.model.can_get_oof:
             simulation_artifact = self.model.get_oof()
@@ -87,7 +87,7 @@ class ExperimentRunner:
         out.pop("simulation_artifacts")
 
         df_results = pd.DataFrame([out])
-        ordered_columns = ["dataset", "fold", "framework", "test_error", "eval_metric", "time_fit"]
+        ordered_columns = ["dataset", "fold", "framework", "metric_error", "metric", "time_train_s"]
         columns_reorder = ordered_columns + [c for c in df_results.columns if c not in ordered_columns]
         df_results = df_results[columns_reorder]
 
@@ -120,7 +120,7 @@ class OOFExperimentRunner(ExperimentRunner):
                     simulation_artifact["pred_proba_dict_test"] = simulation_artifact["pred_proba_dict_test"].iloc[:, 1]
             simulation_artifact["y_test"] = self.label_cleaner.transform(self.y_test)
             simulation_artifact["label"] = self.task.label
-            simulation_artifact["eval_metric"] = self.eval_metric_name
+            simulation_artifact["metric"] = self.eval_metric_name
 
             out["metric_error_val"] = self.model.get_metric_error_val()
             # out["metric_error_val"] = evaluate(
@@ -142,7 +142,7 @@ class OOFExperimentRunner(ExperimentRunner):
         ignored_columns = ["predictions", "probabilities", "simulation_artifacts"]
         out_keys = list(out.keys())
 
-        ordered_columns = ["dataset", "fold", "framework", "test_error", "eval_metric", "time_fit"]
+        ordered_columns = ["dataset", "fold", "framework", "metric_error", "metric", "time_train_s"]
         columns_reorder = ordered_columns + [c for c in out_keys if c not in ordered_columns and c not in ignored_columns]
         df_results = pd.DataFrame([{k: out[k] for k in columns_reorder}])
         df_results = df_results[columns_reorder]
@@ -160,11 +160,11 @@ def evaluate(y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, s
     y_true = label_cleaner.transform(y_true)
     if scorer.needs_pred:
         y_pred = label_cleaner.transform(y_pred)
-        test_error = scorer.error(y_true=y_true, y_pred=y_pred)
+        error = scorer.error(y_true=y_true, y_pred=y_pred)
     elif problem_type == "binary":
         y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
-        test_error = scorer.error(y_true=y_true, y_pred=pd.DataFrame(y_pred_proba).iloc[:, 1])
+        error = scorer.error(y_true=y_true, y_pred=pd.DataFrame(y_pred_proba).iloc[:, 1])
     else:
         y_pred_proba = label_cleaner.transform_proba(y_pred_proba, as_pandas=True)
-        test_error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
-    return test_error
+        error = scorer.error(y_true=y_true, y_pred=y_pred_proba)
+    return error
