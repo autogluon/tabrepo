@@ -12,8 +12,6 @@ from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
 
-from autogluon_benchmark.evaluation.evaluator import Evaluator, EvaluatorOutput
-from autogluon_benchmark.plotting.plotter import Plotter
 from autogluon.common.savers import save_pd
 
 
@@ -626,7 +624,9 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
         return df
 
-    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str, evaluator_kwargs: dict = None, calibration_framework: str = None) -> EvaluatorOutput:
+    def plot_overall_rank_comparison(self, results_df: pd.DataFrame, save_dir: str, evaluator_kwargs: dict = None, calibration_framework: str = None):
+        from autogluon_benchmark.evaluation.evaluator import Evaluator
+        from autogluon_benchmark.plotting.plotter import Plotter
         if evaluator_kwargs is None:
             evaluator_kwargs = {}
         results_df = results_df.reset_index()
