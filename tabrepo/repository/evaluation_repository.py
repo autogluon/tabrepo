@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import copy
 import os
-from typing import List
+from pathlib import Path
+from typing import List, Literal
 
 import numpy as np
 import pandas as pd
@@ -189,8 +190,9 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         return load_repository(version=version, prediction_format=prediction_format)
 
     # FIXME: This is a placeholder
+    # FIXME: Support memmap directly, without needing full `results_lst_simulation_artifacts` in-memory
     @classmethod
-    def from_raw(cls, df_configs: pd.DataFrame, results_lst_simulation_artifacts: list[dict[str, dict[int, dict]]], save_loc: str = "./tabforestpfn_sim/"):
+    def from_raw(cls, df_configs: pd.DataFrame, results_lst_simulation_artifacts: list[dict[str, dict[int, dict]]]) -> Self:
         required_columns = [
             "dataset",
             "fold",
@@ -200,7 +202,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             "problem_type",
             "time_train_s",
             "time_infer_s",
-            "tid",
+            "tid",  # FIXME: remove TID?
         ]
 
         for column in required_columns:
@@ -237,47 +239,61 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         return repo
 
     # FIXME: How to load repo after save? Need metadata file that can be referenced to create BenchmarkContext
-    def save_repo(self, save_loc: str):
+    def to_dir(self, path: str):
         from tabrepo.contexts.context import BenchmarkContext, construct_context
-        from tabrepo.contexts.subcontext import BenchmarkSubcontext
-        from autogluon.common.savers import save_pd
 
-        df_configs = self._zeroshot_context.df_configs
+        path = os.path.abspath(path) + os.path.sep
+        path_data_dir = path + "model_predictions/"
 
-        save_loc = os.path.abspath(save_loc) + os.path.sep
-        save_loc_data_dir = save_loc + "model_predictions/"
-
-        # FIXME: use tasks rather thank datasets and folds separately
+        # FIXME: use tasks rather than datasets and folds separately
         datasets = self.datasets()
         folds = self.folds
 
-        print('TODO')
-        self._tabular_predictions.to_data_dir(data_dir=save_loc_data_dir)
-        self._ground_truth.to_data_dir(data_dir=save_loc_data_dir)
+        self._tabular_predictions.to_data_dir(data_dir=path_data_dir)
+        self._ground_truth.to_data_dir(data_dir=path_data_dir)
+        metadata = self._zeroshot_context.to_dir(path=path)
 
-        save_pd.save(path=f"{save_loc}configs.parquet", df=df_configs)
+        configs_hyperparameters = metadata["configs_hyperparameters"]
+        if configs_hyperparameters is not None:
+            configs_hyperparameters = [configs_hyperparameters]
+
 
         # FIXME: Make this a repo constructor method?
         context: BenchmarkContext = construct_context(
-            name="tabforestpfn_sim",
+            name="tabforestpfn_sim",  # FIXME: Name?
             datasets=datasets,
             folds=folds,
-            local_prefix=save_loc,
+            local_prefix=path,
             local_prefix_is_relative=False,
-            has_baselines=False,
+            has_baselines=metadata["df_baselines"] is not None,
+            task_metadata=metadata["df_metadata"],
+            configs_hyperparameters=configs_hyperparameters,
+            local_prefix_is_relative_metadata=False,
+            local_prefix_is_relative_configs_hyperparameters=True,
         )
-        subcontext = BenchmarkSubcontext(parent=context)
-        repo = subcontext.load_from_parent()
 
-    # FIXME
+        # FIXME: Don't use pkl here
+        from autogluon.common.savers import save_pkl
+        save_pkl.save(path=path + "context.pkl", object=context)
+
+    # FIXME, don't use pkl
     @classmethod
-    def load_repo(cls, path):
-        context = None
-        # context = BenchmarkContext.from_dir(path)
-        # subcontext = BenchmarkSubcontext(parent=context)
-        # repo = subcontext.load_from_parent()
-        # return repo
+    def from_dir(
+        cls,
+        path: str,
+        prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
+    ) -> Self:
+        from tabrepo.contexts.context import BenchmarkContext
+        from tabrepo.contexts.subcontext import BenchmarkSubcontext
+        from autogluon.common.loaders import load_pkl
+        path_context = str(Path(path) / "context.pkl")
 
+        context = load_pkl.load(path=path_context)
+        assert isinstance(context, BenchmarkContext)
+
+        subcontext = BenchmarkSubcontext(parent=context)
+        repo = subcontext.load_from_parent(prediction_format=prediction_format)
+        return repo
 
     # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
     # FIXME: Keep track of number of rows of train/test per task internally in Repository
