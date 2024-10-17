@@ -425,7 +425,9 @@ def construct_context(
     local_prefix_is_relative: bool = True,
     has_baselines: bool = True,
     metadata_join_column: str = "dataset",
+    local_prefix_is_relative_metadata: bool = True,
     configs_hyperparameters: List[str] = None,
+    local_prefix_is_relative_configs_hyperparameters: bool = False,  # FIXME: Hack, doesn't mean same thing as the others
 ) -> BenchmarkContext:
     """
 
@@ -490,9 +492,14 @@ def construct_context(
         _result_paths["baselines"] = str(Path(path_context) / "baselines.parquet")
 
     if task_metadata is not None:
-        _task_metadata_path = dict(
-            task_metadata=str(data_root / "metadata" / task_metadata),
-        )
+        if local_prefix_is_relative_metadata:
+            _task_metadata_path = dict(
+                task_metadata=str(data_root / "metadata" / task_metadata),
+            )
+        else:
+            _task_metadata_path = dict(
+                task_metadata=str(Path(path_context) / task_metadata),
+            )
     else:
         _task_metadata_path = dict()
 
@@ -504,7 +511,10 @@ def construct_context(
 
     _configs_hyperparameters_path = dict()
     if configs_hyperparameters is not None:
-        _configs_hyperparameters_path["configs_hyperparameters"] = configs_hyperparameters
+        if local_prefix_is_relative_configs_hyperparameters:
+            _configs_hyperparameters_path["configs_hyperparameters"] = [str(Path(path_context) / c) for c in configs_hyperparameters]
+        else:
+            _configs_hyperparameters_path["configs_hyperparameters"] = configs_hyperparameters
 
     context: BenchmarkContext = BenchmarkContext.from_paths(
         name=name,
