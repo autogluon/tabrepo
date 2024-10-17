@@ -54,7 +54,7 @@ def load_results(
                                                                                                   f"{unique_metadata_join_column_vals['dataset'].value_counts()}")
             df_metadata = df_metadata.drop(columns=["dataset"], errors="ignore")
         else:
-            unique_metadata_join_column_vals = df_configs[[metadata_join_column]]
+            unique_metadata_join_column_vals = df_configs[[metadata_join_column]].drop_duplicates()
         df_metadata = df_metadata.merge(unique_metadata_join_column_vals, on=[metadata_join_column])
         metadata_column_order = ["dataset"] + [c for c in df_metadata.columns if c != "dataset"]
         df_metadata = df_metadata[metadata_column_order]  # make dataset first
