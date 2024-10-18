@@ -3,16 +3,20 @@ from __future__ import annotations
 import pandas as pd
 import logging
 from typing import Callable, List
+import os
 
 from autogluon.core.data.label_cleaner import LabelCleaner
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.utils.cache import DummyExperiment, Experiment
+from tabrepo.scripts_v6 import logging_config
+
 
 # TODO: Prateek: Give a toggle for just fitting and saving the model, if not call predict as well
 
 log = logging.getLogger(__name__)
+model_log = logging.getLogger('singular_model')
 
 def run_experiments(
         expname: str,
@@ -74,6 +78,15 @@ def run_experiments(
                     f"\tFitting {task_name} on fold {fold} for method {method}"
                 )
 
+                individual_log_dir = os.path.join('./logs', task_name, str(fold), method)
+                os.makedirs(individual_log_dir, exist_ok=True)
+                individual_log_file = os.path.join(individual_log_dir, f"{task_name}_fold{fold}_{method}.log")
+                logging_config.singular_setup(individual_log_file=individual_log_file)
+
+                model_log.info(
+                    f"\tFitting {task_name} on fold {fold} for method {method}"
+                )
+
                 if isinstance(method_cls, dict):
                     cur_method_cls = method_cls[method]
                 else:
@@ -96,6 +109,7 @@ def run_experiments(
                 # probabilities, fit and infer times
                 out = experiment.data(ignore_cache=ignore_cache)
                 result_lst.append(out)
+                model_log.handlers.clear()
 
     return result_lst
 

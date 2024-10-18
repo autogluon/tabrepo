@@ -13,6 +13,7 @@ from tabrepo.scripts_v6.TabPFNv2_class import CustomTabPFNv2
 from tabrepo.scripts_v6.LGBM_class import CustomLGBM
 from tabrepo.utils.experiment_utils_v6 import run_experiments, convert_leaderboard_to_configs
 
+
 def datetime_iso(datetime=None, date=True, time=True, micros=False, date_sep='-', datetime_sep='T', time_sep=':',
                  micros_sep='.', no_sep=False):
     """
@@ -116,10 +117,10 @@ if __name__ == '__main__':
             "num_leaves": 32,
             "verbose": -1,  # To suppress warnings
         },
-        # "TabPFN": {
-        #     "device": 'cpu',
-        #     "N_ensemble_configurations": 32,
-        # },
+        "TabPFN": {
+            "device": 'cpu',
+            "N_ensemble_configurations": 32,
+        },
     }
     method_cls_dict = {
         "LightGBM": CustomLGBM,
