@@ -65,7 +65,7 @@ class AbstractExecModel:
         dict
         Returns predictions, probabilities, fit time and inference time
         '''
-        log.info("\nStarting Fit Custom")
+        log.info("Starting Fit Custom")
         with (Timer() as timer_fit):
             self.fit(X, y, **fit_args)
 
