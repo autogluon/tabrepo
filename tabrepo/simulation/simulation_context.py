@@ -649,7 +649,7 @@ class ZeroshotSimulatorContext:
 
         path_metadata = None
         if self.df_metadata is not None:
-            path_metadata = "metadata.parquet"
+            path_metadata = "task_metadata.parquet"
             save_pd.save(path=str(Path(path) / path_metadata), df=self.df_metadata)
 
         path_configs_hyperparameters = None
