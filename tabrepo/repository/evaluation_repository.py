@@ -250,7 +250,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         return repo
 
-    # FIXME: How to load repo after save? Need metadata file that can be referenced to create BenchmarkContext
     def to_dir(self, path: str):
         from tabrepo.contexts.context import BenchmarkContext, construct_context
 
@@ -260,6 +259,9 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         # FIXME: use tasks rather than datasets and folds separately
         datasets = self.datasets()
         folds = self.folds
+        if folds is not None:
+            # make list serializable to json
+            folds = [int(f) for f in folds]
 
         self._tabular_predictions.to_data_dir(data_dir=path_data_dir)
         self._ground_truth.to_data_dir(data_dir=path_data_dir)
@@ -270,24 +272,23 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             configs_hyperparameters = [configs_hyperparameters]
 
         # FIXME: Make this a repo constructor method?
+        # FIXME: s3_download_map doesn't work with is_relative yet
         context: BenchmarkContext = construct_context(
-            name="tabforestpfn_sim",  # FIXME: Name?
+            name=None,  # FIXME: Name?
             datasets=datasets,
             folds=folds,
             local_prefix=path,
-            local_prefix_is_relative=False,
+            local_prefix_is_relative=False,  # FIXME: remove?
             has_baselines=metadata["df_baselines"] is not None,
             task_metadata=metadata["df_metadata"],
             configs_hyperparameters=configs_hyperparameters,
-            local_prefix_is_relative_metadata=False,
-            local_prefix_is_relative_configs_hyperparameters=True,
+            local_prefix_is_relative_metadata=False,  # FIXME: remove?
+            local_prefix_is_relative_configs_hyperparameters=True,  # FIXME: remove?
+            is_relative=True,
         )
 
-        # FIXME: Don't use pkl here
-        from autogluon.common.savers import save_pkl
-        save_pkl.save(path=path + "context.pkl", object=context)
+        context.to_json(path=str(Path(path) / "context.json"))
 
-    # FIXME, don't use pkl
     @classmethod
     def from_dir(
         cls,
@@ -295,15 +296,11 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
     ) -> Self:
         from tabrepo.contexts.context import BenchmarkContext
-        from tabrepo.contexts.subcontext import BenchmarkSubcontext
-        from autogluon.common.loaders import load_pkl
-        path_context = str(Path(path) / "context.pkl")
 
-        context = load_pkl.load(path=path_context)
-        assert isinstance(context, BenchmarkContext)
+        path_context = str(Path(path) / "context.json")
+        context = BenchmarkContext.from_json(path=path_context)
 
-        subcontext = BenchmarkSubcontext(parent=context)
-        repo = subcontext.load_from_parent(prediction_format=prediction_format)
+        repo = context.load_repo(prediction_format=prediction_format)
         return repo
 
     # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
