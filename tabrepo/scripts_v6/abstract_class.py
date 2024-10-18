@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import pandas as pd
+import logging
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import Scorer
 from autogluon.features import AutoMLPipelineFeatureGenerator
 from autogluon_benchmark.utils.time_utils import Timer
 
+log = logging.getLogger(__name__)
 
 class AbstractExecModel:
 
@@ -63,6 +65,7 @@ class AbstractExecModel:
         dict
         Returns predictions, probabilities, fit time and inference time
         '''
+        log.info("\nStarting Fit Custom")
         with (Timer() as timer_fit):
             self.fit(X, y, **fit_args)
 
