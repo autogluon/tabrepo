@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import os
 from pathlib import Path
-from typing import List, Literal
+from typing import Any, List, Literal
 
 import numpy as np
 import pandas as pd
@@ -189,10 +189,24 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     def from_context(cls, version: str = None, prediction_format: str = "memmap") -> Self:
         return load_repository(version=version, prediction_format=prediction_format)
 
-    # FIXME: This is a placeholder
+    # TODO: docstring
     # FIXME: Support memmap directly, without needing full `results_lst_simulation_artifacts` in-memory
     @classmethod
-    def from_raw(cls, df_configs: pd.DataFrame, results_lst_simulation_artifacts: list[dict[str, dict[int, dict]]]) -> Self:
+    def from_raw(
+        cls,
+        df_configs: pd.DataFrame,
+        results_lst_simulation_artifacts: list[dict[str, dict[int, dict]]],
+        df_baselines: pd.DataFrame = None,
+        task_metadata: pd.DataFrame = None,
+        configs_hyperparameters: dict[str, dict[str, Any]] = None,
+        pct: bool = False,
+        score_against_only_baselines: bool = False,
+    ) -> Self:
+        from tabrepo.predictions import TabularPredictionsInMemory
+        from tabrepo.simulation.ground_truth import GroundTruth
+        from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
+        from autogluon.common.utils.simulation_utils import convert_simulation_artifacts_to_tabular_predictions_dict
+
         required_columns = [
             "dataset",
             "fold",
@@ -211,21 +225,21 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         simulation_artifacts_full = cls._convert_sim_artifacts(results_lst_simulation_artifacts=results_lst_simulation_artifacts)
 
-        from tabrepo.predictions import TabularPredictionsInMemory
-        from tabrepo.simulation.ground_truth import GroundTruth
-        from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
-
-        df_configs = cls._fix_time_infer_s(df_configs=df_configs, simulation_artifacts_full=simulation_artifacts_full)
-
-        from autogluon.common.utils.simulation_utils import convert_simulation_artifacts_to_tabular_predictions_dict
         zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
 
         predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
         ground_truth = GroundTruth.from_dict(zeroshot_gt)
 
+        # FIXME: This should be removed when regenerating the large run to not use per-row inference time
+        df_configs = cls._fix_time_infer_s(df_configs=df_configs, ground_truth=ground_truth)
+
         zeroshot_context = ZeroshotSimulatorContext(
             df_configs=df_configs,
-            score_against_only_baselines=False,
+            df_baselines=df_baselines,
+            df_metadata=task_metadata,
+            configs_hyperparameters=configs_hyperparameters,
+            pct=pct,
+            score_against_only_baselines=score_against_only_baselines,
         )
 
         repo = cls(
@@ -233,8 +247,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             tabular_predictions=predictions,
             ground_truth=ground_truth,
         )
-
-        # repo.save_repo(save_loc=save_loc)
 
         return repo
 
@@ -256,7 +268,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         configs_hyperparameters = metadata["configs_hyperparameters"]
         if configs_hyperparameters is not None:
             configs_hyperparameters = [configs_hyperparameters]
-
 
         # FIXME: Make this a repo constructor method?
         context: BenchmarkContext = construct_context(
@@ -298,20 +309,20 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
     # FIXME: Keep track of number of rows of train/test per task internally in Repository
     @classmethod
-    def _fix_time_infer_s(cls, df_configs: pd.DataFrame, simulation_artifacts_full) -> pd.DataFrame:
+    def _fix_time_infer_s(cls, df_configs: pd.DataFrame, ground_truth: GroundTruth) -> pd.DataFrame:
         df_configs = copy.deepcopy(df_configs)
 
         num_rows_test_dict = {}
-        for d in simulation_artifacts_full:
-            for f in simulation_artifacts_full[d]:
-                num_rows_test_dict[(d, f)] = len(list(simulation_artifacts_full[d][f]["pred_proba_dict_test"].values())[0])
+        for dataset in ground_truth.datasets:
+            for fold in ground_truth.dataset_folds(dataset=dataset):
+                num_rows_test_dict[(dataset, fold)] = len(ground_truth.labels_test(dataset=dataset, fold=fold))
 
         tmp = df_configs[["dataset", "fold"]].apply(tuple, axis=1)
         df_configs["time_infer_s"] = df_configs["time_infer_s"] / tmp.map(num_rows_test_dict)
         return df_configs
 
     @classmethod
-    def _convert_sim_artifacts(cls, results_lst_simulation_artifacts):
+    def _convert_sim_artifacts(cls, results_lst_simulation_artifacts: list[dict[str, dict[int, dict[str, Any]]]]) -> dict[str, dict[int, dict[str, Any]]]:
         # FIXME: Don't require all results in memory at once
         simulation_artifacts_full = {}
         for simulation_artifacts in results_lst_simulation_artifacts:
@@ -324,7 +335,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
                     else:
                         for method in simulation_artifacts[k][f]["pred_proba_dict_val"]:
                             if method in simulation_artifacts_full[k][f]["pred_proba_dict_val"]:
-                                raise AssertionError(f"Two results exist for tid {k}, fold {f}, method {method}!")
+                                raise AssertionError(f"Two results exist for dataset {k}, fold {f}, method {method}!")
                             else:
                                 simulation_artifacts_full[k][f]["pred_proba_dict_val"][method] = simulation_artifacts[k][f]["pred_proba_dict_val"][method]
                                 simulation_artifacts_full[k][f]["pred_proba_dict_test"][method] = simulation_artifacts[k][f]["pred_proba_dict_test"][method]
