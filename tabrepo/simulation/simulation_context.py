@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Optional, List, Union, Tuple
+from typing import Any, Optional, List, Union, Tuple
 from typing_extensions import Self
 
 import pandas as pd
@@ -29,7 +29,7 @@ class ZeroshotSimulatorContext:
             df_configs: pd.DataFrame,
             df_baselines: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
-            configs_hyperparameters: dict = None,
+            configs_hyperparameters: dict[str, dict[str, Any]] = None,
             folds: List[int] | None = None,
             pct: bool = False,
             score_against_only_baselines: bool = True,
