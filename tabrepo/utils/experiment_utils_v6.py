@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import logging
 from typing import Callable, List
 
 from autogluon.core.data.label_cleaner import LabelCleaner
@@ -9,19 +10,21 @@ from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.utils.cache import DummyExperiment, Experiment
 
-
 # TODO: Prateek: Give a toggle for just fitting and saving the model, if not call predict as well
+
+log = logging.getLogger(__name__)
+
 def run_experiments(
-    expname: str,
-    tids: List[int],
-    folds: List[int],
-    methods: List[str],
-    methods_dict: dict,
-    method_cls,  # FIXME: Nick: This needs to be communicated on a per-method basis
-    task_metadata: pd.DataFrame,
-    ignore_cache: bool,
-    cache_class: Callable | None = Experiment,
-    cache_class_kwargs: dict = None,
+        expname: str,
+        tids: List[int],
+        folds: List[int],
+        methods: List[str],
+        methods_dict: dict,
+        method_cls,  # FIXME: Nick: This needs to be communicated on a per-method basis
+        task_metadata: pd.DataFrame,
+        ignore_cache: bool,
+        cache_class: Callable | None = Experiment,
+        cache_class_kwargs: dict = None
 ) -> list:
     '''
 
@@ -62,12 +65,12 @@ def run_experiments(
     for i, tid in enumerate(tids):
         task = OpenMLTaskWrapper.from_task_id(task_id=tid)
         task_name = task_metadata[task_metadata["tid"] == tid]["name"].iloc[0]
-        print(f"Starting Dataset {i+1}/{num_datasets}...")
+        print(f"Starting Dataset {i + 1}/{num_datasets}...")
         for fold in folds:
             for method in methods:
                 cache_name = f"data/tasks/{tid}/{fold}/{method}/results"
                 fit_args = methods_dict[method]
-                print(
+                log.info(
                     f"\tFitting {task_name} on fold {fold} for method {method}"
                 )
 
@@ -166,7 +169,8 @@ def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = Tr
     return df_configs
 
 
-def evaluate(y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer, label_cleaner: LabelCleaner, problem_type: str):
+def evaluate(y_true: pd.Series, y_pred: pd.Series, y_pred_proba: pd.DataFrame, scorer: Scorer,
+             label_cleaner: LabelCleaner, problem_type: str):
     y_true = label_cleaner.transform(y_true)
     if scorer.needs_pred:
         y_pred = label_cleaner.transform(y_pred)

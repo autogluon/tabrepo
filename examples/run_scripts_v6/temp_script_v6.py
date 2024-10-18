@@ -1,27 +1,88 @@
 from __future__ import annotations
 
+import logging
+import os
 import pandas as pd
+import datetime as dt
 
-from tabrepo.scripts_v6.logging_config import setup_logger
+from tabrepo.scripts_v6 import logging_config
+from tabrepo.scripts_v6.logging_config import utils_logger as log
 from tabrepo import load_repository, EvaluationRepository
 from tabrepo.scripts_v6.TabPFN_class import CustomTabPFN
 from tabrepo.scripts_v6.TabPFNv2_class import CustomTabPFNv2
 from tabrepo.scripts_v6.LGBM_class import CustomLGBM
-from experiment_utils import run_experiments, convert_leaderboard_to_configs
+from tabrepo.utils.experiment_utils_v6 import run_experiments, convert_leaderboard_to_configs
 
-logger = setup_logger(log_file_name='temp_script_v6')
+def datetime_iso(datetime=None, date=True, time=True, micros=False, date_sep='-', datetime_sep='T', time_sep=':',
+                 micros_sep='.', no_sep=False):
+    """
+
+    :param date:
+    :param time:
+    :param micros:
+    :param date_sep:
+    :param time_sep:
+    :param datetime_sep:
+    :param micros_sep:
+    :param no_sep: if True then all separators are taken as empty string
+    :return:
+    """
+    if no_sep:
+        date_sep = time_sep = datetime_sep = micros_sep = ''
+    strf = ""
+    if date:
+        strf += "%Y{_}%m{_}%d".format(_=date_sep)
+        if time:
+            strf += datetime_sep
+    if time:
+        strf += "%H{_}%M{_}%S".format(_=time_sep)
+        if micros:
+            strf += "{_}%f".format(_=micros_sep)
+    datetime = dt.datetime.utcnow() if datetime is None else datetime
+    return datetime.strftime(strf)
+
+
+def output_dirs(root=None, subdirs=None, create=False):
+    root = root if root is not None else '.'
+    if create:
+        os.makedirs(root, exist_ok=True)
+
+    dirs = {
+        'root': root,
+    }
+
+    if subdirs is not None:
+        if isinstance(subdirs, str):
+            subdirs = [subdirs]
+
+        for d in subdirs:
+            subdir_path = os.path.join(root, d)
+            dirs[d] = subdir_path
+            if create:
+                os.makedirs(subdir_path, exist_ok=True)
+
+    return dirs
+
+
+script_name = os.path.splitext(os.path.basename(__file__))[0]
+now_str = datetime_iso(date_sep='', time_sep='')
+log_dir = output_dirs(subdirs='logs', create=True)['logs']
+logging_config.setup(log_file=os.path.join(log_dir, '{script}.{now}.log'.format(script=script_name, now=now_str)),
+                     root_file=os.path.join(log_dir, '{script}.{now}.full.log'.format(script=script_name, now=now_str)),
+                     root_level=logging.DEBUG, app_level=logging.INFO, console_level=logging.INFO, print_to_log=True)
 
 if __name__ == '__main__':
 
-    logger.info("Starting execution script...")
+    log.info("Starting execution script...")
+    log.debug(f"Logs are stored in: {log_dir}")
 
     context_name = "D244_F3_C1530_30"
-    logger.info(f"Loading repository for context: {context_name}")
+    log.info(f"Loading repository for context: {context_name}")
     try:
         repo: EvaluationRepository = load_repository(context_name, cache=True)
-        logger.info("Repository loaded successfully.")
+        log.info("Repository loaded successfully.")
     except Exception as e:
-        logger.error(f"Failed to load repository: {e}", exc_info=True)
+        log.error(f"Failed to load repository: {e}", exc_info=True)
         raise
 
     expname = "./initial_experiment_tabpfn_v6"  # folder location of all experiment artifacts
@@ -31,19 +92,23 @@ if __name__ == '__main__':
     # datasets = repo.datasets
     # folds = repo.folds
     folds = [0]
+    # datasets = [
+    #     "blood-transfusion-service-center",  # binary
+    #     "Australian",  # binary
+    #     "balance-scale",  # multiclass
+    #     # "MIP-2016-regression",  # regression
+    # ]
+
     datasets = [
         "blood-transfusion-service-center",  # binary
-        "Australian",  # binary
-        "balance-scale",  # multiclass
-        # "MIP-2016-regression",  # regression
     ]
-    logger.info(f"Selected Datasets: {datasets}")
-    logger.info(f"Folds to run: {folds}")
+    log.info(f"Selected Datasets: {datasets}")
+    log.info(f"Folds to run: {folds}")
 
     try:
         tids = [repo.dataset_to_tid(dataset) for dataset in datasets]
     except Exception as e:
-        logger.warning(f"Some datasets may not belong to the repository: {e}", exc_info=True)
+        log.warning(f"Some datasets may not belong to the repository: {e}", exc_info=True)
 
     methods_dict = {
         "LightGBM": {
@@ -51,10 +116,10 @@ if __name__ == '__main__':
             "num_leaves": 32,
             "verbose": -1,  # To suppress warnings
         },
-        "TabPFN": {
-            "device": 'cpu',
-            "N_ensemble_configurations": 32,
-        },
+        # "TabPFN": {
+        #     "device": 'cpu',
+        #     "N_ensemble_configurations": 32,
+        # },
     }
     method_cls_dict = {
         "LightGBM": CustomLGBM,
@@ -62,9 +127,9 @@ if __name__ == '__main__':
         "TabPFNv2": CustomTabPFNv2,
     }
     methods = list(methods_dict.keys())
-    logger.info(f"Methods to run: {methods}")
+    log.info(f"Methods to run: {methods}")
 
-    logger.info("Running experiments...")
+    log.info("Running experiments...")
     try:
         results_lst = run_experiments(
             expname=expname,
@@ -76,18 +141,18 @@ if __name__ == '__main__':
             task_metadata=repo.task_metadata,
             ignore_cache=ignore_cache,
         )
-        logger.info("Experiments Status: Successful.")
+        log.info("Experiments Status: Successful.")
     except Exception as e:
-        logger.error(f"An error occurred while running experiments: {e}", exc_info=True)
+        log.error(f"An error occurred while running experiments: {e}", exc_info=True)
         raise
 
-    logger.info("Concatenating results into Dataframe...")
+    log.info("Concatenating results into Dataframe...")
     try:
         results_df = pd.concat(results_lst, ignore_index=True)
     except Exception as e:
-        logger.error(f"An error occurred while concatenating results: {e}", exc_info=True)
+        log.error(f"An error occurred while concatenating results: {e}", exc_info=True)
 
-    logger.info("Renaming leaderboard columns... ")
+    log.info("Renaming leaderboard columns... ")
     results_df = convert_leaderboard_to_configs(results_df)
     with pd.option_context('display.max_rows', None, 'display.max_columns', None, 'display.width', 1000):
         print(results_df)
@@ -102,14 +167,14 @@ if __name__ == '__main__':
         "NeuralNetTorch_c1_BAG_L1",
         "NeuralNetFastAI_c1_BAG_L1",
     ]
-    logger.info(f"Comparison configs: {comparison_configs}")
+    log.info(f"Comparison configs: {comparison_configs}")
 
     baselines = [
         "AutoGluon_bq_4h8c_2023_11_14",
     ]
-    logger.info(f"Baseline: {baselines}")
+    log.info(f"Baseline: {baselines}")
 
-    logger.info(f"Comparing metrics...")
+    log.info(f"Comparing metrics...")
     try:
         metrics = repo.compare_metrics(
             results_df,
@@ -119,17 +184,17 @@ if __name__ == '__main__':
             configs=comparison_configs,
         )
     except Exception as e:
-        logger.error(f"An error occurred in compare_metrics(): {e}", exc_info=True)
+        log.error(f"An error occurred in compare_metrics(): {e}", exc_info=True)
         raise
 
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
         print(f"Config Metrics Example:\n{metrics}")
 
-    logger.info("Plotting overall rank comparison...")
+    log.info("Plotting overall rank comparison...")
     try:
         evaluator_output = repo.plot_overall_rank_comparison(
             results_df=metrics,
             save_dir=expname,
         )
     except Exception as e:
-        logger.error(f"An error occurred in plot_overall_rank_comparison(): {e}", exc_info=True)
+        log.error(f"An error occurred in plot_overall_rank_comparison(): {e}", exc_info=True)
