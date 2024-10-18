@@ -92,7 +92,7 @@ To evaluate an ensemble of any list of configuration, you can run the following:
 ```python
 from tabrepo import load_repository
 repo = load_repository("D244_F3_C1530_30")
-print(repo.evaluate_ensemble(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
+print(repo.evaluate_ensemble(dataset="Australian", fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
 
 this code will return the error of an ensemble whose weights are computed with the Caruana procedure after loading model

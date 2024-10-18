@@ -7,11 +7,10 @@ repo = load_repo_artificial()
 
 
 def test_get_runtime():
-
     config_names = repo.configs()
     runtime_dict = get_runtime(
         repo,
-        tid=359944,
+        dataset="ada",
         fold=1,
         config_names=config_names,
     )
@@ -23,7 +22,7 @@ def test_get_runtime_time_infer_s():
     config_names = repo.configs()
     runtime_dict = get_runtime(
         repo,
-        tid=359944,
+        dataset="ada",
         fold=1,
         config_names=config_names,
         runtime_col='time_infer_s',
@@ -50,7 +49,7 @@ def test_filter_configs_by_runtime():
     ]:
         selected_configs = filter_configs_by_runtime(
             repo,
-            tid=359944,
+            dataset="ada",
             fold=1,
             config_names=config_names,
             max_cumruntime=max_cumruntime,
