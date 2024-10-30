@@ -230,9 +230,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
         ground_truth = GroundTruth.from_dict(zeroshot_gt)
 
-        # FIXME: This should be removed when regenerating the large run to not use per-row inference time
-        df_configs = cls._fix_time_infer_s(df_configs=df_configs, ground_truth=ground_truth)
-
         zeroshot_context = ZeroshotSimulatorContext(
             df_configs=df_configs,
             df_baselines=df_baselines,
