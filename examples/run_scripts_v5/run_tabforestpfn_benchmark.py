@@ -6,7 +6,7 @@ from tabrepo import load_repository, EvaluationRepository
 from tabrepo.scripts_v5.TabPFN_class import CustomTabPFN
 from tabrepo.scripts_v5.TabPFNv2_class import CustomTabPFNv2
 from tabrepo.scripts_v5.TabForestPFN_class import CustomTabForestPFN
-from tabrepo.scripts_v5.AutoGluon_class import CustomAutoGluon
+from tabrepo.scripts_v5.AutoGluon_class import AGWrapper
 from tabrepo.scripts_v5.LGBM_class import CustomLGBM
 from tabrepo.scripts_v5.ag_models.tabforestpfn_model import TabForestPFNModel
 from experiment_utils import run_experiments, convert_leaderboard_to_configs
@@ -92,8 +92,8 @@ if __name__ == '__main__':
         "TabForestPFN_N32_E0_nosplit": CustomTabForestPFN,
         "TabForest_N32_E0_nosplit": CustomTabForestPFN,
         "TabPFN_N32_E0_nosplit": CustomTabForestPFN,
-        "LightGBM_c1_BAG_L1_V2": CustomAutoGluon,
-        "TabForestPFN_N4_E10_BAG_L1": CustomAutoGluon,
+        "LightGBM_c1_BAG_L1_V2": AGWrapper,
+        "TabForestPFN_N4_E10_BAG_L1": AGWrapper,
     }
     methods = list(methods_dict.keys())
 
