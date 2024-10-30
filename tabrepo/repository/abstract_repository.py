@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
+from .repo_utils import convert_time_infer_s_from_sample_to_batch
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
@@ -557,17 +558,6 @@ class AbstractRepository(ABC, SaveLoadMixin):
         else:
             return predictions
 
-    def _convert_time_infer_s_from_sample_to_batch(self, df: pd.DataFrame):
-        """
-        Temp: Multiply by 0.1 since 90% of the instances are used for training and 10% for test
-        # TODO: Change this in future, not all tasks will use 90% train / 10% test. Instead keep track of train/test rows per dataset_fold pair.
-        """
-        df = df.copy(deep=True)
-        df["time_infer_s"] = df["time_infer_s"] * df.index.get_level_values("dataset").map(
-            self.task_metadata.set_index("dataset")["NumberOfInstances"]
-        ) * 0.1
-        return df
-
     # TODO: repo time_infer_s is per row, results_df is the total time for all rows, need to align later
     # TODO: Error if unknown configs/baselines requested
     # TODO: Add fillna
@@ -600,7 +590,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         df_tr = df_tr[mask]
 
         if self.task_metadata is not None:
-            df_tr = self._convert_time_infer_s_from_sample_to_batch(df_tr)
+            df_tr = convert_time_infer_s_from_sample_to_batch(df_tr, repo=self)
 
         if self._zeroshot_context.df_baselines is not None:
             df_baselines = self._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[columns]
@@ -613,7 +603,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
             df_baselines = df_baselines[mask]
 
             if self.task_metadata is not None:
-                df_baselines = self._convert_time_infer_s_from_sample_to_batch(df_baselines)
+                df_baselines = convert_time_infer_s_from_sample_to_batch(df_baselines, repo=self)
         else:
             if baselines:
                 raise AssertionError(f"Baselines specified but no baseline methods exist! (baselines={baselines})")
