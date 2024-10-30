@@ -10,6 +10,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.multiclass import unique_labels
 
 
+# TODO: To mitigate val overfitting, can fit multiple random seeds at same time and pick same epoch for all of them, track average performance on epoch.
 # TODO: Test shuffling the data and see if it makes TabPFNv2 worse, same with TabForestPFN
 class TabForestPFNClassifier(BaseEstimator, ClassifierMixin):
 
@@ -56,6 +57,8 @@ class TabForestPFNClassifier(BaseEstimator, ClassifierMixin):
         return np.exp(logits) / np.exp(logits).sum(axis=1)[:, None]
 
 
+# FIXME: test_epoch might be better if it uses the for loop logic with n_ensembles during finetuning to better estimate val score
+# FIXME: Is the model deterministic?
 class CustomTabForestPFN(AbstractExecModel):
     def __init__(self, n_ensembles=1, max_epochs=0, split_val=False, path_config=None, path_weights=None, **kwargs):
         super().__init__(**kwargs)
