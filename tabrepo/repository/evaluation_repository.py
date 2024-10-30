@@ -300,21 +300,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         repo = context.load_repo(prediction_format=prediction_format)
         return repo
 
-    # FIXME: Hack to get time_infer_s correct, instead we should keep time_infer_s to the original and transform it internally to be per row
-    # FIXME: Keep track of number of rows of train/test per task internally in Repository
-    @classmethod
-    def _fix_time_infer_s(cls, df_configs: pd.DataFrame, ground_truth: GroundTruth) -> pd.DataFrame:
-        df_configs = copy.deepcopy(df_configs)
-
-        num_rows_test_dict = {}
-        for dataset in ground_truth.datasets:
-            for fold in ground_truth.dataset_folds(dataset=dataset):
-                num_rows_test_dict[(dataset, fold)] = len(ground_truth.labels_test(dataset=dataset, fold=fold))
-
-        tmp = df_configs[["dataset", "fold"]].apply(tuple, axis=1)
-        df_configs["time_infer_s"] = df_configs["time_infer_s"] / tmp.map(num_rows_test_dict)
-        return df_configs
-
     @classmethod
     def _convert_sim_artifacts(cls, results_lst_simulation_artifacts: list[dict[str, dict[int, dict[str, Any]]]]) -> dict[str, dict[int, dict[str, Any]]]:
         # FIXME: Don't require all results in memory at once
