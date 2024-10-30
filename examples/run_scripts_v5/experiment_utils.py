@@ -16,9 +16,7 @@ def run_experiments(
     expname: str,
     tids: List[int],
     folds: List[int],
-    methods: List[str],
-    methods_dict: dict,
-    method_cls,  # FIXME: Nick: This needs to be communicated on a per-method basis
+    methods: list[tuple[str, Callable, dict[str, ...]]],
     task_metadata: pd.DataFrame,
     ignore_cache: bool,
     experiment_cls: Callable = ExperimentRunner,
@@ -32,11 +30,9 @@ def run_experiments(
     expname: str, Name of the experiment given by the user
     tids: list[int], List of OpenML task IDs given by the user
     folds: list[int], Number of folds present for the given task
-    methods: list[str], Models used for fit() and predict() in this experiment
-    methods_dict: dict, methods (models) mapped to their respective fit_args()
+    methods: list[tuple[str, Callable, dict[str, ...]]], Models used for fit() and predict() in this experiment
     task_metadata: pd.DataFrame,OpenML task metadata
     ignore_cache: bool, whether to use cached results (if present)
-    method_cls: WIP
     cache_cls: WIP
     cache_cls_kwargs: WIP
 
@@ -70,29 +66,22 @@ def run_experiments(
         task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
         print(f"Starting Dataset {i+1}/{num_datasets}...")
         for fold in folds:
-            for method in methods:
+            for method, method_cls, method_kwargs in methods:
                 cache_name = f"data/tasks/{tid}/{fold}/{method}/results"
-                # TODO: Prateek, yet to support fit_args
-                fit_args = methods_dict[method]
                 print(
                     f"\tFitting {task_name} on fold {fold} for method {method}"
                 )
-
-                if isinstance(method_cls, dict):
-                    cur_method_cls = method_cls[method]
-                else:
-                    cur_method_cls = method_cls
 
                 experiment = cache_cls(
                     expname=expname,
                     name=cache_name,
                     run_fun=lambda: experiment_cls(
-                        method_cls=cur_method_cls,
+                        method_cls=method_cls,
                         task=task,
                         fold=fold,
                         task_name=task_name,
                         method=method,
-                        fit_args=fit_args,
+                        fit_args=method_kwargs,
                     ).run(),
                     **cache_cls_kwargs,
                 )
