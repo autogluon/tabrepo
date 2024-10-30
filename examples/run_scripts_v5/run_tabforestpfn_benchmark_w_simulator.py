@@ -3,8 +3,8 @@ from __future__ import annotations
 import pandas as pd
 
 from tabrepo import load_repository, EvaluationRepository
-from tabrepo.scripts_v5.AutoGluon_class import CustomAutoGluon
-from tabrepo.scripts_v5.ag_models.ag_model import CustomAGModel
+from tabrepo.scripts_v5.AutoGluon_class import AGWrapper
+from tabrepo.scripts_v5.ag_models.ag_model import AGModelWrapper
 from tabrepo.scripts_v5.ag_models.tabforestpfn_model import TabForestPFNModel
 from tabrepo.scripts_v5.ag_models.ebm_model import ExplainableBoostingMachine
 from tabrepo.scripts_v5.ag_models.tabpfn_v2_model import TabPFNV2Model
@@ -64,48 +64,47 @@ if __name__ == '__main__':
         #     "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
         #     "hyperparameters": {"GBM": [{}]},
         # }}),
-        ("TabForestPFN_N4_E10_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabForestPFN_N4_E10_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 10}]},
         }}),
-        ("TabForestPFN_N1_E10_S4_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabForestPFN_N1_E10_S4_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 4, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 1, "max_epochs": 10}]},
         }}),
-        ("TabForestPFN_N4_E30_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabForestPFN_N4_E30_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 30}]},
         }}),
-        ("TabPFN_Mix7_500000_N4_E30_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabPFN_Mix7_500000_N4_E30_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_500000}]},
         }}),
-        ("TabPFN_Mix7_600000_N4_E30_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabPFN_Mix7_600000_N4_E30_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_600000}]},
         }}),
-        ("TabPFN_Mix7_300000_N4_E30_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabPFN_Mix7_300000_N4_E30_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_300000}]},
         }}),
-        ("TabPFN_Mix7_600000_N4_E30_S4_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabPFN_Mix7_600000_N4_E30_S4_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 4, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_600000}]},
         }}),
-        ("EBM_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("EBM_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {ExplainableBoostingMachine: [{}]},
         }}),
-        ("TabPFNv2_N4_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabPFNv2_N4_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabPFNV2Model: [{"n_estimators": 4}]},
         }}),
-        ("TabPFN_Mix7_600000_N1_E0_BAG_L1", CustomAutoGluon, {"fit_kwargs": {
+        ("TabPFN_Mix7_600000_N1_E0_BAG_L1", AGWrapper, {"fit_kwargs": {
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 1, "max_epochs": 0, "path_weights": path_weights_tabpfn_mix7_600000}]},
         }}),
-        # ("LightGBM_Solo", CustomAGModel, {"model_cls": LGBModel}),
-        ("TabPFNv2_N32", CustomAGModel, {"model_cls": TabPFNV2Model, "hyperparameters": {"n_estimators": 32}}),
+        # ("TabPFNv2_N32", AGModelWrapper, {"model_cls": TabPFNV2Model, "hyperparameters": {"n_estimators": 32}}),
     ]
 
     # FIXME: experiment_cls, cache_true/false, etc.

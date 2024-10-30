@@ -7,7 +7,7 @@ import pandas as pd
 from .abstract_class import AbstractExecModel
 
 
-class CustomAutoGluon(AbstractExecModel):
+class AGWrapper(AbstractExecModel):
     can_get_oof = True
 
     def __init__(self, init_kwargs=None, fit_kwargs=None, preprocess_data=False, preprocess_label=False, **kwargs):
