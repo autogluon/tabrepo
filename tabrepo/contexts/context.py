@@ -228,6 +228,7 @@ class BenchmarkContext:
                  description: str = None,
                  date: str = None,
                  s3_download_map: Dict[str, str] = None,
+                 config_fallback: str = None,
                  ):
         self.folds = folds
         self.benchmark_paths = benchmark_paths
@@ -235,6 +236,7 @@ class BenchmarkContext:
         self.description = description
         self.date = date
         self.s3_download_map = s3_download_map
+        self.config_fallback = config_fallback
 
     @classmethod
     def from_paths(cls,
@@ -244,12 +246,14 @@ class BenchmarkContext:
                    description: str = None,
                    date: str = None,
                    s3_download_map: Dict[str, str] = None,
+                   config_fallback: str = None,
                    **paths):
         return cls(folds=folds,
                    name=name,
                    description=description,
                    date=date,
                    s3_download_map=s3_download_map,
+                   config_fallback=config_fallback,
                    benchmark_paths=BenchmarkPaths(**paths))
 
     def download(self,
@@ -427,6 +431,7 @@ class BenchmarkContext:
             zeroshot_context=zsc,
             tabular_predictions=zeroshot_pred_proba,
             ground_truth=zeroshot_gt,
+            config_fallback=self.config_fallback,
         )
         return repo
 
@@ -468,6 +473,7 @@ class BenchmarkContext:
             "description": self.description,
             "folds": self.folds,
             "s3_download_map": self.s3_download_map,
+            "config_fallback": self.config_fallback,
             "benchmark_paths": self.benchmark_paths.to_dict()
         }
         save_json.save(path=path, obj=output)
@@ -502,9 +508,9 @@ def construct_s3_download_map(
 
 
 def construct_context(
-    name: str,
-    datasets: List[str],
-    folds: List[int],
+    name: str | None,
+    datasets: list[str],
+    folds: list[int],
     local_prefix: str,
     s3_prefix: str = None,
     description: str = None,
@@ -513,10 +519,9 @@ def construct_context(
     local_prefix_is_relative: bool = True,
     has_baselines: bool = True,
     metadata_join_column: str = "dataset",
-    local_prefix_is_relative_metadata: bool = True,
-    configs_hyperparameters: List[str] = None,
-    local_prefix_is_relative_configs_hyperparameters: bool = False,  # FIXME: Hack, doesn't mean same thing as the others
+    configs_hyperparameters: list[str] = None,
     is_relative: bool = False,
+    config_fallback: str = None,
 ) -> BenchmarkContext:
     """
 
@@ -592,14 +597,8 @@ def construct_context(
     if task_metadata is not None:
         if is_relative:
             _task_metadata_path = dict(task_metadata=task_metadata)
-        elif local_prefix_is_relative_metadata:
-            _task_metadata_path = dict(
-                task_metadata=str(data_root / "metadata" / task_metadata),
-            )
         else:
-            _task_metadata_path = dict(
-                task_metadata=str(Path(path_context) / task_metadata),
-            )
+            _task_metadata_path = dict(task_metadata=str(Path(path_context) / task_metadata))
     else:
         _task_metadata_path = dict()
 
@@ -619,12 +618,7 @@ def construct_context(
 
     _configs_hyperparameters_path = dict()
     if configs_hyperparameters is not None:
-        if is_relative:
-            _configs_hyperparameters_path["configs_hyperparameters"] = configs_hyperparameters
-        elif local_prefix_is_relative_configs_hyperparameters:
-            _configs_hyperparameters_path["configs_hyperparameters"] = [str(Path(path_context) / c) for c in configs_hyperparameters]
-        else:
-            _configs_hyperparameters_path["configs_hyperparameters"] = configs_hyperparameters
+        _configs_hyperparameters_path["configs_hyperparameters"] = configs_hyperparameters
 
     context: BenchmarkContext = BenchmarkContext.from_paths(
         name=name,
@@ -635,6 +629,7 @@ def construct_context(
         datasets=datasets,
         metadata_join_column=metadata_join_column,
         relative_path=relative_path,
+        config_fallback=config_fallback,
         **_result_paths,
         **_bag_zs_path,
         **_task_metadata_path,

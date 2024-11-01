@@ -271,17 +271,16 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         # FIXME: Make this a repo constructor method?
         # FIXME: s3_download_map doesn't work with is_relative yet
         context: BenchmarkContext = construct_context(
-            name=None,  # FIXME: Name?
+            name=None,
             datasets=datasets,
             folds=folds,
             local_prefix=path,
-            local_prefix_is_relative=False,  # FIXME: remove?
+            local_prefix_is_relative=False,  # TODO: Set to False by default and rename
             has_baselines=metadata["df_baselines"] is not None,
             task_metadata=metadata["df_metadata"],
             configs_hyperparameters=configs_hyperparameters,
-            local_prefix_is_relative_metadata=False,  # FIXME: remove?
-            local_prefix_is_relative_configs_hyperparameters=True,  # FIXME: remove?
             is_relative=True,
+            config_fallback=self._config_fallback,
         )
 
         context.to_json(path=str(Path(path) / "context.json"))
