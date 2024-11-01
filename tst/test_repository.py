@@ -19,6 +19,7 @@ def verify_equivalent_repository(
     verify_baselines: bool = True,
     verify_metadata: bool = True,
     verify_configs_hyperparameters: bool = True,
+    verify_config_fallback: bool = True,
     backend: str = "native",
 ):
     assert repo1.folds == repo2.folds
@@ -30,6 +31,8 @@ def verify_equivalent_repository(
         metrics1 = repo1.metrics().sort_index()
         metrics2 = repo2.metrics().sort_index()
         assert metrics1.equals(metrics2)
+    if verify_config_fallback:
+        assert repo1._config_fallback == repo2._config_fallback
     if verify_predictions:
         for dataset in repo1.datasets():
             for f in repo1.folds:
@@ -314,19 +317,43 @@ def test_repository_save_load_with_moving_files():
     shutil.rmtree(copy_path, ignore_errors=True)
 
     repo = load_repo_artificial(include_hyperparameters=True)
+    repo.set_config_fallback(config_fallback=repo.configs()[0])
+
+    assert repo._config_fallback == repo.configs()[0]
+    with pytest.raises(AssertionError):
+        repo.predict_test(dataset="abalone", fold=0, config=repo.configs()[0])
 
     repo.to_dir(path=save_path)
     repo_loaded = EvaluationRepository.from_dir(path=save_path)
     repo_loaded_mem = EvaluationRepository.from_dir(path=save_path, prediction_format="mem")
     repo_loaded_memopt = EvaluationRepository.from_dir(path=save_path, prediction_format="memopt")
-    verify_equivalent_repository(repo1=repo, repo2=repo_loaded, verify_ensemble=True, exact=True)
+
+    assert repo._config_fallback == repo_loaded_mem._config_fallback
+    assert repo._config_fallback == repo_loaded_memopt._config_fallback
+
+    repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    with pytest.raises(AssertionError):
+        repo_loaded_mem.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    with pytest.raises(AssertionError):
+        repo_loaded_memopt.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    repo.set_config_fallback(None)
+    repo_loaded_mem.set_config_fallback(None)
+    repo_loaded_memopt.set_config_fallback(None)
+
+    assert repo_loaded_mem._config_fallback is None
+    assert repo_loaded_memopt._config_fallback is None
+
+    repo_loaded_mem.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    repo_loaded_memopt.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded, verify_ensemble=True, exact=True, verify_config_fallback=False)
     verify_equivalent_repository(repo1=repo, repo2=repo_loaded_mem, verify_ensemble=True, exact=True)
     verify_equivalent_repository(repo1=repo, repo2=repo_loaded_memopt, verify_ensemble=True, exact=True)
 
     shutil.copytree(save_path, copy_path)
 
     repo_loaded_copy = EvaluationRepository.from_dir(path=copy_path)
-    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_copy, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo_loaded, repo2=repo_loaded_copy, verify_ensemble=True, exact=True)
 
     # verify that the original stops working after deleting the original files
     repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
@@ -339,7 +366,7 @@ def test_repository_save_load_with_moving_files():
     verify_equivalent_repository(repo1=repo, repo2=repo_loaded_memopt, verify_ensemble=True, exact=True)
 
     # verify that the copy works even after deleting the original files
-    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_copy, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_copy, verify_ensemble=True, exact=True, verify_config_fallback=False)
 
     # verify that the copy stops working after deleting the copied files
     repo_loaded_copy.predict_test(dataset="abalone", fold=0, config=repo_loaded_copy.configs()[0])
