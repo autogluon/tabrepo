@@ -291,11 +291,14 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         cls,
         path: str,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
+        update_relative_path: bool = True,
     ) -> Self:
         from tabrepo.contexts.context import BenchmarkContext
 
         path_context = str(Path(path) / "context.json")
         context = BenchmarkContext.from_json(path=path_context)
+        if update_relative_path:
+            context.benchmark_paths.relative_path = str(Path(path))
 
         repo = context.load_repo(prediction_format=prediction_format)
         return repo

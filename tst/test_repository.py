@@ -1,5 +1,5 @@
 import copy
-
+import shutil
 from typing import Callable
 
 import numpy as np
@@ -303,6 +303,49 @@ def test_repository_save_load():
     repo_loaded_float64 = EvaluationRepository.from_dir(path=save_path)
     # exact=False because the loaded version is float32 and the original is float64
     verify_equivalent_repository(repo1=repo_float64, repo2=repo_loaded_float64, verify_ensemble=True, exact=False)
+
+
+def test_repository_save_load_with_moving_files():
+    """test repo save and load work when moving files to different directories"""
+
+    save_path = "tmp_repo"
+    copy_path = "tmp_repo_copy"
+    shutil.rmtree(save_path, ignore_errors=True)
+    shutil.rmtree(copy_path, ignore_errors=True)
+
+    repo = load_repo_artificial(include_hyperparameters=True)
+
+    repo.to_dir(path=save_path)
+    repo_loaded = EvaluationRepository.from_dir(path=save_path)
+    repo_loaded_mem = EvaluationRepository.from_dir(path=save_path, prediction_format="mem")
+    repo_loaded_memopt = EvaluationRepository.from_dir(path=save_path, prediction_format="memopt")
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_mem, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_memopt, verify_ensemble=True, exact=True)
+
+    shutil.copytree(save_path, copy_path)
+
+    repo_loaded_copy = EvaluationRepository.from_dir(path=copy_path)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_copy, verify_ensemble=True, exact=True)
+
+    # verify that the original stops working after deleting the original files
+    repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    shutil.rmtree(save_path)
+    with pytest.raises(FileNotFoundError):
+        repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+
+    # verify in-memory repos don't require the original files
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_mem, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_memopt, verify_ensemble=True, exact=True)
+
+    # verify that the copy works even after deleting the original files
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_copy, verify_ensemble=True, exact=True)
+
+    # verify that the copy stops working after deleting the copied files
+    repo_loaded_copy.predict_test(dataset="abalone", fold=0, config=repo_loaded_copy.configs()[0])
+    shutil.rmtree(copy_path)
+    with pytest.raises(FileNotFoundError):
+        repo_loaded_copy.predict_test(dataset="abalone", fold=0, config=repo_loaded_copy.configs()[0])
 
 
 def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):
