@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from ..abstract_class import AbstractExecModel
+from autogluon.core.data.label_cleaner import LabelCleanerMulticlassToBinary
 from autogluon.core.models import AbstractModel
 
 
@@ -35,5 +36,7 @@ class AGModelWrapper(AbstractExecModel):
 
     def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
         y_pred_proba = self.model.predict_proba(X)
+        if self.problem_type == "binary":
+            y_pred_proba = LabelCleanerMulticlassToBinary.convert_binary_proba_to_multiclass_proba(y_pred_proba)
         y_pred_proba = pd.DataFrame(y_pred_proba, index=X.index)
         return y_pred_proba
