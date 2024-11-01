@@ -75,15 +75,15 @@ class EnsembleMixin:
             backend="native",
         )
 
-        dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=configs)
-        metric_error = dict_errors[task]
-        ensemble_weights = dict_ensemble_weights[task]
+        results = scorer.compute_errors(configs=configs)
+        metric_error = results[task]["metric_error"]
+        ensemble_weights = results[task]["ensemble_weights"]
+        metric_error_val = results[task]["metric_error_val"]
 
         dataset_info = self.dataset_info(dataset=dataset)
         metric = dataset_info["metric"]
         problem_type = dataset_info["problem_type"]
 
-        # FIXME: add metric_error_val?
         # select configurations used in the ensemble as infer time only depends on the models with non-zero weight.
         fail_if_missing = self._config_fallback is None
         config_selected_ensemble = [
@@ -115,11 +115,11 @@ class EnsembleMixin:
             "time_train_s": [time_train_s],
             "time_infer_s": [time_infer_s],
             "problem_type": [problem_type],
-            "tid": [tid],  # FIXME: Don't include TID, it is redundant
+            "metric_error_val": [metric_error_val],
         }
 
         if rank:
-            dict_ranks = scorer.compute_ranks(errors=dict_errors)
+            dict_ranks = scorer.compute_ranks(errors={task: metric_error})
             rank_list = dict_ranks[task]
             output_dict["rank"] = [rank_list]
 

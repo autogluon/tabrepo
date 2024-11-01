@@ -572,7 +572,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
     ) -> pd.DataFrame:
         if datasets is None:
             datasets = self.datasets()
-        columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type", "tid"]
+        columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type"]
 
         if results_df is not None:
             df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
@@ -619,7 +619,8 @@ class AbstractRepository(ABC, SaveLoadMixin):
         from autogluon_benchmark.plotting.plotter import Plotter
         if evaluator_kwargs is None:
             evaluator_kwargs = {}
-        results_df = results_df.reset_index()
+        results_df = results_df.reset_index().copy()
+        results_df["tid"] = results_df["dataset"].apply(self.dataset_to_tid)
         evaluator = Evaluator(task_metadata=self.task_metadata, **evaluator_kwargs)
         evaluator_output = evaluator.transform(results_df)
         output_path = f"{save_dir}"

@@ -28,8 +28,10 @@ class ResultRow:
     normalized_error: float
     time_train_s: float
     time_infer_s: float
+    metric_error_val: float = None
     config_selected: list = None
     seed: int = None
+    metadata: dict = None
 
 
 def evaluate_configs(
@@ -65,7 +67,7 @@ def evaluate_configs(
 
     rows = []
     for fold in folds:
-        metric_errors, ensemble_weights = repo.evaluate_ensemble(
+        df_metrics, ensemble_weights = repo.evaluate_ensemble(
             dataset=dataset,
             fold=fold,
             configs=configs,
@@ -76,14 +78,16 @@ def evaluate_configs(
             time_limit=time_limit,
             rank=False,
         )
-        assert len(metric_errors) == 1
-        configs = [c for c in configs if c in ensemble_weights.columns]
+        assert len(df_metrics) == 1
+        metrics = df_metrics.iloc[0]
+        configs_selected = [c for c in configs if c in ensemble_weights.columns]
 
         task = repo.task_name(dataset=dataset, fold=fold)
 
-        metric_error = metric_errors.iloc[0]["metric_error"]
-        time_train_s = metric_errors.iloc[0]["time_train_s"]
-        time_infer_s = metric_errors.iloc[0]["time_infer_s"]
+        metric_error = metrics["metric_error"]
+        metric_error_val = metrics["metric_error_val"]
+        time_train_s = metrics["time_train_s"]
+        time_infer_s = metrics["time_infer_s"]
 
         rows.append(ResultRow(
             dataset=dataset,
@@ -94,8 +98,13 @@ def evaluate_configs(
             normalized_error=normalized_scorer.rank(task, metric_error),
             time_train_s=time_train_s,
             time_infer_s=time_infer_s,
-            config_selected=configs,
+            metric_error_val=metric_error_val,
+            config_selected=configs_selected,
             seed=seed,
+            metadata=dict(
+                n_iterations=ensemble_size,
+                time_limit=time_limit,
+            )
         ))
     return rows
 
@@ -326,7 +335,7 @@ def zeroshot_results(
         seeds: list = [0],
         method_prefix: str = None,
         n_ensemble_in_name: bool = False,
-) -> List[ResultRow]:
+) -> list[ResultRow]:
     """
     :param dataset_names: list of dataset to use when fitting zeroshot
     :param n_eval_folds: number of folds to consider for evaluation
@@ -345,7 +354,7 @@ def zeroshot_results(
 
     def evaluate_dataset(test_dataset, n_portfolio, n_ensemble, n_training_dataset, n_training_fold, n_training_config,
                          max_runtime, max_models, max_models_per_type, seed: int, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
-                         model_frameworks):
+                         model_frameworks) -> list[ResultRow]:
         method_name = zeroshot_name(
             n_portfolio=n_portfolio,
             n_ensemble=n_ensemble,
@@ -414,7 +423,7 @@ def zeroshot_results(
             "max_models_per_type": max_models_per_type,
         }
 
-        return evaluate_configs(
+        results_row_lst: list[ResultRow] = evaluate_configs(
             repo=repo,
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
@@ -427,6 +436,11 @@ def zeroshot_results(
             folds=range(n_eval_folds),
             seed=seed,
         )
+
+        for results_row in results_row_lst:
+            results_row.metadata["n_portfolio"] = n_portfolio
+
+        return results_row_lst
 
     dd = repo._zeroshot_context.df_configs_ranked
     # df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()
