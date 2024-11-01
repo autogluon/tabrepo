@@ -9,6 +9,7 @@ def parallel_for(
     inputs: List[Union[list, dict]],
     context: dict,
     engine: str = "ray",
+    progress_bar: bool = True,
 ) -> List[B]:
     """
     Evaluates an embarrasingly parallel for-loop.
@@ -25,7 +26,7 @@ def parallel_for(
     if engine == "sequential":
         return [
             f(**x, **context) if isinstance(x, dict) else f(*x, **context)
-            for x in tqdm(inputs)
+            for x in tqdm(inputs, disable=not progress_bar)
         ]
     if engine == "joblib":
         from joblib import Parallel, delayed
@@ -42,4 +43,4 @@ def parallel_for(
             return f(**x, **context) if isinstance(x, dict) else f(*x, **context)
         remote_context = ray.put(context)
         remote_results = [remote_f.remote(x, remote_context) for x in inputs]
-        return [ray.get(res) for res in tqdm(remote_results)]
+        return [ray.get(res) for res in tqdm(remote_results, disable=not progress_bar)]
