@@ -43,7 +43,6 @@ class EnsembleMixin:
             Pandas DataFrame of ensemble weights per task, with multi-index (dataset, fold). Columns are the names of each config.
         """
         task = self.task_name(dataset=dataset, fold=fold)
-        tid = self.dataset_to_tid(dataset=dataset)
         if configs is None:
             configs = self.configs(tasks=[task])
 
