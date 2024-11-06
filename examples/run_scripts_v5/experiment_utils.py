@@ -4,8 +4,54 @@ import pandas as pd
 from typing import Callable, List
 
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
-from tabrepo.utils.cache import DummyExperiment, Experiment
-from experiment_runner import ExperimentRunner
+from tabrepo.utils.cache import DummyExperiment, Experiment, SimulationExperiment
+from tabrepo import EvaluationRepository
+from experiment_runner import ExperimentRunner, OOFExperimentRunner
+
+
+class ExperimentBatchRunner:
+    def generate_repo_from_experiments(
+        self,
+        expname: str,
+        tids: List[int],
+        folds: List[int],
+        methods: list[tuple[str, Callable, dict[str, ...]]],
+        task_metadata: pd.DataFrame,
+        ignore_cache: bool,
+        experiment_cls: Callable = OOFExperimentRunner,
+        cache_cls: Callable | None = SimulationExperiment,
+        cache_cls_kwargs: dict = None,
+    ) -> EvaluationRepository:
+        results_lst = run_experiments(
+            expname=expname,
+            tids=tids,
+            folds=folds,
+            methods=methods,
+            experiment_cls=experiment_cls,
+            cache_cls=cache_cls,
+            cache_cls_kwargs=cache_cls_kwargs,
+            task_metadata=task_metadata,
+            ignore_cache=ignore_cache,
+        )
+
+        results_baselines = [result["df_results"] for result in results_lst if result["simulation_artifacts"] is None]
+        df_baselines = pd.concat(results_baselines, ignore_index=True) if results_baselines else None
+
+        results_configs = [result for result in results_lst if result["simulation_artifacts"] is not None]
+
+        results_lst_simulation_artifacts = [result["simulation_artifacts"] for result in results_configs]
+        results_lst_df = [result["df_results"] for result in results_configs]
+
+        df_configs = pd.concat(results_lst_df, ignore_index=True)
+
+        repo: EvaluationRepository = EvaluationRepository.from_raw(
+            df_configs=df_configs,
+            df_baselines=df_baselines,
+            results_lst_simulation_artifacts=results_lst_simulation_artifacts,
+            task_metadata=task_metadata,
+        )
+
+        return repo
 
 
 # TODO: Prateek: Give a toggle for just fitting and saving the model, if not call predict as well
