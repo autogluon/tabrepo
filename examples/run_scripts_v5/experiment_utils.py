@@ -3,12 +3,9 @@ from __future__ import annotations
 import pandas as pd
 from typing import Callable, List
 
-from autogluon.core.data.label_cleaner import LabelCleaner
-from autogluon.core.metrics import get_metric, Scorer
-from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.utils.cache import DummyExperiment, Experiment
-from experiment_runner import ExperimentRunner, evaluate
+from experiment_runner import ExperimentRunner
 
 
 # TODO: Prateek: Give a toggle for just fitting and saving the model, if not call predict as well
@@ -91,57 +88,6 @@ def run_experiments(
                 result_lst.append(out)
 
     return result_lst
-
-
-def run_experiment(method_cls, task: OpenMLTaskWrapper, fold: int, task_name: str, method: str, fit_args: dict = None, cleanup: bool = True,
-                   **kwargs):
-    eval_metric_name = ag_eval_metric_map[task.problem_type]
-    eval_metric: Scorer = get_metric(metric=eval_metric_name, problem_type=task.problem_type)
-    model = method_cls(
-        problem_type=task.problem_type,
-        eval_metric=eval_metric,
-        **fit_args,
-    )
-
-    X, y, X_test, y_test = task.get_train_test_split(fold=fold)
-
-    out = model.fit_custom(X, y, X_test)
-
-    label_cleaner = LabelCleaner.construct(problem_type=task.problem_type, y=y)
-    out["test_error"] = evaluate(
-        y_true=y_test,
-        y_pred=out["predictions"],
-        y_pred_proba=out["probabilities"],
-        scorer=eval_metric,
-        label_cleaner=label_cleaner,
-        problem_type=task.problem_type,
-    )
-
-    out["framework"] = method
-    out["dataset"] = task_name
-    out["tid"] = task.task_id
-    out["fold"] = fold
-    out["problem_type"] = task.problem_type
-    out["eval_metric"] = eval_metric_name
-    print(f"Task  Name: {out['dataset']}")
-    print(f"Task    ID: {out['tid']}")
-    print(f"Metric    : {out['eval_metric']}")
-    print(f"Test Error: {out['test_error']:.4f}")
-    print(f"Fit   Time: {out['time_fit']:.3f}s")
-    print(f"Infer Time: {out['time_predict']:.3f}s")
-
-    out.pop("predictions")
-    out.pop("probabilities")
-
-    df_results = pd.DataFrame([out])
-    ordered_columns = ["dataset", "fold", "framework", "test_error", "eval_metric", "time_fit"]
-    columns_reorder = ordered_columns + [c for c in df_results.columns if c not in ordered_columns]
-    df_results = df_results[columns_reorder]
-
-    if cleanup:
-        model.cleanup()
-
-    return df_results
 
 
 def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = True) -> pd.DataFrame:
