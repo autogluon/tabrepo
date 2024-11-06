@@ -3,10 +3,8 @@ from __future__ import annotations
 import pandas as pd
 
 from experiment_utils import ExperimentBatchRunner
-from experiment_runner import OOFExperimentRunner
 from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
 from tabrepo.scripts_v5.AutoGluon_class import AGWrapper
-from tabrepo.utils.cache import SimulationExperiment
 
 
 if __name__ == '__main__':
@@ -40,8 +38,6 @@ if __name__ == '__main__':
         tids=tids,
         folds=folds,
         methods=methods,
-        experiment_cls=OOFExperimentRunner,
-        cache_cls=SimulationExperiment,
         task_metadata=repo_og.task_metadata,
         ignore_cache=ignore_cache,
     )
