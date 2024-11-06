@@ -216,7 +216,6 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             "problem_type",
             "time_train_s",
             "time_infer_s",
-            "tid",  # FIXME: remove TID?
         ]
 
         for column in required_columns:

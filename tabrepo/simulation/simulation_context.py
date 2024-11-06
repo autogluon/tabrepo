@@ -15,6 +15,7 @@ from .ground_truth import GroundTruth
 
 from .sim_utils import get_dataset_to_tid_dict, get_task_to_dataset_dict, filter_datasets, get_dataset_to_metric_problem_type
 from ..predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
+from ..utils import task_to_tid_fold
 from ..utils.rank_utils import RankScorer
 
 
@@ -144,10 +145,15 @@ class ZeroshotSimulatorContext:
         assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique()), \
             "Error: datasets exist in `df_configs` that contain multiple problem_types!"
 
+        if df_metadata is not None:
+            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
+                                              f"Columns: {list(df_metadata.columns)}")
+            assert len(df_metadata) == len(df_metadata["dataset"].unique())
+
         if df_baselines is not None:
             dataset_problem_types_comparison = df_baselines[["dataset", "problem_type"]].drop_duplicates()
             assert len(dataset_problem_types_comparison) == len(dataset_problem_types_comparison["dataset"].unique()), \
-                "Error: datasets exist in `df_comparison` that contain multiple problem_types!"
+                "Error: datasets exist in `df_baselines` that contain multiple problem_types!"
             dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze(axis=1).to_dict()
             dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze(axis=1).to_dict()
             for d in dataset_problem_types_map_configs.keys():
@@ -160,16 +166,29 @@ class ZeroshotSimulatorContext:
                          f"\tdf_baselines: {problem_type_baselines}")
 
         if "tid" not in df_configs.columns:
-            print(f"Note: `tid` is missing from `df_configs` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
-                  f"These values will be unrelated to OpenML task IDs.")
-            df_configs = df_configs.copy(deep=True)
-            datasets = sorted(list(df_configs["dataset"].unique()))
-            dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
-            df_configs["tid"] = df_configs["dataset"].map(dataset_to_tid_map).astype(int)
+            if df_metadata is not None and "tid" in df_metadata.columns:
+                dataset_tid_map = df_metadata.set_index("dataset")["tid"]
+                df_configs["tid"] = df_configs["dataset"].map(dataset_tid_map)
+            else:
+                print(f"Note: `tid` is missing from `df_configs` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
+                      f"These values will be unrelated to OpenML task IDs.")
+                df_configs = df_configs.copy(deep=True)
+                datasets = sorted(list(df_configs["dataset"].unique()))
+                dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
+                df_configs["tid"] = df_configs["dataset"].map(dataset_to_tid_map).astype(int)
 
         # assert that each dataset-tid combination is exclusive
         dataset_tid = df_configs[["dataset", "tid"]].drop_duplicates()
-        assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
+        if len(dataset_tid) != len(dataset_tid["dataset"].unique()):
+            dataset_counts = dataset_tid["dataset"].value_counts()
+            non_unique_datasets = dataset_counts[dataset_counts > 1]
+            dataset_tid_invalid = dataset_tid[dataset_tid["dataset"].isin(non_unique_datasets.index)].sort_values(by=["dataset", "tid"]).reset_index(drop=True)
+            print(dataset_tid_invalid)
+            raise ValueError(
+                f"{len(non_unique_datasets)} invalid datasets encountered! Datasets contain different task IDs (tid) within `df_configs`. "
+                f"Ensure the tid is unique.\nInvalid Datasets:\n{dataset_tid_invalid}"
+            )
+
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
 
         if df_baselines is not None:
@@ -243,8 +262,6 @@ class ZeroshotSimulatorContext:
         df_metrics = get_dataset_to_metric_problem_type(df=df_configs)
 
         if df_metadata is not None:
-            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
-                                              f"Columns: {list(df_metadata.columns)}")
             df_metadata = copy.deepcopy(df_metadata)
             df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
             assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
@@ -365,9 +382,12 @@ class ZeroshotSimulatorContext:
         tids = [self.dataset_to_tid_dict[dataset] for dataset in datasets]
         return tids
 
-    def get_tasks(self,
-                  datasets: Optional[List[str]] = None,
-                  problem_type: Optional[Union[str, List[str]]] = None) -> List[str]:
+    def get_tasks(
+        self,
+        datasets: list[str] = None,
+        problem_type: str | list[str] = None,
+        as_dataset_fold: bool = False,
+    ) -> list[str] | list[tuple[str, int]]:
         """
         :param datasets: a list of dataset parent names, only return folds that have a parent in this list
         :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ... or list of problem types
@@ -382,7 +402,14 @@ class ZeroshotSimulatorContext:
             if not isinstance(problem_type, list):
                 problem_type = [problem_type]
             tasks = [task for task in tasks if self.dataset_to_problem_type_dict[self.task_to_dataset_dict[task]] in problem_type]
+        if as_dataset_fold:
+            tasks = [self._task_to_dataset_fold(task) for task in tasks]
         return tasks
+
+    def _task_to_dataset_fold(self, task: str) -> tuple[str, int]:
+        tid, fold = task_to_tid_fold(task=task)
+        dataset = self.tid_to_dataset_dict[tid]
+        return dataset, fold
 
     def _get_tasks_from_datasets(self, datasets: List[str]):
         dataset_folds = []
@@ -398,7 +425,7 @@ class ZeroshotSimulatorContext:
     def task_name_from_tid(tid: int, fold: int) -> str:
         return f"{tid}_{fold}"
 
-    def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+    def get_configs(self, *, datasets: List[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> List[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
@@ -425,11 +452,11 @@ class ZeroshotSimulatorContext:
                 raise ValueError(f"Invalid datasets specified: {sorted(list(datasets_invalid))}")
             df = df[df["dataset"].isin(datasets)]
         if tasks is not None:
-            tasks_all = set(self.get_tasks())
+            tasks_all = set(self.get_tasks(as_dataset_fold=True))
             tasks_invalid = set(tasks).difference(tasks_all)
             if len(tasks_invalid) != 0:
                 raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
-            df = df[df["task"].isin(tasks)]
+            df = df[df.set_index(["dataset", "fold"]).index.isin(tasks)]
 
         if len(df) == 0:
             raise AssertionError(f"No valid results for tasks={tasks} | datasets={datasets}")

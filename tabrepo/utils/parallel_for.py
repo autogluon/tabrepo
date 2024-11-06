@@ -7,7 +7,7 @@ B = TypeVar('B')
 def parallel_for(
     f: Callable[[object], B],
     inputs: List[Union[list, dict]],
-    context: dict,
+    context: dict = None,
     engine: str = "ray",
     progress_bar: bool = True,
 ) -> List[B]:
@@ -23,6 +23,8 @@ def parallel_for(
     `[f(x, **context) for x in inputs]`.
     """
     assert engine in ["sequential", "ray", "joblib"]
+    if context is None:
+        context = {}
     if engine == "sequential":
         return [
             f(**x, **context) if isinstance(x, dict) else f(*x, **context)

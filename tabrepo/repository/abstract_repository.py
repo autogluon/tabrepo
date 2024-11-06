@@ -148,17 +148,19 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
 
-    def configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+    def configs(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
 
         Parameters
         ----------
-        datasets : List[str], default = None
-            If specified, will only consider the configs present in the given datasets
-        tasks: List[str], default = None
-            If specified, will only consider the configs present in the given tasks
+        datasets : list[str], default = None
+            If specified, will only consider the configs present in the given datasets.
+        tasks: list[tuple[str, int]], default = None
+            If specified, will only consider the configs present in the given tasks.
+            Tasks are in the form `(dataset, fold)`.
+            For example, `("abalone", 1)`.
         union: bool, default = True
             If True, will return the union of configs present in each task.
             If False, will return the intersection of configs present in each task.
