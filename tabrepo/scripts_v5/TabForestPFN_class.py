@@ -66,7 +66,7 @@ class CustomTabForestPFN(AbstractExecModel):
         self.max_epochs = max_epochs
         self.split_val = split_val
         if path_config is None:
-            path_config = "/home/ubuntu/workspace/code/TabForestPFN/outputs_done/foundation_mix_600k_finetune/test_categorical_classification/44156/#0/config_run.yaml"
+            path_config = "/home/ubuntu/workspace/code/tabrepo/tabrepo/scripts_v5/ag_models/config_run.yaml"
         self.path_config = path_config
         if path_weights is None:
             path_weights = '/home/ubuntu/workspace/tabpfn_weights/tabforestpfn.pt'
@@ -81,11 +81,17 @@ class CustomTabForestPFN(AbstractExecModel):
 
     def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, **kwargs):
         from tabularbench.config.config_run import ConfigRun
+        import torch
+        num_threads = None  # FIXME: Add param
+        if num_threads is not None:
+            torch.set_num_threads(num_threads)
         model_cls = self.get_model_cls()
         cfg = ConfigRun.load(Path(self.path_config))
-        cfg.output_dir = Path('results')
-        # cfg.device = 'cuda:0'
-        cfg.device = 'cpu'
+        # cfg.output_dir = Path('results')
+        if cfg.device is None:
+            # cfg.device = 'cuda:0'
+            cfg.device = 'cpu'
+
         cfg.hyperparams['max_epochs'] = self.max_epochs
         cfg.hyperparams['n_ensembles'] = self.n_ensembles
 
