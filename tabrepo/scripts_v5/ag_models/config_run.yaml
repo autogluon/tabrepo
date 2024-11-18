@@ -1,0 +1,28 @@
+!!python/object:tabularbench.config.config_run.ConfigRun
+#device: !!python/object/apply:torch.device
+#- cuda
+#- 2
+hyperparams:
+  attn_dropout: 0.0
+  dim: 512
+  early_stopping_patience: 40
+  linear_attention: true
+  lr: 1.0e-05
+  lr_scheduler: false
+  lr_scheduler_patience: 30
+  max_epochs: 300
+  max_samples_query: 1024
+  max_samples_support: 8192
+  n_classes: 10
+  n_ensembles: 1
+  n_features: 100
+  n_heads: 4
+  n_layers: 12
+  optimizer: adamw
+#  path_to_weights: outputs/2024-03-24/09-13-45/weights/model_step_600000.pt
+  use_feature_count_scaling: true
+  use_pretrained_weights: true
+  use_quantile_transformer: true
+  weight_decay: 0
+  y_as_float_embedding: true
+#seed: 1
