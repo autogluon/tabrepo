@@ -37,6 +37,7 @@ class TabForestPFNModel(AbstractModel):
             "n_ensembles": 1,
             "max_epochs": 0,
             "split_val": False,
+            "use_best_epoch": True,
         }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
@@ -46,6 +47,7 @@ class TabForestPFNModel(AbstractModel):
     # FIXME: Make X_val, y_val = None work well, currently it uses X and y as validation, should instead skip validation entirely
     # FIXME: Handle model weights download
     # FIXME: GPU support?
+    # FIXME: Save torch weights instead of pickling?
     def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, num_cpus: int = 1, num_gpus: float = 0, **kwargs):
         try_import_torch()
         import torch
@@ -104,6 +106,8 @@ class TabForestPFNModel(AbstractModel):
             n_classes=n_classes,
             split_val=params["split_val"],
             path_to_weights=params["path_weights"],
+            stopping_metric=self.stopping_metric,
+            use_best_epoch=params["use_best_epoch"],
         )
         self.model.fit(
             X=X,
