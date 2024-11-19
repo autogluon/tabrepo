@@ -42,9 +42,8 @@ class TabForestPFNModel(AbstractModel):
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
 
-    # FIXME: Use stopping metric
-    # FIXME: Use best epoch, currently it uses last epoch during finetuning!
     # FIXME: Make X_val, y_val = None work well, currently it uses X and y as validation, should instead skip validation entirely
+    # FIXME: Use `params_trained` for refit
     # FIXME: Handle model weights download
     # FIXME: GPU support?
     # FIXME: Save torch weights instead of pickling?
@@ -128,6 +127,7 @@ class TabForestPFNModel(AbstractModel):
         """
         X = super()._preprocess(X, **kwargs)
         if self._feature_generator is None:
+            # FIXME: Check if this is needed
             self._feature_generator = LabelEncoderFeatureGenerator(verbosity=0)
             self._feature_generator.fit(X=X)
         if self._feature_generator.features_in:
@@ -135,15 +135,6 @@ class TabForestPFNModel(AbstractModel):
             X[self._feature_generator.features_in] = self._feature_generator.transform(X=X)
         X = X.values.astype(np.float64)
         return X
-
-    def _predict_proba(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
-        X = self.preprocess(X, **kwargs)
-        if self.problem_type in [BINARY, MULTICLASS]:
-            return self.model.predict_proba(X)
-        elif self.problem_type == REGRESSION:
-            return self.model.predict(X)
-        else:
-            raise ValueError(f"Unsupported problem type for model {self.__class__.__name__}: {self.problem_type}")
 
     @classmethod
     def _get_default_ag_args(cls) -> dict:
