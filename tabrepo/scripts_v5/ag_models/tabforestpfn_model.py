@@ -1,6 +1,13 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
 
-from autogluon.core.constants import BINARY, MULTICLASS
+from autogluon.common.utils.resource_utils import ResourceManager
+from autogluon.common.utils.try_import import try_import_torch
+from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
 
@@ -10,8 +17,33 @@ class TabForestPFNModel(AbstractModel):
         super().__init__(**kwargs)
         self._feature_generator = None
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, **kwargs):
-        from tabrepo.scripts_v5.TabForestPFN_class import CustomTabForestPFN
+    def _get_model_type(self):
+        from tabrepo.scripts_v5.TabForestPFN_class import TabForestPFNClassifier
+        if self.problem_type in ['binary', 'multiclass']:
+            model_cls = TabForestPFNClassifier
+        else:
+            raise AssertionError(f"TabPFN does not support problem_type='{self.problem_type}'")
+        return model_cls
+
+    def _set_default_params(self):
+        """Specifies hyperparameter values to use by default"""
+        default_params = {
+            "path_config": "/home/ubuntu/workspace/code/tabrepo/tabrepo/scripts_v5/ag_models/config_run.yaml",
+            "path_weights": "/home/ubuntu/workspace/tabpfn_weights/tabforestpfn.pt",
+            "n_ensembles": 1,
+            "max_epochs": 0,
+            "split_val": False,
+        }
+        for param, val in default_params.items():
+            self._set_default_param_value(param, val)
+
+    # FIXME: Use stopping metric
+    # FIXME: Use best epoch, currently it uses last epoch during finetuning!
+    # FIXME: Make X_val, y_val = None work well, currently it uses X and y as validation, should instead skip validation entirely
+    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, num_cpus: int = 1, **kwargs):
+        try_import_torch()
+        import torch
+        from tabularbench.config.config_run import ConfigRun
 
         ag_params = self._get_ag_params()
         max_classes = ag_params.get("max_classes")
@@ -19,24 +51,63 @@ class TabForestPFNModel(AbstractModel):
             # TODO: Move to earlier stage when problem_type is checked
             raise AssertionError(f"Max allowed classes for the model is {max_classes}, " f"but found {self.num_classes} classes.")
 
+        params = self._get_model_params()
+
+        # FIXME: Don't require loading from file, allow user to specify everything
+        cfg = ConfigRun.load(Path(params["path_config"]))
+
+        if cfg.device is None:
+            # cfg.device = 'cuda:0'
+            cfg.device = 'cpu'
+
+        if params.get("max_epochs", None) is not None:
+            cfg.hyperparams['max_epochs'] = params["max_epochs"]
+        if params.get("n_ensembles", None) is not None:
+            cfg.hyperparams['n_ensembles'] = params["n_ensembles"]
+
+        if self.problem_type == "regression":
+            cfg.task = "regression"
+            n_classes = 0
+        else:
+            cfg.task = "classification"
+            n_classes = self.num_classes
+
         X = self.preprocess(X)
+        y = y.values
         if X_val is not None:
             X_val = self.preprocess(X_val)
-        hyp = self._get_model_params()
-        self.model = CustomTabForestPFN(
-            problem_type=self.problem_type,
-            eval_metric=self.stopping_metric,
-            preprocess_data=False,
-            preprocess_label=False,
-            **hyp
-        ).fit(
+            y_val = y_val.values
+
+        need_to_reset_torch_threads = False
+        torch_threads_og = None
+        if num_cpus is not None and isinstance(num_cpus, (int, float)):
+            torch_threads_og = torch.get_num_threads()
+            if torch_threads_og != num_cpus:
+                # reset torch threads back to original value after fit
+                torch.set_num_threads(num_cpus)
+                need_to_reset_torch_threads = True
+
+        model_cls = self._get_model_type()
+
+        self.model = model_cls(
+            cfg=cfg,
+            n_classes=n_classes,
+            split_val=params["split_val"],
+            path_to_weights=params["path_weights"],
+        )
+        self.model.fit(
             X=X,
             y=y,
             X_val=X_val,
             y_val=y_val,
         )
 
-    def _preprocess(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        if need_to_reset_torch_threads:
+            torch.set_num_threads(torch_threads_og)
+
+        return self
+
+    def _preprocess(self, X: pd.DataFrame, **kwargs) -> np.ndarray:
         """
         Converts categorical to label encoded integers
         Keeps missing values, as TabPFN automatically handles missing values internally.
@@ -48,12 +119,17 @@ class TabForestPFNModel(AbstractModel):
         if self._feature_generator.features_in:
             X = X.copy()
             X[self._feature_generator.features_in] = self._feature_generator.transform(X=X)
+        X = X.values.astype(np.float64)
         return X
 
-    def _set_default_params(self):
-        default_params = {}
-        for param, val in default_params.items():
-            self._set_default_param_value(param, val)
+    def _predict_proba(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        X = self.preprocess(X, **kwargs)
+        if self.problem_type in [BINARY, MULTICLASS]:
+            return self.model.predict_proba(X)
+        elif self.problem_type == REGRESSION:
+            return self.model.predict(X)
+        else:
+            raise ValueError(f"Unsupported problem type for model {self.__class__.__name__}: {self.problem_type}")
 
     @classmethod
     def _get_default_ag_args(cls) -> dict:
@@ -81,6 +157,16 @@ class TabForestPFNModel(AbstractModel):
         }
         default_ag_args_ensemble.update(extra_ag_args_ensemble)
         return default_ag_args_ensemble
+
+    def _get_maximum_resources(self) -> dict[str, int | float]:
+        # torch model trains slower when utilizing virtual cores and this issue scale up when the number of cpu cores increases
+        return {"num_cpus": ResourceManager.get_cpu_count_psutil(logical=False)}
+
+    def _get_default_resources(self) -> tuple[int, float]:
+        # logical=False is faster in training
+        num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
+        num_gpus = 0
+        return num_cpus, num_gpus
 
     def _ag_params(self) -> set:
         return {"max_classes"}
