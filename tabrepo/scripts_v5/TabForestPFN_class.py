@@ -14,7 +14,7 @@ from sklearn.utils.multiclass import unique_labels
 # TODO: Test shuffling the data and see if it makes TabPFNv2 worse, same with TabForestPFN
 class TabForestPFNClassifier(BaseEstimator, ClassifierMixin):
 
-    def __init__(self, n_classes, cfg, split_val, path_to_weights):
+    def __init__(self, n_classes, cfg, split_val, path_to_weights, stopping_metric=None, use_best_epoch: bool = True):
         from tabularbench.core.trainer_finetune import TrainerFinetune
         from tabularbench.models.foundation.foundation_transformer import FoundationTransformer
         model = FoundationTransformer(
@@ -29,7 +29,7 @@ class TabForestPFNClassifier(BaseEstimator, ClassifierMixin):
             path_to_weights=str(Path(path_to_weights)),
         )
         self.split_val = split_val
-        self.trainer = TrainerFinetune(cfg, model, n_classes=n_classes)
+        self.trainer = TrainerFinetune(cfg, model, n_classes=n_classes, stopping_metric=stopping_metric, use_best_epoch=use_best_epoch)
         super().__init__()
 
     def fit(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None):
