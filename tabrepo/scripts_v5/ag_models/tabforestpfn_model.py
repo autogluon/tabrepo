@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.common.utils.try_import import try_import_torch
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
@@ -13,6 +14,9 @@ from autogluon.features.generators import LabelEncoderFeatureGenerator
 
 
 class TabForestPFNModel(AbstractModel):
+    """
+    [Experimental model] Can be changed/removed without warning in future releases.
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._feature_generator = None
@@ -28,8 +32,8 @@ class TabForestPFNModel(AbstractModel):
     def _set_default_params(self):
         """Specifies hyperparameter values to use by default"""
         default_params = {
-            "path_config": "/home/ubuntu/workspace/code/tabrepo/tabrepo/scripts_v5/ag_models/config_run.yaml",
-            "path_weights": "/home/ubuntu/workspace/tabpfn_weights/tabforestpfn.pt",
+            "path_config": "/home/ubuntu/workspace/code/tabrepo/tabrepo/scripts_v5/ag_models/config_run.yaml",  # FIXME: Stop hardcoding
+            "path_weights": "/home/ubuntu/workspace/tabpfn_weights/tabforestpfn.pt",  # FIXME: Stop hardcoding
             "n_ensembles": 1,
             "max_epochs": 0,
             "split_val": False,
@@ -40,7 +44,9 @@ class TabForestPFNModel(AbstractModel):
     # FIXME: Use stopping metric
     # FIXME: Use best epoch, currently it uses last epoch during finetuning!
     # FIXME: Make X_val, y_val = None work well, currently it uses X and y as validation, should instead skip validation entirely
-    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, num_cpus: int = 1, **kwargs):
+    # FIXME: Handle model weights download
+    # FIXME: GPU support?
+    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, num_cpus: int = 1, num_gpus: float = 0, **kwargs):
         try_import_torch()
         import torch
         from tabularbench.config.config_run import ConfigRun
@@ -57,8 +63,12 @@ class TabForestPFNModel(AbstractModel):
         cfg = ConfigRun.load(Path(params["path_config"]))
 
         if cfg.device is None:
-            # cfg.device = 'cuda:0'
-            cfg.device = 'cpu'
+            if num_gpus > 0:
+                # TODO: Test with GPU
+                # TODO: What if multi-gpu?
+                cfg.device = 'cuda:0'
+            else:
+                cfg.device = "cpu"
 
         if params.get("max_epochs", None) is not None:
             cfg.hyperparams['max_epochs'] = params["max_epochs"]
@@ -167,6 +177,26 @@ class TabForestPFNModel(AbstractModel):
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
         num_gpus = 0
         return num_cpus, num_gpus
+
+    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+        hyperparameters = self._get_model_params()
+        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
+
+    @classmethod
+    def _estimate_memory_usage_static(
+        cls,
+        *,
+        X: pd.DataFrame,
+        **kwargs,
+    ) -> int:
+        # TODO: This is wildly inaccurate, find a better estimation
+        return 10 * get_approximate_df_mem_usage(X).sum()
+
+    @classmethod
+    def _class_tags(cls):
+        return {
+            "can_estimate_memory_usage_static": True,
+        }
 
     def _ag_params(self) -> set:
         return {"max_classes"}
