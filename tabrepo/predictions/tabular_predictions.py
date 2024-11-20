@@ -235,11 +235,15 @@ class TabularPredictionsInMemory(TabularModelPredictions):
         return cls.from_dict(pred_dict=memmap.to_dict(), datasets=datasets)
 
     def predict_val(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
-        assert model_fallback is None, "model_fallback not supported for in memory data-structure"
+        assert model_fallback is None, ("config_fallback not supported for in memory data-structure, "
+                                        "try saving repo via `repo.to_dir(path)`, "
+                                        "then calling `repo = EvaluationRepository.from_dir(path, prediction_format='memmap')` to enable config_fallback")
         return self._load_pred(dataset=dataset, fold=fold, models=models, split="val")
 
     def predict_test(self, dataset: str, fold: int, models: List[str] = None, model_fallback: str = None) -> np.array:
-        assert model_fallback is None, "model_fallback not supported for in memory data-structure"
+        assert model_fallback is None, ("config_fallback not supported for in memory data-structure, "
+                                        "try saving repo via `repo.to_dir(path)`, "
+                                        "then calling `repo = EvaluationRepository.from_dir(path, prediction_format='memmap')` to enable config_fallback")
         return self._load_pred(dataset=dataset, fold=fold, models=models, split="test")
 
     def _load_pred(self, dataset: str, split: str, fold: int, models: List[str] = None):
@@ -359,9 +363,6 @@ class TabularPredictionsMemmap(TabularModelPredictions):
         metadata = self.metadata_dict[dataset][fold]
         model_indices_all = metadata["model_indices"]
         model_indices_available = {m: model_indices_all[m] for m in metadata['models']}
-        if model_fallback is None:
-            # FIXME HACK
-            model_fallback = "ExtraTrees_c1_BAG_L1"
         if model_fallback:
             # we use the model fallback if a model is not present
             models = [m if m in model_indices_available else model_fallback for m in models]

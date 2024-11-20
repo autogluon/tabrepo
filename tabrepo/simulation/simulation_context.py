@@ -4,14 +4,18 @@ import copy
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Optional, List, Union, Tuple
+from typing import Any, Optional, List, Union, Tuple
+from typing_extensions import Self
 
 import pandas as pd
+from autogluon.common.loaders import load_json, load_pd
+from autogluon.common.savers import save_json, save_pd
 
 from .ground_truth import GroundTruth
 
 from .sim_utils import get_dataset_to_tid_dict, get_task_to_dataset_dict, filter_datasets, get_dataset_to_metric_problem_type
 from ..predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
+from ..utils import task_to_tid_fold
 from ..utils.rank_utils import RankScorer
 
 
@@ -26,7 +30,7 @@ class ZeroshotSimulatorContext:
             df_configs: pd.DataFrame,
             df_baselines: pd.DataFrame = None,
             df_metadata: pd.DataFrame = None,
-            configs_hyperparameters: dict = None,
+            configs_hyperparameters: dict[str, dict[str, Any]] = None,
             folds: List[int] | None = None,
             pct: bool = False,
             score_against_only_baselines: bool = True,
@@ -65,6 +69,8 @@ class ZeroshotSimulatorContext:
             score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
+        if self.folds is None:
+            self.folds = sorted(list(self.df_configs["fold"].unique()))
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
@@ -139,10 +145,15 @@ class ZeroshotSimulatorContext:
         assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique()), \
             "Error: datasets exist in `df_configs` that contain multiple problem_types!"
 
+        if df_metadata is not None:
+            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
+                                              f"Columns: {list(df_metadata.columns)}")
+            assert len(df_metadata) == len(df_metadata["dataset"].unique())
+
         if df_baselines is not None:
             dataset_problem_types_comparison = df_baselines[["dataset", "problem_type"]].drop_duplicates()
             assert len(dataset_problem_types_comparison) == len(dataset_problem_types_comparison["dataset"].unique()), \
-                "Error: datasets exist in `df_comparison` that contain multiple problem_types!"
+                "Error: datasets exist in `df_baselines` that contain multiple problem_types!"
             dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze(axis=1).to_dict()
             dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze(axis=1).to_dict()
             for d in dataset_problem_types_map_configs.keys():
@@ -155,16 +166,29 @@ class ZeroshotSimulatorContext:
                          f"\tdf_baselines: {problem_type_baselines}")
 
         if "tid" not in df_configs.columns:
-            print(f"Note: `tid` is missing from `df_configs` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
-                  f"These values will be unrelated to OpenML task IDs.")
-            df_configs = df_configs.copy(deep=True)
-            datasets = sorted(list(df_configs["dataset"].unique()))
-            dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
-            df_configs["tid"] = df_configs["dataset"].map(dataset_to_tid_map).astype(int)
+            if df_metadata is not None and "tid" in df_metadata.columns:
+                dataset_tid_map = df_metadata.set_index("dataset")["tid"]
+                df_configs["tid"] = df_configs["dataset"].map(dataset_tid_map)
+            else:
+                print(f"Note: `tid` is missing from `df_configs` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
+                      f"These values will be unrelated to OpenML task IDs.")
+                df_configs = df_configs.copy(deep=True)
+                datasets = sorted(list(df_configs["dataset"].unique()))
+                dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
+                df_configs["tid"] = df_configs["dataset"].map(dataset_to_tid_map).astype(int)
 
         # assert that each dataset-tid combination is exclusive
         dataset_tid = df_configs[["dataset", "tid"]].drop_duplicates()
-        assert len(dataset_tid) == len(dataset_tid["dataset"].unique())
+        if len(dataset_tid) != len(dataset_tid["dataset"].unique()):
+            dataset_counts = dataset_tid["dataset"].value_counts()
+            non_unique_datasets = dataset_counts[dataset_counts > 1]
+            dataset_tid_invalid = dataset_tid[dataset_tid["dataset"].isin(non_unique_datasets.index)].sort_values(by=["dataset", "tid"]).reset_index(drop=True)
+            print(dataset_tid_invalid)
+            raise ValueError(
+                f"{len(non_unique_datasets)} invalid datasets encountered! Datasets contain different task IDs (tid) within `df_configs`. "
+                f"Ensure the tid is unique.\nInvalid Datasets:\n{dataset_tid_invalid}"
+            )
+
         assert len(dataset_tid) == len(dataset_tid["tid"].unique())
 
         if df_baselines is not None:
@@ -238,8 +262,6 @@ class ZeroshotSimulatorContext:
         df_metrics = get_dataset_to_metric_problem_type(df=df_configs)
 
         if df_metadata is not None:
-            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
-                                              f"Columns: {list(df_metadata.columns)}")
             df_metadata = copy.deepcopy(df_metadata)
             df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
             assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
@@ -360,9 +382,12 @@ class ZeroshotSimulatorContext:
         tids = [self.dataset_to_tid_dict[dataset] for dataset in datasets]
         return tids
 
-    def get_tasks(self,
-                  datasets: Optional[List[str]] = None,
-                  problem_type: Optional[Union[str, List[str]]] = None) -> List[str]:
+    def get_tasks(
+        self,
+        datasets: list[str] = None,
+        problem_type: str | list[str] = None,
+        as_dataset_fold: bool = False,
+    ) -> list[str] | list[tuple[str, int]]:
         """
         :param datasets: a list of dataset parent names, only return folds that have a parent in this list
         :param problem_type: a problem type from AutoGluon in "multiclass", "binary", ... or list of problem types
@@ -377,7 +402,14 @@ class ZeroshotSimulatorContext:
             if not isinstance(problem_type, list):
                 problem_type = [problem_type]
             tasks = [task for task in tasks if self.dataset_to_problem_type_dict[self.task_to_dataset_dict[task]] in problem_type]
+        if as_dataset_fold:
+            tasks = [self._task_to_dataset_fold(task) for task in tasks]
         return tasks
+
+    def _task_to_dataset_fold(self, task: str) -> tuple[str, int]:
+        tid, fold = task_to_tid_fold(task=task)
+        dataset = self.tid_to_dataset_dict[tid]
+        return dataset, fold
 
     def _get_tasks_from_datasets(self, datasets: List[str]):
         dataset_folds = []
@@ -393,7 +425,7 @@ class ZeroshotSimulatorContext:
     def task_name_from_tid(tid: int, fold: int) -> str:
         return f"{tid}_{fold}"
 
-    def get_configs(self, *, datasets: List[str] = None, tasks: List[str] = None, union: bool = True) -> List[str]:
+    def get_configs(self, *, datasets: List[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> List[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
@@ -420,11 +452,11 @@ class ZeroshotSimulatorContext:
                 raise ValueError(f"Invalid datasets specified: {sorted(list(datasets_invalid))}")
             df = df[df["dataset"].isin(datasets)]
         if tasks is not None:
-            tasks_all = set(self.get_tasks())
+            tasks_all = set(self.get_tasks(as_dataset_fold=True))
             tasks_invalid = set(tasks).difference(tasks_all)
             if len(tasks_invalid) != 0:
                 raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
-            df = df[df["task"].isin(tasks)]
+            df = df[df.set_index(["dataset", "fold"]).index.isin(tasks)]
 
         if len(df) == 0:
             raise AssertionError(f"No valid results for tasks={tasks} | datasets={datasets}")
@@ -632,3 +664,69 @@ class ZeroshotSimulatorContext:
             assert "hyperparameters" in v, f"configs_hyperparameters value for key {config} must include a `hyperparameters` key"
             assert isinstance(v["hyperparameters"], dict), (f"configs_hyperparameters['{config}']['hyperparameters'] "
                                                             f"must be of type dict, found: {type(v['hyperparameters'])}")
+
+    def to_dir(self, path: str) -> dict:
+        path_configs = "configs.parquet"
+        save_pd.save(path=str(Path(path) / path_configs), df=self.df_configs)
+
+        path_baselines = None
+        if self.df_baselines is not None:
+            path_baselines = "baselines.parquet"
+            save_pd.save(path=str(Path(path) / path_baselines), df=self.df_baselines)
+
+        path_metadata = None
+        if self.df_metadata is not None:
+            path_metadata = "task_metadata.parquet"
+            save_pd.save(path=str(Path(path) / path_metadata), df=self.df_metadata)
+
+        path_configs_hyperparameters = None
+        if self.configs_hyperparameters is not None:
+            path_configs_hyperparameters = "configs_hyperparameters.json"
+            save_json.save(path=str(Path(path) / path_configs_hyperparameters), obj=self.configs_hyperparameters)
+
+        metadata = {
+            "df_configs": path_configs,
+            "df_baselines": path_baselines,
+            "df_metadata": path_metadata,
+            "configs_hyperparameters": path_configs_hyperparameters,
+            "pct": self.pct,
+            "score_against_only_baselines": self.score_against_only_baselines,
+        }
+        path_metadata_json = "metadata.json"
+        save_json.save(path=str(Path(path) / path_metadata_json), obj=metadata)
+        return metadata
+
+    @classmethod
+    def from_dir(cls, path: str) -> Self:
+        path_metadata_json = "metadata.json"
+        metadata = load_json.load(path=path_metadata_json)
+
+        path_configs = metadata["df_configs"]
+        df_configs = load_pd.load(str(Path(path) / path_configs))
+
+        df_baselines = None
+        path_baselines = metadata["df_baselines"]
+        if path_baselines is not None:
+            df_baselines = load_pd.load(str(Path(path) / path_baselines))
+
+        df_metadata = None
+        path_metadata = metadata["df_metadata"]
+        if path_metadata is not None:
+            df_metadata = load_pd.load(str(Path(path) / path_metadata))
+
+        configs_hyperparameters = None
+        path_configs_hyperparameters = metadata["configs_hyperparameters"]
+        if path_configs_hyperparameters is not None:
+            configs_hyperparameters = load_json.load(str(Path(path) / path_configs_hyperparameters))
+
+        pct = metadata["pct"]
+        score_against_only_baselines = metadata["score_against_only_baselines"]
+
+        return cls(
+            df_configs=df_configs,
+            df_baselines=df_baselines,
+            df_metadata=df_metadata,
+            configs_hyperparameters=configs_hyperparameters,
+            pct=pct,
+            score_against_only_baselines=score_against_only_baselines,
+        )

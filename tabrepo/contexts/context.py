@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Dict, List, Tuple
 import os
 from pathlib import Path
@@ -8,8 +8,10 @@ from pathlib import Path
 import boto3
 from botocore.errorfactory import ClientError
 import pandas as pd
+from typing_extensions import Self
 
-from autogluon.common.loaders import load_pd
+from autogluon.common.loaders import load_pd, load_json
+from autogluon.common.savers import save_json
 from autogluon.common.utils.s3_utils import download_s3_files
 from autogluon.common.utils.s3_utils import is_s3_url, s3_path_to_bucket_prefix
 
@@ -18,6 +20,7 @@ from ..loaders import load_configs, load_results, Paths
 from ..simulation.ground_truth import GroundTruth
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..predictions.tabular_predictions import TabularModelPredictions
+from ..repository.evaluation_repository import EvaluationRepository
 from ..utils import catchtime
 from ..utils.download import download_files
 
@@ -33,6 +36,7 @@ class BenchmarkPaths:
     zs_pp: List[str] = None
     zs_gt: List[str] = None
     configs_hyperparameters: List[str] = None
+    relative_path: str = None
 
     def __post_init__(self):
         if self.zs_pp is not None and isinstance(self.zs_pp, str):
@@ -42,6 +46,48 @@ class BenchmarkPaths:
         if self.configs_hyperparameters is not None and isinstance(self.configs_hyperparameters, str):
             self.configs_hyperparameters = [self.configs_hyperparameters]
 
+    @property
+    def configs_full(self):
+        return self._to_full(self.configs)
+
+    @property
+    def baselines_full(self):
+        return self._to_full(self.baselines)
+
+    @property
+    def zs_pp_full(self):
+        return self._to_full_lst(self.zs_pp)
+
+    @property
+    def zs_gt_full(self):
+        return self._to_full_lst(self.zs_gt)
+
+    @property
+    def configs_hyperparameters_full(self):
+        return self._to_full_lst(self.configs_hyperparameters)
+
+    @property
+    def task_metadata_full(self):
+        return self._to_full(self.task_metadata)
+
+    @property
+    def path_pred_proba_full(self):
+        return self._to_full(self.path_pred_proba)
+
+    def _to_full(self, path: str) -> str | None:
+        if self.relative_path is None:
+            return path
+        if path is None:
+            return None
+        return str(Path(self.relative_path) / path)
+
+    def _to_full_lst(self, paths: list[str] | None) -> list[str] | None:
+        if self.relative_path is None:
+            return paths
+        if paths is None:
+            return None
+        return [self._to_full(path) for path in paths]
+
     def print_summary(self):
         max_str_len = max(len(key) for key in self.__dict__.keys())
         print(f'BenchmarkPaths Summary:')
@@ -49,28 +95,28 @@ class BenchmarkPaths:
 
     def get_file_paths(self, include_zs: bool = True) -> List[str]:
         file_paths = [
-            self.configs,
-            self.baselines,
-            self.task_metadata,
+            self.configs_full,
+            self.baselines_full,
+            self.task_metadata_full,
         ]
         if include_zs:
-            file_paths += self.zs_pp
-            file_paths += self.zs_gt
+            file_paths += self.zs_pp_full
+            file_paths += self.zs_gt_full
         file_paths = [f for f in file_paths if f is not None]
         return file_paths
 
     def assert_exists_all(self, check_zs=True):
-        self._assert_exists(self.configs, 'configs')
+        self._assert_exists(self.configs_full, 'configs')
         if self.baselines is not None:
-            self._assert_exists(self.baselines, 'baselines')
+            self._assert_exists(self.baselines_full, 'baselines')
         if self.task_metadata is not None:
-            self._assert_exists(self.task_metadata, 'task_metadata')
+            self._assert_exists(self.task_metadata_full, 'task_metadata')
         if check_zs:
             if self.zs_pp is not None:
-                for f in self.zs_pp:
+                for f in self.zs_pp_full:
                     self._assert_exists(f, f'zs_pp | {f}')
             if self.zs_gt is not None:
-                for f in self.zs_gt:
+                for f in self.zs_gt_full:
                     self._assert_exists(f, f'zs_gt | {f}')
 
     @staticmethod
@@ -102,6 +148,14 @@ class BenchmarkPaths:
         required_files = self.get_file_paths(include_zs=check_zs)
         return all(self.exists(f) for f in required_files)
 
+    def missing_files(self, check_zs: bool = True) -> list:
+        required_files = self.get_file_paths(include_zs=check_zs)
+        missing_files = []
+        for f in required_files:
+            if not self.exists(f):
+                missing_files.append(f)
+        return missing_files
+
     @staticmethod
     def exists(filepath: str) -> bool:
         if filepath is None:
@@ -122,8 +176,8 @@ class BenchmarkPaths:
 
     def load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         df_configs, df_metadata = load_results(
-            path_configs=self.configs,
-            path_metadata=self.task_metadata,
+            path_configs=self.configs_full,
+            path_metadata=self.task_metadata_full,
             metadata_join_column=self.metadata_join_column,
             require_tid_in_metadata=self.task_metadata is not None,
         )
@@ -132,7 +186,7 @@ class BenchmarkPaths:
     def load_baselines(self) -> pd.DataFrame | None:
         if self.baselines is None:
             return None
-        df_baselines = load_pd.load(self.baselines)
+        df_baselines = load_pd.load(self.baselines_full)
         return df_baselines
 
     def load_predictions(self,
@@ -145,13 +199,13 @@ class BenchmarkPaths:
             "memopt": Very fast and high memory usage.
             "mem": Slow and high memory usage, simplest format to debug.
         """
-        for f in self.zs_pp:
+        for f in self.zs_pp_full:
             self._assert_exists(f, f'zs_pp | {f}')
-        for f in self.zs_gt:
+        for f in self.zs_gt_full:
             self._assert_exists(f, name=f'zs_gt | {f}')
         zeroshot_pred_proba, zeroshot_gt, zsc = load_zeroshot_input(
-            path_pred_proba=self.path_pred_proba,
-            paths_gt=self.zs_gt,
+            path_pred_proba=self.path_pred_proba_full,
+            paths_gt=self.zs_gt_full,
             zsc=zsc,
             datasets=self.datasets,
             prediction_format=prediction_format,
@@ -159,7 +213,10 @@ class BenchmarkPaths:
         return zeroshot_pred_proba, zeroshot_gt, zsc
 
     def load_configs_hyperparameters(self) -> dict:
-        return load_configs(self.configs_hyperparameters)
+        return load_configs(self.configs_hyperparameters_full)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 class BenchmarkContext:
@@ -171,6 +228,7 @@ class BenchmarkContext:
                  description: str = None,
                  date: str = None,
                  s3_download_map: Dict[str, str] = None,
+                 config_fallback: str = None,
                  ):
         self.folds = folds
         self.benchmark_paths = benchmark_paths
@@ -178,6 +236,7 @@ class BenchmarkContext:
         self.description = description
         self.date = date
         self.s3_download_map = s3_download_map
+        self.config_fallback = config_fallback
 
     @classmethod
     def from_paths(cls,
@@ -187,12 +246,14 @@ class BenchmarkContext:
                    description: str = None,
                    date: str = None,
                    s3_download_map: Dict[str, str] = None,
+                   config_fallback: str = None,
                    **paths):
         return cls(folds=folds,
                    name=name,
                    description=description,
                    date=date,
                    s3_download_map=s3_download_map,
+                   config_fallback=config_fallback,
                    benchmark_paths=BenchmarkPaths(**paths))
 
     def download(self,
@@ -330,6 +391,11 @@ class BenchmarkContext:
                     download_files = False
             if download_files:
                 self.benchmark_paths.print_summary()
+                if self.s3_download_map is None:
+                    missing_files = self.benchmark_paths.missing_files()
+                    if missing_files:
+                        missing_files_str = [f'\n\t"{m}"' for m in missing_files]
+                        raise FileNotFoundError(f'Missing {len(missing_files)} required files: \n[{",".join(missing_files_str)}\n]')
                 print(f'Downloading input files from s3...')
                 self.download(include_zs=load_predictions, exists=exists)
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
@@ -345,6 +411,29 @@ class BenchmarkContext:
                 zeroshot_gt = None
 
         return zsc, zeroshot_pred_proba, zeroshot_gt
+
+    def load_repo(
+        self,
+        folds: List[int] = None,
+        load_predictions: bool = True,
+        download_files: bool = True,
+        prediction_format: str = "memmap",
+        exists: str = 'ignore',
+    ) -> EvaluationRepository:
+        zsc, zeroshot_pred_proba, zeroshot_gt = self.load(
+            folds=folds,
+            load_predictions=load_predictions,
+            download_files=download_files,
+            prediction_format=prediction_format,
+            exists=exists,
+        )
+        repo = EvaluationRepository(
+            zeroshot_context=zsc,
+            tabular_predictions=zeroshot_pred_proba,
+            ground_truth=zeroshot_gt,
+            config_fallback=self.config_fallback,
+        )
+        return repo
 
     def _load_results(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         df_configs, df_metadata = self.benchmark_paths.load_results()
@@ -377,6 +466,24 @@ class BenchmarkContext:
         )
         return zsc
 
+    def to_json(self, path: str):
+        output = {
+            "name": self.name,
+            "date": self.date,
+            "description": self.description,
+            "folds": self.folds,
+            "s3_download_map": self.s3_download_map,
+            "config_fallback": self.config_fallback,
+            "benchmark_paths": self.benchmark_paths.to_dict()
+        }
+        save_json.save(path=path, obj=output)
+
+    @classmethod
+    def from_json(cls, path: str) -> Self:
+        kwargs = load_json.load(path)
+        kwargs["benchmark_paths"] = BenchmarkPaths(**kwargs["benchmark_paths"])
+        return cls(**kwargs)
+
 
 def construct_s3_download_map(
     s3_prefix: str,
@@ -401,9 +508,9 @@ def construct_s3_download_map(
 
 
 def construct_context(
-    name: str,
-    datasets: List[str],
-    folds: List[int],
+    name: str | None,
+    datasets: list[str],
+    folds: list[int],
     local_prefix: str,
     s3_prefix: str = None,
     description: str = None,
@@ -412,7 +519,9 @@ def construct_context(
     local_prefix_is_relative: bool = True,
     has_baselines: bool = True,
     metadata_join_column: str = "dataset",
-    configs_hyperparameters: List[str] = None,
+    configs_hyperparameters: list[str] = None,
+    is_relative: bool = False,
+    config_fallback: str = None,
 ) -> BenchmarkContext:
     """
 
@@ -463,25 +572,43 @@ def construct_context(
     else:
         _s3_download_map = None
 
-    zs_pp = [f"{split_key}{f}" for f in _files_pp]
-    zs_pp = [Paths.rel_to_abs(k, relative_to=data_root) for k in zs_pp]
+    if is_relative:
+        zs_pp = [str(Path("model_predictions") / f) for f in _files_pp]
+        zs_gt = [str(Path("model_predictions") / f) for f in _files_gt]
+    else:
+        zs_pp = [f"{split_key}{f}" for f in _files_pp]
+        zs_pp = [Paths.rel_to_abs(k, relative_to=data_root) for k in zs_pp]
+        zs_gt = [f"{split_key}{f}" for f in _files_gt]
+        zs_gt = [Paths.rel_to_abs(k, relative_to=data_root) for k in zs_gt]
 
-    zs_gt = [f"{split_key}{f}" for f in _files_gt]
-    zs_gt = [Paths.rel_to_abs(k, relative_to=data_root) for k in zs_gt]
-
-    _result_paths = dict(
-        configs=str(Path(path_context) / "configs.parquet"),
-    )
+    if is_relative:
+        _result_paths = dict(configs="configs.parquet")
+    else:
+        _result_paths = dict(
+            configs=str(Path(path_context) / "configs.parquet"),
+        )
 
     if has_baselines:
-        _result_paths["baselines"] = str(Path(path_context) / "baselines.parquet")
+        if is_relative:
+            _result_paths["baselines"] = "baselines.parquet"
+        else:
+            _result_paths["baselines"] = str(Path(path_context) / "baselines.parquet")
 
     if task_metadata is not None:
-        _task_metadata_path = dict(
-            task_metadata=str(data_root / "metadata" / task_metadata),
-        )
+        if is_relative:
+            _task_metadata_path = dict(task_metadata=task_metadata)
+        else:
+            _task_metadata_path = dict(task_metadata=str(Path(path_context) / task_metadata))
     else:
         _task_metadata_path = dict()
+
+    if is_relative:
+        split_key = str(Path("model_predictions")) + os.path.sep
+
+    if is_relative:
+        relative_path = str(Path(path_context))
+    else:
+        relative_path = None
 
     _bag_zs_path = dict(
         zs_gt=zs_gt,
@@ -501,6 +628,8 @@ def construct_context(
         s3_download_map=_s3_download_map,
         datasets=datasets,
         metadata_join_column=metadata_join_column,
+        relative_path=relative_path,
+        config_fallback=config_fallback,
         **_result_paths,
         **_bag_zs_path,
         **_task_metadata_path,

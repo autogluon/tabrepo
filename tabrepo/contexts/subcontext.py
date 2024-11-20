@@ -64,13 +64,7 @@ class BenchmarkSubcontext:
 
     def load_from_parent(self, **kwargs) -> EvaluationRepository:
         # TODO: Consider adding configs_full to Repo
-        zsc, zeroshot_pred_proba, zeroshot_gt = self.parent.load(**kwargs)
-
-        repo = EvaluationRepository(
-            zeroshot_context=zsc,
-            tabular_predictions=zeroshot_pred_proba,
-            ground_truth=zeroshot_gt,
-        )
+        repo = self.parent.load_repo(**kwargs)
         repo = repo.subset(
             datasets=self.datasets,
             folds=self.folds,
