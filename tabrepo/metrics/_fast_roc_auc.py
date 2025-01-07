@@ -17,7 +17,7 @@ fast_roc_auc_cpp = make_scorer('roc_auc',
 
 
 def _preprocess_bulk(y_true: np.ndarray, y_pred_bulk: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    return y_true.astype(np.bool8), y_pred_bulk.astype(np.float32)
+    return y_true.astype(np.bool_), y_pred_bulk.astype(np.float32)
 
 
 fast_roc_auc_cpp.preprocess_bulk = _preprocess_bulk
