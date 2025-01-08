@@ -147,6 +147,11 @@ To reproduce the entire TabRepo dataset (context `"D244_F3_C1530"`) from scratch
 
 To instead reproduce a small subset of the TabRepo dataset in a few minutes, run [examples/run_quickstart_from_scratch.py](examples/run_quickstart_from_scratch.py).
 
+## Running HPO experiments with TabRepo
+
+Syne Tune proposes a wrapper to simulate methods such as random-search, bayesian-optimization or others on TabRepo search-space. 
+You can see [this example](https://github.com/syne-tune/syne-tune/blob/main/examples/launch_tabrepo.py) to get started.
+
 ## Future work
 
 We have been using TabRepo to study potential data leakage in AutoGluon stacking, we believe the following are also 
