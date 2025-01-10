@@ -1,7 +1,4 @@
-!!python/object:tabularbench.config.config_run.ConfigRun
-#device: !!python/object/apply:torch.device
-#- cuda
-#- 2
+!!python/object:autogluon.tabular.models.tabpfnmix._internal.config.config_run.ConfigRun
 hyperparams:
   attn_dropout: 0.0
   dim: 512
