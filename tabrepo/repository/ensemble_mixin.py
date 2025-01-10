@@ -11,10 +11,12 @@ from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, Ensemb
 from ..utils.parallel_for import parallel_for
 
 
+# FIXME: Type hints for AbstractRepository, how to do? Protocol?
 class EnsembleMixin:
-    # TODO: rank=False by default, include way more information like fit time and infer time?
-    # TODO: Add time_train_s
-    # TODO: Add infer_limit
+    # TODO: rank=False by default?
+    # TODO: ensemble_size remove, put into ensemble_kwargs?
+    # TODO: Update docstring
+    # TODO: rename to fit_ensemble?
     def evaluate_ensemble(
         self,
         dataset: str,
@@ -128,6 +130,7 @@ class EnsembleMixin:
 
         return df_out, df_ensemble_weights
 
+    # TODO: Docstring
     def evaluate_ensembles(
         self,
         datasets: list[str] = None,
