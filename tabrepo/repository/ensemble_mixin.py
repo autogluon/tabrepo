@@ -15,7 +15,6 @@ from ..utils.parallel_for import parallel_for
 class EnsembleMixin:
     # TODO: rank=False by default?
     # TODO: ensemble_size remove, put into ensemble_kwargs?
-    # TODO: Update docstring
     # TODO: rename to fit_ensemble?
     def evaluate_ensemble(
         self,
@@ -32,17 +31,55 @@ class EnsembleMixin:
         seed: int = 0,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        :param datasets: list of datasets to compute errors on.
-        :param configs: list of config to consider for ensembling. Uses all configs if None.
-        :param ensemble_size: number of members to select with Caruana.
-        :param ensemble_cls: class used for the ensemble model.
-        :param ensemble_kwargs: kwargs to pass to the init of the ensemble class.
-        :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
-        automl framework.
-        :param folds: list of folds that need to be evaluated, use all folds if not provided.
-        :return: Tuple:
-            Pandas Series of ensemble test errors per task, with multi-index (dataset, fold).
-            Pandas DataFrame of ensemble weights per task, with multi-index (dataset, fold). Columns are the names of each config.
+        Evaluates an ensemble of a list of configs on a given task (dataset, fold).
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset to evaluate
+        fold: int
+            The fold of the dataset to evaluate
+        configs: list[str], default = None
+            The list of configs to consider for ensembling.
+            If None, will use all configs.
+            Models will be simulated as being fit in the order specified in `fit_order`.
+        time_limit: float, default = None
+            The time limit of the ensemble.
+            Will only consider the first N models in `configs` whose cumulative time limit is less than `time_limit`.
+        ensemble_cls: Type[EnsembleScorer], default = EnsembleScorerMaxModels
+            The ensemble method to use.
+        ensemble_kwargs: dict, default = None
+            The ensemble method kwargs.
+        ensemble_size: int, default = 100
+            The number of ensemble iterations.
+        rank: bool, default = True
+            If True, additionally calculates the rank of the ensemble result.
+        fit_order: Literal["original", "random"], default = "original"
+            Whether to simulate the models being fit in their original order sequentially or randomly.
+        seed: int, default = 0
+            The random seed used to shuffle `configs` if `fit_order="random"`.
+
+        Returns
+        -------
+        result: pd.DataFrame
+            A single-row multi-index (dataset, fold) DataFrame with the following columns:
+                metric_error: float
+                    The ensemble's metric test error.
+                metric: str
+                    The target evaluation metric.
+                time_train_s: float
+                    The training time of the ensemble in seconds (the sum of all considered models' time_train_s)
+                time_infer_s: float
+                    The inference time of the ensemble in seconds (the sum of all non-zero weight models' time_infer_s)
+                problem_type: str
+                    The problem type of the task.
+                metric_error_val: float
+                    The ensemble's metric validation error.
+        ensemble_weights: pd.DataFrame
+            A single-row multi-index (dataset, fold) DataFrame with column names equal to `configs`.
+            Each config column's value is the weight given to it by the ensemble model.
+            This can be used for debugging purposes and for deeper analysis.
+
         """
         task = self.task_name(dataset=dataset, fold=fold)
         if configs is None:
@@ -146,6 +183,64 @@ class EnsembleMixin:
         rank: bool = True,
         backend: Literal["ray", "native"] = "ray",
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Evaluates an ensemble of a list of configs on a given set of tasks (datasets x folds).
+
+        Identical to calling `evaluate_ensemble` once for each task and then concatenating the results,
+        however this method will be much faster due to parallelization.
+
+        Parameters
+        ----------
+        datasets: list[str], default = None
+            The datasets to evaluate.
+            If None, will use all datasets.
+        folds: list[int], default = None
+            The folds of the dataset to evaluate.
+            If None, will use all folds.
+        configs: list[str], default = None
+            The list of configs to consider for ensembling.
+            If None, will use all configs.
+            Models will be simulated as being fit in the order specified in `fit_order`.
+        time_limit: float, default = None
+            The time limit of the ensemble.
+            Will only consider the first N models in `configs` whose cumulative time limit is less than `time_limit`.
+        ensemble_cls: Type[EnsembleScorer], default = EnsembleScorerMaxModels
+            The ensemble method to use.
+        ensemble_kwargs: dict, default = None
+            The ensemble method kwargs.
+        ensemble_size: int, default = 100
+            The number of ensemble iterations.
+        rank: bool, default = True
+            If True, additionally calculates the rank of the ensemble result.
+        fit_order: Literal["original", "random"], default = "original"
+            Whether to simulate the models being fit in their original order sequentially or randomly.
+        seed: int, default = 0
+            The random seed used to shuffle `configs` if `fit_order="random"`.
+        backend: Literal["ray", "native"], default = "ray"
+            The backend to use when running the list of tasks.
+
+        Returns
+        -------
+        result: pd.DataFrame
+            A multi-index (dataset, fold) DataFrame where each row corresponds to a task, with the following columns:
+                metric_error: float
+                    The ensemble's metric test error.
+                metric: str
+                    The target evaluation metric.
+                time_train_s: float
+                    The training time of the ensemble in seconds (the sum of all considered models' time_train_s)
+                time_infer_s: float
+                    The inference time of the ensemble in seconds (the sum of all non-zero weight models' time_infer_s)
+                problem_type: str
+                    The problem type of the task.
+                metric_error_val: float
+                    The ensemble's metric validation error.
+        ensemble_weights: pd.DataFrame
+            A multi-index (dataset, fold) DataFrame with column names equal to `configs`. Each row corresponds to a task.
+            Each config column's value is the weight given to it by the ensemble model.
+            This can be used for debugging purposes and for deeper analysis.
+
+        """
         if backend == "native":
             backend = "sequential"
         if folds is None:
@@ -180,10 +275,12 @@ class EnsembleMixin:
 
         return df_out, df_ensemble_weights
 
-    def _construct_ensemble_selection_config_scorer(self,
-                                                    ensemble_size: int = 10,
-                                                    backend='ray',
-                                                    **kwargs) -> EnsembleSelectionConfigScorer:
+    def _construct_ensemble_selection_config_scorer(
+        self,
+        ensemble_size: int = 10,
+        backend: str = 'ray',
+        **kwargs
+    ) -> EnsembleSelectionConfigScorer:
         config_scorer = EnsembleSelectionConfigScorer.from_repo(
             repo=self,
             ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster
