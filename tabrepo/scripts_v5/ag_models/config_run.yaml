@@ -19,10 +19,8 @@ hyperparams:
   n_heads: 4
   n_layers: 12
   optimizer: adamw
-#  path_to_weights: outputs/2024-03-24/09-13-45/weights/model_step_600000.pt
   use_feature_count_scaling: true
   use_pretrained_weights: true
   use_quantile_transformer: true
   weight_decay: 0
   y_as_float_embedding: true
-#seed: 1
