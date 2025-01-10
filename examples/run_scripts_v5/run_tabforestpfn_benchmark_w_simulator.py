@@ -8,6 +8,8 @@ from tabrepo.scripts_v5.ag_models.ag_model import AGModelWrapper
 from tabrepo.scripts_v5.ag_models.tabforestpfn_model import TabForestPFNModel
 from tabrepo.scripts_v5.ag_models.ebm_model import ExplainableBoostingMachine
 from tabrepo.scripts_v5.ag_models.tabpfn_v2_model import TabPFNV2Model
+from autogluon.tabular.models.tabpfnmix.tabpfnmix_model import TabPFNMixModel
+from tabrepo.scripts_v5.ag_models.tabdpt_model import TabDPTModel
 from experiment_utils import run_experiments, convert_leaderboard_to_configs
 from experiment_runner import OOFExperimentRunner
 from tabrepo.utils.cache import SimulationExperiment
@@ -24,11 +26,16 @@ if __name__ == '__main__':
 
     repo: EvaluationRepository = load_repository(context_name, cache=True)
 
+    # a = repo.configs(tasks=[("balance-scale", 0), ("adasda", 2)])
+
     # Subset to tasks supported by TabPFNv2
     task_metadata = repo.task_metadata.copy(deep=True)
     task_metadata = task_metadata[task_metadata["NumberOfInstances"] <= 10000]
+    # task_metadata = task_metadata[task_metadata["NumberOfInstances"] > 5000]
+    # task_metadata = task_metadata[task_metadata["NumberOfInstances"] > 9000]
     # task_metadata = task_metadata[task_metadata["NumberOfInstances"] >= 2000]
     task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 500]
+    # task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 100]
     task_metadata = task_metadata[task_metadata["NumberOfClasses"] <= 10]
 
     datasets = list(task_metadata["dataset"])
@@ -47,13 +54,16 @@ if __name__ == '__main__':
 
     datasets = [d for d in datasets if d not in banned_datasets]
 
-    datasets = datasets[:3]
+    # datasets = datasets[:1]
 
     folds = [0, 1, 2]
 
+    task_metadata = task_metadata[task_metadata["dataset"].isin(datasets)]
+
     # To run everything:
-    # datasets = repo.datasets
+    # datasets = repo.datasets()
     # folds = repo.folds
+    path_weights_tabpfn_real_mix7_500000 = '/home/ubuntu/workspace/tabpfn_weights/TabPFN_real_mix_7_models/model_step_500000.pt'
 
     path_weights_tabpfn_mix7_500000 = '/home/ubuntu/workspace/tabpfn_weights/TabPFN_mix_7_step_500000.pt'
     path_weights_tabpfn_mix7_600000 = '/home/ubuntu/workspace/tabpfn_weights/TabPFN_mix_7_step_600000.pt'
@@ -104,7 +114,35 @@ if __name__ == '__main__':
             "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
             "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 1, "max_epochs": 0, "path_weights": path_weights_tabpfn_mix7_600000}]},
         }}),
+        # ("TabRMix7_500000_N1_E0_BAG_L1", AGWrapper, {"fit_kwargs": {
+        #     "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
+        #     "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 1, "max_epochs": 0, "path_weights": path_weights_tabpfn_real_mix7_500000}]},
+        # }}),
+        # ("TabRMix7_500000_N4_E30_BAG_L1", AGWrapper, {"fit_kwargs": {
+        #     "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
+        #     "hyperparameters": {TabForestPFNModel: [{"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_real_mix7_500000}]},
+        # }}),
+        ("TabDPT", AGModelWrapper, {"model_cls": TabDPTModel}),
+        ("TabDPT_CS10000", AGModelWrapper, {"model_cls": TabDPTModel, "hyperparameters": {"context_size": 10000}}),
+        ("TabDPT_CS128", AGModelWrapper, {"model_cls": TabDPTModel, "hyperparameters": {"context_size": 128}}),
+        ("TabDPT_CS256", AGModelWrapper, {"model_cls": TabDPTModel, "hyperparameters": {"context_size": 256}}),
+        ("TabDPT_CS512", AGModelWrapper, {"model_cls": TabDPTModel, "hyperparameters": {"context_size": 512}}),
+        ("TabDPT_CS1024", AGModelWrapper, {"model_cls": TabDPTModel, "hyperparameters": {"context_size": 1024}}),
         # ("TabPFNv2_N32", AGModelWrapper, {"model_cls": TabPFNV2Model, "hyperparameters": {"n_estimators": 32}}),
+        # ("TabDPT_N1_E0_BAG_L1", AGWrapper, {"fit_kwargs": {
+        #     "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
+        #     "hyperparameters": {TabDPTModel: [{}]},
+        # }}),
+
+        # NEW RUNS AFTER FIXING EPOCHS, CHECKPOINTING, TORCH THREADS, AND STOPPING METRIC (2024/11/18)
+        ("TabPFN_Mix7_600000_N4_E30_FIX_BAG_L1", AGWrapper, {"fit_kwargs": {
+            "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
+            "hyperparameters": {TabPFNMixModel: [{"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_600000}]},
+        }}),
+        ("TabPFN_Mix7_600000_N4_E50_FIX_BAG_L1", AGWrapper, {"fit_kwargs": {
+            "num_bag_folds": 8, "num_bag_sets": 1, "fit_weighted_ensemble": False, "calibrate": False,
+            "hyperparameters": {TabPFNMixModel: [{"n_ensembles": 4, "max_epochs": 50, "path_weights": path_weights_tabpfn_mix7_600000}]},
+        }}),
     ]
 
     # FIXME: experiment_cls, cache_true/false, etc.
@@ -146,10 +184,14 @@ if __name__ == '__main__':
     df_processed_ag12_2024 = load_ag11_bq_baseline(datasets=datasets, folds=folds, repo=repo)
     df_baselines = pd.concat([df_baselines, df_processed_ag12_2024], ignore_index=True)
 
+    df_configs = df_configs.drop(columns=["tid"])
+    df_baselines = df_baselines.drop(columns=["tid"])
+
     repo_2: EvaluationRepository = EvaluationRepository.from_raw(
         df_configs=df_configs,
         df_baselines=df_baselines,
         results_lst_simulation_artifacts=results_lst_simulation_artifacts,
+        task_metadata=task_metadata,
     )
 
     save_loc = "tabforestpfn_sim"
@@ -174,16 +216,16 @@ if __name__ == '__main__':
 
     configs_og = repo.configs()
 
-    result_ens_og, result_ens_og_weights = repo_combined.evaluate_ensembles(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25, rank=False)
-
-    weights_og = result_ens_og_weights.mean(axis=0).sort_values(ascending=False)
-    print("weights_og")
-    print(weights_og)
-
-    result_ens, result_ens_weights = repo_combined.evaluate_ensembles(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25, rank=False)
-    weights = result_ens_weights.mean(axis=0).sort_values(ascending=False)
-    print("weights")
-    print(weights)
+    # result_ens_og, result_ens_og_weights = repo_combined.evaluate_ensembles(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25, rank=False)
+    #
+    # weights_og = result_ens_og_weights.mean(axis=0).sort_values(ascending=False)
+    # print("weights_og")
+    # print(weights_og)
+    #
+    # result_ens, result_ens_weights = repo_combined.evaluate_ensembles(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25, rank=False)
+    # weights = result_ens_weights.mean(axis=0).sort_values(ascending=False)
+    # print("weights")
+    # print(weights)
 
     # result_ens_og_cheat, result_ens_og_weights_cheat = repo_combined.evaluate_ensembles(datasets=repo_combined.datasets(), configs=configs_og, ensemble_size=25, rank=False, ensemble_kwargs={"cheater": True})
     # result_ens_cheat, result_ens_weights_cheat = repo_combined.evaluate_ensembles(datasets=repo_combined.datasets(), configs=configs, ensemble_size=25, rank=False, ensemble_kwargs={"cheater": True})
@@ -196,25 +238,25 @@ if __name__ == '__main__':
     # print("weights cheater")
     # print(weights)
 
-    result_ens_og = result_ens_og.reset_index()
-    result_ens_og["framework"] = "ALL"
-    result_ens = result_ens.reset_index()
-    result_ens["framework"] = "ALL_PLUS_TabPFN"
+    # result_ens_og = result_ens_og.reset_index()
+    # result_ens_og["framework"] = "ALL"
+    # result_ens = result_ens.reset_index()
+    # result_ens["framework"] = "ALL_PLUS_TabPFN"
 
     # result_ens_og_cheat = result_ens_og_cheat.reset_index()
     # result_ens_og_cheat["framework"] = "ALL_CHEAT"
     # result_ens_cheat = result_ens_cheat.reset_index()
     # result_ens_cheat["framework"] = "ALL_PLUS_TabForestPFN_CHEAT"
 
-    results_df_2 = pd.concat([
-        result_ens,
-        result_ens_og,
-        # df_processed_ag12_2024,
-        # result_ens_cheat,
-        # result_ens_og_cheat,
-    ], ignore_index=True)
+    # results_df_2 = pd.concat([
+    #     result_ens,
+    #     result_ens_og,
+    #     # df_processed_ag12_2024,
+    #     # result_ens_cheat,
+    #     # result_ens_og_cheat,
+    # ], ignore_index=True)
 
-    results_df_2 = convert_time_infer_s_from_sample_to_batch(results_df_2, repo=repo_combined)
+    # results_df_2 = convert_time_infer_s_from_sample_to_batch(results_df_2, repo=repo_combined)
 
     # print(f"AVG OG: {result_ens_og[0].mean()}")
     # print(f"AVG: {result_ens[0].mean()}")
@@ -228,7 +270,7 @@ if __name__ == '__main__':
         "LightGBM_c1_BAG_L1",
         "XGBoost_c1_BAG_L1",
         "CatBoost_c1_BAG_L1",
-        "TabPFN_c1_BAG_L1",
+        # "TabPFN_c1_BAG_L1",
         "NeuralNetTorch_c1_BAG_L1",
         "NeuralNetFastAI_c1_BAG_L1",
         "TabForestPFN_N4_E10_BAG_L1",
@@ -244,6 +286,12 @@ if __name__ == '__main__':
         "TabPFN_Mix7_600000_N1_E0_BAG_L1",
         "TabPFN_Mix7_600000_N4_E0_BAG_L1",
         "LightGBM_c1_BAG_L1_V2",
+        "TabDPT_N1_E0_BAG_L1",
+        "TabRMix7_500000_N1_E0_BAG_L1",
+        "TabRMix7_500000_N4_E30_BAG_L1",
+        "TabPFN_Mix7_600000_N4_E30_FIX_BAG_L1",
+        "TabPFN_Mix7_600000_N4_E50_FIX_BAG_L1",
+        "TabPFN_Mix7_600000_N4_E30_FIX_BAG_L1_COMPARISON",
     ]
 
     baselines = [
@@ -254,11 +302,17 @@ if __name__ == '__main__':
         "autosklearn_4h8c_2023_11_14",
         "AutoGluon_bq_mainline_4h8c_2024_10_25",
         "TabPFNv2_N32",
+        "TabDPT",
+        "TabDPT_CS10000",
+        "TabDPT_CS128",
+        "TabDPT_CS256",
+        "TabDPT_CS512",
+        "TabDPT_CS1024",
     ]
 
     metrics = repo_combined.compare_metrics(
         # results_df,
-        results_df_2,
+        # results_df_2,
         datasets=datasets,
         folds=folds,
         baselines=baselines,
@@ -271,10 +325,11 @@ if __name__ == '__main__':
         print(f"Config Metrics Example:\n{metrics.head(100)}")
     evaluator_kwargs = {
         "frameworks_compare_vs_all": [
-            # "TabPFN_Mix7_600000_N4_E30_S4_BAG_L1",
+            "TabPFN_Mix7_600000_N4_E30_FIX_BAG_L1",
+            "TabPFN_Mix7_600000_N4_E30_S4_BAG_L1",
             "TabPFNv2_N4_BAG_L1",
-            "ALL",
-            "ALL_PLUS_TabPFN",
+            # "ALL",
+            # "ALL_PLUS_TabPFN",
             # "AutoGluon_bq_mainline_4h8c_2024_10_25",
             'AutoGluon 1.1 (4h8c)',
         ],

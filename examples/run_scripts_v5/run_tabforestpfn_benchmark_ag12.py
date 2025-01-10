@@ -77,14 +77,11 @@ if __name__ == '__main__':
     import copy
     hyperparameters_best_tabpfn = copy.deepcopy(hyperparameters_best)
 
-
     hyperparameters_mq_tabpfn = copy.deepcopy(hyperparameters_mq)
 
     hyperparameters_best_tabpfn[TabForestPFNModel] = [
         {"n_ensembles": 1, "max_epochs": 0, "path_weights": path_weights_tabpfn_mix7_600000},
     ]
-
-    hyperparameters_mq_tabpfn = copy.deepcopy(hyperparameters_mq)
 
     hyperparameters_mq_tabpfn[TabForestPFNModel] = [
         {"n_ensembles": 1, "max_epochs": 0, "path_weights": path_weights_tabpfn_mix7_600000},
