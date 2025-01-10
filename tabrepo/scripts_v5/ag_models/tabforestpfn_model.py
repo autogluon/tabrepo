@@ -22,9 +22,9 @@ class TabForestPFNModel(AbstractModel):
         self._feature_generator = None
 
     def _get_model_type(self):
-        from tabrepo.scripts_v5.TabForestPFN_class import TabForestPFNClassifier
+        from autogluon.tabular.models.tabpfnmix._internal.tabpfnmix_classifier import TabPFNMixClassifier
         if self.problem_type in ['binary', 'multiclass']:
-            model_cls = TabForestPFNClassifier
+            model_cls = TabPFNMixClassifier
         else:
             raise AssertionError(f"TabPFN does not support problem_type='{self.problem_type}'")
         return model_cls
@@ -50,7 +50,7 @@ class TabForestPFNModel(AbstractModel):
     def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, num_cpus: int = 1, num_gpus: float = 0, **kwargs):
         try_import_torch()
         import torch
-        from tabularbench.config.config_run import ConfigRun
+        from autogluon.tabular.models.tabpfnmix._internal.config.config_run import ConfigRun
 
         ag_params = self._get_ag_params()
         max_classes = ag_params.get("max_classes")
@@ -104,7 +104,7 @@ class TabForestPFNModel(AbstractModel):
             cfg=cfg,
             n_classes=n_classes,
             split_val=params["split_val"],
-            path_to_weights=params["path_weights"],
+            weights_path=params["path_weights"],
             stopping_metric=self.stopping_metric,
             use_best_epoch=params["use_best_epoch"],
         )
