@@ -186,9 +186,14 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
 
     @classmethod
-    def from_context(cls, version: str = None, prediction_format: str = "memmap") -> Self:
-        return load_repository(version=version, prediction_format=prediction_format)
+    def from_context(cls, version: str = None, cache: bool = False, prediction_format: str = "memmap") -> Self:
+        return load_repository(version=version, cache=cache, prediction_format=prediction_format)
 
+    # TODO: 1. Cleanup results_lst_simulation_artifacts, 2. Make context work with tasks instead of datasets x folds
+    # TODO: Get raw data from repo method (X, y)
+    # TODO: Score task repo method?
+    # TODO: Remove score_vs_only_baselines and pct args from zeroshot_context?
+    # TODO: unit test
     # TODO: docstring
     # FIXME: Support memmap directly, without needing full `results_lst_simulation_artifacts` in-memory
     @classmethod
