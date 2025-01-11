@@ -88,10 +88,13 @@ if __name__ == '__main__':
     ]
 
     hyperparameters_mq_tabpfn_N4_E30 = copy.deepcopy(hyperparameters_mq)
-    hyperparameters_mq_tabpfn_N4_E30 = {}
+    # hyperparameters_mq_tabpfn_N4_E30 = {}
 
     hyperparameters_mq_tabpfn_N4_E30[TabForestPFNModel] = [
-        {"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_600000},
+        # {"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_600000},
+        # {"n_ensembles": 1, "max_epochs": 0, "path_weights": path_weights_tabpfn_mix7_600000},
+        # {"n_ensembles": 4, "max_epochs": 0, "path_weights": path_weights_tabpfn_mix7_600000},
+        # {"n_ensembles": 4, "max_epochs": 30, "path_weights": path_weights_tabpfn_mix7_600000, "use_best_epoch": False},
     ]
 
 
@@ -113,12 +116,13 @@ if __name__ == '__main__':
         #     "time_limit": 3600,
         # }}),
         # ("AutoGluon_mq_parallel", AGWrapper, {"fit_kwargs": {
-        #     # "fit_strategy": "parallel",
+        #     "fit_strategy": "parallel",
         #     "time_limit": 3600,
         # }}),
         ("AutoGluon_mq_parallel_TabPFNMix7_N4_E30", AGWrapper, {"fit_kwargs": {
             "hyperparameters": hyperparameters_mq_tabpfn_N4_E30,
-            # "fit_strategy": "parallel",
+            "fit_strategy": "parallel",
+            "refit_full": True,
             "time_limit": 3600,
         }}),
     ]
