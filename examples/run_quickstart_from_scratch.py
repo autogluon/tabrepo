@@ -129,8 +129,7 @@ if __name__ == '__main__':
     repo = EvaluationRepository.from_raw(df_configs=df_configs, results_lst_simulation_artifacts=results_lst_simulation_artifacts)
 
     # Note: Can also skip all the above code if you want to use a readily available context rather than generating from scratch:
-    # from tabrepo.contexts import get_subcontext
-    # subcontext = get_subcontext(name="D244_F3_C1530_30")
+    # repo = EvaluationRepository.from_context(version="D244_F3_C1530_30", cache=True)
 
     repo.print_info()
 
