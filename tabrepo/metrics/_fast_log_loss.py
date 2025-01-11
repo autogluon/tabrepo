@@ -19,7 +19,7 @@ def extract_true_class_prob(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarra
     assert len(y_true) == len(y_pred)
 
     if y_pred.ndim == 1:
-        y_true_bool = y_true.astype(np.bool8)
+        y_true_bool = y_true.astype(np.bool_)
         true_class_prob = y_true_bool*y_pred + ~y_true_bool*(1-y_pred)
     else:
         assert y_pred.ndim == 2
@@ -49,7 +49,7 @@ def extract_true_class_prob_bulk(y_true: np.ndarray, y_pred_bulk: np.ndarray) ->
     assert y_pred_bulk.shape[1] == len(y_true), f"y_true and y_pred_bulk have different numbers of samples! " \
                                                 f"({len(y_true)}, {y_pred_bulk.shape[1]})"
     if ndim == 2:
-        y_true_bool = y_true.astype(np.bool8)
+        y_true_bool = y_true.astype(np.bool_)
         true_class_prob_bulk = y_true_bool * y_pred_bulk + ~y_true_bool * (1 - y_pred_bulk)
     else:  # ndim == 3
         true_class_prob_bulk = y_pred_bulk[:, range(y_pred_bulk.shape[1]), y_true]
