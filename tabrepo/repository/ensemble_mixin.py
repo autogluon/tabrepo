@@ -83,7 +83,7 @@ class EnsembleMixin:
         """
         task = self.task_name(dataset=dataset, fold=fold)
         if configs is None:
-            configs = self.configs(tasks=[task])
+            configs = self.configs(tasks=[(dataset, fold)])
 
         if time_limit is not None:
             if fit_order == "random":
