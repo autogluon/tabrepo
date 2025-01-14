@@ -8,7 +8,7 @@ from sklearn.preprocessing import normalize
 
 def generate_y_true_and_y_pred_binary(num_samples, random_seed=0):
     np.random.seed(seed=random_seed)
-    y_true = np.random.randint(0, 2, num_samples).astype(np.bool8)
+    y_true = np.random.randint(0, 2, num_samples).astype(np.bool_)
     y_pred = np.random.rand(num_samples).astype(np.float32)
     return y_true, y_pred
 

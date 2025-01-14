@@ -4,12 +4,12 @@ import copy
 from typing import Dict, List, Optional, Tuple, Type, Union, TYPE_CHECKING
 
 import numpy as np
-import ray
 
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon.core.models.greedy_ensemble.ensemble_selection import EnsembleSelection
 from .configuration_list_scorer import ConfigurationListScorer
 
+from ..utils.parallel_for import parallel_for
 from ..utils.rank_utils import RankScorer
 from ..utils import task_to_tid_fold
 from ..metrics import _fast_log_loss, _fast_roc_auc
@@ -18,21 +18,32 @@ if TYPE_CHECKING:
     from ..repository.evaluation_repository import EvaluationRepository
 
 
-@ray.remote
-def compute_error_ray(config_scorer, configs: List[str], task: str) -> (float, dict):
-    error, ensemble_weights = config_scorer.evaluate_task(task=task, models=configs)
-    return error, ensemble_weights
-
-
 class EnsembleScorer:
     def __init__(self,
                  repo: "EvaluationRepository",
                  task_metrics_metadata,
-                 ensemble_method: callable = EnsembleSelection,
+                 ensemble_method: Type = EnsembleSelection,
                  ensemble_method_kwargs: dict = None,
                  proxy_fit_metric_map: dict = None,
                  use_fast_metrics: bool = True,
+                 optimize_on: str = "val",
+                 return_metric_error_val: bool = True,
                  ):
+        """
+        Parameters
+        ----------
+        repo: EvaluationRepository
+        task_metrics_metadata
+        ensemble_method: Type = EnsembleSelection
+        ensemble_method_kwargs: dict, default = None
+        proxy_fit_metric_map: dict, default = None
+        use_fast_metrics: bool, default = True
+        optimize_on: str, default = "val"
+            If "val", optimizes on the validation data (normal process that mirrors what can be done in practice)
+            If "test", optimizes on the test data (cheat mode, use this only for debugging and testing generalization gaps)
+        return_metric_error_val: bool, default = True
+            If True, will compute and return `metric_error_val` using the fitted ensemble in the output dict of `evaluate_task`.
+        """
         if proxy_fit_metric_map is None:
             proxy_fit_metric_map = dict()
         if ensemble_method_kwargs is None:
@@ -46,6 +57,10 @@ class EnsembleScorer:
         self.task_metrics_metadata = task_metrics_metadata
         self.proxy_fit_metric_map = proxy_fit_metric_map
         self.use_fast_metrics = use_fast_metrics
+        assert isinstance(optimize_on, str)
+        assert optimize_on in ["val", "test"]
+        self.optimize_on = optimize_on
+        self.return_metric_error_val = return_metric_error_val
 
     def _get_metric_from_name(self, metric_name: str, problem_type: str) -> Scorer:
         if self.use_fast_metrics:
@@ -81,20 +96,33 @@ class EnsembleScorer:
         """
         return models
 
-    def evaluate_task(self, dataset: str, fold: int, models: List[str]) -> Tuple[float, np.array]:
+    def evaluate_task(self, dataset: str, fold: int, models: List[str]) -> dict[str, object]:
         n_models = len(models)
         task_metadata = self.task_metrics_metadata[dataset]
         metric_name = task_metadata["metric"]
         problem_type = task_metadata["problem_type"]
 
-        y_val = self.repo.labels_val(dataset=dataset, fold=fold)
+        y_val_og = self.repo.labels_val(dataset=dataset, fold=fold)
         y_test = self.repo.labels_test(dataset=dataset, fold=fold)
 
         # If filtering models, need to keep track of original model order to return ensemble weights list
         models_filtered = self.filter_models(dataset=dataset, fold=fold, models=models)
         models, models_filtered_idx = self._get_models_filtered_idx(models=models, models_filtered=models_filtered)
 
-        pred_val, pred_test = self.get_preds_from_models(dataset=dataset, fold=fold, models=models)
+        pred_val_og, pred_test = self.get_preds_from_models(dataset=dataset, fold=fold, models=models)
+
+        if self.optimize_on == "val":
+            # Use the original validation data for a fair comparison that mirrors what happens in practice
+            y_val = y_val_og
+            pred_val = pred_val_og
+        elif self.optimize_on == "test":
+            # Optimize directly on test (unrealistic, but can be used to measure the gap in generalization)
+            # TODO: Another variant that could be implemented, do 50% of test as val and the rest as test
+            #  to simulate impact of using holdout validation
+            y_val = copy.deepcopy(y_test)
+            pred_val = copy.deepcopy(pred_test)
+        else:
+            raise ValueError(f"Invalid value for `optimize_on`: {self.optimize_on}")
 
         if problem_type == 'binary':
             # Force binary prediction probabilities to 1 dimensional prediction probabilites of the positive class
@@ -140,6 +168,16 @@ class EnsembleScorer:
             y_test_pred = weighted_ensemble.predict_proba(pred_test)
         err = eval_metric.error(y_test, y_test_pred)
 
+        metric_error_val = None
+        if self.return_metric_error_val:
+            if hasattr(eval_metric, 'preprocess_bulk'):
+                y_val_og, pred_val_og = eval_metric.preprocess_bulk(y_val_og, pred_val_og)
+            if eval_metric.needs_pred:
+                y_val_pred = weighted_ensemble.predict(pred_val_og)
+            else:
+                y_val_pred = weighted_ensemble.predict_proba(pred_val_og)
+            metric_error_val = eval_metric.error(y_val_og, y_val_pred)
+
         ensemble_weights: np.array = weighted_ensemble.weights_
 
         # ensemble_weights has to be updated, need to be in the original models order
@@ -147,7 +185,14 @@ class EnsembleScorer:
         ensemble_weights_fixed[models_filtered_idx] = ensemble_weights
         ensemble_weights = ensemble_weights_fixed
 
-        return err, ensemble_weights
+        results = dict(
+            metric_error=err,
+            ensemble_weights=ensemble_weights,
+        )
+        if self.return_metric_error_val:
+            results["metric_error_val"] = metric_error_val
+
+        return results
 
     def _get_models_filtered_idx(self, models: list[str], models_filtered: list[str]) -> Tuple[list[str], list[int]]:
         """
@@ -339,48 +384,46 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **kwargs,
         )
 
-    def evaluate_task(self, task: str, models: List[str]) -> Tuple[float, np.array]:
+    def evaluate_task(self, task: str, models: List[str]) -> dict[str, object]:
         tid, fold = task_to_tid_fold(task=task)
         dataset = self.tid_to_dataset_name_dict[tid]
         return self.ensemble_scorer.evaluate_task(dataset=dataset, fold=fold, models=models)
 
-    def compute_errors(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
+    def compute_errors(self, configs: list[str]) -> dict[str, dict[str, object]]:
         """
         Compute and return test errors and ensemble weights for all tasks on the user-specified list of configs.
 
         :param configs: List of model config names to ensemble and compute test errors with.
-        :return: Tuple:
-            Dictionary of task_name -> test evaluation metric error of the ensemble.
-            Dictionary of task_name -> model weights in the ensemble. Model weights are stored in a numpy array,
-                with weights corresponding to the order of `configs`.
+        :return: dict:
+            task -> dict:
+                metric_error: test evaluation metric error of the ensemble.
+                metric_error_val: val evaluation metric error of the ensemble.
+                ensemble_weights: model weights in the ensemble. Model weights are stored in a numpy array, with weights corresponding to the order of `configs`.
         """
-        if self.backend == 'ray':
-            return self.compute_errors_ray(configs=configs)
-        errors = dict()
-        ensemble_weights = dict()
-        for task in self.tasks:
-            errors[task], ensemble_weights[task] = self.evaluate_task(task=task, models=configs)
-        return errors, ensemble_weights
+        engine = self.backend
+        if engine == "native":
+            engine = "sequential"
 
-    # speedup can be obtained by only sending minimum zeroshot pred proba info for each task by using lazy format
-    def compute_errors_ray(self, configs: List[str]) -> Tuple[Dict[str, float], Dict[str, np.array]]:
-        # Create and execute all tasks in parallel
-        if not ray.is_initialized():
-            ray.init()
-        config_scorer = ray.put(self)
-        results = []
-        for i in range(len(self.tasks)):
-            results.append(compute_error_ray.remote(
-                config_scorer,
-                configs,
-                self.tasks[i],
-            ))
-        results_list = ray.get(results)
-        errors_list = [r[0] for r in results_list]
-        ensemble_weights_list = [r[1] for r in results_list]
-        errors = {self.tasks[i]: errors_list[i] for i in range(len(self.tasks))}
-        ensemble_weights = {self.tasks[i]: ensemble_weights_list[i] for i in range(len(self.tasks))}
-        return errors, ensemble_weights
+        context = dict(
+            self=self,
+            models=configs,
+        )
+
+        if engine == "sequential":
+            progress_bar = False
+        else:
+            progress_bar = True
+
+        inputs = [{"task": task} for task in self.tasks]
+        results_rows = parallel_for(
+            self.__class__.evaluate_task,
+            inputs=inputs,
+            context=context,
+            engine=engine,
+            progress_bar=progress_bar,
+        )
+        results = {task: result for task, result in zip(self.tasks, results_rows)}
+        return results
 
     def compute_ranks(self, errors: Dict[str, float]) -> Dict[str, float]:
         ranks = {}

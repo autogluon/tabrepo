@@ -19,7 +19,7 @@ def cache_function(
         fun: Callable[[], object],
         cache_name: str,
         ignore_cache: bool = False,
-        cache_path: Optional[Path] = None
+        cache_path: Optional[Path | str] = None
 ):
     f"""
     :param fun: a function whose result obtained `fun()` will be cached, the output of the function must be serializable.
@@ -30,7 +30,7 @@ def cache_function(
     """
     if cache_path is None:
         cache_path = default_cache_path
-    cache_file = cache_path / (cache_name + ".pkl")
+    cache_file = Path(cache_path) / (cache_name + ".pkl")
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     if cache_file.exists() and not ignore_cache:
         print(f"Loading cache {cache_file}")
@@ -48,21 +48,19 @@ def cache_function(
 
 
 def cache_function_dataframe(
-        fun: Callable[[], pd.DataFrame],
-        cache_name: str,
-        ignore_cache: bool = False,
-        cache_path: Optional[Path] = None
-):
+    fun: Callable[[], pd.DataFrame],
+    cache_name: str,
+    cache_path: Path | str,
+    ignore_cache: bool = False,
+) -> pd.DataFrame:
     f"""
     :param fun: a function whose dataframe result obtained `fun()` will be cached
-    :param cache_name: the cache of the function result is written into `{cache_path}/{cache_name}.csv.zip`
+    :param cache_name: the cache of the function result is written into `{cache_path}/{cache_name}.csv`
+    :param cache_path: folder where to write cache files
     :param ignore_cache: whether to recompute even if the cache is present
-    :param cache_path: folder where to write cache files, default to ~/cache-zeroshot/
     :return: result of fun()
     """
-    if cache_path is None:
-        cache_path = default_cache_path
-    cache_file = cache_path / (cache_name + ".csv.zip")
+    cache_file = Path(cache_path) / (cache_name + ".csv")
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     if cache_file.exists() and not ignore_cache:
         print(f"Loading cache {cache_file}")

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import copy
-from typing import List
+import os
+from pathlib import Path
+from typing import Any, List, Literal
 
 import numpy as np
+import pandas as pd
 from typing_extensions import Self
 
 from .abstract_repository import AbstractRepository
@@ -183,8 +186,145 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
 
     @classmethod
-    def from_context(cls, version: str = None, prediction_format: str = "memmap"):
-        return load_repository(version=version, prediction_format=prediction_format)
+    def from_context(cls, version: str = None, cache: bool = False, prediction_format: str = "memmap") -> Self:
+        return load_repository(version=version, cache=cache, prediction_format=prediction_format)
+
+    # TODO: 1. Cleanup results_lst_simulation_artifacts, 2. Make context work with tasks instead of datasets x folds
+    # TODO: Get raw data from repo method (X, y)
+    # TODO: Score task repo method?
+    # TODO: Remove score_vs_only_baselines and pct args from zeroshot_context?
+    # TODO: unit test
+    # TODO: docstring
+    # FIXME: Support memmap directly, without needing full `results_lst_simulation_artifacts` in-memory
+    @classmethod
+    def from_raw(
+        cls,
+        df_configs: pd.DataFrame,
+        results_lst_simulation_artifacts: list[dict[str, dict[int, dict]]],
+        df_baselines: pd.DataFrame = None,
+        task_metadata: pd.DataFrame = None,
+        configs_hyperparameters: dict[str, dict[str, Any]] = None,
+        pct: bool = False,
+        score_against_only_baselines: bool = False,
+    ) -> Self:
+        from tabrepo.predictions import TabularPredictionsInMemory
+        from tabrepo.simulation.ground_truth import GroundTruth
+        from tabrepo.simulation.simulation_context import ZeroshotSimulatorContext
+        from autogluon.common.utils.simulation_utils import convert_simulation_artifacts_to_tabular_predictions_dict
+
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+
+        for column in required_columns:
+            if column not in df_configs:
+                raise AssertionError(f"Missing required column in df_configs: {column}\ndf_configs columns: {list(df_configs.columns)}")
+
+        simulation_artifacts_full = cls._convert_sim_artifacts(results_lst_simulation_artifacts=results_lst_simulation_artifacts)
+
+        zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
+
+        predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
+        ground_truth = GroundTruth.from_dict(zeroshot_gt)
+
+        zeroshot_context = ZeroshotSimulatorContext(
+            df_configs=df_configs,
+            df_baselines=df_baselines,
+            df_metadata=task_metadata,
+            configs_hyperparameters=configs_hyperparameters,
+            pct=pct,
+            score_against_only_baselines=score_against_only_baselines,
+        )
+
+        repo = cls(
+            zeroshot_context=zeroshot_context,
+            tabular_predictions=predictions,
+            ground_truth=ground_truth,
+        )
+
+        return repo
+
+    def to_dir(self, path: str):
+        from tabrepo.contexts.context import BenchmarkContext, construct_context
+
+        path = os.path.abspath(path) + os.path.sep
+        path_data_dir = path + "model_predictions/"
+
+        # FIXME: use tasks rather than datasets and folds separately
+        datasets = self.datasets()
+        folds = self.folds
+        if folds is not None:
+            # make list serializable to json
+            folds = [int(f) for f in folds]
+
+        self._tabular_predictions.to_data_dir(data_dir=path_data_dir)
+        self._ground_truth.to_data_dir(data_dir=path_data_dir)
+        metadata = self._zeroshot_context.to_dir(path=path)
+
+        configs_hyperparameters = metadata["configs_hyperparameters"]
+        if configs_hyperparameters is not None:
+            configs_hyperparameters = [configs_hyperparameters]
+
+        # FIXME: Make this a repo constructor method?
+        # FIXME: s3_download_map doesn't work with is_relative yet
+        context: BenchmarkContext = construct_context(
+            name=None,
+            datasets=datasets,
+            folds=folds,
+            local_prefix=path,
+            local_prefix_is_relative=False,  # TODO: Set to False by default and rename
+            has_baselines=metadata["df_baselines"] is not None,
+            task_metadata=metadata["df_metadata"],
+            configs_hyperparameters=configs_hyperparameters,
+            is_relative=True,
+            config_fallback=self._config_fallback,
+        )
+
+        context.to_json(path=str(Path(path) / "context.json"))
+
+    @classmethod
+    def from_dir(
+        cls,
+        path: str,
+        prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
+        update_relative_path: bool = True,
+    ) -> Self:
+        from tabrepo.contexts.context import BenchmarkContext
+
+        path_context = str(Path(path) / "context.json")
+        context = BenchmarkContext.from_json(path=path_context)
+        if update_relative_path:
+            context.benchmark_paths.relative_path = str(Path(path))
+
+        repo = context.load_repo(prediction_format=prediction_format)
+        return repo
+
+    @classmethod
+    def _convert_sim_artifacts(cls, results_lst_simulation_artifacts: list[dict[str, dict[int, dict[str, Any]]]]) -> dict[str, dict[int, dict[str, Any]]]:
+        # FIXME: Don't require all results in memory at once
+        simulation_artifacts_full = {}
+        for simulation_artifacts in results_lst_simulation_artifacts:
+            for k in simulation_artifacts.keys():
+                if k not in simulation_artifacts_full:
+                    simulation_artifacts_full[k] = {}
+                for f in simulation_artifacts[k]:
+                    if f not in simulation_artifacts_full[k]:
+                        simulation_artifacts_full[k][f] = copy.deepcopy(simulation_artifacts[k][f])
+                    else:
+                        for method in simulation_artifacts[k][f]["pred_proba_dict_val"]:
+                            if method in simulation_artifacts_full[k][f]["pred_proba_dict_val"]:
+                                raise AssertionError(f"Two results exist for dataset {k}, fold {f}, method {method}!")
+                            else:
+                                simulation_artifacts_full[k][f]["pred_proba_dict_val"][method] = simulation_artifacts[k][f]["pred_proba_dict_val"][method]
+                                simulation_artifacts_full[k][f]["pred_proba_dict_test"][method] = simulation_artifacts[k][f]["pred_proba_dict_test"][method]
+        return simulation_artifacts_full
 
 
 def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:

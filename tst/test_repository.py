@@ -1,5 +1,5 @@
 import copy
-
+import shutil
 from typing import Callable
 
 import numpy as np
@@ -12,7 +12,14 @@ from tabrepo.contexts.context_artificial import load_repo_artificial
 def verify_equivalent_repository(
     repo1: EvaluationRepository | EvaluationRepositoryCollection,
     repo2: EvaluationRepository | EvaluationRepositoryCollection,
+    exact: bool = True,
+    verify_metrics: bool = True,
+    verify_predictions: bool = True,
     verify_ensemble: bool = False,
+    verify_baselines: bool = True,
+    verify_metadata: bool = True,
+    verify_configs_hyperparameters: bool = True,
+    verify_config_fallback: bool = True,
     backend: str = "native",
 ):
     assert repo1.folds == repo2.folds
@@ -20,22 +27,63 @@ def verify_equivalent_repository(
     assert repo1.configs() == repo2.configs()
     assert repo1.datasets() == repo2.datasets()
     assert sorted(repo1.dataset_fold_config_pairs()) == sorted(repo2.dataset_fold_config_pairs())
-    for dataset in repo1.datasets():
-        for f in repo1.folds:
-            for c in repo1.configs():
-                repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
-                repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
-                repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
-                repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
-                assert np.array_equal(repo1_test, repo2_test)
-                assert np.array_equal(repo1_val, repo2_val)
-            assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
-            assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
+    if verify_metrics:
+        metrics1 = repo1.metrics().sort_index()
+        metrics2 = repo2.metrics().sort_index()
+        assert metrics1.equals(metrics2)
+    if verify_config_fallback:
+        assert repo1._config_fallback == repo2._config_fallback
+    if verify_predictions:
+        for dataset in repo1.datasets():
+            for f in repo1.folds:
+                for c in repo1.configs():
+                    repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
+                    repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
+                    repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
+                    repo2_val = repo2.predict_val(dataset=dataset, config=c, fold=f)
+                    if exact:
+                        assert np.array_equal(repo1_test, repo2_test)
+                        assert np.array_equal(repo1_val, repo2_val)
+                    else:
+                        assert np.isclose(repo1_test, repo2_test).all()
+                        assert np.isclose(repo1_val, repo2_val).all()
+                if exact:
+                    assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
+                    assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
+                else:
+                    assert np.isclose(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f)).all()
+                    assert np.isclose(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f)).all()
     if verify_ensemble:
-        df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensemble(datasets=repo1.datasets(), ensemble_size=10, backend=backend)
-        df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensemble(datasets=repo2.datasets(), ensemble_size=10, backend=backend)
+        df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensembles(datasets=repo1.datasets(), ensemble_size=10, backend=backend)
+        df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensembles(datasets=repo2.datasets(), ensemble_size=10, backend=backend)
         assert df_out_1.equals(df_out_2)
         assert df_ensemble_weights_1.equals(df_ensemble_weights_2)
+    if verify_baselines:
+        baselines1 = repo1._zeroshot_context.df_baselines
+        baselines2 = repo2._zeroshot_context.df_baselines
+        if baselines1 is not None:
+            columns1 = sorted(list(baselines1.columns))
+            columns2 = sorted(list(baselines2.columns))
+            assert columns1 == columns2
+            baselines1 = baselines1[columns1].sort_values(by=columns1, ignore_index=True)
+            baselines2 = baselines2[columns1].sort_values(by=columns1, ignore_index=True)
+            assert baselines1.equals(baselines2)
+        else:
+            assert baselines1 == baselines2
+    if verify_metadata:
+        metadata1 = repo1.task_metadata
+        metadata2 = repo2.task_metadata
+        if metadata1 is None:
+            assert metadata1 == metadata2
+        else:
+            columns1 = sorted(list(metadata1.columns))
+            columns2 = sorted(list(metadata2.columns))
+            assert columns1 == columns2
+            metadata1 = metadata1[columns1].sort_values(by=columns1, ignore_index=True)
+            metadata2 = metadata2[columns1].sort_values(by=columns1, ignore_index=True)
+            assert metadata1.equals(metadata2)
+    if verify_configs_hyperparameters:
+        assert repo1.configs_hyperparameters() == repo2.configs_hyperparameters()
 
 
 def test_repository():
@@ -60,8 +108,8 @@ def test_repository():
     assert repo.labels_val(dataset=dataset, fold=2).shape == (123,)
     assert repo.labels_test(dataset=dataset, fold=2).shape == (13,)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    result_errors, result_ensemble_weights = repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")
-    assert result_errors.shape == (3,)
+    result_errors, result_ensemble_weights = repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")
+    assert result_errors.shape == (3, 7)
     assert len(result_ensemble_weights) == 3
 
     dataset_info = repo.dataset_info(dataset=dataset)
@@ -73,15 +121,15 @@ def test_repository():
     assert np.allclose(result_ensemble_weights.loc[(dataset, 0)], [1.0, 0.0])
 
     # Test `max_models_per_type`
-    result_errors_w_max_models, result_ensemble_weights_w_max_models = repo.evaluate_ensemble(
+    result_errors_w_max_models, result_ensemble_weights_w_max_models = repo.evaluate_ensembles(
         datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native", ensemble_kwargs={"max_models_per_type": 1}
     )
-    assert result_errors_w_max_models.shape == (3,)
+    assert result_errors_w_max_models.shape == (3, 7)
     assert len(result_ensemble_weights_w_max_models) == 3
     assert np.allclose(result_ensemble_weights_w_max_models.loc[(dataset, 0)], [1.0, 0.0])
 
-    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
-                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1,)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config],
+                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 7)
 
     repo: EvaluationRepository = repo.subset(folds=[0, 2])
     assert repo.datasets() == ['abalone', 'ada']
@@ -93,9 +141,9 @@ def test_repository():
     assert repo.predict_test(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     # result_errors, result_ensemble_weights = repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0],
-    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (2,)
-    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
-                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1,)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (2, 7)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 7)
+    assert repo.evaluate_ensemble(dataset=dataset, fold=2, configs=[config, config], ensemble_size=5)[0].shape == (1, 7)
 
     repo: EvaluationRepository = repo.subset(folds=[2], datasets=[dataset], configs=[config])
     assert repo.datasets() == ['abalone']
@@ -106,10 +154,9 @@ def test_repository():
     assert repo.predict_val(dataset=dataset, config=config, fold=2).shape == (123, 25)
     assert repo.predict_test(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1,)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 7)
 
-    assert repo.evaluate_ensemble(datasets=[dataset], configs=[config, config],
-                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1,)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 7)
 
 
 def test_repository_force_to_dense():
@@ -186,7 +233,10 @@ def test_repository_subset():
 def test_repository_configs_hyperparameters():
     repo1 = load_repo_artificial()
     repo2 = load_repo_artificial(include_hyperparameters=True)
-    verify_equivalent_repository(repo1, repo2, verify_ensemble=True)
+    verify_equivalent_repository(repo1, repo2, verify_ensemble=True, verify_configs_hyperparameters=False)
+
+    with pytest.raises(AssertionError):
+        verify_equivalent_repository(repo1, repo2, verify_configs_hyperparameters=True)
 
     configs = ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
 
@@ -240,6 +290,89 @@ def test_repository_configs_hyperparameters():
     assert autogluon_hyperparameters_dict == {'FASTAI': [
         {'ag_args': {'priority': -1}, 'foo': 15, 'x': 'y'}
     ]}
+
+
+def test_repository_save_load():
+    """test repo save and load work"""
+    repo = load_repo_artificial(include_hyperparameters=True)
+    save_path = "tmp_repo"
+    repo.to_dir(path=save_path)
+    repo_loaded = EvaluationRepository.from_dir(path=save_path)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded, verify_ensemble=True, exact=True)
+
+    repo_float64 = load_repo_artificial(include_hyperparameters=True, dtype=np.float64)
+    save_path = "tmp_repo_from_float64"
+    repo_float64.to_dir(path=save_path)
+    repo_loaded_float64 = EvaluationRepository.from_dir(path=save_path)
+    # exact=False because the loaded version is float32 and the original is float64
+    verify_equivalent_repository(repo1=repo_float64, repo2=repo_loaded_float64, verify_ensemble=True, exact=False)
+
+
+def test_repository_save_load_with_moving_files():
+    """test repo save and load work when moving files to different directories"""
+
+    save_path = "tmp_repo"
+    copy_path = "tmp_repo_copy"
+    shutil.rmtree(save_path, ignore_errors=True)
+    shutil.rmtree(copy_path, ignore_errors=True)
+
+    repo = load_repo_artificial(include_hyperparameters=True)
+    repo.set_config_fallback(config_fallback=repo.configs()[0])
+
+    assert repo._config_fallback == repo.configs()[0]
+    with pytest.raises(AssertionError):
+        repo.predict_test(dataset="abalone", fold=0, config=repo.configs()[0])
+
+    repo.to_dir(path=save_path)
+    repo_loaded = EvaluationRepository.from_dir(path=save_path)
+    repo_loaded_mem = EvaluationRepository.from_dir(path=save_path, prediction_format="mem")
+    repo_loaded_memopt = EvaluationRepository.from_dir(path=save_path, prediction_format="memopt")
+
+    assert repo._config_fallback == repo_loaded_mem._config_fallback
+    assert repo._config_fallback == repo_loaded_memopt._config_fallback
+
+    repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    with pytest.raises(AssertionError):
+        repo_loaded_mem.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    with pytest.raises(AssertionError):
+        repo_loaded_memopt.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    repo.set_config_fallback(None)
+    repo_loaded_mem.set_config_fallback(None)
+    repo_loaded_memopt.set_config_fallback(None)
+
+    assert repo_loaded_mem._config_fallback is None
+    assert repo_loaded_memopt._config_fallback is None
+
+    repo_loaded_mem.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    repo_loaded_memopt.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded, verify_ensemble=True, exact=True, verify_config_fallback=False)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_mem, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_memopt, verify_ensemble=True, exact=True)
+
+    shutil.copytree(save_path, copy_path)
+
+    repo_loaded_copy = EvaluationRepository.from_dir(path=copy_path)
+    verify_equivalent_repository(repo1=repo_loaded, repo2=repo_loaded_copy, verify_ensemble=True, exact=True)
+
+    # verify that the original stops working after deleting the original files
+    repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+    shutil.rmtree(save_path)
+    with pytest.raises(FileNotFoundError):
+        repo_loaded.predict_test(dataset="abalone", fold=0, config=repo_loaded.configs()[0])
+
+    # verify in-memory repos don't require the original files
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_mem, verify_ensemble=True, exact=True)
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_memopt, verify_ensemble=True, exact=True)
+
+    # verify that the copy works even after deleting the original files
+    verify_equivalent_repository(repo1=repo, repo2=repo_loaded_copy, verify_ensemble=True, exact=True, verify_config_fallback=False)
+
+    # verify that the copy stops working after deleting the copied files
+    repo_loaded_copy.predict_test(dataset="abalone", fold=0, config=repo_loaded_copy.configs()[0])
+    shutil.rmtree(copy_path)
+    with pytest.raises(FileNotFoundError):
+        repo_loaded_copy.predict_test(dataset="abalone", fold=0, config=repo_loaded_copy.configs()[0])
 
 
 def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):

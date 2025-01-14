@@ -1,16 +1,9 @@
 import pandas as pd
 
-from autogluon.common.savers import save_pd
-from autogluon.common.utils.simulation_utils import convert_simulation_artifacts_to_tabular_predictions_dict
 from autogluon.tabular import TabularPredictor
 from autogluon_benchmark import OpenMLTaskWrapper
 
 from tabrepo import EvaluationRepository
-from tabrepo.repository import EvaluationRepositoryZeroshot
-from tabrepo.predictions import TabularPredictionsInMemory
-from tabrepo.contexts.context import BenchmarkContext, construct_context
-from tabrepo.contexts.subcontext import BenchmarkSubcontext
-from tabrepo.simulation.ground_truth import GroundTruth
 
 
 def get_artifacts(task: OpenMLTaskWrapper, fold: int, hyperparameters: dict, dataset: str = None, time_limit=60):
@@ -125,51 +118,22 @@ if __name__ == '__main__':
                 )
             )
 
-    # TODO: Move into AutoGluonTaskWrapper
-    simulation_artifacts_full = dict()
-    leaderboards = []
-    for simulation_artifacts, leaderboard in artifacts:
-        leaderboards.append(leaderboard)
+    results_lst_simulation_artifacts = [simulation_artifacts for simulation_artifacts, leaderboard in artifacts]
+
+    leaderboards = [leaderboard for simulation_artifacts, leaderboard in artifacts]
     leaderboard_full = pd.concat(leaderboards)
-    print(leaderboard_full)
-    for simulation_artifacts, leaderboard in artifacts:
-        for k in simulation_artifacts.keys():
-            if k not in simulation_artifacts_full:
-                simulation_artifacts_full[k] = {}
-            for f in simulation_artifacts[k]:
-                if f in simulation_artifacts_full:
-                    raise AssertionError(f"Two results exist for tid {k}, fold {f}!")
-                else:
-                    simulation_artifacts_full[k][f] = simulation_artifacts[k][f]
-
-    zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
-
-    save_loc = "./quickstart/"
-    save_loc_data_dir = save_loc + "model_predictions/"
-
-    predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
-    ground_truth = GroundTruth.from_dict(zeroshot_gt)
-    predictions.to_data_dir(data_dir=save_loc_data_dir)
-    ground_truth.to_data_dir(data_dir=save_loc_data_dir)
 
     df_configs = convert_leaderboard_to_configs(leaderboard=leaderboard_full)
-    save_pd.save(path=f"{save_loc}configs.parquet", df=df_configs)
+    print(df_configs)
 
-    context: BenchmarkContext = construct_context(
-        name="quickstart",
-        datasets=datasets,
-        folds=folds,
-        local_prefix=save_loc,
-        local_prefix_is_relative=False,
-        has_baselines=False)
-    subcontext = BenchmarkSubcontext(parent=context)
+    repo = EvaluationRepository.from_raw(df_configs=df_configs, results_lst_simulation_artifacts=results_lst_simulation_artifacts)
 
     # Note: Can also skip all the above code if you want to use a readily available context rather than generating from scratch:
-    # from tabrepo.contexts import get_subcontext
-    # subcontext = get_subcontext(name="D244_F3_C1530_30")
+    # repo = EvaluationRepository.from_context(version="D244_F3_C1530_30", cache=True)
 
-    repo: EvaluationRepository = subcontext.load_from_parent()
-    repo: EvaluationRepositoryZeroshot = repo.to_zeroshot()
+    repo.print_info()
+
+    repo = repo.to_zeroshot()
 
     results_cv = repo.simulate_zeroshot(num_zeroshot=3, n_splits=2, backend="seq")
     df_results = repo.generate_output_from_portfolio_cv(portfolio_cv=results_cv, name="quickstart")

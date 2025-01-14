@@ -59,7 +59,7 @@ def assert_fast_roc_auc_equivalence(y_true, y_pred, rtol=1e-7):
 def test_fast_roc_auc_ties(y_true, y_pred):
     """Ensure fast_roc_auc produces equivalent scores to AutoGluon and Scikit-Learn roc_auc implementations
     when ties exist"""
-    y_true = np.array(y_true, dtype=np.bool8)
+    y_true = np.array(y_true, dtype=np.bool_)
     y_pred = np.array(y_pred, dtype=np.float32)
     assert_fast_roc_auc_equivalence(y_true=y_true, y_pred=y_pred)
 

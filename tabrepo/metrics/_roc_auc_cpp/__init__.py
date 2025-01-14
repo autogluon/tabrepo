@@ -29,7 +29,7 @@ class CppAuc:
     def roc_auc_score(self, y_true: np.array, y_score: np.array) -> float:
         """a method to calculate AUC via C++ lib.
         Args:
-            y_true (np.array): 1D numpy array of dtype=np.bool8 as true labels.
+            y_true (np.array): 1D numpy array of dtype=np.bool_ as true labels.
             y_score (np.array): 1D numpy array of dtype=np.float32 as probability predictions.
         Returns:
             float: AUC score

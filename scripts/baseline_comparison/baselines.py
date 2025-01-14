@@ -1,7 +1,6 @@
-import ast
 import copy
 import itertools
-from typing import List, Optional, Tuple
+from typing import List
 
 import numpy as np
 from dataclasses import dataclass
@@ -10,11 +9,6 @@ from tqdm import tqdm
 
 from tabrepo.portfolio.zeroshot_selection import zeroshot_configs
 from tabrepo.repository import EvaluationRepository
-from tabrepo.repository.time_utils import (
-    filter_configs_by_runtime,
-    sort_by_runtime,
-    get_runtime,
-)
 from tabrepo.utils.parallel_for import parallel_for
 
 default_ensemble_size = 40
@@ -34,87 +28,67 @@ class ResultRow:
     normalized_error: float
     time_train_s: float
     time_infer_s: float
+    metric_error_val: float = None
     config_selected: list = None
     seed: int = None
+    metadata: dict = None
 
 
 def evaluate_configs(
         repo: EvaluationRepository,
+        configs: List[str],
         rank_scorer,
         normalized_scorer,
         tid: int,
+        folds: List[int],
         method: str,
-        config_selected: List[str],
         ensemble_size: int = default_ensemble_size,
         ensemble_kwargs=None,
-        config_sampled: List[str] = None,
-        folds: List[int] = range(10),
+        time_limit: float | None = None,
+        fit_order="original",
         seed: int = 0,
 ) -> List[ResultRow]:
     """
 
     :param repo:
+    :param configs:
     :param rank_scorer:
     :param normalized_scorer:
     :param tid:
     :param method:
     :param ensemble_size:
-    :param config_selected:
-    :param config_sampled: the list of configurations that was seen, to count total runtime. Default to `config_selected`
     :param folds:
     :return: list of results for each fold in `folds` evaluated on task `tid` with `config_selected` configurations
     """
-    if not config_sampled:
-        config_sampled = config_selected
     if ensemble_size is None:
         ensemble_size = default_ensemble_size
-    if ensemble_kwargs is None:
-        ensemble_kwargs = {}
 
-    # Makes results invariant to config order (otherwise tie breaking logic in Caruana selection can make the
-    # result depend on configuration order)
-    config_selected = list(sorted(config_selected.copy()))
     dataset = repo.tid_to_dataset(tid=tid)
 
-    metric_errors, ensemble_weights = repo.evaluate_ensemble(
-        datasets=[dataset],
-        configs=config_selected,
-        ensemble_size=ensemble_size,
-        ensemble_kwargs=ensemble_kwargs,
-        backend='native',
-        folds=folds,
-        rank=False,
-    )
-    # we expect a tensor of results with shape (n_tasks, n_folds)
-    assert metric_errors.shape == (len(folds),)
     rows = []
     for fold in folds:
-        task = repo.task_name(dataset=dataset, fold=fold)
-        metric_error = metric_errors.loc[(dataset, fold)]
-        config_weights = ensemble_weights.loc[(dataset, fold)]
+        df_metrics, ensemble_weights = repo.evaluate_ensemble(
+            dataset=dataset,
+            fold=fold,
+            configs=configs,
+            fit_order=fit_order,
+            seed=seed,
+            ensemble_size=ensemble_size,
+            ensemble_kwargs=ensemble_kwargs,
+            time_limit=time_limit,
+            rank=False,
+        )
+        assert len(df_metrics) == 1
+        metrics = df_metrics.iloc[0]
+        configs_selected = [c for c in configs if c in ensemble_weights.columns]
 
-        # select configurations used in the ensemble as infer time only depends on the models with non-zero weight.
-        config_selected_ensemble = [
-            config
-            for config, weight in zip(config_selected, config_weights)
-            if weight != 0
-        ]
-        runtimes = get_runtime(
-            repo=repo,
-            tid=tid,
-            fold=fold,
-            config_names=config_sampled,
-            runtime_col='time_train_s',
-            fail_if_missing=False,
-        )
-        latencies = get_runtime(
-            repo=repo,
-            tid=tid,
-            fold=fold,
-            config_names=config_selected_ensemble,
-            runtime_col='time_infer_s',
-            fail_if_missing=False,
-        )
+        task = repo.task_name(dataset=dataset, fold=fold)
+
+        metric_error = metrics["metric_error"]
+        metric_error_val = metrics["metric_error_val"]
+        time_train_s = metrics["time_train_s"]
+        time_infer_s = metrics["time_infer_s"]
+
         rows.append(ResultRow(
             dataset=dataset,
             fold=fold,
@@ -122,22 +96,31 @@ def evaluate_configs(
             test_error=metric_error,
             rank=rank_scorer.rank(task, metric_error),
             normalized_error=normalized_scorer.rank(task, metric_error),
-            time_train_s=sum(runtimes.values()),
-            time_infer_s=sum(latencies.values()),
-            config_selected=config_sampled,
+            time_train_s=time_train_s,
+            time_infer_s=time_infer_s,
+            metric_error_val=metric_error_val,
+            config_selected=configs_selected,
             seed=seed,
+            metadata=dict(
+                n_iterations=ensemble_size,
+                time_limit=time_limit,
+            )
         ))
     return rows
 
 
-def framework_name(framework_type, max_runtime=None, ensemble_size=default_ensemble_size, tuned: bool=True) -> str:
+def framework_name(framework_type, max_runtime=None, ensemble_size=default_ensemble_size, tuned: bool=True, all: bool = False, prefix: str = None) -> str:
     method = framework_type if framework_type else "All"
+    if prefix is None:
+        prefix = ""
+    if all:
+        method = "All"
     if not tuned:
-        return method + " (default)"
+        suffix = " (default)"
     else:
         suffix = " (tuned + ensemble)" if ensemble_size > 1 else " (tuned)"
         suffix += time_suffix(max_runtime=max_runtime)
-        method += suffix
+    method = f"{method}{prefix}{suffix}"
     return method
 
 
@@ -159,7 +142,7 @@ def framework_default_results(repo: EvaluationRepository,
             repo=repo,
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
-            config_selected=configs,
+            configs=configs,
             ensemble_size=ensemble_size,
             tid=repo.dataset_to_tid(dataset_name),
             folds=range(n_eval_folds),
@@ -180,46 +163,6 @@ def framework_default_results(repo: EvaluationRepository,
     return [x for l in list_rows for x in l]
 
 
-def sample_and_pick_best(
-        repo: EvaluationRepository, tid: int, fold: int, framework_type: Optional[str], n_output: int,
-        max_runtime: float = None, random_state: int = 0,
-) -> Tuple[List[str], List[str]]:
-    """
-    :return: Samples random configurations for the given task until `max_runtime` is exhausted and returns the top `n_output` configurations
-    based on validation scores. If `framework_type` is specified then only configuration of this framework are considered.
-    Returns the configurations sampled and the configurations chosen.
-    """
-    if n_output is None:
-        n_output = default_ensemble_size
-    df_score_val = repo._zeroshot_context.df_configs_ranked
-
-    # gets rows with desired task and framework
-    mask = (df_score_val['tid'] == tid) & (df_score_val.fold == fold)
-    if framework_type:
-        mask &= (df_score_val.framework.str.contains(framework_type))
-    df_sub = df_score_val[mask]
-
-    if len(df_sub) == 0:
-        pass
-        # assert len(df_sub) > 0, f"missing data {tid} {framework_type}"
-        # print(f"missing data {tid} {fold} {framework_type}")
-
-    # shuffle the rows
-    df_sub = df_sub.sample(frac=1, random_state=random_state).reset_index(drop=True)
-
-    # pick only configurations up to max_runtime
-    if max_runtime:
-        df_sub = df_sub[df_sub.loc[:, "time_train_s"].cumsum() < max_runtime]
-    if len(df_sub) == 0:
-        return [backup_fast_config], [backup_fast_config]
-
-    # pick top `n_output` configurations with the best validation loss
-    top_config_indices = df_sub["metric_error_val"].argsort().values[:n_output][::-1]
-    best_configs = df_sub.loc[top_config_indices, "framework"].tolist()
-
-    return df_sub["framework"].tolist(), best_configs
-
-
 def framework_best_results(
         repo: EvaluationRepository,
         dataset_names: List[str],
@@ -227,8 +170,10 @@ def framework_best_results(
         n_eval_folds: int,
         rank_scorer,
         normalized_scorer,
+        all: bool = False,
         max_runtimes: float = [3600],
         ensemble_size: int = default_ensemble_size,
+        method_prefix: str = None,
         engine: str = 'ray',
         random_state: int = 0,
         **kwargs) -> List[ResultRow]:
@@ -237,41 +182,44 @@ def framework_best_results(
     configurations with highest validation scores among the `n_configs` configurations.
     """
 
-    def evaluate_tid(dataset_name, max_runtime, framework_type, ensemble_size, repo, rank_scorer, normalized_scorer, random_state):
+    def evaluate_tid(dataset_name, max_runtime, framework_type, ensemble_size, repo, rank_scorer, normalized_scorer, random_state, all):
         tid = repo.dataset_to_tid(dataset_name)
         rows = []
 
         for fold in range(n_eval_folds):
-            config_sampled, config_selected = sample_and_pick_best(
-                repo=repo,
-                n_output=ensemble_size,
-                tid=tid,
-                fold=fold,
-                framework_type=framework_type,
-                max_runtime=max_runtime,
-                random_state=random_state,
-            )
+            df_score_val = repo._zeroshot_context.df_configs_ranked
+
+            # gets rows with desired task and framework
+            mask = (df_score_val['dataset'] == dataset_name) & (df_score_val.fold == fold)
+            if framework_type:
+                if isinstance(framework_type, list):
+                    mask &= (df_score_val.framework.str.contains('|'.join(framework_type)))
+                else:
+                    mask &= (df_score_val.framework.str.contains(framework_type))
+            df_sub = df_score_val[mask]
+            configs = df_sub["framework"].tolist()
 
             # evaluate them
             rows += evaluate_configs(
                 repo=repo,
                 rank_scorer=rank_scorer,
                 normalized_scorer=normalized_scorer,
-                config_sampled=config_sampled,
-                config_selected=config_selected,
+                configs=configs,
                 ensemble_size=ensemble_size,
+                time_limit=max_runtime,
+                fit_order="random",
+                seed=random_state,
                 tid=tid,
                 folds=[fold],
-                method=framework_name(framework_type, max_runtime, ensemble_size, tuned=True),
+                method=framework_name(framework_type, max_runtime, ensemble_size, tuned=True, all=all, prefix=method_prefix),
             )
-            rows
         return rows
 
     ensemble_sizes = [1, ensemble_size]
     list_rows = parallel_for(
         evaluate_tid,
         inputs=list(itertools.product(dataset_names, max_runtimes, framework_types, ensemble_sizes)),
-        context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer, random_state=random_state),
+        context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer, random_state=random_state, all=all),
         engine=engine,
     )
     return [x for l in list_rows for x in l]
@@ -387,7 +335,7 @@ def zeroshot_results(
         seeds: list = [0],
         method_prefix: str = None,
         n_ensemble_in_name: bool = False,
-) -> List[ResultRow]:
+) -> list[ResultRow]:
     """
     :param dataset_names: list of dataset to use when fitting zeroshot
     :param n_eval_folds: number of folds to consider for evaluation
@@ -406,7 +354,7 @@ def zeroshot_results(
 
     def evaluate_dataset(test_dataset, n_portfolio, n_ensemble, n_training_dataset, n_training_fold, n_training_config,
                          max_runtime, max_models, max_models_per_type, seed: int, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
-                         model_frameworks):
+                         model_frameworks) -> list[ResultRow]:
         method_name = zeroshot_name(
             n_portfolio=n_portfolio,
             n_ensemble=n_ensemble,
@@ -467,35 +415,32 @@ def zeroshot_results(
         #  current fold when filtering by runtime.
         # portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
 
-        portfolio_configs = filter_configs_by_runtime(
-            repo=repo,
-            tid=test_tid,
-            fold=0,
-            config_names=portfolio_configs,
-            max_cumruntime=max_runtime if max_runtime else default_runtime, # TODO
-        )
-        if len(portfolio_configs) == 0:
-            # in case all configurations selected were above the budget, we evaluate a quick backup, we pick a
-            # configuration that takes <1s to be evaluated
-            portfolio_configs = [backup_fast_config]
+        if max_runtime is None:
+            max_runtime = default_runtime
 
         ensemble_kwargs = {
             "max_models": max_models,
             "max_models_per_type": max_models_per_type,
         }
 
-        return evaluate_configs(
+        results_row_lst: list[ResultRow] = evaluate_configs(
             repo=repo,
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
-            config_selected=portfolio_configs,
+            configs=portfolio_configs,
             ensemble_size=n_ensemble,
             ensemble_kwargs=ensemble_kwargs,
             tid=test_tid,
+            time_limit=max_runtime,
             method=method_name,
             folds=range(n_eval_folds),
             seed=seed,
         )
+
+        for results_row in results_row_lst:
+            results_row.metadata["n_portfolio"] = n_portfolio
+
+        return results_row_lst
 
     dd = repo._zeroshot_context.df_configs_ranked
     # df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()

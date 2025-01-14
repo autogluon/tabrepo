@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import tempfile
-from typing import Dict, List
 
 import pandas as pd
 from pathlib import Path
 
 
 class GroundTruth:
-    def __init__(self, label_val_dict: Dict[str, Dict[int, pd.Series]], label_test_dict: Dict[str, Dict[int, pd.Series]]):
+    def __init__(self, label_val_dict: dict[str, dict[int, pd.Series]], label_test_dict: dict[str, dict[int, pd.Series]]):
         """
 
         :param label_val_dict: dictionary from tid to fold to labels series where the index are openml rows and
@@ -18,8 +19,11 @@ class GroundTruth:
         self._label_test_dict = label_test_dict
 
     @property
-    def datasets(self) -> List[str]:
+    def datasets(self) -> list[str]:
         return sorted(list(self._label_val_dict.keys()))
+
+    def dataset_folds(self, dataset: str) -> list[int]:
+        return sorted(list(self._label_val_dict[dataset].keys()))
 
     # FIXME: Add restrict instead, same as tabular_predictions
     def remove_dataset(self, dataset: str):

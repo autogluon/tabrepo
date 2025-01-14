@@ -1,83 +1,296 @@
 from __future__ import annotations
 
-from typing import Tuple, Type
+import itertools
+from typing import Literal, Tuple, Type
 
+import numpy as np
 import pandas as pd
 
+from .time_utils import filter_configs_by_runtime, get_runtime
 from ..simulation.ensemble_selection_config_scorer import EnsembleScorer, EnsembleScorerMaxModels, EnsembleSelectionConfigScorer
+from ..utils.parallel_for import parallel_for
 
 
+# FIXME: Type hints for AbstractRepository, how to do? Protocol?
 class EnsembleMixin:
-    # TODO: rank=False by default, include way more information like fit time and infer time?
-    # TODO: Add time_train_s
-    # TODO: Add infer_limit
+    # TODO: rank=False by default?
+    # TODO: ensemble_size remove, put into ensemble_kwargs?
+    # TODO: rename to fit_ensemble?
+    # TODO: Maybe the result output should be a pd.Series or dataclass? Finalize prior to TabRepo 2.0 release.
+    #  Ditto for ensemble_weights
     def evaluate_ensemble(
         self,
-        datasets: list[str],
+        dataset: str,
+        fold: int,
+        configs: list[str] = None,
+        *,
+        time_limit: float = None,
+        ensemble_cls: Type[EnsembleScorer] = EnsembleScorerMaxModels,
+        ensemble_kwargs: dict = None,
+        ensemble_size: int = 100,
+        rank: bool = True,
+        fit_order: Literal["original", "random"] = "original",
+        seed: int = 0,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Evaluates an ensemble of a list of configs on a given task (dataset, fold).
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset to evaluate
+        fold: int
+            The fold of the dataset to evaluate
+        configs: list[str], default = None
+            The list of configs to consider for ensembling.
+            If None, will use all configs.
+            Models will be simulated as being fit in the order specified in `fit_order`.
+        time_limit: float, default = None
+            The time limit of the ensemble.
+            Will only consider the first N models in `configs` whose cumulative time limit is less than `time_limit`.
+        ensemble_cls: Type[EnsembleScorer], default = EnsembleScorerMaxModels
+            The ensemble method to use.
+        ensemble_kwargs: dict, default = None
+            The ensemble method kwargs.
+        ensemble_size: int, default = 100
+            The number of ensemble iterations.
+        rank: bool, default = True
+            If True, additionally calculates the rank of the ensemble result.
+        fit_order: Literal["original", "random"], default = "original"
+            Whether to simulate the models being fit in their original order sequentially or randomly.
+        seed: int, default = 0
+            The random seed used to shuffle `configs` if `fit_order="random"`.
+
+        Returns
+        -------
+        result: pd.DataFrame
+            A single-row multi-index (dataset, fold) DataFrame with the following columns:
+                metric_error: float
+                    The ensemble's metric test error.
+                metric: str
+                    The target evaluation metric.
+                time_train_s: float
+                    The training time of the ensemble in seconds (the sum of all considered models' time_train_s)
+                time_infer_s: float
+                    The inference time of the ensemble in seconds (the sum of all non-zero weight models' time_infer_s)
+                problem_type: str
+                    The problem type of the task.
+                metric_error_val: float
+                    The ensemble's metric validation error.
+        ensemble_weights: pd.DataFrame
+            A single-row multi-index (dataset, fold) DataFrame with column names equal to `configs`.
+            Each config column's value is the weight given to it by the ensemble model.
+            This can be used for debugging purposes and for deeper analysis.
+
+        """
+        task = self.task_name(dataset=dataset, fold=fold)
+        if configs is None:
+            configs = self.configs(tasks=[(dataset, fold)])
+
+        if time_limit is not None:
+            if fit_order == "random":
+                # randomly shuffle the configs
+                rng = np.random.default_rng(seed=seed)
+                configs_fit_order = list(rng.permuted(configs))
+            else:
+                configs_fit_order = configs
+
+            # filter configs to the first N configs whose combined time_limit is less than the provided time_limit
+            configs = filter_configs_by_runtime(repo=self, dataset=dataset, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
+
+            if len(configs) == 0:
+                # if not enough time to fit any model, use the fallback config if it exists, even if it would be over the time limit
+                # if no config fallback was specified, then raise an AssertionError
+                if self._config_fallback is None:
+                    if len(configs_fit_order) > 0:
+                        raise AssertionError(
+                            f"Can't fit an ensemble with no configs when self._config_fallback is None "
+                            f"(No configs are trainable in the provided time_limit={time_limit}.)"
+                        )
+                    else:
+                        raise AssertionError(f"Can't fit an ensemble with no configs when self._config_fallback is None.")
+                configs = [self._config_fallback]
+
+        scorer = self._construct_ensemble_selection_config_scorer(
+            tasks=[task],
+            ensemble_size=ensemble_size,
+            ensemble_cls=ensemble_cls,
+            ensemble_kwargs=ensemble_kwargs,
+            backend="native",
+        )
+
+        # fit the ensemble and retrieve the metric error and ensemble weights
+        results = scorer.compute_errors(configs=configs)
+        metric_error = results[task]["metric_error"]
+        ensemble_weights = results[task]["ensemble_weights"]
+        metric_error_val = results[task]["metric_error_val"]
+
+        dataset_info = self.dataset_info(dataset=dataset)
+        metric = dataset_info["metric"]
+        problem_type = dataset_info["problem_type"]
+
+        # select configurations used in the ensemble as infer time only depends on the models with non-zero weight.
+        fail_if_missing = self._config_fallback is None
+
+        # compute the ensemble time_train_s by summing all considered config's time_train_s
+        runtimes = get_runtime(
+            repo=self,
+            dataset=dataset,
+            fold=fold,
+            config_names=configs,
+            runtime_col='time_train_s',
+            fail_if_missing=fail_if_missing,
+        )
+        time_train_s = sum(runtimes.values())
+
+        # compute the ensemble time_infer_s by summing all considered config's time_infer_s that have non-zero weight
+        config_selected_ensemble = [
+            config for i, config in enumerate(configs) if ensemble_weights[i] != 0
+        ]
+        latencies = get_runtime(
+            repo=self,
+            dataset=dataset,
+            fold=fold,
+            config_names=config_selected_ensemble,
+            runtime_col='time_infer_s',
+            fail_if_missing=fail_if_missing,
+        )
+        time_infer_s = sum(latencies.values())
+
+        output_dict = {
+            "metric_error": [metric_error],
+            "metric": [metric],
+            "time_train_s": [time_train_s],
+            "time_infer_s": [time_infer_s],
+            "problem_type": [problem_type],
+            "metric_error_val": [metric_error_val],
+        }
+
+        if rank:
+            dict_ranks = scorer.compute_ranks(errors={task: metric_error})
+            rank_list = dict_ranks[task]
+            output_dict["rank"] = [rank_list]
+
+        multiindex = pd.MultiIndex.from_tuples([(dataset, fold)], names=["dataset", "fold"])
+        df_ensemble_weights = pd.DataFrame(data=[ensemble_weights], index=multiindex, columns=configs)
+        df_out = pd.DataFrame(data=output_dict, index=multiindex)
+
+        return df_out, df_ensemble_weights
+
+    # TODO: Docstring
+    def evaluate_ensembles(
+        self,
+        datasets: list[str] = None,
+        folds: list[int] = None,
         configs: list[str] = None,
         *,
         ensemble_cls: Type[EnsembleScorer] = EnsembleScorerMaxModels,
         ensemble_kwargs: dict = None,
         ensemble_size: int = 100,
+        time_limit: float = None,
+        fit_order: Literal["original", "random"] = "original",
+        seed: int = 0,
         rank: bool = True,
-        folds: list[int] | None = None,
-        backend: str = "ray",
-    ) -> Tuple[pd.Series, pd.DataFrame]:
+        backend: Literal["ray", "native"] = "ray",
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        :param datasets: list of datasets to compute errors on.
-        :param configs: list of config to consider for ensembling. Uses all configs if None.
-        :param ensemble_size: number of members to select with Caruana.
-        :param ensemble_cls: class used for the ensemble model.
-        :param ensemble_kwargs: kwargs to pass to the init of the ensemble class.
-        :param rank: whether to return ranks or raw scores (e.g. RMSE). Ranks are computed over all base models and
-        automl framework.
-        :param folds: list of folds that need to be evaluated, use all folds if not provided.
-        :param backend: Options include ["native", "ray"].
-        :return: Tuple:
-            Pandas Series of ensemble test errors per task, with multi-index (dataset, fold).
-            Pandas DataFrame of ensemble weights per task, with multi-index (dataset, fold). Columns are the names of each config.
+        Evaluates an ensemble of a list of configs on a given set of tasks (datasets x folds).
+
+        Identical to calling `evaluate_ensemble` once for each task and then concatenating the results,
+        however this method will be much faster due to parallelization.
+
+        Parameters
+        ----------
+        datasets: list[str], default = None
+            The datasets to evaluate.
+            If None, will use all datasets.
+        folds: list[int], default = None
+            The folds of the dataset to evaluate.
+            If None, will use all folds.
+        configs: list[str], default = None
+            The list of configs to consider for ensembling.
+            If None, will use all configs.
+            Models will be simulated as being fit in the order specified in `fit_order`.
+        time_limit: float, default = None
+            The time limit of the ensemble.
+            Will only consider the first N models in `configs` whose cumulative time limit is less than `time_limit`.
+        ensemble_cls: Type[EnsembleScorer], default = EnsembleScorerMaxModels
+            The ensemble method to use.
+        ensemble_kwargs: dict, default = None
+            The ensemble method kwargs.
+        ensemble_size: int, default = 100
+            The number of ensemble iterations.
+        rank: bool, default = True
+            If True, additionally calculates the rank of the ensemble result.
+        fit_order: Literal["original", "random"], default = "original"
+            Whether to simulate the models being fit in their original order sequentially or randomly.
+        seed: int, default = 0
+            The random seed used to shuffle `configs` if `fit_order="random"`.
+        backend: Literal["ray", "native"], default = "ray"
+            The backend to use when running the list of tasks.
+
+        Returns
+        -------
+        result: pd.DataFrame
+            A multi-index (dataset, fold) DataFrame where each row corresponds to a task, with the following columns:
+                metric_error: float
+                    The ensemble's metric test error.
+                metric: str
+                    The target evaluation metric.
+                time_train_s: float
+                    The training time of the ensemble in seconds (the sum of all considered models' time_train_s)
+                time_infer_s: float
+                    The inference time of the ensemble in seconds (the sum of all non-zero weight models' time_infer_s)
+                problem_type: str
+                    The problem type of the task.
+                metric_error_val: float
+                    The ensemble's metric validation error.
+        ensemble_weights: pd.DataFrame
+            A multi-index (dataset, fold) DataFrame with column names equal to `configs`. Each row corresponds to a task.
+            Each config column's value is the weight given to it by the ensemble model.
+            This can be used for debugging purposes and for deeper analysis.
+
         """
+        if backend == "native":
+            backend = "sequential"
         if folds is None:
             folds = self.folds
-        if configs is None:
-            configs = self.configs()
-        tasks = [
-            self.task_name(dataset=dataset, fold=fold)
-            for dataset in datasets
-            for fold in folds
-        ]
-        scorer = self._construct_ensemble_selection_config_scorer(
-            tasks=tasks,
-            ensemble_size=ensemble_size,
+        if datasets is None:
+            datasets = self.datasets()
+
+        context = dict(
+            self=self,
+            configs=configs,
             ensemble_cls=ensemble_cls,
             ensemble_kwargs=ensemble_kwargs,
-            backend=backend,
+            ensemble_size=ensemble_size,
+            time_limit=time_limit,
+            fit_order=fit_order,
+            seed=seed,
+            rank=rank,
         )
 
-        dict_errors, dict_ensemble_weights = scorer.compute_errors(configs=configs)
+        inputs = list(itertools.product(datasets, folds))
+        inputs = [{"dataset": dataset, "fold": fold} for dataset, fold in inputs]
 
-        if rank:
-            dict_scores = scorer.compute_ranks(errors=dict_errors)
-            out = dict_scores
-        else:
-            out = dict_errors
+        list_rows = parallel_for(
+            self.__class__.evaluate_ensemble,
+            inputs=inputs,
+            context=context,
+            engine=backend,
+        )
 
-        dataset_folds = [(self.task_to_dataset(task=task), self.task_to_fold(task=task)) for task in tasks]
-        ensemble_weights = [dict_ensemble_weights[task] for task in tasks]
-        out_list = [out[task] for task in tasks]
-
-        multiindex = pd.MultiIndex.from_tuples(dataset_folds, names=["dataset", "fold"])
-
-        df_name = "rank" if rank else "error"
-        df_out = pd.Series(data=out_list, index=multiindex, name=df_name)
-        df_ensemble_weights = pd.DataFrame(data=ensemble_weights, index=multiindex, columns=configs)
+        df_out = pd.concat([l[0] for l in list_rows], axis=0)
+        df_ensemble_weights = pd.concat([l[1] for l in list_rows], axis=0)  # FIXME: Is this guaranteed same columns in each?
 
         return df_out, df_ensemble_weights
 
-    def _construct_ensemble_selection_config_scorer(self,
-                                                    ensemble_size: int = 10,
-                                                    backend='ray',
-                                                    **kwargs) -> EnsembleSelectionConfigScorer:
+    def _construct_ensemble_selection_config_scorer(
+        self,
+        ensemble_size: int = 10,
+        backend: str = 'ray',
+        **kwargs
+    ) -> EnsembleSelectionConfigScorer:
         config_scorer = EnsembleSelectionConfigScorer.from_repo(
             repo=self,
             ensemble_size=ensemble_size,  # 100 is better, but 10 allows to simulate 10x faster

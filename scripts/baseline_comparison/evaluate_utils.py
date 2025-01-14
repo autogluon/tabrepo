@@ -27,11 +27,15 @@ from scripts.baseline_comparison.plot_utils import (
 class Experiment:
     expname: str  # name of the parent experiment used to store the file
     name: str  # name of the specific experiment, e.g. "localsearch"
-    run_fun: Callable[[], List[ResultRow]]  # function to execute to obtain results
+    run_fun: Callable[..., List[ResultRow]]  # function to execute to obtain results
+    kwargs: dict = None
 
-    def data(self, ignore_cache: bool = False):
+    def data(self, ignore_cache: bool = False) -> pd.DataFrame:
+        kwargs = self.kwargs
+        if kwargs is None:
+           kwargs = {}
         return cache_function_dataframe(
-            lambda: pd.DataFrame(self.run_fun()),
+            lambda: pd.DataFrame(self.run_fun(**kwargs)),
             cache_name=self.name,
             ignore_cache=ignore_cache,
             cache_path=output_path.parent / "data" / "results-baseline-comparison" / self.expname,
