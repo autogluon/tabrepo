@@ -389,7 +389,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
         dataset = self.tid_to_dataset_name_dict[tid]
         return self.ensemble_scorer.evaluate_task(dataset=dataset, fold=fold, models=models)
 
-    def compute_errors(self, configs: list[str]) -> dict[str, dict[str, ...]]:
+    def compute_errors(self, configs: list[str]) -> dict[str, dict[str, object]]:
         """
         Compute and return test errors and ensemble weights for all tasks on the user-specified list of configs.
 
