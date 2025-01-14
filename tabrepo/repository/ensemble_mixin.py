@@ -16,6 +16,8 @@ class EnsembleMixin:
     # TODO: rank=False by default?
     # TODO: ensemble_size remove, put into ensemble_kwargs?
     # TODO: rename to fit_ensemble?
+    # TODO: Maybe the result output should be a pd.Series or dataclass? Finalize prior to TabRepo 2.0 release.
+    #  Ditto for ensemble_weights
     def evaluate_ensemble(
         self,
         dataset: str,
@@ -87,14 +89,18 @@ class EnsembleMixin:
 
         if time_limit is not None:
             if fit_order == "random":
+                # randomly shuffle the configs
                 rng = np.random.default_rng(seed=seed)
                 configs_fit_order = list(rng.permuted(configs))
             else:
                 configs_fit_order = configs
 
+            # filter configs to the first N configs whose combined time_limit is less than the provided time_limit
             configs = filter_configs_by_runtime(repo=self, dataset=dataset, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
 
             if len(configs) == 0:
+                # if not enough time to fit any model, use the fallback config if it exists, even if it would be over the time limit
+                # if no config fallback was specified, then raise an AssertionError
                 if self._config_fallback is None:
                     if len(configs_fit_order) > 0:
                         raise AssertionError(
@@ -113,6 +119,7 @@ class EnsembleMixin:
             backend="native",
         )
 
+        # fit the ensemble and retrieve the metric error and ensemble weights
         results = scorer.compute_errors(configs=configs)
         metric_error = results[task]["metric_error"]
         ensemble_weights = results[task]["ensemble_weights"]
@@ -124,10 +131,8 @@ class EnsembleMixin:
 
         # select configurations used in the ensemble as infer time only depends on the models with non-zero weight.
         fail_if_missing = self._config_fallback is None
-        config_selected_ensemble = [
-            config for i, config in enumerate(configs) if ensemble_weights[i] != 0
-        ]
 
+        # compute the ensemble time_train_s by summing all considered config's time_train_s
         runtimes = get_runtime(
             repo=self,
             dataset=dataset,
@@ -136,6 +141,12 @@ class EnsembleMixin:
             runtime_col='time_train_s',
             fail_if_missing=fail_if_missing,
         )
+        time_train_s = sum(runtimes.values())
+
+        # compute the ensemble time_infer_s by summing all considered config's time_infer_s that have non-zero weight
+        config_selected_ensemble = [
+            config for i, config in enumerate(configs) if ensemble_weights[i] != 0
+        ]
         latencies = get_runtime(
             repo=self,
             dataset=dataset,
@@ -144,7 +155,6 @@ class EnsembleMixin:
             runtime_col='time_infer_s',
             fail_if_missing=fail_if_missing,
         )
-        time_train_s = sum(runtimes.values())
         time_infer_s = sum(latencies.values())
 
         output_dict = {

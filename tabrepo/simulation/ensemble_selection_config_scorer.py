@@ -96,7 +96,7 @@ class EnsembleScorer:
         """
         return models
 
-    def evaluate_task(self, dataset: str, fold: int, models: List[str]) -> dict[str, ...]:
+    def evaluate_task(self, dataset: str, fold: int, models: List[str]) -> dict[str, object]:
         n_models = len(models)
         task_metadata = self.task_metrics_metadata[dataset]
         metric_name = task_metadata["metric"]
@@ -384,7 +384,7 @@ class EnsembleSelectionConfigScorer(ConfigurationListScorer):
             **kwargs,
         )
 
-    def evaluate_task(self, task: str, models: List[str]) -> dict[str, ...]:
+    def evaluate_task(self, task: str, models: List[str]) -> dict[str, object]:
         tid, fold = task_to_tid_fold(task=task)
         dataset = self.tid_to_dataset_name_dict[tid]
         return self.ensemble_scorer.evaluate_task(dataset=dataset, fold=fold, models=models)
