@@ -44,7 +44,7 @@ def evaluate_configs(
         method: str,
         ensemble_size: int = default_ensemble_size,
         ensemble_kwargs=None,
-        time_limit=None,
+        time_limit: float | None = None,
         fit_order="original",
         seed: int = 0,
 ) -> List[ResultRow]:
