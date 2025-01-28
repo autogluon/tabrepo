@@ -31,7 +31,7 @@ kwargs = dict(
     s3_prefix=s3_prefix,
     folds=folds,
     date=date,
-    task_metadata="task_metadata_244.csv",
+    task_metadata="task_metadata.csv",
     metadata_join_column=metadata_join_column,
     configs_hyperparameters=configs,
 )

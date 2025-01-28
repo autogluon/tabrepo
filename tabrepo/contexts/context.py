@@ -490,7 +490,8 @@ def construct_s3_download_map(
     path_context: str,
     split_key: str,
     files_pp: List[str],
-    files_gt: List[str]
+    files_gt: List[str],
+    task_metadata: str | None = None,
 ) -> Dict[str, str]:
     split_value = f"{s3_prefix}model_predictions/"
     s3_download_map = {
@@ -498,6 +499,8 @@ def construct_s3_download_map(
         "configs.parquet": "configs.parquet",
         "baselines.parquet": "baselines.parquet",
     }
+    if task_metadata is not None:
+        s3_download_map[task_metadata] = task_metadata
     s3_download_map = {f'{path_context}{k}': f'{s3_prefix}{v}' for k, v in s3_download_map.items()}
     _s3_download_map_metadata_pp = {f"{split_key}{f}": f"{split_value}{f}" for f in files_pp}
     _s3_download_map_metadata_gt = {f"{split_key}{f}": f"{split_value}{f}" for f in files_gt}
@@ -568,6 +571,7 @@ def construct_context(
             split_key=split_key,
             files_pp=_files_pp,
             files_gt=_files_gt,
+            task_metadata=task_metadata,
         )
     else:
         _s3_download_map = None
