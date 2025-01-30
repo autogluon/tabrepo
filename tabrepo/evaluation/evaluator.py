@@ -6,7 +6,7 @@ import pandas as pd
 
 from autogluon.common.savers import save_pd
 
-from ..repository import EvaluationRepository
+from ..repository import EvaluationRepository, EvaluationRepositoryCollection
 from ..repository.repo_utils import convert_time_infer_s_from_sample_to_batch
 
 
@@ -18,7 +18,7 @@ class Evaluator:
     """
     def __init__(
         self,
-        repo: EvaluationRepository,
+        repo: EvaluationRepository | EvaluationRepositoryCollection,
     ):
         self.repo = repo
 
