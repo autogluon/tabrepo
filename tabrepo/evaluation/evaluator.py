@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 import pandas as pd
 
 from autogluon.common.savers import save_pd
 
-from ..repository import EvaluationRepository
+from ..repository import EvaluationRepository, EvaluationRepositoryCollection
 from ..repository.repo_utils import convert_time_infer_s_from_sample_to_batch
 
 
@@ -18,7 +19,7 @@ class Evaluator:
     """
     def __init__(
         self,
-        repo: EvaluationRepository,
+        repo: EvaluationRepository | EvaluationRepositoryCollection,
     ):
         self.repo = repo
 
@@ -34,6 +35,7 @@ class Evaluator:
         folds: list[int] = None,
         configs: list[str] = None,
         baselines: list[str] = None,
+        convert_from_sample_to_batch: bool = False,
     ) -> pd.DataFrame:
         if datasets is None:
             datasets = self.repo.datasets()
@@ -54,7 +56,7 @@ class Evaluator:
             mask = mask & df_tr.index.get_level_values("framework").isin(configs)
         df_tr = df_tr[mask]
 
-        if self.repo.task_metadata is not None:
+        if self.repo.task_metadata is not None and convert_from_sample_to_batch:
             df_tr = convert_time_infer_s_from_sample_to_batch(df_tr, repo=self.repo)
 
         if self.repo._zeroshot_context.df_baselines is not None:
@@ -67,7 +69,7 @@ class Evaluator:
                 mask = mask & df_baselines.index.get_level_values("framework").isin(baselines)
             df_baselines = df_baselines[mask]
 
-            if self.repo.task_metadata is not None:
+            if self.repo.task_metadata is not None and convert_from_sample_to_batch:
                 df_baselines = convert_time_infer_s_from_sample_to_batch(df_baselines, repo=self.repo)
         else:
             if baselines:
@@ -144,3 +146,52 @@ class Evaluator:
         )
 
         return evaluator_output
+
+    # TODO: aggregate_config_family: bool
+    # TODO: sort rows by size? color by problem type?
+    def plot_ensemble_weights(
+        self,
+        df_ensemble_weights: pd.DataFrame,
+        aggregate_folds: bool = True,
+        sort_by_mean: bool = True,
+        include_mean: bool = True,
+        **kwargs,
+    ):
+        """
+
+        Parameters
+        ----------
+        df_ensemble_weights : pd.DataFrame
+            The 2nd output object of `repo.evaluate_ensembles(...)
+        aggregate_folds : bool, default True
+            If True, averages folds of datasets together into single rows representing a dataset.
+            If False, each fold of each dataset will be its own row.
+        sort_by_mean : bool, default True
+            If True, will sort columns by the mean value of the column.
+            If False, columns will remain in the original order.
+        include_mean : bool, default True
+            If True, will add a row at the bottom with label "mean" representing the mean of the config weights across all tasks.
+            NaN values are considered 0 for the purposes of calculating the mean.
+        **kwargs
+            Passed to the `create_heatmap` function
+
+        Returns
+        -------
+        plt
+
+        """
+        df_ensemble_weights = copy.deepcopy(df_ensemble_weights)
+        if aggregate_folds:
+            df_ensemble_weights = df_ensemble_weights.groupby(level='dataset').mean()
+        else:
+            index_new = list(df_ensemble_weights.index.to_flat_index())
+            index_new = [str(t[0]) + "_" + str(t[1]) for t in index_new]
+            df_ensemble_weights.index = index_new
+
+        if sort_by_mean:
+            s = df_ensemble_weights.sum()
+            df_ensemble_weights = df_ensemble_weights[s.sort_values(ascending=False).index]
+
+        from tabrepo.plot.plot_ens_weights import create_heatmap
+        p = create_heatmap(df=df_ensemble_weights, include_mean=include_mean, **kwargs)
+        return p
