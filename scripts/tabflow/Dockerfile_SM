@@ -1,0 +1,18 @@
+FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/autogluon-training:1.1.1-cpu-py311-ubuntu20.04
+
+# Copy the contents of the tab-benchmark folder to the container - run from tabflow
+COPY ../ .
+COPY ./tabflow/evaluate.py .
+
+RUN pip install autogluon==1.1.1
+
+RUN pip install fire
+# Install the required packages
+RUN pip install -e tabrepo \
+    && pip install -e autogluon-bench \
+    && pip install -e autogluon-benchmark
+
+# Install pytabkit and seaborn
+RUN pip install pytabkit seaborn
+
+RUN chmod +x ./evaluate.py

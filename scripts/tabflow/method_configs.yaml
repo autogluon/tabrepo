@@ -1,0 +1,17 @@
+methods:
+  - name: "RealMLP_c1_BAG_L1_v4_noes_r0"
+    wrapper_class: "AGWrapper"
+    fit_kwargs:
+      num_bag_folds: 8
+      num_bag_sets: 1
+      fit_weighted_ensemble: False
+      calibrate: False
+      verbosity: 2
+      hyperparameters:
+        RealMLPModel:
+          random_state: 0
+          use_early_stopping: False
+  # - name: "AnotherMethod"
+  #   wrapper_class: "AnotherWrapper"
+  #   fit_kwargs:
+  #     # Another method's fit kwargs
