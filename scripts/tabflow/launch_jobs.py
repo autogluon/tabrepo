@@ -80,7 +80,7 @@ def launch_jobs(
                 method_name, wrapper_class, fit_kwargs = method
                 # Create a unique job name
                 timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-                base_name = f"mlflow-{dataset}-f{fold}-{method_name}-{timestamp}"
+                base_name = f"{dataset[:4]}-f{fold}-{method_name[:4]}-{timestamp}"
                 job_name = sanitize_job_name(base_name)
 
 
@@ -99,7 +99,7 @@ def launch_jobs(
                 job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
                 job_hyperparameters.update({
                     "dataset": dataset,
-                    "fold": fold,   # Can be a 'str' as well, refer to Estimators in SM docs
+                    "fold": fold,   # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
                     "method_name": method_name,
                     "wrapper_class": wrapper_class,
                     "fit_kwargs": f"'{json.dumps(fit_kwargs)}'",

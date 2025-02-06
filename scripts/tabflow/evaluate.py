@@ -35,15 +35,8 @@ if __name__ == '__main__':
     expname = "./initial_experiment_simple_simulator"  # folder location of all experiment artifacts
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
+    #TODO: Download the repo without pred-proba
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
-
-    # Sample for a quick demo
-    # datasets = ["Australian", "blood-transfusion-service-center"]
-    # folds = [0, 1]
-
-    # To run everything:
-    # datasets = repo_og.datasets()
-    # folds = repo_og.folds
 
     datasets = args.datasets
     if -1 in args.folds:
@@ -53,9 +46,13 @@ if __name__ == '__main__':
 
     # Parse fit_kwargs from JSON string
     fit_kwargs = json.loads(args.fit_kwargs)
-    for key, value in fit_kwargs['hyperparameters'].items():
+    # Cannot change dictionary keys during iteration. Hence iterate over a copy of the keys.
+    for key in list(fit_kwargs['hyperparameters'].keys()):
         # TODO: Will not work if model class is given as string - like GBM in AGWrapper
-        fit_kwargs['hyperparameters'][eval(key)] = fit_kwargs['hyperparameters'].pop(key)
+        if key == "GBM":
+            fit_kwargs['hyperparameters'][key] = fit_kwargs['hyperparameters'].pop(key)
+        else:
+            fit_kwargs['hyperparameters'][eval(key)] = fit_kwargs['hyperparameters'].pop(key)
 
 
     methods = [(args.method_name, eval(args.wrapper_class), {'fit_kwargs': fit_kwargs})]
@@ -81,6 +78,7 @@ if __name__ == '__main__':
 
     print(f"New Configs   : {repo.configs()}")
 
+    # TODO: Remove as this is a post-aggregation step
     repo_combined = EvaluationRepositoryCollection(repos=[repo_og, repo], config_fallback="ExtraTrees_c1_BAG_L1")
     repo_combined = repo_combined.subset(datasets=repo.datasets(), folds=repo.folds)
 
