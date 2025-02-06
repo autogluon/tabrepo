@@ -4,9 +4,6 @@ FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/autogluon-training:1.1.1-cpu-p
 COPY ../ .
 COPY ./tabflow/evaluate.py .
 
-RUN pip install autogluon==1.1.1
-
-RUN pip install fire
 # Install the required packages
 RUN pip install -e tabrepo \
     && pip install -e autogluon-bench \
@@ -15,4 +12,7 @@ RUN pip install -e tabrepo \
 # Install pytabkit and seaborn
 RUN pip install pytabkit seaborn
 
+# Generate configs and give permissions
+RUN chmod +x ./tabrepo/scripts/run_generate_all_configs.py
+RUN python ./tabrepo/scripts/run_generate_all_configs.py
 RUN chmod +x ./evaluate.py

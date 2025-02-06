@@ -17,7 +17,7 @@ from tabrepo.scripts_v5.ag_models.realmlp_model import RealMLPModel
 # If the artifact is present, it will be used and the models will not be re-run.
 if __name__ == '__main__':
     # Load Context
-    context_name = "D244_F3_C1530_30"  # 30 Datasets. To run larger, set to "D244_F3_C1530_200"
+    context_name = "D244_F3_C1530_200"  # 200 smallest datasets. To run larger, set to "D244_F3_C1530_200"
     expname = "./initial_experiment_simple_simulator"  # folder location of all experiment artifacts
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
@@ -26,12 +26,12 @@ if __name__ == '__main__':
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
 
     # Sample for a quick demo
-    datasets = ["Australian", "blood-transfusion-service-center"]
-    folds = [0, 1]
+    # datasets = repo_og.datasets()[:3]
+    # folds = [0]
 
     # To run everything:
-    # datasets = repo_og.datasets()
-    # folds = repo_og.folds
+    datasets = repo_og.datasets()
+    folds = repo_og.folds
 
     # TODO: Why is RealMLP slow when running sequentially / not in a bag? Way slower than it should be. Torch threads?
     methods = [

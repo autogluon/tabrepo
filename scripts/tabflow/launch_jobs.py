@@ -1,9 +1,11 @@
 import boto3
 import sagemaker
-from pathlib import Path
-import fire
 import re
+import yaml
+import argparse
+import json
 from datetime import datetime
+from pathlib import Path
 
 
 DOCKER_IMAGE_ALIASES = {
@@ -43,6 +45,9 @@ def launch_jobs(
         job_name: str = None,
         keep_alive_period_in_seconds: int = 300,
         limit_runtime: int = 24 * 60 * 60,
+        datasets: list = None,
+        folds: list = None,
+        methods_file: str = "methods.yaml",
 ) -> None:
     """
     Launch multiple SageMaker training jobs.
@@ -58,82 +63,81 @@ def launch_jobs(
         job_name: Name for the training job
         keep_alive_period_in_seconds: Idle time before terminating the instance
         limit_runtime: Maximum running time in seconds
+        datasets: List of datasets to evaluate
+        folds: List of folds to evaluate
+        methods_file: Path to the YAML file containing methods
     """
 
     # Load methods from YAML file
-    with open(args.methods, 'r') as file:
+    with open(methods_file, 'r') as file:
         methods_data = yaml.safe_load(file)
 
-    methods = [(method["name"], eval(method["wrapper_class"]), method["fit_kwargs"]) for method in methods_data["methods"]]
+    methods = [(method["name"], method["wrapper_class"], method["fit_kwargs"]) for method in methods_data["methods"]]
+
+    for dataset in datasets:
+        for fold in folds:
+            for method in methods:
+                method_name, wrapper_class, fit_kwargs = method
+                # Create a unique job name
+                timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                base_name = f"mlflow-{dataset}-f{fold}-{method_name}-{timestamp}"
+                job_name = sanitize_job_name(base_name)
 
 
-    # combinations = [
-    #     {
-    #         "dataset": "Australian",
-    #         "fold": 0,
-    #     },
-    #     {
-    #         "dataset": "Australian",
-    #         "fold": 1,
-    #     },
-    #     {
-    #         "dataset": "blood-transfusion-service-center",
-    #         "fold": 0,
-    #     },
-    #     {
-    #         "dataset": "blood-transfusion-service-center",
-    #         "fold": 1,
-    #     },
-    # ]
+                if docker_image_uri in DOCKER_IMAGE_ALIASES:
+                    print(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
+                    docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
 
-    for combination in combinations:
-        # Create a unique job name
-        # job_name = f"mlflow-job_{combination['dataset']}_fold_{combination['fold']}"
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        base_name = f"mlflow-{combination['dataset']}-f{combination['fold']}-{timestamp}"
-        job_name = sanitize_job_name(base_name)
+                # Create SageMaker session
+                sagemaker_session = (
+                    sagemaker.Session(boto_session=boto3.Session(profile_name=aws_profile))
+                    if aws_profile is not None
+                    else sagemaker.Session()
+                )
 
+                # Update hyperparameters for this job
+                job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
+                job_hyperparameters.update({
+                    "dataset": dataset,
+                    "fold": fold,   # Can be a 'str' as well, refer to Estimators in SM docs
+                    "method_name": method_name,
+                    "wrapper_class": wrapper_class,
+                    "fit_kwargs": f"'{json.dumps(fit_kwargs)}'",
+                })
 
-        if docker_image_uri in DOCKER_IMAGE_ALIASES:
-            print(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
-            docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
+                # Create the estimator
+                estimator = sagemaker.estimator.Estimator(
+                    entry_point=entry_point,
+                    source_dir=source_dir,
+                    image_uri=docker_image_uri,
+                    role=sagemaker_role,
+                    instance_count=1,
+                    instance_type=instance_type,
+                    sagemaker_session=sagemaker_session,
+                    hyperparameters=job_hyperparameters,
+                    keep_alive_period_in_seconds=keep_alive_period_in_seconds,
+                    max_run=limit_runtime,
+                )
 
-        # Create SageMaker session
-        sagemaker_session = (
-            sagemaker.Session(boto_session=boto3.Session(profile_name=aws_profile))
-            if aws_profile is not None
-            else sagemaker.Session()
-        )
-
-        # Update hyperparameters for this job
-        job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
-        job_hyperparameters.update({
-            "dataset": combination["dataset"],
-            "fold": combination["fold"],    # Can be a 'str' as well, refer to Estimators in SM docs
-        })
-
-        # Create the estimator
-        estimator = sagemaker.estimator.Estimator(
-            entry_point=entry_point,
-            source_dir=source_dir,
-            image_uri=docker_image_uri,
-            role=sagemaker_role,
-            instance_count=1,
-            instance_type=instance_type,
-            sagemaker_session=sagemaker_session,
-            hyperparameters=job_hyperparameters,
-            keep_alive_period_in_seconds=keep_alive_period_in_seconds,
-            max_run=limit_runtime,
-        )
-
-        # Launch the training job
-        estimator.fit(wait=False, job_name=job_name)
-        print(f"Launched training job: {estimator.latest_training_job.name}")
+                # Launch the training job
+                estimator.fit(wait=False, job_name=job_name)
+                print(f"Launched training job: {estimator.latest_training_job.name}")
 
 
 def main():
     """Entrypoint for CLI"""
-    fire.Fire(launch_jobs)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--datasets', nargs='+', type=str, required=True, help="List of datasets to evaluate")
+    parser.add_argument('--folds', nargs='+', type=int, required=True, help="List of folds to evaluate")
+    parser.add_argument('--methods_file', type=str, required=True, help="Path to the YAML file containing methods")
+
+    args = parser.parse_args()
+
+    launch_jobs(
+        datasets=args.datasets,
+        folds=args.folds,
+        methods_file=args.methods_file,
+    )
 
 
 if __name__ == "__main__":

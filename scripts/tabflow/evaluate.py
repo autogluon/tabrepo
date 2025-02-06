@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import argparse
+import yaml
 import pandas as pd
+import json
 
-from experiment_utils import ExperimentBatchRunner
+from tabrepo.utils.experiment_utils import ExperimentBatchRunner
 from tabrepo import EvaluationRepository, EvaluationRepositoryCollection, Evaluator
 from tabrepo.scripts_v5.AutoGluon_class import AGWrapper
 from tabrepo.scripts_v5.ag_models.realmlp_model import RealMLPModel
@@ -13,8 +16,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--datasets', nargs='+', type=str, required=True, help="List of datasets to evaluate")
     parser.add_argument('--folds', nargs='+', type=int, required=True, help="List of folds to evaluate")
-    parser.add_argument('--methods', type=str, required=True, help="Path to the YAML file containing methods")
+    parser.add_argument('--method_name', type=str, required=True, help="Name of the method")
+    parser.add_argument('--wrapper_class', type=str, required=True, help="Wrapper class for the method")
+    parser.add_argument('--fit_kwargs', type=str, required=True, help="Fit kwargs for the method in JSON format")
+
     args = parser.parse_args()
+
+    # Debugging: Print raw arguments
+    print("Raw arguments received:")
+    print(f"datasets: {args.datasets}")
+    print(f"folds: {args.folds}")
+    print(f"method_name: {args.method_name}")
+    print(f"wrapper_class: {args.wrapper_class}")
+    print(f"fit_kwargs: {args.fit_kwargs}")
 
     # Load Context
     context_name = "D244_F3_C1530_30"  # 30 Datasets. To run larger, set to "D244_F3_C1530_200"
@@ -37,33 +51,17 @@ if __name__ == '__main__':
     else:
         folds = args.folds
 
-    # Load methods from YAML file
-    with open(args.methods, 'r') as file:
-        methods_data = yaml.safe_load(file)
+    # Parse fit_kwargs from JSON string
+    fit_kwargs = json.loads(args.fit_kwargs)
+    for key, value in fit_kwargs['hyperparameters'].items():
+        # TODO: Will not work if model class is given as string - like GBM in AGWrapper
+        fit_kwargs['hyperparameters'][eval(key)] = fit_kwargs['hyperparameters'].pop(key)
 
-    methods = [(method["name"], eval(method["wrapper_class"]), method["fit_kwargs"]) for method in methods_data["methods"]]
 
-    # methods = [
-    #     (
-    #         "RealMLP_c1_BAG_L1_v4_noes_r0", # Name of the method
-    #         AGWrapper,  # Wrapper class
-    #         {
-    #             "fit_kwargs": { # Fit kwargs: AutoGluon hyperparameters + custom model hyperparameters
-    #                 "num_bag_folds": 8,
-    #                 "num_bag_sets": 1,
-    #                 "fit_weighted_ensemble": False,
-    #                 "calibrate": False,
-    #                 "verbosity": 2,
-    #                 "hyperparameters": {
-    #                     RealMLPModel: { # Custom model class and its hyperparameters
-    #                         "random_state": 0,
-    #                         "use_early_stopping": False,
-    #                     },
-    #                 },
-    #             }
-    #         },
-    #     ),
-    # ]
+    methods = [(args.method_name, eval(args.wrapper_class), {'fit_kwargs': fit_kwargs})]
+
+    print(f"\nWrapper class: {args.wrapper_class}\n")
+    print(f"Fit kwargs: {fit_kwargs}\n")
 
     tids = [repo_og.dataset_to_tid(dataset) for dataset in datasets]
     repo: EvaluationRepository = ExperimentBatchRunner().generate_repo_from_experiments(

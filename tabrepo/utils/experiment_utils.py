@@ -7,7 +7,7 @@ from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionPickle, CacheFunctionDummy
 from tabrepo import EvaluationRepository
-from experiment_runner import ExperimentRunner, OOFExperimentRunner
+from tabrepo.utils.experiment_runner import ExperimentRunner, OOFExperimentRunner
 
 
 # TODO: Which save hierarchy?
