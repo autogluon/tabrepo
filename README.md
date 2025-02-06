@@ -167,7 +167,7 @@ If you find this work useful for you research, please cite the following:
 ```
 @inproceedings{
   tabrepo,
-  title={TabRepo: A Large Scale Repository of Tabular Model Evaluations and its Auto{ML} Applications},
+  title={TabRepo: A Large Scale Repository of Tabular Model Evaluations and its AutoML Applications},
   author={David Salinas and Nick Erickson},
   booktitle={AutoML Conference 2024 (ABCD Track)},
   year={2024},
