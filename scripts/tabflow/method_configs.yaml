@@ -11,7 +11,7 @@ methods:
         RealMLPModel:
           random_state: 0
           use_early_stopping: False
-  - name: "LightGBM_c1_BAG_L1_Reproduced"
+  - name: "LightGBM_c1_BAG_L1_Reproduced_AWS"
     wrapper_class: "AGWrapper"
     fit_kwargs:
       num_bag_folds: 8

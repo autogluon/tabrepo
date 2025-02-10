@@ -35,6 +35,7 @@ def sanitize_job_name(name: str) -> str:
 
 
 def launch_jobs(
+        experiment_name: str = "tabflow",
         entry_point: str = "evaluate.py",
         source_dir: str = ".",
         instance_type: str = "ml.m6i.4xlarge",
@@ -53,6 +54,7 @@ def launch_jobs(
     Launch multiple SageMaker training jobs.
 
     Args:
+        experiment_name: Name of the experiment
         entry_point: The Python script to run
         source_dir: Directory containing the training code
         instance_type: SageMaker instance type
@@ -67,6 +69,8 @@ def launch_jobs(
         folds: List of folds to evaluate
         methods_file: Path to the YAML file containing methods
     """
+    timestamp = datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")[:-3]
+    experiment_name = f"{experiment_name}-{timestamp}"
 
     # Load methods from YAML file
     with open(methods_file, 'r') as file:
@@ -98,6 +102,7 @@ def launch_jobs(
                 # Update hyperparameters for this job
                 job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
                 job_hyperparameters.update({
+                    "experiment_name": experiment_name,
                     "dataset": dataset,
                     "fold": fold,   # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
                     "method_name": method_name,
