@@ -16,6 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--experiment_name', type=str, required=True, help="Name of the experiment")
+    parser.add_argument('--context_name', type=str, required=True, help="Name of the context")
     parser.add_argument('--datasets', nargs='+', type=str, required=True, help="List of datasets to evaluate")
     parser.add_argument('--folds', nargs='+', type=int, required=True, help="List of folds to evaluate")
     parser.add_argument('--method_name', type=str, required=True, help="Name of the method")
@@ -25,22 +26,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load Context
-    context_name = "D244_F3_C1530_30"  # 30 Datasets. To run larger, set to "D244_F3_C1530_200"
+    context_name = args.context_name #"D244_F3_C1530_30"  # 30 Datasets. To run larger, set to "D244_F3_C1530_200"
     expname = args.experiment_name  # folder location of all experiment artifacts
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
     #TODO: Download the repo without pred-proba
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
 
-    if args.datasets == "run_all":
-        datasets = repo_og.datasets()   # run on all datasets
-    else:
-        datasets = args.datasets
-
-    if -1 in args.folds:
-        folds = repo_og.folds  # run on all folds
-    else:
-        folds = args.folds
+    datasets = args.datasets
+    folds = args.folds
 
     # Parse fit_kwargs from JSON string
     fit_kwargs = json.loads(args.fit_kwargs)
