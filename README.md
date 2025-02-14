@@ -30,6 +30,7 @@ To install the repository, ensure you are using Python 3.9-3.11. Other Python ve
 git clone https://github.com/autogluon/tabrepo.git
 cd tabrepo 
 pip install -e .
+cd ..
 ```
 
 Only Linux support has been tested. Support for Windows and MacOS is not confirmed, and you may run into bugs or a suboptimal experience (especially if you are unable to install ray).
@@ -44,10 +45,12 @@ If you are interested in reproducing the experiments of the paper, you will need
 git clone https://github.com/autogluon/autogluon-bench.git
 cd autogluon-bench
 pip install -e .
+cd ..
 
 git clone https://github.com/Innixma/autogluon-benchmark.git
 cd autogluon-benchmark
 pip install -e .
+cd ..
 
 # Install extra dependencies used for results scripts
 pip install autorank seaborn
