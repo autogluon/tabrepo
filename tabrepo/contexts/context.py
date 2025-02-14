@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -22,6 +23,7 @@ from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..predictions.tabular_predictions import TabularModelPredictions
 from ..repository.evaluation_repository import EvaluationRepository
 from ..utils import catchtime
+from ..utils.huggingfacehub_utils import download_from_huggingface
 from ..utils.download import download_files
 
 
@@ -260,7 +262,9 @@ class BenchmarkContext:
                  include_zs: bool = True,
                  exists: str = 'raise',
                  verbose: bool = True,
-                 dry_run: bool = False):
+                 dry_run: bool = False,
+                 use_s3: bool = True,
+    ):
         """
         Downloads all BenchmarkContext required files from s3 to local disk.
 
@@ -275,78 +279,90 @@ class BenchmarkContext:
                 Guarantees alignment between local and remote files (at the time of download)
         :param dry_run: If True, will not download files, but instead log what would have been downloaded.
         """
-        print(f'Downloading files for {self.name} context... '
-              f'(include_zs={include_zs}, exists="{exists}", dry_run={dry_run})')
-        if dry_run:
-            print(f'\tNOTE: `dry_run=True`! Files will not be downloaded.')
-        assert exists in ["raise", "ignore", "overwrite"]
-        assert self.s3_download_map is not None, \
-            f'self.s3_download_map is None: download functionality is disabled'
-        file_paths_expected = self.benchmark_paths.get_file_paths(include_zs=include_zs)
+        if verbose:
+            print(f'Downloading files for {self.name} context... '
+                  f'(include_zs={include_zs}, exists="{exists}")')
+        if use_s3:
+            print(f'Downloading files for {self.name} context... '
+                  f'(include_zs={include_zs}, exists="{exists}", dry_run={dry_run})')
+            if dry_run:
+                print(f'\tNOTE: `dry_run=True`! Files will not be downloaded.')
+            assert exists in ["raise", "ignore", "overwrite"]
+            assert self.s3_download_map is not None, \
+                f'self.s3_download_map is None: download functionality is disabled'
+            file_paths_expected = self.benchmark_paths.get_file_paths(include_zs=include_zs)
 
-        file_paths_to_download = [f for f in file_paths_expected if f in self.s3_download_map]
-        if len(file_paths_to_download) == 0:
-            print(f'WARNING: Matching file paths to download is 0! '
-                  f'`self.s3_download_map` probably has incorrect keys.')
-        file_paths_already_exist = [f for f in file_paths_to_download if self.benchmark_paths.exists(f)]
-        file_paths_missing = [f for f in file_paths_to_download if not self.benchmark_paths.exists(f)]
+            file_paths_to_download = [f for f in file_paths_expected if f in self.s3_download_map]
+            if len(file_paths_to_download) == 0:
+                print(f'WARNING: Matching file paths to download is 0! '
+                      f'`self.s3_download_map` probably has incorrect keys.')
+            file_paths_already_exist = [f for f in file_paths_to_download if self.benchmark_paths.exists(f)]
+            file_paths_missing = [f for f in file_paths_to_download if not self.benchmark_paths.exists(f)]
 
-        if exists == 'raise':
-            if file_paths_already_exist:
-                raise AssertionError(f'`exists="{exists}"`, '
-                                     f'and found {len(file_paths_already_exist)} files that already exist locally!\n'
-                                     f'\tExisting Files: {file_paths_already_exist}\n'
-                                     f'\tMissing  Files: {file_paths_missing}\n'
-                                     f'Either manually inspect and delete existing files, '
-                                     f'set `exists="ignore"` to keep your local files and only download missing files, '
-                                     f'or set `exists="overwrite"` to overwrite your existing local files.')
-        elif exists == 'ignore':
-            file_paths_to_download = file_paths_missing
-        elif exists == 'overwrite':
-            file_paths_to_download = file_paths_to_download
-        else:
-            raise ValueError(f'Invalid value for exists (`exists="{exists}"`). '
-                             f'Valid values: {["raise", "ignore", "overwrite"]}')
-
-        s3_to_local_tuple_list = [(val, key) for key, val in self.s3_download_map.items()
-                                  if key in file_paths_to_download]
-
-        log_extra = ''
-
-        num_exist = len(file_paths_already_exist)
-        if exists == 'overwrite':
-            if num_exist > 0:
-                log_extra += f'\tWill overwrite {num_exist} files that exist locally:\n' \
-                            f'\t\t{file_paths_already_exist}'
+            if exists == 'raise':
+                if file_paths_already_exist:
+                    raise AssertionError(f'`exists="{exists}"`, '
+                                         f'and found {len(file_paths_already_exist)} files that already exist locally!\n'
+                                         f'\tExisting Files: {file_paths_already_exist}\n'
+                                         f'\tMissing  Files: {file_paths_missing}\n'
+                                         f'Either manually inspect and delete existing files, '
+                                         f'set `exists="ignore"` to keep your local files and only download missing files, '
+                                         f'or set `exists="overwrite"` to overwrite your existing local files.')
+            elif exists == 'ignore':
+                file_paths_to_download = file_paths_missing
+            elif exists == 'overwrite':
+                file_paths_to_download = file_paths_to_download
             else:
-                log_extra = f''
-        if exists == 'ignore':
-            log_extra += f'\tWill skip {num_exist} files that exist locally:\n' \
-                            f'\t\t{file_paths_already_exist}'
-        if file_paths_missing:
-            if log_extra:
-                log_extra += '\n'
-            log_extra += f'Will download {len(file_paths_missing)} files that are missing locally:\n' \
-                         f'\t\t{file_paths_missing}'
+                raise ValueError(f'Invalid value for exists (`exists="{exists}"`). '
+                                 f'Valid values: {["raise", "ignore", "overwrite"]}')
 
-        if log_extra:
-            print(log_extra)
-        print(f'\tDownloading {len(s3_to_local_tuple_list)} files from s3 to local...')
-        for s3_path, local_path in s3_to_local_tuple_list:
-            print(f'\t\t"{s3_path}" -> "{local_path}"')
-        s3_required_list = [(s3_path, local_path) for s3_path, local_path in s3_to_local_tuple_list if s3_path[:2] == "s3"]
-        urllib_required_list = [(s3_path, local_path) for s3_path, local_path in s3_to_local_tuple_list if s3_path[:2] != "s3"]
-        if urllib_required_list:
-            download_files(remote_to_local_tuple_list=urllib_required_list, dry_run=dry_run, verbose=verbose)
-        if s3_required_list:
-            download_s3_files(s3_to_local_tuple_list=s3_required_list, dry_run=dry_run, verbose=verbose)
+            s3_to_local_tuple_list = [(val, key) for key, val in self.s3_download_map.items()
+                                      if key in file_paths_to_download]
+
+            log_extra = ''
+
+            num_exist = len(file_paths_already_exist)
+            if exists == 'overwrite':
+                if num_exist > 0:
+                    log_extra += f'\tWill overwrite {num_exist} files that exist locally:\n' \
+                                 f'\t\t{file_paths_already_exist}'
+                else:
+                    log_extra = f''
+            if exists == 'ignore':
+                log_extra += f'\tWill skip {num_exist} files that exist locally:\n' \
+                             f'\t\t{file_paths_already_exist}'
+            if file_paths_missing:
+                if log_extra:
+                    log_extra += '\n'
+                log_extra += f'Will download {len(file_paths_missing)} files that are missing locally:\n' \
+                             f'\t\t{file_paths_missing}'
+
+            if log_extra:
+                print(log_extra)
+            print(f'\tDownloading {len(s3_to_local_tuple_list)} files from s3 to local...')
+            for s3_path, local_path in s3_to_local_tuple_list:
+                print(f'\t\t"{s3_path}" -> "{local_path}"')
+            s3_required_list = [(s3_path, local_path) for s3_path, local_path in s3_to_local_tuple_list if
+                                s3_path[:2] == "s3"]
+            urllib_required_list = [(s3_path, local_path) for s3_path, local_path in s3_to_local_tuple_list if
+                                    s3_path[:2] != "s3"]
+            if urllib_required_list:
+                download_files(remote_to_local_tuple_list=urllib_required_list, dry_run=dry_run, verbose=verbose)
+            if s3_required_list:
+                download_s3_files(s3_to_local_tuple_list=s3_required_list, dry_run=dry_run, verbose=verbose)
+        else:
+            download_from_huggingface(
+                datasets=self.benchmark_paths.datasets,
+            )
 
     def load(self,
              folds: List[int] = None,
              load_predictions: bool = True,
              download_files: bool = True,
              prediction_format: str = "memmap",
-             exists: str = 'ignore') -> Tuple[ZeroshotSimulatorContext, TabularModelPredictions, GroundTruth]:
+             exists: str = 'ignore',
+             use_s3: bool = True,
+             ) -> Tuple[ZeroshotSimulatorContext, TabularModelPredictions, GroundTruth]:
         """
         :param folds: If None, uses self.folds as default.
             If specified, must be a subset of `self.folds`. This will filter the results to only the specified folds.
@@ -397,7 +413,7 @@ class BenchmarkContext:
                         missing_files_str = [f'\n\t"{m}"' for m in missing_files]
                         raise FileNotFoundError(f'Missing {len(missing_files)} required files: \n[{",".join(missing_files_str)}\n]')
                 print(f'Downloading input files from s3...')
-                self.download(include_zs=load_predictions, exists=exists)
+                self.download(include_zs=load_predictions, exists=exists, use_s3=use_s3)
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
 
             configs_hyperparameters = self.load_configs_hyperparameters()
@@ -419,6 +435,7 @@ class BenchmarkContext:
         download_files: bool = True,
         prediction_format: str = "memmap",
         exists: str = 'ignore',
+        use_s3: bool = True,
     ) -> EvaluationRepository:
         zsc, zeroshot_pred_proba, zeroshot_gt = self.load(
             folds=folds,
@@ -426,6 +443,7 @@ class BenchmarkContext:
             download_files=download_files,
             prediction_format=prediction_format,
             exists=exists,
+            use_s3=use_s3,
         )
         repo = EvaluationRepository(
             zeroshot_context=zsc,
