@@ -7,7 +7,7 @@ from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionPickle, CacheFunctionDummy
 from tabrepo import EvaluationRepository
-from experiment_runner import ExperimentRunner, OOFExperimentRunner
+from tabrepo.utils.experiment_runner import ExperimentRunner, OOFExperimentRunner
 
 
 # TODO: Which save hierarchy?
@@ -30,6 +30,7 @@ class ExperimentBatchRunner:
         cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
         cache_cls_kwargs: dict = None,
         convert_time_infer_s_from_batch_to_sample: bool = False,
+        mode="local"
     ) -> EvaluationRepository:
         results_lst = run_experiments(
             expname=expname,
@@ -41,6 +42,7 @@ class ExperimentBatchRunner:
             cache_cls_kwargs=cache_cls_kwargs,
             task_metadata=task_metadata,
             ignore_cache=ignore_cache,
+            mode=mode
         )
 
         results_baselines = [result["df_results"] for result in results_lst if result["simulation_artifacts"] is None]
@@ -76,6 +78,7 @@ def run_experiments(
     experiment_cls: Type[ExperimentRunner] = ExperimentRunner,
     cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
     cache_cls_kwargs: dict = None,
+    mode: str = "local"
 ) -> list:
     '''
 
@@ -99,6 +102,12 @@ def run_experiments(
         cache_cls = CacheFunctionDummy
     if cache_cls_kwargs is None:
         cache_cls_kwargs = {}
+
+    # Modify cache path based on mode
+    if mode == "local":
+        base_cache_path = expname
+    else:
+        base_cache_path = f"s3://prateek-ag/{expname}"
     # FIXME: dataset or name? Where does `dataset` come from, why can it be different from `name`?
     #  Using dataset for now because for some datasets like "GAMETES", the name is slightly different with `.` in `name` being replaced with `_` in `dataset`.
     #  This is probably because `.` isn't a valid name in a file in s3.
@@ -127,7 +136,7 @@ def run_experiments(
                     f"\tFitting {task_name} on fold {fold} for method {method}"
                 )
 
-                cacher = cache_cls(cache_name=cache_name, cache_path=expname, **cache_cls_kwargs)
+                cacher = cache_cls(cache_name=cache_name, cache_path=base_cache_path, **cache_cls_kwargs)
 
                 if task is None:
                     if ignore_cache or not cacher.exists:
