@@ -1,3 +1,4 @@
+import tabrepo
 import os
 from pathlib import Path
 
@@ -5,7 +6,7 @@ from huggingface_hub import HfApi
 from tqdm import tqdm
 
 
-def upload_hugging_face(version: str, repo_id: str, override_existing_files: bool = True):
+def upload_hugging_face(version: str, repo_id: str, override_existing_files: bool = True, continue_in_case_of_error: bool = True):
     """
     Uploads tabrepo data to Hugging Face repository.
     You should set your env variable HF_TOKEN and ask write access to tabrepo before using the script.
@@ -59,7 +60,10 @@ def upload_hugging_face(version: str, repo_id: str, override_existing_files: boo
                 token=os.getenv("HF_TOKEN"),
             )
         except Exception as e:
-            print(str(e))
+            if continue_in_case_of_error:
+                print(str(e))
+            else:
+                raise e
 
 
 def download_from_huggingface(
@@ -67,17 +71,23 @@ def download_from_huggingface(
         force_download: bool = False,
         local_files_only: bool = False,
         datasets: list[str] | None = None,
+        local_dir: str | Path = None,
 ):
     """
     :param version: name of a tabrepo version such as `2023_11_14`
     :param local_files_only: whether to use local files with no internet check on the Hub
     :param force_download: forces files to be downloaded
     :param datasets: list of datasets to download, if not specified all datasets will be downloaded
+    :param local_dir: where to download local files, if not specified all files will be downloaded under
+     {tabrepo_root}/data/results
     :return:
     """
     # https://huggingface.co/datasets/Tabrepo/tabrepo/tree/main/2023_11_14/model_predictions
     api = HfApi()
-    local_dir = str(Path(__file__).parent.parent.parent / "data/results/")
+    if local_dir is None:
+        local_dir = str(Path(tabrepo.__path__[0]).parent / "data/results/"),
+    else:
+        local_dir = str(local_dir)
     print(f"Going to download tabrepo files to {local_dir}.")
     if datasets is None:
         allow_patterns = None
@@ -95,7 +105,7 @@ def download_from_huggingface(
         repo_id="Tabrepo/tabrepo",
         repo_type="dataset",
         allow_patterns=allow_patterns,
-        local_dir=str(Path(__file__).parent.parent.parent / "data/results/"),
+        local_dir=local_dir,
         force_download=force_download,
         local_files_only=local_files_only,
     )
