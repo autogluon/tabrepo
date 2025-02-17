@@ -87,7 +87,6 @@ def download_from_huggingface(
     allow_patterns += [
         "*baselines.parquet",
         "*configs.parquet",
-        "*baselines.parquet",
         "*task_metadata.csv",
     ]
 
