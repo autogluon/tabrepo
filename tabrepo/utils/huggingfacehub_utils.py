@@ -5,7 +5,13 @@ from tqdm import tqdm
 
 from tabrepo.utils.result_utils import results_path
 
-def upload_hugging_face(version: str, repo_id: str, override_existing_files: bool = True, continue_in_case_of_error: bool = True):
+def upload_hugging_face(
+        version: str,
+        repo_id: str,
+        local_dir: Path | None = None,
+        override_existing_files: bool = True,
+        continue_in_case_of_error: bool = True
+):
     """
     Uploads tabrepo data to Hugging Face repository.
     You should set your env variable HF_TOKEN and ask write access to tabrepo before using the script.
@@ -14,12 +20,16 @@ def upload_hugging_face(version: str, repo_id: str, override_existing_files: boo
         version (str): The version of the data to be uploaded, the folder data/results/{version}/ should
         be present and should contain baselines.parquet, configs.parquet and model_predictions/ folder
         repo_id (str): The ID of the Hugging Face repository.
+        local_dir (Path): path to load datasets, use tabrepo default if not specified
         override_existing_files (bool): Whether to re-upload files if they are already found in HuggingFace.
     Returns:
         None
     """
     commit_message = f"Upload tabrepo new version"
-    root = Path(__file__).parent.parent.parent / f"data/results/{version}/"
+    if local_dir is None:
+        local_dir = str(results_path())
+    else:
+        local_dir = str(local_dir)
 
     for filename in ["baselines.parquet", "configs.parquet", "model_predictions"]:
         assert (root / filename).exists(), f"Expected to found {filename} but could not be found in {root / filename}."
