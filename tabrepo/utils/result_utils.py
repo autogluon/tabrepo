@@ -1,6 +1,13 @@
+from pathlib import Path
+import tabrepo
 from autogluon.common.loaders import load_pd
 from autogluon.common.savers import save_pd
 
+def results_path():
+    res = Path(tabrepo.__path__[0]).parent / "data/results/"
+    if not res.exists():
+        res.mkdir(parents=True, exist_ok=True)
+    return res
 
 def shrink_result_file_size(path_load, path_save):
     result_df = load_pd.load(path_load)

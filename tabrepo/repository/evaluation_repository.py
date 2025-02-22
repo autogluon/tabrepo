@@ -327,7 +327,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         return simulation_artifacts_full
 
 
-def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap") -> EvaluationRepository:
+def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap", use_s3: bool = True) -> EvaluationRepository:
     """
     Load the specified EvaluationRepository. Will automatically download all required inputs if they do not already exist on local disk.
 
@@ -347,7 +347,8 @@ def load_repository(version: str, *, load_predictions: bool = True, cache: bool 
         Options: ["memmap", "memopt", "mem"]
         Determines the way the predictions are represented in the repo.
         It is recommended to keep the value as "memmap" for optimal performance.
-
+    use_s3: bool, default = True
+        Whether to use S3 to download tabrepo files, if False uses HuggingFace instead.
     Returns
     -------
     EvaluationRepository object for the given context.
@@ -358,7 +359,7 @@ def load_repository(version: str, *, load_predictions: bool = True, cache: bool 
         if isinstance(cache, str) and cache == "overwrite":
             kwargs["ignore_cache"] = True
             kwargs["exists"] = "overwrite"
-        repo = get_subcontext(version).load(load_predictions=load_predictions, prediction_format=prediction_format, **kwargs)
+        repo = get_subcontext(version).load(load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3, **kwargs)
     else:
-        repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format)
+        repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3)
     return repo

@@ -2,14 +2,8 @@ from tabrepo.contexts import get_context
 
 
 if __name__ == '__main__':
-    context_name = 'BAG_D244_F3_C1416_small'  # The context you want to download
-    dry_run = True  # Set False to download files
+    context_name = 'D244_F3_C1416_3'  # The context you want to download
     include_zs = True  # Set False to only download files necessary for SingleBest (skip predict proba files)
 
-    if dry_run:
-        print(f'NOTE: Files will not be downloaded as `dry_run=True`.\n'
-              f'This will log what files will be downloaded instead.\n'
-              f'Set `dry_run=False` to download the files.')
-
     context = get_context(context_name)
-    context.download(include_zs=include_zs, dry_run=dry_run)
+    context.download(include_zs=include_zs, use_s3=False)
