@@ -9,7 +9,7 @@ import seaborn as sns
 from dataclasses import dataclass
 
 from tabrepo import EvaluationRepository
-from tabrepo.utils.cache import cache_function_dataframe
+from tabrepo.utils.cache import CacheFunctionDF
 from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.utils.rank_utils import RankScorer
 
@@ -34,11 +34,10 @@ class Experiment:
         kwargs = self.kwargs
         if kwargs is None:
            kwargs = {}
-        return cache_function_dataframe(
+        cacher = CacheFunctionDF(cache_name=self.name, cache_path=output_path.parent / "data" / "results-baseline-comparison" / self.expname)
+        return cacher.cache(
             lambda: pd.DataFrame(self.run_fun(**kwargs)),
-            cache_name=self.name,
             ignore_cache=ignore_cache,
-            cache_path=output_path.parent / "data" / "results-baseline-comparison" / self.expname,
         )
 
 

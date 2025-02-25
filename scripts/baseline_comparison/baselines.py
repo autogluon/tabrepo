@@ -319,10 +319,11 @@ def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, qua
 def zeroshot_results(
         repo: EvaluationRepository,
         dataset_names: List[str],
-        framework_types: List[str],
         rank_scorer,
         normalized_scorer,
         n_eval_folds: int,
+        framework_types: List[str] | None = None,
+        configs: list[str] | None = None,
         n_ensembles: List[int] = [None],
         n_portfolios: List[int] = [n_portfolios_default],
         n_training_datasets: List[int] = [None],
@@ -449,10 +450,17 @@ def zeroshot_results(
     df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
     assert not any(df_rank.isna().values.reshape(-1))
 
-    model_frameworks = {
-        framework: sorted([x for x in repo.configs() if framework in x])
-        for framework in framework_types
-    }
+    if configs is None:
+        configs = repo.configs()
+    if framework_types is None:
+        model_frameworks = {
+            "all": sorted(configs)
+        }
+    else:
+        model_frameworks = {
+            framework: sorted([x for x in configs if framework in x])
+            for framework in framework_types
+        }
 
     list_rows = parallel_for(
         evaluate_dataset,
