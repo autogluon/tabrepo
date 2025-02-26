@@ -17,7 +17,7 @@ from tabrepo.benchmark.models.ag import RealMLPModel
 # If the artifact is present, it will be used and the models will not be re-run.
 if __name__ == '__main__':
     # Load Context
-    context_name = "D244_F3_C1530_200"  # 200 smallest datasets. To run larger, set to "D244_F3_C1530_200"
+    context_name = "D244_F3_C1530_30"  # 30 Datasets. To run larger, set to "D244_F3_C1530_200"
     expname = "./initial_experiment_simple_simulator"  # folder location of all experiment artifacts
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
