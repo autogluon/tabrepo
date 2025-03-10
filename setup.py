@@ -11,6 +11,10 @@ setup(
     name='tabrepo',
     version='0.0.1',
     packages=find_packages(exclude=('docs', 'tst', 'data')),
+    package_data={"tabrepo": [
+        "metrics/_roc_auc_cpp/compile.sh",
+        "metrics/_roc_auc_cpp/cpp_auc.cpp",
+    ]},
     url='https://github.com/autogluon/tabrepo',
     license='Apache-2.0',
     author='AutoGluon Community',

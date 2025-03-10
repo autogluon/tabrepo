@@ -272,7 +272,7 @@ class ZeroshotSimulatorContext:
             configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
             unique_configs = sorted(list(df_configs["framework"].unique()))
             # TODO: Avoid needing to do configs_base, make the names match to begin with
-            configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs])
+            configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs] + unique_configs)
             configs_hyperparameters_keys = list(configs_hyperparameters.keys())
             for c in configs_hyperparameters_keys:
                 if c not in configs_base:
@@ -425,16 +425,16 @@ class ZeroshotSimulatorContext:
     def task_name_from_tid(tid: int, fold: int) -> str:
         return f"{tid}_{fold}"
 
-    def get_configs(self, *, datasets: List[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> List[str]:
+    def get_configs(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
 
         Parameters
         ----------
-        datasets : List[str], default = None
+        datasets : list[str], default = None
             If specified, will only consider the configs present in the given datasets
-        tasks: List[str], default = None
+        tasks: list[tuple[str, int]], default = None
             If specified, will only consider the configs present in the given tasks
         union: bool, default = True
             If True, will return the union of configs present in each task.
@@ -445,22 +445,9 @@ class ZeroshotSimulatorContext:
         A list of config names satisfying the above conditions.
         """
         df = self.df_configs_ranked
-        if datasets is not None:
-            datasets_all = set(self.get_datasets())
-            datasets_invalid = set(datasets).difference(datasets_all)
-            if len(datasets_invalid) != 0:
-                raise ValueError(f"Invalid datasets specified: {sorted(list(datasets_invalid))}")
-            df = df[df["dataset"].isin(datasets)]
-        if tasks is not None:
-            tasks_all = set(self.get_tasks(as_dataset_fold=True))
-            tasks_invalid = set(tasks).difference(tasks_all)
-            if len(tasks_invalid) != 0:
-                raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
-            df = df[df.set_index(["dataset", "fold"]).index.isin(tasks)]
-
-        if len(df) == 0:
-            raise AssertionError(f"No valid results for tasks={tasks} | datasets={datasets}")
-
+        if df is None:
+            return []
+        df = self._filter_df_by_datasets(df=df, datasets=datasets, tasks=tasks)
         return self._get_configs_from_df(df=df, union=union)
 
     def load_groundtruth(self, paths_gt: List[str]) -> GroundTruth:
@@ -588,6 +575,46 @@ class ZeroshotSimulatorContext:
                     res = res.intersection(methods)
         return sorted(list(res))
 
+    def get_baselines(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
+        """
+        Return all valid baselines.
+        By default, will return all baselines that appear in any task at least once.
+
+        Parameters
+        ----------
+        datasets : list[str], default = None
+            If specified, will only consider the baselines present in the given datasets
+        tasks: list[tuple[str, int]], default = None
+            If specified, will only consider the baselines present in the given tasks
+        union: bool, default = True
+            If True, will return the union of baselines in each task.
+            If False, will return the intersection of baselines present in each task.
+
+        Returns
+        -------
+        A list of baseline names satisfying the above conditions.
+        """
+        df = self.df_baselines
+        if df is None:
+            return []
+        df = self._filter_df_by_datasets(df=df, datasets=datasets, tasks=tasks)
+        return self._get_configs_from_df(df=df, union=union)
+
+    def _filter_df_by_datasets(self, df: pd.DataFrame, datasets: list[str] = None, tasks: list[tuple[str, int]] = None) -> pd.DataFrame:
+        if datasets is not None:
+            datasets_all = set(self.get_datasets())
+            datasets_invalid = set(datasets).difference(datasets_all)
+            if len(datasets_invalid) != 0:
+                raise ValueError(f"Invalid datasets specified: {sorted(list(datasets_invalid))}")
+            df = df[df["dataset"].isin(datasets)]
+        if tasks is not None:
+            tasks_all = set(self.get_tasks(as_dataset_fold=True))
+            tasks_invalid = set(tasks).difference(tasks_all)
+            if len(tasks_invalid) != 0:
+                raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
+            df = df[df.set_index(["dataset", "fold"]).index.isin(tasks)]
+        return df
+
     def get_configs_hyperparameters(self, configs: List[str] | None = None, include_ag_args: bool = True) -> dict[str, dict | None]:
         if configs is None:
             configs = self.get_configs()
@@ -598,10 +625,13 @@ class ZeroshotSimulatorContext:
             raise ValueError(f"User-specified config does not exist: '{config}'")
         if self.configs_hyperparameters is None:
             return None
-        # FIXME: (TabRepo v2) Hardcoding _BAG name, avoid this
-        config_base = self._config_name_to_config_base(config=config)
-        if config_base not in self.configs_hyperparameters:
-            return None
+        if config in self.configs_hyperparameters:
+            config_base = config
+        else:
+            # FIXME: (TabRepo v2) Hardcoding _BAG name, avoid this
+            config_base = self._config_name_to_config_base(config=config)
+            if config_base not in self.configs_hyperparameters:
+                return None
         config_hyperparameters = self.configs_hyperparameters[config_base]
         if not include_ag_args:
             config_hyperparameters = copy.deepcopy(config_hyperparameters)

@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 from typing import Union
 
 import pandas as pd
 import pickle
 import sys
 from pathlib import Path
-from typing import Callable, Optional
+from contextlib import contextmanager
+from time import perf_counter
+from dataclasses import dataclass
+from typing import Callable, Generic, Optional, TypeVar
 
 from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
@@ -12,9 +17,131 @@ from autogluon.common.savers import save_pkl
 from tabrepo.utils import catchtime
 
 default_cache_path = Path("~/cache-zeroshot/").expanduser()
-default_cache_path.mkdir(parents=True, exist_ok=True)
+
+T = TypeVar("T")
 
 
+# TODO: Cache `fun` details to verify cache equivalence
+#  Store kwargs, don't use lambda
+# TODO: Cache aux info such as date
+# TODO: Enable "only_cache", to enforce that no code execution occurs, and make `fun` optional
+# TODO: Docstring
+class AbstractCacheFunction(Generic[T]):
+    _save_after_run = True
+    _load_after_cache = True
+
+    def cache(
+        self,
+        fun: Callable[..., T] | None,
+        *,
+        fun_kwargs: dict | None = None,
+        ignore_cache: bool = False,
+    ) -> T:
+        exists = self.exists
+        cache_file = self.cache_file
+        if exists:
+            if ignore_cache:
+                run = True
+            else:
+                run = False
+        else:
+            run = True
+
+        if run:
+            msg = f'Generating cache (exists={exists}, ignore_cache={ignore_cache}, cache_file="{cache_file}")'
+        else:
+            msg = f'Loading cache (exists={exists}, ignore_cache={ignore_cache}, cache_file="{cache_file}")'
+        print(msg)
+
+        if not run:
+            return self.load_cache()
+        with catchtime("Evaluate function"):
+            data = self._run(fun=fun, fun_kwargs=fun_kwargs)
+            if self._save_after_run:
+                self.save_cache(data=data)
+        if self._save_after_run and self._load_after_cache:
+            return self.load_cache()
+        else:
+            return data
+
+    def _run(self, fun: Callable[..., T], fun_kwargs: dict | None = None) -> T:
+        assert fun is not None, f"`fun` must not be None if a saving a new cache is required!"
+        if fun_kwargs is None:
+            fun_kwargs = {}
+        assert isinstance(fun_kwargs, dict)
+        return fun(**fun_kwargs)
+
+    @property
+    def exists(self) -> bool:
+        return Path(self.cache_file).exists()
+
+    @property
+    def cache_file(self) -> str | None:
+        raise NotImplementedError
+
+    def save_cache(self, data: T) -> None:
+        raise NotImplementedError
+
+    def load_cache(self) -> T:
+        raise NotImplementedError
+
+
+# TODO: Avoid storing results as pickle for safety
+class CacheFunctionDummy(AbstractCacheFunction[object]):
+    """
+    No caching
+    """
+    _save_after_run = False
+    _load_after_cache = False
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    @property
+    def exists(self) -> bool:
+        return False
+
+    @property
+    def cache_file(self):
+        return None
+
+
+# TODO: Avoid storing results as pickle for safety
+class CacheFunctionPickle(AbstractCacheFunction[object]):
+    """
+    Note: This is unsafe. Know that loading pickle files can execute arbitrary code.
+    Only use this for trusted cache files, and consider switching to a safe cache format as soon as possible.
+
+    Most generic cache function that saves and loads pickle files.
+    Should work with almost any function.
+    """
+    _load_after_cache = False  # Loading a pickle is unnecessary when the contents are already in memory
+
+    def __init__(self, cache_name: str, cache_path: Path | str | None = None):
+        self.cache_name = cache_name
+        if cache_path is None:
+            # TODO: Remove default_cache_path?
+            cache_path = default_cache_path
+        self.cache_path = cache_path
+
+    @property
+    def cache_file(self) -> str:
+        return str(Path(self.cache_path) / (self.cache_name + ".pkl"))
+
+    def save_cache(self, data: object) -> None:
+        cache_file = self.cache_file
+        Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
+        with open(cache_file, "wb") as f:
+            cache = pickle.dumps(data)
+            print(f'Writing cache with size {round(sys.getsizeof(cache) / 1e6, 3)} MB')
+            f.write(cache)
+
+    def load_cache(self) -> object:
+        with open(self.cache_file, "rb") as f:
+            return pickle.loads(f.read())
+
+
+# TODO: Delete and use CacheFunctionPickle
 def cache_function(
         fun: Callable[[], object],
         cache_name: str,
@@ -47,31 +174,36 @@ def cache_function(
             return res
 
 
-def cache_function_dataframe(
-    fun: Callable[[], pd.DataFrame],
-    cache_name: str,
-    cache_path: Path | str,
-    ignore_cache: bool = False,
-) -> pd.DataFrame:
-    f"""
-    :param fun: a function whose dataframe result obtained `fun()` will be cached
-    :param cache_name: the cache of the function result is written into `{cache_path}/{cache_name}.csv`
-    :param cache_path: folder where to write cache files
-    :param ignore_cache: whether to recompute even if the cache is present
-    :return: result of fun()
-    """
-    cache_file = Path(cache_path) / (cache_name + ".csv")
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    if cache_file.exists() and not ignore_cache:
-        print(f"Loading cache {cache_file}")
-        return pd.read_csv(cache_file)
-    else:
-        print(f"Cache {cache_file} not found or ignore_cache set to True, regenerating the file")
-        with catchtime("Evaluate function."):
-            df = fun()
-            assert isinstance(df, pd.DataFrame)
-            df.to_csv(cache_file, index=False)
-            return pd.read_csv(cache_file)
+class CacheFunctionDF(AbstractCacheFunction[pd.DataFrame]):
+    _load_after_cache = True  # Loading from cache is necessary because .to_csv loses information from the original DataFrame
+
+    def __init__(self, cache_name: str, cache_path: Path | str):
+        self.cache_name = cache_name
+        self.cache_path = cache_path
+
+    @property
+    def cache_file(self) -> str:
+        return str(Path(self.cache_path) / (self.cache_name + ".csv"))
+
+    def load_cache(self) -> pd.DataFrame:
+        return pd.read_csv(self.cache_file)
+
+    def save_cache(self, data: pd.DataFrame):
+        assert isinstance(data, pd.DataFrame)
+        cache_file = self.cache_file
+        Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
+        data.to_csv(cache_file, index=False)
+
+
+@contextmanager
+def catchtime(name: str, logger=None) -> float:
+    start = perf_counter()
+    print_fun = print if logger is None else logger.info
+    try:
+        print_fun(f"start: {name}")
+        yield lambda: perf_counter() - start
+    finally:
+        print_fun(f"Time for {name}: {perf_counter() - start:.4f} secs")
 
 
 class SaveLoadMixin:

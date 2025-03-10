@@ -1,5 +1,5 @@
 import pandas as pd
-from tabrepo.utils.cache import cache_function, cache_function_dataframe
+from tabrepo.utils.cache import CacheFunctionDF, CacheFunctionDummy, CacheFunctionPickle
 
 
 def test_cache_pickle():
@@ -7,8 +7,10 @@ def test_cache_pickle():
         return [1, 2, 3]
 
     for ignore_cache in [True, False]:
-        res = cache_function(f, "f", ignore_cache=ignore_cache)
-        assert res == [1, 2, 3]
+        cacher = CacheFunctionPickle(cache_name="f")
+        data = cacher.cache(fun=f, ignore_cache=ignore_cache)
+        assert cacher.exists
+        assert data == [1, 2, 3]
 
 
 def test_cache_dataframe():
@@ -17,6 +19,20 @@ def test_cache_dataframe():
         return pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
     for ignore_cache in [True, False]:
+        cacher = CacheFunctionDF(cache_name="f", cache_path="tmp_cache_dir")
         # TODO: Consider using a true tempdir to avoid side-effects, question: how to pass a tempdir as a function argument?
-        res = cache_function_dataframe(f, "f", cache_path="tmp_cache_dir", ignore_cache=ignore_cache)
-        pd.testing.assert_frame_equal(res, pd.DataFrame({"a": [1, 2], "b": [3, 4]}))
+        data = cacher.cache(fun=f, ignore_cache=ignore_cache)
+        assert cacher.exists
+        pd.testing.assert_frame_equal(data, pd.DataFrame({"a": [1, 2], "b": [3, 4]}))
+
+
+def test_cache_dummy():
+    def f():
+        return [1, 2, 3]
+
+    for ignore_cache in [True, False]:
+        cacher = CacheFunctionDummy()
+        assert not cacher.exists
+        data = cacher.cache(fun=f, ignore_cache=ignore_cache)
+        assert not cacher.exists
+        assert data == [1, 2, 3]
