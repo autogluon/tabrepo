@@ -573,12 +573,12 @@ def construct_context(
     BenchmarkContext object that is able to load the data.
     """
     if local_prefix_is_relative:
-        path_context = str(Paths.results_root / local_prefix) + os.sep
+        path_context = str(Paths.results_root_cache / local_prefix) + os.sep
     else:
         path_context = str(Path(local_prefix)) + os.sep
 
     if local_prefix_is_relative:
-        data_root = Paths.data_root
+        data_root = Paths.data_root_cache
     else:
         data_root = Path(path_context).parent
 

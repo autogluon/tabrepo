@@ -10,13 +10,8 @@ from ._download import download_zs_metadata
 class Paths:
     project_root: Path = Path(__file__).parent.parent.parent
     data_root: Path = project_root / 'data'
-    results_root: Path = data_root / 'results'
-    all_v3_results_root: Path = results_root / "all_v3"
-    bagged_results_root: Path = results_root / "bagged"
-    bagged_208_results_root: Path = results_root / "bagged_208"
-    bagged_289_results_root: Path = results_root / "bagged_289"
-    bagged_2023_07_25_results_root: Path = results_root / "2023_07_25"
-    automl_289_results_root: Path = results_root / "automl_289"
+    data_root_cache: Path = Path.home() / ".cache" / "tabrepo" / "data"
+    results_root_cache: Path = data_root_cache / "results"
 
     @staticmethod
     def abs_to_rel(path: str, relative_to: Path = project_root) -> str:

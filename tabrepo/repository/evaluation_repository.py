@@ -186,8 +186,8 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
 
     @classmethod
-    def from_context(cls, version: str = None, cache: bool = False, prediction_format: str = "memmap") -> Self:
-        return load_repository(version=version, cache=cache, prediction_format=prediction_format)
+    def from_context(cls, version: str = None, cache: bool = False, load_predictions: bool = True, prediction_format: str = "memmap", use_s3: bool = True) -> Self:
+        return load_repository(version=version, cache=cache, load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3)
 
     # TODO: 1. Cleanup results_lst_simulation_artifacts, 2. Make context work with tasks instead of datasets x folds
     # TODO: Get raw data from repo method (X, y)
