@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -12,7 +13,7 @@ from tabrepo.benchmark.experiment import AGModelBagExperiment, Experiment, Exper
 if __name__ == '__main__':
     # Load Context
     context_name = "D244_F3_C1530_10"  # 10 smallest datasets. To run larger, set to "D244_F3_C1530_200"
-    expname = "./experiments/quickstart_new_config"  # folder location to save all experiment artifacts
+    expname = str(Path(__file__).parent / "experiments" / "quickstart_new_config")  # folder location to save all experiment artifacts
     ignore_cache = True  # set to True to overwrite existing caches and re-run experiments from scratch
 
     # The original TabRepo artifacts for the 1530 configs
@@ -28,7 +29,7 @@ if __name__ == '__main__':
     # folds = repo_og.folds
 
     # import your model classes (can be custom, must inherit from AbstractModel)
-    from autogluon.tabular.models import LGBModel, XGBoostModel
+    from autogluon.tabular.models import LGBModel
 
     # import your non-autogluon model classes (must inherit from AbstractExecModel)
     from tabrepo.benchmark.models.simple import SimpleLightGBM
@@ -46,15 +47,6 @@ if __name__ == '__main__':
             model_hyperparameters={},  # The non-default model hyperparameters.
             num_bag_folds=8,  # num_bag_folds=8 was used in the TabRepo 2024 paper
             time_limit=3600,  # time_limit=3600 was used in the TabRepo 2024 paper
-        ),
-        AGModelBagExperiment(
-            # Reproduces the `XGBoost_c1_BAG_L1` model from the TabRepo 2024 paper
-            # The results may slightly differ since we are using a different XGBoost version.
-            name="XGBoost_c1_BAG_L1_Reproduced",
-            model_cls=XGBoostModel,
-            model_hyperparameters={},
-            num_bag_folds=8,
-            time_limit=3600,
         ),
 
         # This will be a `baseline` in EvaluationRepository, because it doesn't compute out-of-fold predictions and thus can't be used for post-hoc ensemble.

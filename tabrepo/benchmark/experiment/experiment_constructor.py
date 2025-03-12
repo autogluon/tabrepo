@@ -14,13 +14,25 @@ from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
 
 class Experiment:
     """
+    Experiment contains a method and the logic to run it on any task.
+    Experiment is fully generic, and can accept any method_cls so long as it inherits from `AbstractExecModel`.
 
     Parameters
     ----------
-    name: str,
-    method_cls: Type[AbstractExecModel],
-    method_kwargs: dict,
-    experiment_cls: Type[ExperimentRunner], default OOFExperimentRunner,
+    name: str
+        The name of the experiment / method.
+        Should be descriptive and unique compared to other methods.
+        For example, `"LightGBM_c1_BAG_L1"`
+    method_cls: Type[AbstractExecModel]
+        The method class to be fit and evaluated.
+    method_kwargs: dict
+        The kwargs passed to the init of `method_cls`.
+    experiment_cls: Type[ExperimentRunner], default OOFExperimentRunner
+        The experiment class that wraps the method_cls.
+        This class will track metadata information such as fit time, inference time, system resources, etc.
+        It will also calculate the test `metric_error`, to ensure that the method_cls is evaluated correctly.
+    experiment_kwargs: dict, optional
+        The kwargs passed to the init of `experiment_cls`.
 
     """
     def __init__(
@@ -84,16 +96,32 @@ class Experiment:
 # convenience wrapper
 class AGModelExperiment(Experiment):
     """
+    Simplified Experiment class specifically for fitting a single model using AutoGluon.
+    The following arguments are fixed:
+        method_cls = AGSingleWrapper
+        experiment_cls = OOFExperimentRunner
+
     Parameters
     ----------
-    name
-    model_cls
-    model_hyperparameters
-    time_limit
+    name: str
+        The name of the experiment / method.
+        Should be descriptive and unique compared to other methods.
+        For example, `"LightGBM_c1_BAG_L1"`
+    model_cls: Type[AbstractModel]
+        AutoGluon model class to fit
+    model_hyperparameters: dict
+        AutoGluon model hyperparameters
+        Identical to what you would pass to `TabularPredictor.fit(..., hyperparameters={model_cls: [model_hyperparameters]})
+    time_limit: float, optional
+        The time limit in seconds the model is allowed to fit for.
+        If unspecified, no time limit is enforced.
     raise_on_model_failure: bool, default True
         By default sets raise_on_model_failure to True
         so that any AutoGluon model failure will be raised in a debugger friendly manner.
-    **method_kwargs
+    method_kwargs: dict, optional
+        The kwargs passed to the init of `method_cls`.
+    experiment_kwargs: dict, optional
+        The kwargs passed to the init of `experiment_cls`.
     """
 
     def __init__(
@@ -101,11 +129,14 @@ class AGModelExperiment(Experiment):
         name: str,
         model_cls: Type[AbstractModel],
         model_hyperparameters: dict,
-        time_limit: float | int | None = None,
+        *,
+        time_limit: float | None = None,
         raise_on_model_failure: bool = True,
+        method_kwargs: dict = None,
         experiment_kwargs: dict = None,
-        **method_kwargs,
     ):
+        if method_kwargs is None:
+            method_kwargs = {}
         if time_limit is not None:
             assert isinstance(time_limit, (float, int))
             assert time_limit > 0
@@ -133,7 +164,7 @@ class AGModelExperiment(Experiment):
             experiment_kwargs=experiment_kwargs,
         )
 
-    def _insert_time_limit(self, model_hyperparameters: dict, time_limit: int | None, method_kwargs: dict) -> dict:
+    def _insert_time_limit(self, model_hyperparameters: dict, time_limit: float | None, method_kwargs: dict) -> dict:
         is_bag = False
         if "fit_kwargs" in method_kwargs and "num_bag_folds" in method_kwargs["fit_kwargs"]:
             if method_kwargs["fit_kwargs"]["num_bag_folds"] > 1:
@@ -156,24 +187,49 @@ class AGModelExperiment(Experiment):
 # convenience wrapper
 class AGModelBagExperiment(AGModelExperiment):
     """
-    AutoGluon Bagged Model Wrapper.
+    Simplified Experiment class specifically for fitting a single bagged model using AutoGluon.
+    The following arguments are fixed:
+        method_cls = AGSingleWrapper
+        experiment_cls = OOFExperimentRunner
+
+    All models fit this way will generate out-of-fold predictions on the entire training set,
+    and will be compatible with ensemble simulations in TabRepo.
 
     Will fit the model with `num_bag_folds` folds and `num_bag_sets` sets (aka repeats).
     In total will fit `num_bag_folds * num_bag_sets` models in the bag.
+
+    Parameters
+    ----------
+    name: str
+        The name of the experiment / method.
+        Should be descriptive and unique compared to other methods.
+        For example, `"LightGBM_c1_BAG_L1"`
+    model_cls: Type[AbstractModel]
+    model_hyperparameters: dict
+        Identical to what you would pass to `TabularPredictor.fit(..., hyperparameters={model_cls: [model_hyperparameters]})
+    time_limit: float, optional
+    num_bag_folds: int, default 8
+    num_bag_sets: int, default 1
+    method_kwargs: dict, optional
+    experiment_kwargs: dict, optional
     """
     def __init__(
         self,
         name: str,
         model_cls: Type[AbstractModel],
         model_hyperparameters: dict,
-        time_limit: float | int | None = None,
+        *,
+        time_limit: float | None = None,
         num_bag_folds: int = 8,
         num_bag_sets: int = 1,
+        method_kwargs: dict = None,
         experiment_kwargs: dict = None,
-        **method_kwargs,
     ):
+        if method_kwargs is None:
+            method_kwargs = {}
         assert isinstance(num_bag_folds, int)
         assert isinstance(num_bag_sets, int)
+        assert isinstance(method_kwargs, dict)
         assert num_bag_folds >= 2
         assert num_bag_sets >= 1
         if "fit_kwargs" in method_kwargs:
@@ -189,6 +245,6 @@ class AGModelBagExperiment(AGModelExperiment):
             model_cls=model_cls,
             model_hyperparameters=model_hyperparameters,
             time_limit=time_limit,
+            method_kwargs=method_kwargs,
             experiment_kwargs=experiment_kwargs,
-            **method_kwargs,
         )
