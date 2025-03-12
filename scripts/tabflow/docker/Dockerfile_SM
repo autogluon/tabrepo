@@ -1,0 +1,23 @@
+# FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/autogluon-training:1.1.1-cpu-py311-ubuntu20.04
+FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-cpu-py311-ubuntu22.04-sagemaker
+
+# Source install Autogluon Mainline - get changes after refactor
+RUN git clone https://github.com/autogluon/autogluon
+RUN cd autogluon && ./full_install.sh
+RUN cd ..
+
+COPY ../../ .
+COPY ./tabflow/src/evaluate.py .
+
+# Install the required packages
+RUN pip install -e tabrepo \
+    && pip install -e autogluon-bench \
+    && pip install -e autogluon-benchmark
+
+# Install pytabkit and seaborn
+RUN pip install pytabkit seaborn
+
+# Generate configs and give permissions
+RUN chmod +x ./tabrepo/scripts/run_generate_all_configs.py
+RUN python ./tabrepo/scripts/run_generate_all_configs.py
+RUN chmod +x ./evaluate.py
