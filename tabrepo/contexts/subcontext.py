@@ -65,8 +65,13 @@ class BenchmarkSubcontext:
     def load_from_parent(self, **kwargs) -> EvaluationRepository:
         # TODO: Consider adding configs_full to Repo
         repo = self.parent.load_repo(**kwargs)
+        if self.datasets is None:  # FIXME: This is a hack, this dataset filter should happen in the parent logic. Add `datasets` to ZeroshotSimulator init
+            # FIXME: THis might have unintended side-effects, need to investigate
+            datasets = self.parent.benchmark_paths.datasets
+        else:
+            datasets = self.datasets
         repo = repo.subset(
-            datasets=self.datasets,
+            datasets=datasets,
             folds=self.folds,
             configs=self.configs,
             force_to_dense=False,
