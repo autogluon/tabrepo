@@ -35,8 +35,7 @@ if __name__ == '__main__':
     expname = args.experiment_name
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
-    #TODO: Download the repo without pred-proba
-    repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
+    repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
 
     datasets = args.datasets
     folds = args.folds

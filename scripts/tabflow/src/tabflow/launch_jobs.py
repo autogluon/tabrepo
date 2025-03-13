@@ -213,7 +213,7 @@ def launch_jobs(
 
     methods = yaml_to_methods(methods_file=methods_file)
 
-    repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
+    repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
     
     if "run_all" in datasets:
         datasets = repo_og.datasets()
