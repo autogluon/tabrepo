@@ -51,14 +51,14 @@ class CppAuc:
             proc = subprocess.Popen(compile_command.split(" "), shell=False, stdout=stdout, cwd=Path(__file__).parent)
 
         # wait command completion
-        for max_trials in range(50):
+        for max_trials in range(600):
             if proc.poll() is not None:
                 break
             time.sleep(0.1)
 
         # handle potential failure: timeout or error while compiling
         if proc.poll() is None:
-            raise ValueError("Could not compile after 5 secs.")
+            raise ValueError("Could not compile after 60 secs.")
         elif proc.poll() != 0:
             raise ValueError(f"Got an error while compiling, you can try to run manually {self.compile_script_path()}")
 
