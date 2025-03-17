@@ -36,7 +36,8 @@ def verify_equivalent_repository(
     if verify_predictions:
         for dataset in repo1.datasets():
             for f in repo1.folds:
-                for c in repo1.configs():
+                configs = repo1.configs(datasets=[dataset])
+                for c in configs:
                     repo1_test = repo1.predict_test(dataset=dataset, config=c, fold=f)
                     repo2_test = repo2.predict_test(dataset=dataset, config=c, fold=f)
                     repo1_val = repo1.predict_val(dataset=dataset, config=c, fold=f)
@@ -47,17 +48,23 @@ def verify_equivalent_repository(
                     else:
                         assert np.isclose(repo1_test, repo2_test).all()
                         assert np.isclose(repo1_val, repo2_val).all()
-                if exact:
-                    assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
-                    assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
-                else:
-                    assert np.isclose(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f)).all()
-                    assert np.isclose(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f)).all()
+                if configs:
+                    if exact:
+                        assert np.array_equal(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f))
+                        assert np.array_equal(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f))
+                    else:
+                        assert np.isclose(repo1.labels_test(dataset=dataset, fold=f), repo2.labels_test(dataset=dataset, fold=f)).all()
+                        assert np.isclose(repo1.labels_val(dataset=dataset, fold=f), repo2.labels_val(dataset=dataset, fold=f)).all()
     if verify_ensemble:
-        df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensembles(datasets=repo1.datasets(), ensemble_size=10, backend=backend)
-        df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensembles(datasets=repo2.datasets(), ensemble_size=10, backend=backend)
-        assert df_out_1.equals(df_out_2)
-        assert df_ensemble_weights_1.equals(df_ensemble_weights_2)
+        datasets1 = [d for d in repo1.datasets() if len(repo1.configs(datasets=[d])) > 0]
+        datasets2 = [d for d in repo2.datasets() if len(repo2.configs(datasets=[d])) > 0]
+        if len(datasets1) == 0 and len(datasets2) == 0:
+            pass
+        else:
+            df_out_1, df_ensemble_weights_1 = repo1.evaluate_ensembles(datasets=datasets1, ensemble_size=10, backend=backend)
+            df_out_2, df_ensemble_weights_2 = repo2.evaluate_ensembles(datasets=datasets2, ensemble_size=10, backend=backend)
+            assert df_out_1.equals(df_out_2)
+            assert df_ensemble_weights_1.equals(df_ensemble_weights_2)
     if verify_baselines:
         baselines1 = repo1._zeroshot_context.df_baselines
         baselines2 = repo2._zeroshot_context.df_baselines
@@ -413,16 +420,16 @@ def test_repository_only_baselines():
     """
     Test when only baselines exist and no configs exist.
     """
-    repo = load_repo_artificial(add_baselines_extra=True, only_baselines=True)
+    repo = load_repo_artificial(add_baselines_extra=True, include_configs=False)
 
-    assert repo.datasets() == ['a', 'abalone', 'ada', 'b']
+    assert repo.datasets() == ["a", "abalone", "ada", "b"]
     assert repo.tids() == [5, 359946, 359944, 6]
     assert repo.folds == [0, 1, 2]
     assert repo.configs() == []
     assert repo.baselines() == ["b1", "b2", "b_e1"]
 
     repo: EvaluationRepository = repo.subset(folds=[0, 2])
-    assert repo.datasets() == ["a", 'abalone', 'ada', "b"]
+    assert repo.datasets() == ["a", "abalone", "ada", "b"]
     assert repo.folds == [0, 2]
     assert repo.configs() == []
     assert repo.baselines() == ["b1", "b2", "b_e1"]

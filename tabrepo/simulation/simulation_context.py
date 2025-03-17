@@ -176,7 +176,9 @@ class ZeroshotSimulatorContext:
 
         unique_dataset_folds_set = df_configs[['dataset', 'fold']].drop_duplicates()
         unique_dataset_folds_set_baselines = df_baselines[['dataset', 'fold']].drop_duplicates()
-        unique_dataset_folds_set = pd.concat([unique_dataset_folds_set, unique_dataset_folds_set_baselines], ignore_index=True).drop_duplicates()
+        unique_dataset_folds_set_to_concat = [unique_dataset_folds_set, unique_dataset_folds_set_baselines]
+        unique_dataset_folds_set_to_concat = [u for u in unique_dataset_folds_set_to_concat if len(u) > 0]
+        unique_dataset_folds_set = pd.concat(unique_dataset_folds_set_to_concat, ignore_index=True).drop_duplicates()
 
         sources_to_check = []
         df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
@@ -214,7 +216,8 @@ class ZeroshotSimulatorContext:
 
         unique_folds = cls._compute_folds_from_data(df_configs=df_configs, df_baselines=df_baselines)
 
-        if score_against_only_automl:
+        # FIXME: Remove scoring via baselines by default all-together, or maybe remove scoring period.
+        if score_against_only_automl and len(df_baselines) > 0:
             assert len(df_baselines) != 0, (
                 f"`score_against_only_automl=True`, but `df_baselines` is empty. "
                 f"Either specify `df_baselines` or set `score_against_only_automl=False`."

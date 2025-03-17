@@ -244,16 +244,29 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 def merge_zeroshot(zeroshot_contexts: list[ZeroshotSimulatorContext], require_matching_flags: bool = False) -> ZeroshotSimulatorContext:
     assert isinstance(zeroshot_contexts, list)
 
-    if any([z.df_baselines is not None for z in zeroshot_contexts]):
-        df_baselines = pd.concat([z.df_baselines for z in zeroshot_contexts], ignore_index=True)
+    df_baselines_lst = [z.df_baselines for z in zeroshot_contexts]
+    df_baselines_lst = [df_baselines for df_baselines in df_baselines_lst if len(df_baselines) > 0]
+    if df_baselines_lst:
+        df_baselines = pd.concat(df_baselines_lst, ignore_index=True)
         df_baselines = df_baselines.drop_duplicates(ignore_index=True)
     else:
         df_baselines = None
 
-    df_configs = pd.concat([z.df_configs for z in zeroshot_contexts], ignore_index=True)
-    df_configs = df_configs.drop_duplicates(ignore_index=True)
-    df_metadata = pd.concat([z.df_metadata for z in zeroshot_contexts], ignore_index=True)
-    df_metadata = df_metadata.drop_duplicates(ignore_index=True)
+    df_configs_lst = [z.df_configs for z in zeroshot_contexts]
+    df_configs_lst = [df_configs for df_configs in df_configs_lst if len(df_configs) > 0]
+    if df_configs_lst:
+        df_configs = pd.concat(df_configs_lst, ignore_index=True)
+        df_configs = df_configs.drop_duplicates(ignore_index=True)
+    else:
+        df_configs = None
+
+    df_metadata_lst = [z.df_metadata for z in zeroshot_contexts]
+    df_metadata_lst = [df_metadata for df_metadata in df_metadata_lst if df_metadata is not None and len(df_metadata) > 0]
+    if df_metadata_lst:
+        df_metadata = pd.concat([z.df_metadata for z in zeroshot_contexts], ignore_index=True)
+        df_metadata = df_metadata.drop_duplicates(ignore_index=True)
+    else:
+        df_metadata = None
 
     configs_hyperparameters = {}
     for z in zeroshot_contexts:
@@ -302,6 +315,9 @@ def merge_zeroshot(zeroshot_contexts: list[ZeroshotSimulatorContext], require_ma
 # TODO: Does not yet verify equivalence
 def merge_ground_truth(ground_truths: list[GroundTruth]) -> GroundTruth:
     assert isinstance(ground_truths, list)
+    ground_truths = [gt for gt in ground_truths if gt is not None]
+    if len(ground_truths) == 0:
+        return None
 
     label_test_dict = copy.copy(ground_truths[0]._label_test_dict)
     label_val_dict = copy.copy(ground_truths[0]._label_val_dict)

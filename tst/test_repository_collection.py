@@ -60,6 +60,85 @@ def test_repository_collection():
             assert repo_collection.get_result_to_repo_idx(dataset=dataset, fold=2, config=config) == 0
 
 
+def test_repository_collection_concat_only_configs_with_only_baselines():
+    """
+    Verifies that merging repos with only baselines and only configs works as intended.
+    """
+    repo_configs = load_repo_artificial(include_baselines=False)
+    repo_baselines = load_repo_artificial(include_configs=False, add_baselines_extra=True)
+
+    repo_both = load_repo_artificial(add_baselines_extra=True)
+
+    assert repo_configs.datasets() == ["abalone", "ada"]
+    assert repo_configs.tids() == [359946, 359944]
+    assert repo_configs.n_folds() == 3
+    assert repo_configs.folds == [0, 1, 2]
+    assert repo_configs.configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+    assert repo_configs.baselines() == []
+
+    assert repo_baselines.datasets() == ["a", "abalone", "ada", "b"]
+    assert repo_baselines.tids() == [5, 359946, 359944, 6]
+    assert repo_baselines.n_folds() == 3
+    assert repo_baselines.folds == [0, 1, 2]
+    assert repo_baselines.configs() == []
+    assert repo_baselines.baselines() == ["b1", "b2", "b_e1"]
+
+    repo_collection = EvaluationRepositoryCollection(repos=[repo_configs, repo_baselines])
+    verify_equivalent_repository(repo1=repo_both, repo2=repo_collection, verify_ensemble=True)
+
+
+def test_repository_collection_concat_only_configs():
+    """
+    Verifies that merging repos with only configs works as intended.
+    """
+    repo_configs = load_repo_artificial(include_baselines=False)
+    repo_configs_1 = repo_configs.subset(datasets=["abalone"])
+    repo_configs_2 = repo_configs.subset(datasets=["ada"])
+
+    assert repo_configs_1.datasets() == ["abalone"]
+    assert repo_configs_1.tids() == [359946]
+    assert repo_configs_1.n_folds() == 3
+    assert repo_configs_1.folds == [0, 1, 2]
+    assert repo_configs_1.configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+    assert repo_configs_1.baselines() == []
+
+    assert repo_configs_2.datasets() == ["ada"]
+    assert repo_configs_2.tids() == [359944]
+    assert repo_configs_2.n_folds() == 3
+    assert repo_configs_2.folds == [0, 1, 2]
+    assert repo_configs_2.configs() == ['NeuralNetFastAI_r1', 'NeuralNetFastAI_r2']
+    assert repo_configs_2.baselines() == []
+
+    repo_collection = EvaluationRepositoryCollection(repos=[repo_configs_1, repo_configs_2])
+    verify_equivalent_repository(repo1=repo_configs, repo2=repo_collection, verify_ensemble=True)
+
+
+def test_repository_collection_concat_only_baselines():
+    """
+    Verifies that merging repos with only baselines works as intended.
+    """
+    repo_baselines = load_repo_artificial(include_configs=False, add_baselines_extra=True)
+    repo_baselines_1 = repo_baselines.subset(datasets=["abalone", "ada"])
+    repo_baselines_2 = repo_baselines.subset(datasets=["a", "b"])
+
+    assert repo_baselines_1.datasets() == ["abalone", "ada"]
+    assert repo_baselines_1.tids() == [359946, 359944]
+    assert repo_baselines_1.n_folds() == 3
+    assert repo_baselines_1.folds == [0, 1, 2]
+    assert repo_baselines_1.configs() == []
+    assert repo_baselines_1.baselines() == ["b1", "b2"]
+
+    assert repo_baselines_2.datasets() == ["a", "b"]
+    assert repo_baselines_2.tids() == [5, 6]
+    assert repo_baselines_2.n_folds() == 1
+    assert repo_baselines_2.folds == [0]
+    assert repo_baselines_2.configs() == []
+    assert repo_baselines_2.baselines() == ["b1", "b_e1"]
+
+    repo_collection = EvaluationRepositoryCollection(repos=[repo_baselines_1, repo_baselines_2])
+    verify_equivalent_repository(repo1=repo_baselines, repo2=repo_collection, verify_ensemble=True)
+
+
 def test_repository_collection_overlap_raise():
     repo = load_repo_artificial()
     with pytest.raises(AssertionError):

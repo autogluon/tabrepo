@@ -26,7 +26,8 @@ def load_context_artificial(
     seed=0,
     include_hyperparameters: bool = False,
     add_baselines_extra: bool = False,
-    only_baselines: bool = False,
+    include_configs: bool = True,
+    include_baselines: bool = True,
     dtype=np.float32,
     **kwargs,
 ):
@@ -62,32 +63,34 @@ def load_context_artificial(
         for tid, dataset in zip(tids, datasets)
     ])
 
-    df_results_by_dataset_automl = pd.DataFrame({
-        "dataset": dataset,
-        "tid": tid,
-        "fold": fold,
-        "framework": baseline,
-        "problem_type": problem_type,
-        "metric": "root_mean_squared_error",
-        **make_random_metric(baseline)
-    } for fold in range(n_folds) for baseline in baselines for (tid, dataset) in zip(tids, datasets)
+    df_baselines = pd.DataFrame(
+        {
+            "dataset": dataset,
+            "tid": tid,
+            "fold": fold,
+            "framework": baseline,
+            "problem_type": problem_type,
+            "metric": "root_mean_squared_error",
+            **make_random_metric(baseline),
+        } for fold in range(n_folds) for baseline in baselines for (tid, dataset) in zip(tids, datasets)
     )
 
     if add_baselines_extra:
         baselines_extra = ["b1", "b_e1"]
         datasets_extra = ["a", "b"]
         tids_extra = [5, 6]
-        df_results_by_dataset_automl_extra = pd.DataFrame({
-                                                        "dataset": dataset,
-                                                        "tid": tid,
-                                                        "fold": fold,
-                                                        "framework": baseline,
-                                                        "problem_type": problem_type,
-                                                        "metric": "root_mean_squared_error",
-                                                        **make_random_metric(baseline)
-                                                    } for fold in [0] for baseline in baselines_extra for (tid, dataset) in zip(tids_extra, datasets_extra)
-                                                    )
-        df_results_by_dataset_automl = pd.concat([df_results_by_dataset_automl, df_results_by_dataset_automl_extra], ignore_index=True)
+        df_baselines_extra = pd.DataFrame(
+            {
+                "dataset": dataset,
+                "tid": tid,
+                "fold": fold,
+                "framework": baseline,
+                "problem_type": problem_type,
+                "metric": "root_mean_squared_error",
+                **make_random_metric(baseline),
+            } for fold in [0] for baseline in baselines_extra for (tid, dataset) in zip(tids_extra, datasets_extra)
+        )
+        df_baselines = pd.concat([df_baselines, df_baselines_extra], ignore_index=True)
         df_metadata_extra = pd.DataFrame([{
             'dataset': dataset,
             'task_type': "TaskType.SUPERVISED_CLASSIFICATION",
@@ -96,21 +99,24 @@ def load_context_artificial(
         ])
         df_metadata = pd.concat([df_metadata, df_metadata_extra], ignore_index=True)
 
-    df_raw = pd.DataFrame({
-        "dataset": dataset,
-        "tid": tid,
-        "fold": fold,
-        "framework": model,
-        "problem_type": problem_type,
-        "metric": "root_mean_squared_error",
-        **make_random_metric(model)
-    } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
+    df_raw = pd.DataFrame(
+        {
+            "dataset": dataset,
+            "tid": tid,
+            "fold": fold,
+            "framework": model,
+            "problem_type": problem_type,
+            "metric": "root_mean_squared_error",
+            **make_random_metric(model),
+        } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
     )
-    if only_baselines:
+    if not include_configs:
         df_raw = None
+    if not include_baselines:
+        df_baselines = None
     zsc = ZeroshotSimulatorContext(
         df_configs=df_raw,
-        df_baselines=df_results_by_dataset_automl,
+        df_baselines=df_baselines,
         folds=list(range(n_folds)),
         df_metadata=df_metadata,
         configs_hyperparameters=configs_hyperparameters,
@@ -143,7 +149,7 @@ def load_context_artificial(
 
     zeroshot_gt = GroundTruth(label_val_dict=make_dict(123), label_test_dict=make_dict(13))
 
-    if only_baselines:
+    if not include_configs:
         zeroshot_pred_proba = None
         zeroshot_gt = None
 
