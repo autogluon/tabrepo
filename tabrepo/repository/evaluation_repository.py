@@ -223,9 +223,10 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             "time_infer_s",
         ]
 
-        for column in required_columns:
-            if column not in df_configs:
-                raise AssertionError(f"Missing required column in df_configs: {column}\ndf_configs columns: {list(df_configs.columns)}")
+        if df_configs is not None:
+            for column in required_columns:
+                if column not in df_configs:
+                    raise AssertionError(f"Missing required column in df_configs: {column}\ndf_configs columns: {list(df_configs.columns)}")
 
         simulation_artifacts_full = cls._convert_sim_artifacts(results_lst_simulation_artifacts=results_lst_simulation_artifacts)
 

@@ -13,7 +13,8 @@ def make_random_metric(model):
         "NeuralNetFastAI_r1": 1.0,
         "NeuralNetFastAI_r2": 2.0,
         "b1": -1.0,
-        "b2": -2.0
+        "b2": -2.0,
+        "b_e1": -3.0,
     }
     metric_value = metric_value_dict[model]
     return {output_col: (i + 1) * metric_value for i, output_col in enumerate(output_cols)}
@@ -24,6 +25,7 @@ def load_context_artificial(
     problem_type: str = "regression",
     seed=0,
     include_hyperparameters: bool = False,
+    add_baselines_extra: bool = False,
     dtype=np.float32,
     **kwargs,
 ):
@@ -61,13 +63,38 @@ def load_context_artificial(
 
     df_results_by_dataset_automl = pd.DataFrame({
         "dataset": dataset,
+        "tid": tid,
         "fold": fold,
         "framework": baseline,
         "problem_type": problem_type,
         "metric": "root_mean_squared_error",
         **make_random_metric(baseline)
-    } for fold in range(n_folds) for baseline in baselines for dataset in datasets
+    } for fold in range(n_folds) for baseline in baselines for (tid, dataset) in zip(tids, datasets)
     )
+
+    if add_baselines_extra:
+        baselines_extra = ["b1", "b_e1"]
+        datasets_extra = ["a", "b"]
+        tids_extra = [5, 6]
+        df_results_by_dataset_automl_extra = pd.DataFrame({
+                                                        "dataset": dataset,
+                                                        "tid": tid,
+                                                        "fold": fold,
+                                                        "framework": baseline,
+                                                        "problem_type": problem_type,
+                                                        "metric": "root_mean_squared_error",
+                                                        **make_random_metric(baseline)
+                                                    } for fold in [0] for baseline in baselines_extra for (tid, dataset) in zip(tids_extra, datasets_extra)
+                                                    )
+        df_results_by_dataset_automl = pd.concat([df_results_by_dataset_automl, df_results_by_dataset_automl_extra], ignore_index=True)
+        df_metadata_extra = pd.DataFrame([{
+            'dataset': dataset,
+            'task_type': "TaskType.SUPERVISED_CLASSIFICATION",
+        }
+            for tid, dataset in zip(tids_extra, datasets_extra)
+        ])
+        df_metadata = pd.concat([df_metadata, df_metadata_extra], ignore_index=True)
+
     df_raw = pd.DataFrame({
         "dataset": dataset,
         "tid": tid,

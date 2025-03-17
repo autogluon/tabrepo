@@ -20,8 +20,10 @@ def filter_datasets(df: pd.DataFrame, datasets: pd.DataFrame) -> pd.DataFrame:
     return df.merge(datasets, on=["dataset", "fold"])
 
 
-def get_dataset_to_metric_problem_type(df: pd.DataFrame) -> pd.DataFrame:
-    df_min = df[["dataset", "metric", "problem_type"]].drop_duplicates()
+def get_dataset_to_metric_problem_type(df_configs: pd.DataFrame, df_baselines: pd.DataFrame) -> pd.DataFrame:
+    df_min = df_configs[["dataset", "metric", "problem_type"]].drop_duplicates()
+    df_min_baselines = df_baselines[["dataset", "metric", "problem_type"]].drop_duplicates()
+    df_min = pd.concat([df_min, df_min_baselines], ignore_index=True).drop_duplicates()
     counts = df_min["dataset"].value_counts().to_dict()
     for dataset in counts:
         if counts[dataset] != 1:
