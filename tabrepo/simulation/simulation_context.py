@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Any, Optional, List, Union, Tuple
+from typing import Any, List, Union
 from typing_extensions import Self
 
 import pandas as pd
@@ -26,14 +26,14 @@ def _default_dict():
 
 class ZeroshotSimulatorContext:
     def __init__(
-            self,
-            df_configs: pd.DataFrame,
-            df_baselines: pd.DataFrame = None,
-            df_metadata: pd.DataFrame = None,
-            configs_hyperparameters: dict[str, dict[str, Any]] = None,
-            folds: List[int] | None = None,
-            pct: bool = False,
-            score_against_only_baselines: bool = True,
+        self,
+        df_configs: pd.DataFrame = None,
+        df_baselines: pd.DataFrame = None,
+        df_metadata: pd.DataFrame = None,
+        configs_hyperparameters: dict[str, dict[str, Any]] = None,
+        folds: List[int] | None = None,
+        pct: bool = False,
+        score_against_only_baselines: bool = True,
     ):
         """
         Encapsulates results evaluated on multiple base models/datasets/folds.
@@ -44,6 +44,13 @@ class ZeroshotSimulatorContext:
         :param score_against_only_baselines: if `True`, the scores are ranks (or percentage if `pct` is True) over the baselines only
         baselines. If False, the scores are computed against both baselines and the configs.
         """
+        if df_configs is None:
+            df_configs = self._create_empty_df_configs()
+        if df_baselines is None:
+            df_baselines = self._create_empty_df_baselines()
+        if configs_hyperparameters is None:
+            configs_hyperparameters = {}
+
         self.folds = folds
         self.score_against_only_baselines = score_against_only_baselines
         self.pct = pct
@@ -133,37 +140,25 @@ class ZeroshotSimulatorContext:
         df_configs: pd.DataFrame,
         df_baselines: pd.DataFrame,
         df_metadata: pd.DataFrame,
-        configs_hyperparameters: dict | None = None,
-        folds: List[int] | None,
+        configs_hyperparameters: dict,
+        folds: list[int] | None,
         score_against_only_automl: bool,
         pct: bool,
-    ):
-        if df_configs is None:
-            required_columns = [
-                "dataset",
-                "fold",
-                "framework",
-                "metric_error",
-                "metric_error_val",
-                "metric",
-                "problem_type",
-                "time_train_s",
-                "time_infer_s",
-            ]
-            df_configs = pd.DataFrame(columns=required_columns)
+    ) -> tuple[
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        dict[str, str],
+        dict[str, int],
+        list[int],
+        list[str],
+        list[str],
+        dict[str, Any],
+        RankScorer,
+    ]:
         cls._validate_df_configs(df_configs=df_configs)
-        if df_baselines is None:
-            required_columns_baselines = [
-                "dataset",
-                "fold",
-                "framework",
-                "metric_error",
-                "metric",
-                "problem_type",
-                "time_train_s",
-                "time_infer_s",
-            ]
-            df_baselines = pd.DataFrame(columns=required_columns_baselines)
         cls._validate_df_baselines(df_baselines=df_baselines)
         # assert that each dataset contains only one problem type
         dataset_problem_types = cls._compute_dataset_problem_types(df_configs=df_configs, df_baselines=df_baselines)
@@ -176,20 +171,17 @@ class ZeroshotSimulatorContext:
             df_metadata=df_metadata,
         )
 
-        if df_baselines is not None:
-            df_baselines = df_baselines.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
-            df_baselines = df_baselines.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
+        df_baselines = df_baselines.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
+        df_baselines = df_baselines.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
 
         unique_dataset_folds_set = df_configs[['dataset', 'fold']].drop_duplicates()
-        if df_baselines is not None:
-            unique_dataset_folds_set_baselines = df_baselines[['dataset', 'fold']].drop_duplicates()
-            unique_dataset_folds_set = pd.concat([unique_dataset_folds_set, unique_dataset_folds_set_baselines], ignore_index=True).drop_duplicates()
+        unique_dataset_folds_set_baselines = df_baselines[['dataset', 'fold']].drop_duplicates()
+        unique_dataset_folds_set = pd.concat([unique_dataset_folds_set, unique_dataset_folds_set_baselines], ignore_index=True).drop_duplicates()
 
         sources_to_check = []
-        if df_baselines is not None:
-            df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
-            df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
-            sources_to_check.append(("df_baselines", df_baselines))
+        df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
+        df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
+        sources_to_check.append(("df_baselines", df_baselines))
         sources_to_check.append(("df_configs", df_configs))
 
         for source, df_source in sources_to_check:
@@ -209,8 +201,7 @@ class ZeroshotSimulatorContext:
             df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
 
         df_configs["task"] = df_configs["tid"].astype(str) + '_' + df_configs["fold"].astype(str)
-        if df_baselines is not None:
-            df_baselines["task"] = df_baselines["tid"].astype(str) + '_' + df_baselines["fold"].astype(str)
+        df_baselines["task"] = df_baselines["tid"].astype(str) + '_' + df_baselines["fold"].astype(str)
 
         unique_tasks = sorted(list(df_configs["task"].unique()))
         unique_datasets = sorted(list(df_configs["dataset"].unique()))
@@ -224,11 +215,11 @@ class ZeroshotSimulatorContext:
         unique_folds = cls._compute_folds_from_data(df_configs=df_configs, df_baselines=df_baselines)
 
         if score_against_only_automl:
-            assert df_baselines is not None, (f"`score_against_only_automl=True`, but `df_baselines` is None. "
-                                              f"Either specify `df_baselines` or set `score_against_only_automl=False`.")
+            assert len(df_baselines) != 0, (
+                f"`score_against_only_automl=True`, but `df_baselines` is empty. "
+                f"Either specify `df_baselines` or set `score_against_only_automl=False`."
+            )
             df_comparison = df_baselines.copy(deep=True)
-        elif df_baselines is None:
-            df_comparison = df_configs.copy(deep=True)
         else:
             df_comparison = pd.concat([df_configs, df_baselines], ignore_index=True)
         rank_scorer = RankScorer(
@@ -246,27 +237,25 @@ class ZeroshotSimulatorContext:
 
         task_to_dataset_dict = get_task_to_dataset_dict(df=df_configs)
         dataset_to_tid_dict = get_dataset_to_tid_dict(df=df_configs)
-        if df_baselines is not None:
-            task_to_dataset_dict_baselines = get_task_to_dataset_dict(df=df_baselines)
-            dataset_to_tid_dict_baselines = get_dataset_to_tid_dict(df=df_baselines)
-            task_to_dataset_dict.update(task_to_dataset_dict_baselines)
-            dataset_to_tid_dict.update(dataset_to_tid_dict_baselines)
+        task_to_dataset_dict_baselines = get_task_to_dataset_dict(df=df_baselines)
+        dataset_to_tid_dict_baselines = get_dataset_to_tid_dict(df=df_baselines)
+        task_to_dataset_dict.update(task_to_dataset_dict_baselines)
+        dataset_to_tid_dict.update(dataset_to_tid_dict_baselines)
         assert len(unique_datasets) == len(dataset_to_tid_dict.keys())
 
         df_metrics = get_dataset_to_metric_problem_type(df_configs=df_configs, df_baselines=df_baselines)
 
         cls._minimize_df_metadata(df_metadata=df_metadata, unique_datasets=unique_datasets)
 
-        if configs_hyperparameters is not None:
-            cls._verify_configs_hyperparameters(configs_hyperparameters=configs_hyperparameters)
-            configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
-            unique_configs = sorted(list(df_configs["framework"].unique()))
-            # TODO: Avoid needing to do configs_base, make the names match to begin with
-            configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs] + unique_configs)
-            configs_hyperparameters_keys = list(configs_hyperparameters.keys())
-            for c in configs_hyperparameters_keys:
-                if c not in configs_base:
-                    configs_hyperparameters.pop(c)
+        cls._verify_configs_hyperparameters(configs_hyperparameters=configs_hyperparameters)
+        configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
+        unique_configs = sorted(list(df_configs["framework"].unique()))
+        # TODO: Avoid needing to do configs_base, make the names match to begin with
+        configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs] + unique_configs)
+        configs_hyperparameters_keys = list(configs_hyperparameters.keys())
+        for c in configs_hyperparameters_keys:
+            if c not in configs_base:
+                configs_hyperparameters.pop(c)
 
         return (
             df_configs,
@@ -412,6 +401,8 @@ class ZeroshotSimulatorContext:
 
     @classmethod
     def _validate_df_configs(cls, df_configs: pd.DataFrame):
+        assert df_configs is not None
+        assert isinstance(df_configs, pd.DataFrame)
         required_columns = [
             "dataset",
             "fold",
@@ -427,6 +418,8 @@ class ZeroshotSimulatorContext:
 
     @classmethod
     def _validate_df_baselines(cls, df_baselines: pd.DataFrame):
+        assert df_baselines is not None
+        assert isinstance(df_baselines, pd.DataFrame)
         required_columns = [
             "dataset",
             "fold",
@@ -796,6 +789,37 @@ class ZeroshotSimulatorContext:
             assert "hyperparameters" in v, f"configs_hyperparameters value for key {config} must include a `hyperparameters` key"
             assert isinstance(v["hyperparameters"], dict), (f"configs_hyperparameters['{config}']['hyperparameters'] "
                                                             f"must be of type dict, found: {type(v['hyperparameters'])}")
+
+    @classmethod
+    def _create_empty_df_configs(cls) -> pd.DataFrame:
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric_error_val",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+        df_configs = pd.DataFrame(columns=required_columns)
+        return df_configs
+
+    @classmethod
+    def _create_empty_df_baselines(cls) -> pd.DataFrame:
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+        df_baselines = pd.DataFrame(columns=required_columns)
+        return df_baselines
 
     def to_dir(self, path: str) -> dict:
         path_configs = "configs.parquet"
