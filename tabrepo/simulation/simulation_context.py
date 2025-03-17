@@ -328,8 +328,9 @@ class ZeroshotSimulatorContext:
                 dataset_tid_map = df_metadata.set_index("dataset")["tid"]
                 df["tid"] = df["dataset"].map(dataset_tid_map)
             else:
-                print(f"Note: `tid` is missing from `{name}` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
-                      f"These values will be unrelated to OpenML task IDs.")
+                if len(df) > 0:
+                    print(f"Note: `tid` is missing from `{name}` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
+                          f"These values will be unrelated to OpenML task IDs.")
                 dataset_tid_map = {d: i for i, d in enumerate(datasets)}
                 df["tid"] = df["dataset"].map(dataset_tid_map).astype(int)
         return df

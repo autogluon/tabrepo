@@ -26,6 +26,7 @@ def load_context_artificial(
     seed=0,
     include_hyperparameters: bool = False,
     add_baselines_extra: bool = False,
+    only_baselines: bool = False,
     dtype=np.float32,
     **kwargs,
 ):
@@ -105,6 +106,8 @@ def load_context_artificial(
         **make_random_metric(model)
     } for fold in range(n_folds) for model in models for (tid, dataset) in zip(tids, datasets)
     )
+    if only_baselines:
+        df_raw = None
     zsc = ZeroshotSimulatorContext(
         df_configs=df_raw,
         df_baselines=df_results_by_dataset_automl,
@@ -139,6 +142,10 @@ def load_context_artificial(
     }
 
     zeroshot_gt = GroundTruth(label_val_dict=make_dict(123), label_test_dict=make_dict(13))
+
+    if only_baselines:
+        zeroshot_pred_proba = None
+        zeroshot_gt = None
 
     return zsc, configs_full, zeroshot_pred_proba, zeroshot_gt
 

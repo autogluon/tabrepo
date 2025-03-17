@@ -409,6 +409,37 @@ def test_repository_baselines_differ():
     assert repo_subset2.baselines() == ["b1", "b_e1"]
 
 
+def test_repository_only_baselines():
+    """
+    Test when only baselines exist and no configs exist.
+    """
+    repo = load_repo_artificial(add_baselines_extra=True, only_baselines=True)
+
+    assert repo.datasets() == ['a', 'abalone', 'ada', 'b']
+    assert repo.tids() == [5, 359946, 359944, 6]
+    assert repo.folds == [0, 1, 2]
+    assert repo.configs() == []
+    assert repo.baselines() == ["b1", "b2", "b_e1"]
+
+    repo: EvaluationRepository = repo.subset(folds=[0, 2])
+    assert repo.datasets() == ["a", 'abalone', 'ada', "b"]
+    assert repo.folds == [0, 2]
+    assert repo.configs() == []
+    assert repo.baselines() == ["b1", "b2", "b_e1"]
+
+    repo_subset1: EvaluationRepository = repo.subset(folds=[2], datasets=["abalone"])
+    assert repo_subset1.datasets() == ["abalone"]
+    assert repo_subset1.folds == [2]
+    assert repo_subset1.configs() == []
+    assert repo_subset1.baselines() == ["b1", "b2"]
+
+    repo_subset2: EvaluationRepository = repo.subset(datasets=["b"])
+    assert repo_subset2.datasets() == ["b"]
+    assert repo_subset2.folds == [0]
+    assert repo_subset2.configs() == []
+    assert repo_subset2.baselines() == ["b1", "b_e1"]
+
+
 def _assert_predict_multi_binary_as_multiclass(repo, fun: Callable, dataset, configs, n_rows, n_classes):
     problem_type = repo.dataset_info(dataset=dataset)["problem_type"]
     predict_multi = fun(dataset=dataset, fold=2, configs=configs)
