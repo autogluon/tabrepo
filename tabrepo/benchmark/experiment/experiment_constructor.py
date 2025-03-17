@@ -7,6 +7,7 @@ from autogluon.core.models import AbstractModel
 
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGSingleWrapper
+from tabrepo.benchmark.models.wrapper.ag_model import AGModelWrapper
 from tabrepo.benchmark.experiment.experiment_runner import ExperimentRunner, OOFExperimentRunner
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
@@ -91,6 +92,39 @@ class Experiment:
             # load cache, no need to load task
             out = cacher.cache(fun=None, fun_kwargs=None, ignore_cache=ignore_cache)
         return out
+
+
+class AGModelOuterExperiment(Experiment):
+    """
+    Simplified Experiment class
+    for fitting a single model using AutoGluon without doing a train/val split,
+    simply passing all data as X, y into `model_cls.fit`.
+
+    This can be useful to benchmark methods that don't perform fine-tuning,
+    such as TabPFNv2 and TabICL, where they instead want to use all the data for training.
+    """
+    def __init__(
+        self,
+        name: str,
+        model_cls: Type[AbstractModel],
+        model_hyperparameters: dict,
+        *,
+        method_kwargs: dict = None,
+        experiment_kwargs: dict = None,
+    ):
+        if method_kwargs is None:
+            method_kwargs = {}
+        super().__init__(
+            name=name,
+            method_cls=AGModelWrapper,
+            method_kwargs={
+                "model_cls": model_cls,
+                "hyperparameters": model_hyperparameters,
+                **method_kwargs,
+            },
+            experiment_cls=OOFExperimentRunner,
+            experiment_kwargs=experiment_kwargs,
+        )
 
 
 # convenience wrapper

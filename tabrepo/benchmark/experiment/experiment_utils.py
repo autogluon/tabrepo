@@ -195,9 +195,16 @@ class ExperimentBatchRunner:
         results_lst_simulation_artifacts = [result["simulation_artifacts"] for result in results_configs]
         results_lst_df = [result["df_results"] for result in results_configs]
 
-        df_configs = pd.concat(results_lst_df, ignore_index=True)
-        if convert_time_infer_s_from_batch_to_sample:
-            df_configs = _convert_time_infer_s_from_batch_to_sample(df=df_configs, task_metadata=self.task_metadata)
+        if results_lst_df:
+            df_configs = pd.concat(results_lst_df, ignore_index=True)
+            if convert_time_infer_s_from_batch_to_sample:
+                df_configs = _convert_time_infer_s_from_batch_to_sample(df=df_configs, task_metadata=self.task_metadata)
+        else:
+            df_configs = None
+
+        if df_baselines is not None:
+            if convert_time_infer_s_from_batch_to_sample:
+                df_baselines = _convert_time_infer_s_from_batch_to_sample(df=df_baselines, task_metadata=self.task_metadata)
 
         # TODO: per-fold pred_proba_test and pred_proba_val (indices?)
         repo: EvaluationRepository = EvaluationRepository.from_raw(
