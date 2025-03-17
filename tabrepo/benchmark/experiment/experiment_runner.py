@@ -22,6 +22,7 @@ class ExperimentRunner:
         method: str,
         fit_args: dict | None = None,
         cleanup: bool = True,
+        compute_simulation_artifacts: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
     ):
         assert input_format in ["openml", "csv"]
@@ -33,6 +34,7 @@ class ExperimentRunner:
         self.fit_args = fit_args
         self.cleanup = cleanup
         self.input_format = input_format
+        self.compute_simulation_artifacts = compute_simulation_artifacts
         self.eval_metric_name = ag_eval_metric_map[self.task.problem_type]  # FIXME: Don't hardcode eval metric
         self.eval_metric: Scorer = get_metric(metric=self.eval_metric_name, problem_type=self.task.problem_type)
         self.model = None
@@ -111,12 +113,7 @@ class ExperimentRunner:
         out["problem_type"] = self.task.problem_type
         out["metric"] = self.eval_metric_name
 
-        if self.model.can_get_oof:
-            simulation_artifact = self.model.get_oof()
-            simulation_artifacts = {self.task_name: {self.fold: simulation_artifact}}
-        else:
-            simulation_artifacts = None
-        out["simulation_artifacts"] = simulation_artifacts
+        out["simulation_artifacts"] = None
         if hasattr(self.model, "get_metadata"):
             out["method_metadata"] = self.model.get_metadata()
         return out
@@ -132,20 +129,26 @@ class ExperimentRunner:
         metadata["time_start_str"] = time_start_str
         return metadata
 
-    # FIXME: outdated
-    def convert_to_output(self, out: dict):
-        out.pop("predictions")
-        out.pop("probabilities")
-        out.pop("simulation_artifacts")
-        out.pop("experiment_metadata", None)
-        out.pop("method_metadata", None)
+    def convert_to_output(self, out: dict) -> dict:
+        ignored_columns = [
+            "predictions",
+            "probabilities",
+            "simulation_artifacts",
+            "experiment_metadata",
+            "method_metadata",
+        ]
+        out_keys = list(out.keys())
 
-        df_results = pd.DataFrame([out])
         ordered_columns = ["dataset", "fold", "framework", "metric_error", "metric", "time_train_s"]
-        columns_reorder = ordered_columns + [c for c in df_results.columns if c not in ordered_columns]
+        columns_reorder = ordered_columns + [c for c in out_keys if c not in ordered_columns and c not in ignored_columns]
+        df_results = pd.DataFrame([{k: out[k] for k in columns_reorder}])
         df_results = df_results[columns_reorder]
 
-        return df_results
+        out["df_results"] = df_results
+        out.pop("predictions")
+        out.pop("probabilities")
+
+        return out
 
     def evaluate(
         self,
@@ -169,7 +172,7 @@ class ExperimentRunner:
 class OOFExperimentRunner(ExperimentRunner):
     def post_evaluate(self, out: dict) -> dict:
         out = super().post_evaluate(out=out)
-        if self.model.can_get_oof:
+        if self.compute_simulation_artifacts and self.model.can_get_oof:
             simulation_artifact = self.model.get_oof()
             if self.task.problem_type == "regression":
                 simulation_artifact["pred_proba_dict_test"] = self.label_cleaner.transform(out["predictions"])
@@ -195,27 +198,6 @@ class OOFExperimentRunner(ExperimentRunner):
         else:
             simulation_artifacts = None
         out["simulation_artifacts"] = simulation_artifacts
-        return out
-
-    def convert_to_output(self, out: dict) -> dict:
-        ignored_columns = [
-            "predictions",
-            "probabilities",
-            "simulation_artifacts",
-            "experiment_metadata",
-            "method_metadata",
-        ]
-        out_keys = list(out.keys())
-
-        ordered_columns = ["dataset", "fold", "framework", "metric_error", "metric", "time_train_s"]
-        columns_reorder = ordered_columns + [c for c in out_keys if c not in ordered_columns and c not in ignored_columns]
-        df_results = pd.DataFrame([{k: out[k] for k in columns_reorder}])
-        df_results = df_results[columns_reorder]
-
-        out["df_results"] = df_results
-        out.pop("predictions")
-        out.pop("probabilities")
-
         return out
 
 
