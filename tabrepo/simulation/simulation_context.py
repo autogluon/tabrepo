@@ -4,7 +4,7 @@ import copy
 from collections import defaultdict
 import json
 from pathlib import Path
-from typing import Any, Optional, List, Union, Tuple
+from typing import Any, List, Union
 from typing_extensions import Self
 
 import pandas as pd
@@ -26,14 +26,14 @@ def _default_dict():
 
 class ZeroshotSimulatorContext:
     def __init__(
-            self,
-            df_configs: pd.DataFrame,
-            df_baselines: pd.DataFrame = None,
-            df_metadata: pd.DataFrame = None,
-            configs_hyperparameters: dict[str, dict[str, Any]] = None,
-            folds: List[int] | None = None,
-            pct: bool = False,
-            score_against_only_baselines: bool = True,
+        self,
+        df_configs: pd.DataFrame = None,
+        df_baselines: pd.DataFrame = None,
+        df_metadata: pd.DataFrame = None,
+        configs_hyperparameters: dict[str, dict[str, Any]] = None,
+        folds: List[int] | None = None,
+        pct: bool = False,
+        score_against_only_baselines: bool = True,
     ):
         """
         Encapsulates results evaluated on multiple base models/datasets/folds.
@@ -44,6 +44,13 @@ class ZeroshotSimulatorContext:
         :param score_against_only_baselines: if `True`, the scores are ranks (or percentage if `pct` is True) over the baselines only
         baselines. If False, the scores are computed against both baselines and the configs.
         """
+        if df_configs is None:
+            df_configs = self._create_empty_df_configs()
+        if df_baselines is None:
+            df_baselines = self._create_empty_df_baselines()
+        if configs_hyperparameters is None:
+            configs_hyperparameters = {}
+
         self.folds = folds
         self.score_against_only_baselines = score_against_only_baselines
         self.pct = pct
@@ -57,6 +64,7 @@ class ZeroshotSimulatorContext:
         self.df_metadata, \
         self.task_to_dataset_dict, \
         self.dataset_to_tid_dict, \
+        self.folds, \
         self.unique_tasks, \
         self.unique_datasets, \
         self.configs_hyperparameters, \
@@ -69,8 +77,6 @@ class ZeroshotSimulatorContext:
             score_against_only_automl=self.score_against_only_baselines,
             pct=self.pct,
         )
-        if self.folds is None:
-            self.folds = sorted(list(self.df_configs["fold"].unique()))
         self.dataset_to_tasks_dict = self._compute_dataset_to_tasks()
 
         self.dataset_to_problem_type_dict = self.df_configs_ranked[['dataset', 'problem_type']].drop_duplicates().set_index(
@@ -101,7 +107,6 @@ class ZeroshotSimulatorContext:
     def _update_all(self, folds=None):
         if folds is None:
             folds = self.folds
-        self.folds = folds
         self.df_configs, \
         self.df_baselines, \
         self.df_configs_ranked, \
@@ -109,6 +114,7 @@ class ZeroshotSimulatorContext:
         self.df_metadata, \
         self.task_to_dataset_dict, \
         self.dataset_to_tid_dict, \
+        self.folds, \
         self.unique_tasks, \
         self.unique_datasets, \
         self.configs_hyperparameters, \
@@ -128,81 +134,56 @@ class ZeroshotSimulatorContext:
         self.task_to_fold_dict = self.df_configs_ranked[["task", "fold"]].drop_duplicates().set_index("task").squeeze(axis=1).to_dict()
 
     @classmethod
-    def _align_valid_folds(cls,
-                           *,
-                           df_configs: pd.DataFrame,
-                           df_baselines: pd.DataFrame,
-                           df_metadata: pd.DataFrame,
-                           configs_hyperparameters: dict | None = None,
-                           folds: List[int] | None,
-                           score_against_only_automl: bool,
-                           pct: bool):
+    def _align_valid_folds(
+        cls,
+        *,
+        df_configs: pd.DataFrame,
+        df_baselines: pd.DataFrame,
+        df_metadata: pd.DataFrame,
+        configs_hyperparameters: dict,
+        folds: list[int] | None,
+        score_against_only_automl: bool,
+        pct: bool,
+    ) -> tuple[
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        pd.DataFrame,
+        dict[str, str],
+        dict[str, int],
+        list[int],
+        list[str],
+        list[str],
+        dict[str, Any],
+        RankScorer,
+    ]:
         cls._validate_df_configs(df_configs=df_configs)
-        if df_baselines is not None:
-            cls._validate_df_baselines(df_baselines=df_baselines)
+        cls._validate_df_baselines(df_baselines=df_baselines)
         # assert that each dataset contains only one problem type
-        dataset_problem_types = df_configs[["dataset", "problem_type"]].drop_duplicates()
-        assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique()), \
-            "Error: datasets exist in `df_configs` that contain multiple problem_types!"
+        dataset_problem_types = cls._compute_dataset_problem_types(df_configs=df_configs, df_baselines=df_baselines)
 
-        if df_metadata is not None:
-            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
-                                              f"Columns: {list(df_metadata.columns)}")
-            assert len(df_metadata) == len(df_metadata["dataset"].unique())
+        cls._validate_df_metadata(df_metadata=df_metadata)
 
-        if df_baselines is not None:
-            dataset_problem_types_comparison = df_baselines[["dataset", "problem_type"]].drop_duplicates()
-            assert len(dataset_problem_types_comparison) == len(dataset_problem_types_comparison["dataset"].unique()), \
-                "Error: datasets exist in `df_baselines` that contain multiple problem_types!"
-            dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze(axis=1).to_dict()
-            dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze(axis=1).to_dict()
-            for d in dataset_problem_types_map_configs.keys():
-                problem_type_configs = dataset_problem_types_map_configs[d]
-                if d in dataset_problem_types_map_baselines:
-                    problem_type_baselines = dataset_problem_types_map_baselines[d]
-                    assert problem_type_configs == problem_type_baselines, \
-                        (f"Error: Dataset `{d}` has a different `problem_type` between `df_configs` and `df_baselines`. They must match:\n"
-                         f"\tdf_configs  : {problem_type_configs}\n"
-                         f"\tdf_baselines: {problem_type_baselines}")
+        df_configs, df_baselines, dataset_tid = cls._align_tid(
+            df_configs=df_configs,
+            df_baselines=df_baselines,
+            df_metadata=df_metadata,
+        )
 
-        if "tid" not in df_configs.columns:
-            if df_metadata is not None and "tid" in df_metadata.columns:
-                dataset_tid_map = df_metadata.set_index("dataset")["tid"]
-                df_configs["tid"] = df_configs["dataset"].map(dataset_tid_map)
-            else:
-                print(f"Note: `tid` is missing from `df_configs` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
-                      f"These values will be unrelated to OpenML task IDs.")
-                df_configs = df_configs.copy(deep=True)
-                datasets = sorted(list(df_configs["dataset"].unique()))
-                dataset_to_tid_map = {d: i for i, d in enumerate(datasets)}
-                df_configs["tid"] = df_configs["dataset"].map(dataset_to_tid_map).astype(int)
-
-        # assert that each dataset-tid combination is exclusive
-        dataset_tid = df_configs[["dataset", "tid"]].drop_duplicates()
-        if len(dataset_tid) != len(dataset_tid["dataset"].unique()):
-            dataset_counts = dataset_tid["dataset"].value_counts()
-            non_unique_datasets = dataset_counts[dataset_counts > 1]
-            dataset_tid_invalid = dataset_tid[dataset_tid["dataset"].isin(non_unique_datasets.index)].sort_values(by=["dataset", "tid"]).reset_index(drop=True)
-            print(dataset_tid_invalid)
-            raise ValueError(
-                f"{len(non_unique_datasets)} invalid datasets encountered! Datasets contain different task IDs (tid) within `df_configs`. "
-                f"Ensure the tid is unique.\nInvalid Datasets:\n{dataset_tid_invalid}"
-            )
-
-        assert len(dataset_tid) == len(dataset_tid["tid"].unique())
-
-        if df_baselines is not None:
-            df_baselines = df_baselines.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
-            df_baselines = df_baselines.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
+        df_baselines = df_baselines.drop(columns=["tid"], errors="ignore").merge(dataset_tid, on=["dataset"])
+        df_baselines = df_baselines.drop(columns=["problem_type"], errors="ignore").merge(dataset_problem_types, on=["dataset"])
 
         unique_dataset_folds_set = df_configs[['dataset', 'fold']].drop_duplicates()
+        unique_dataset_folds_set_baselines = df_baselines[['dataset', 'fold']].drop_duplicates()
+        unique_dataset_folds_set_to_concat = [unique_dataset_folds_set, unique_dataset_folds_set_baselines]
+        unique_dataset_folds_set_to_concat = [u for u in unique_dataset_folds_set_to_concat if len(u) > 0]
+        unique_dataset_folds_set = pd.concat(unique_dataset_folds_set_to_concat, ignore_index=True).drop_duplicates()
 
         sources_to_check = []
-        if df_baselines is not None:
-            df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
-            unique_dataset_folds_set = df_baselines[['dataset', 'fold']].drop_duplicates()
-            df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
-            sources_to_check.append(("df_baselines", df_baselines))
+        df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
+        df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
+        sources_to_check.append(("df_baselines", df_baselines))
         sources_to_check.append(("df_configs", df_configs))
 
         for source, df_source in sources_to_check:
@@ -214,35 +195,34 @@ class ZeroshotSimulatorContext:
                                      f'Config Task Counts:\n'
                                      f'{config_task_counts}')
 
-        if df_baselines is not None:
-            df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
+        df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
 
         if folds is not None:
-            tasks = df_configs[['dataset', 'fold']].drop_duplicates()
-            tasks_in_valid_folds = tasks[tasks['fold'].isin(folds)]
-            dataset_fold_counts = tasks_in_valid_folds['dataset'].value_counts()
-            datasets_with_all_folds = dataset_fold_counts[dataset_fold_counts == len(folds)]
-            unique_datasets = sorted(list(datasets_with_all_folds.index))
-            unique_datasets_set = set(unique_datasets)
-            unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["dataset"].isin(unique_datasets_set)]
             unique_dataset_folds_set = unique_dataset_folds_set[unique_dataset_folds_set["fold"].isin(folds)]
             df_configs = filter_datasets(df=df_configs, datasets=unique_dataset_folds_set)
-            if df_baselines is not None:
-                df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
+            df_baselines = filter_datasets(df=df_baselines, datasets=unique_dataset_folds_set)
 
         df_configs["task"] = df_configs["tid"].astype(str) + '_' + df_configs["fold"].astype(str)
-        if df_baselines is not None:
-            df_baselines["task"] = df_baselines["tid"].astype(str) + '_' + df_baselines["fold"].astype(str)
+        df_baselines["task"] = df_baselines["tid"].astype(str) + '_' + df_baselines["fold"].astype(str)
 
         unique_tasks = sorted(list(df_configs["task"].unique()))
         unique_datasets = sorted(list(df_configs["dataset"].unique()))
 
-        if score_against_only_automl:
-            assert df_baselines is not None, (f"`score_against_only_automl=True`, but `df_baselines` is None. "
-                                              f"Either specify `df_baselines` or set `score_against_only_automl=False`.")
+        unique_tasks += sorted(list(df_baselines["task"].unique()))
+        unique_datasets += sorted(list(df_baselines["dataset"].unique()))
+
+        unique_tasks = sorted(list(set(unique_tasks)))
+        unique_datasets = sorted(list(set(unique_datasets)))
+
+        unique_folds = cls._compute_folds_from_data(df_configs=df_configs, df_baselines=df_baselines)
+
+        # FIXME: Remove scoring via baselines by default all-together, or maybe remove scoring period.
+        if score_against_only_automl and len(df_baselines) > 0:
+            assert len(df_baselines) != 0, (
+                f"`score_against_only_automl=True`, but `df_baselines` is empty. "
+                f"Either specify `df_baselines` or set `score_against_only_automl=False`."
+            )
             df_comparison = df_baselines.copy(deep=True)
-        elif df_baselines is None:
-            df_comparison = df_configs.copy(deep=True)
         else:
             df_comparison = pd.concat([df_configs, df_baselines], ignore_index=True)
         rank_scorer = RankScorer(
@@ -251,32 +231,34 @@ class ZeroshotSimulatorContext:
             pct=pct,
         )
         df_configs_ranked = df_configs.copy()
-        df_configs_ranked['rank'] = df_configs_ranked.apply(
-            lambda row: rank_scorer.rank(row["task"], row["metric_error"]), axis=1
-        )
+        if len(df_configs_ranked) > 0:
+            df_configs_ranked['rank'] = df_configs_ranked.apply(
+                lambda row: rank_scorer.rank(row["task"], row["metric_error"]), axis=1
+            )
+        else:
+            df_configs_ranked["rank"] = None
 
         task_to_dataset_dict = get_task_to_dataset_dict(df=df_configs)
         dataset_to_tid_dict = get_dataset_to_tid_dict(df=df_configs)
+        task_to_dataset_dict_baselines = get_task_to_dataset_dict(df=df_baselines)
+        dataset_to_tid_dict_baselines = get_dataset_to_tid_dict(df=df_baselines)
+        task_to_dataset_dict.update(task_to_dataset_dict_baselines)
+        dataset_to_tid_dict.update(dataset_to_tid_dict_baselines)
         assert len(unique_datasets) == len(dataset_to_tid_dict.keys())
 
-        df_metrics = get_dataset_to_metric_problem_type(df=df_configs)
+        df_metrics = get_dataset_to_metric_problem_type(df_configs=df_configs, df_baselines=df_baselines)
 
-        if df_metadata is not None:
-            df_metadata = copy.deepcopy(df_metadata)
-            df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
-            assert sorted(list(df_metadata["dataset"].unique())) == sorted(list(unique_datasets))
-            assert len(df_metadata) == len(unique_datasets)
+        cls._minimize_df_metadata(df_metadata=df_metadata, unique_datasets=unique_datasets)
 
-        if configs_hyperparameters is not None:
-            cls._verify_configs_hyperparameters(configs_hyperparameters=configs_hyperparameters)
-            configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
-            unique_configs = sorted(list(df_configs["framework"].unique()))
-            # TODO: Avoid needing to do configs_base, make the names match to begin with
-            configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs] + unique_configs)
-            configs_hyperparameters_keys = list(configs_hyperparameters.keys())
-            for c in configs_hyperparameters_keys:
-                if c not in configs_base:
-                    configs_hyperparameters.pop(c)
+        cls._verify_configs_hyperparameters(configs_hyperparameters=configs_hyperparameters)
+        configs_hyperparameters = copy.deepcopy(configs_hyperparameters)
+        unique_configs = sorted(list(df_configs["framework"].unique()))
+        # TODO: Avoid needing to do configs_base, make the names match to begin with
+        configs_base = set([cls._config_name_to_config_base(config) for config in unique_configs] + unique_configs)
+        configs_hyperparameters_keys = list(configs_hyperparameters.keys())
+        for c in configs_hyperparameters_keys:
+            if c not in configs_base:
+                configs_hyperparameters.pop(c)
 
         return (
             df_configs,
@@ -286,11 +268,118 @@ class ZeroshotSimulatorContext:
             df_metadata,
             task_to_dataset_dict,
             dataset_to_tid_dict,
+            unique_folds,
             unique_tasks,
             unique_datasets,
             configs_hyperparameters,
             rank_scorer,
         )
+
+    @staticmethod
+    def _validate_df_metadata(df_metadata: pd.DataFrame):
+        if df_metadata is not None:
+            assert "dataset" in df_metadata, (f"Missing required `dataset` column in metadata.\n"
+                                              f"Columns: {list(df_metadata.columns)}")
+            assert len(df_metadata) == len(df_metadata["dataset"].unique())
+
+    @staticmethod
+    def _minimize_df_metadata(df_metadata: pd.DataFrame, unique_datasets: list[str]):
+        if df_metadata is not None:
+            df_metadata = copy.deepcopy(df_metadata)
+            df_metadata = df_metadata[df_metadata["dataset"].isin(unique_datasets)]
+            metadata_datasets = sorted(list(df_metadata["dataset"].unique()))
+            present_datasets = sorted(list(unique_datasets))
+            if not metadata_datasets == present_datasets:
+                missing_metadata_datasets = [d for d in present_datasets if d not in metadata_datasets]
+                raise AssertionError(
+                    f"Datasets are present in df_configs / df_baselines, but are missing in df_metadata!\n"
+                    f"\t{len(missing_metadata_datasets)} missing datasets: {missing_metadata_datasets}"
+                )
+
+            assert len(df_metadata) == len(unique_datasets)
+        return df_metadata
+
+    @classmethod
+    def _align_tid(cls, df_configs: pd.DataFrame, df_baselines: pd.DataFrame, df_metadata: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        datasets = sorted(list(set(list(df_configs["dataset"].unique()) + list(df_baselines["dataset"].unique()))))
+        if df_metadata is None or "tid" not in df_metadata.columns:
+            if len(df_configs) > 0 and len(df_baselines) > 0:
+                if "tid" in df_configs.columns:
+                    assert "tid" in df_baselines.columns, (f"If `tid` not in df_metadata, then df_configs and df_baselines "
+                                                           f"must both contain `tid` or both not contain `tid` columns.")
+                else:
+                    assert "tid" not in df_baselines.columns, (f"If `tid` not in df_metadata, then df_configs and df_baselines "
+                                                               f"must both contain `tid` or both not contain `tid` columns.")
+
+        df_configs = cls._fillna_tid(df=df_configs, df_metadata=df_metadata, datasets=datasets, name="df_configs")
+        df_baselines = cls._fillna_tid(df=df_baselines, df_metadata=df_metadata, datasets=datasets, name="df_baselines")
+
+        dataset_tid = cls._compute_dataset_tid(df_configs=df_configs, df_baselines=df_baselines)
+        if df_metadata is not None and "tid" in df_metadata.columns:
+            map_metadata_dataset_tid = df_metadata[["dataset", "tid"]].set_index("dataset")["tid"]
+            map_dataset_tid = dataset_tid.set_index("dataset")["tid"]
+            if not map_metadata_dataset_tid.loc[map_dataset_tid.index].equals(map_dataset_tid):
+                raise AssertionError(f"Mismatched dataset -> tid map between metadata and configs/baselines!")
+
+        return df_configs, df_baselines, dataset_tid
+
+    @staticmethod
+    def _fillna_tid(df: pd.DataFrame, df_metadata: pd.DataFrame, datasets: list[str], name: str) -> pd.DataFrame:
+        if "tid" not in df.columns:
+            df = df.copy(deep=True)
+            if df_metadata is not None and "tid" in df_metadata.columns:
+                dataset_tid_map = df_metadata.set_index("dataset")["tid"]
+                df["tid"] = df["dataset"].map(dataset_tid_map)
+            else:
+                if len(df) > 0:
+                    print(f"Note: `tid` is missing from `{name}` columns. `tid` will be created by mapping the sorted unique `dataset` values to [0, n-1]. "
+                          f"These values will be unrelated to OpenML task IDs.")
+                dataset_tid_map = {d: i for i, d in enumerate(datasets)}
+                df["tid"] = df["dataset"].map(dataset_tid_map).astype(int)
+        return df
+
+    @staticmethod
+    def _compute_dataset_tid(df_configs: pd.DataFrame, df_baselines: pd.DataFrame) -> pd.DataFrame:
+        # assert that each dataset-tid combination is exclusive
+        dataset_tid = df_configs[["dataset", "tid"]].drop_duplicates()
+        if df_baselines is not None:
+            dataset_tid_baselines = df_baselines[["dataset", "tid"]].drop_duplicates()
+            dataset_tid = pd.concat([dataset_tid, dataset_tid_baselines], ignore_index=True).drop_duplicates()
+        if len(dataset_tid) != len(dataset_tid["dataset"].unique()):
+            dataset_counts = dataset_tid["dataset"].value_counts()
+            non_unique_datasets = dataset_counts[dataset_counts > 1]
+            dataset_tid_invalid = dataset_tid[dataset_tid["dataset"].isin(non_unique_datasets.index)].sort_values(by=["dataset", "tid"]).reset_index(drop=True)
+            raise ValueError(
+                f"{len(non_unique_datasets)} invalid datasets encountered! Datasets contain different task IDs (tid) within `df_configs`. "
+                f"Ensure the tid is unique.\nInvalid Datasets:\n{dataset_tid_invalid}"
+            )
+
+        assert len(dataset_tid) == len(dataset_tid["tid"].unique())
+        return dataset_tid
+
+    @staticmethod
+    def _compute_dataset_problem_types(df_configs: pd.DataFrame, df_baselines: pd.DataFrame) -> pd.DataFrame:
+        # assert that each dataset contains only one problem type
+        dataset_problem_types = df_configs[["dataset", "problem_type"]].drop_duplicates()
+        dataset_problem_types_baselines = df_baselines[["dataset", "problem_type"]].drop_duplicates()
+        dataset_problem_types = pd.concat([dataset_problem_types, dataset_problem_types_baselines], ignore_index=True).drop_duplicates()
+        assert len(dataset_problem_types) == len(dataset_problem_types["dataset"].unique()), \
+            "Error: datasets exist in `df_configs` that contain multiple problem_types!"
+
+        dataset_problem_types_comparison = df_baselines[["dataset", "problem_type"]].drop_duplicates()
+        assert len(dataset_problem_types_comparison) == len(dataset_problem_types_comparison["dataset"].unique()), \
+            "Error: datasets exist in `df_baselines` that contain multiple problem_types!"
+        dataset_problem_types_map_configs = dataset_problem_types.set_index("dataset").squeeze(axis=1).to_dict()
+        dataset_problem_types_map_baselines = dataset_problem_types_comparison.set_index("dataset").squeeze(axis=1).to_dict()
+        for d in dataset_problem_types_map_configs.keys():
+            problem_type_configs = dataset_problem_types_map_configs[d]
+            if d in dataset_problem_types_map_baselines:
+                problem_type_baselines = dataset_problem_types_map_baselines[d]
+                assert problem_type_configs == problem_type_baselines, \
+                    (f"Error: Dataset `{d}` has a different `problem_type` between `df_configs` and `df_baselines`. They must match:\n"
+                     f"\tdf_configs  : {problem_type_configs}\n"
+                     f"\tdf_baselines: {problem_type_baselines}")
+        return dataset_problem_types
 
     def df_dataset_folds(self) -> pd.DataFrame:
         df_dataset_folds = self.df_configs[["dataset", "fold"]].drop_duplicates().reset_index(drop=True)
@@ -316,6 +405,8 @@ class ZeroshotSimulatorContext:
 
     @classmethod
     def _validate_df_configs(cls, df_configs: pd.DataFrame):
+        assert df_configs is not None
+        assert isinstance(df_configs, pd.DataFrame)
         required_columns = [
             "dataset",
             "fold",
@@ -331,6 +422,8 @@ class ZeroshotSimulatorContext:
 
     @classmethod
     def _validate_df_baselines(cls, df_baselines: pd.DataFrame):
+        assert df_baselines is not None
+        assert isinstance(df_baselines, pd.DataFrame)
         required_columns = [
             "dataset",
             "fold",
@@ -346,6 +439,7 @@ class ZeroshotSimulatorContext:
     def print_info(self):
         out = '====== Zeroshot Simulator Context Info ======\n'
         out += f'# Configs: {len(self.get_configs())}\n'
+        out += f"# Baselines: {len(self.get_baselines())}\n"
         out += f'# Datasets: {len(self.unique_datasets)}\n'
         if self.folds is not None:
             out += f'# Folds: {len(self.folds)}\n'
@@ -508,7 +602,12 @@ class ZeroshotSimulatorContext:
             self.df_baselines = self.df_baselines[self.df_baselines["dataset"].isin(datasets)]
         if self.df_metadata is not None:
             self.df_metadata = self.df_metadata[self.df_metadata["dataset"].isin(datasets)]
+        self.folds = self._compute_folds_from_data(df_configs=self.df_configs, df_baselines=self.df_baselines)
         self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if d in datasets}
+
+    @classmethod
+    def _compute_folds_from_data(cls, df_configs: pd.DataFrame, df_baselines: pd.DataFrame) -> list[int]:
+        return sorted(list(set(list(df_configs["fold"].unique()) + list(df_baselines["fold"].unique()))))
 
     def subset_problem_types(self, problem_types: List[str]):
         """
@@ -694,6 +793,37 @@ class ZeroshotSimulatorContext:
             assert "hyperparameters" in v, f"configs_hyperparameters value for key {config} must include a `hyperparameters` key"
             assert isinstance(v["hyperparameters"], dict), (f"configs_hyperparameters['{config}']['hyperparameters'] "
                                                             f"must be of type dict, found: {type(v['hyperparameters'])}")
+
+    @classmethod
+    def _create_empty_df_configs(cls) -> pd.DataFrame:
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric_error_val",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+        df_configs = pd.DataFrame(columns=required_columns)
+        return df_configs
+
+    @classmethod
+    def _create_empty_df_baselines(cls) -> pd.DataFrame:
+        required_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+        ]
+        df_baselines = pd.DataFrame(columns=required_columns)
+        return df_baselines
 
     def to_dir(self, path: str) -> dict:
         path_configs = "configs.parquet"
