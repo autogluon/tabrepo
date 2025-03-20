@@ -3,11 +3,12 @@ import sagemaker
 import argparse
 import json
 import time
-import random
 import logging
 import uuid
+import math
 
 from botocore.config import Config
+from itertools import islice
 from datetime import datetime
 from pathlib import Path
 from tabrepo import EvaluationRepository
@@ -21,6 +22,7 @@ logging.getLogger('boto3').setLevel(logging.ERROR)
 DOCKER_IMAGE_ALIASES = {
     "mlflow-image": "{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com/{REPO}:{IMAGE_TAG}",
 }
+
 
 def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_path):
     """
@@ -61,45 +63,96 @@ def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_
             print(f"No log stream found for job {job_name}")
             return
         
-        # Get the logs
         logs_response = cloudwatch_logs.get_log_events(
             logGroupName=log_group,
-            logStreamName=log_stream
+            logStreamName=log_stream,
+            startFromHead=True,
+            limit=10000
         )
         
-        # Compile the log messages
-        log_content = ""
-        for event in logs_response['events']:
-            log_content += f"{event['message']}\n"
+        log_events = logs_response['events']
         
-        # Continue retrieving logs if there are more
+        # Continue retrieving if more logs are available
         while 'nextForwardToken' in logs_response:
             next_token = logs_response['nextForwardToken']
             logs_response = cloudwatch_logs.get_log_events(
                 logGroupName=log_group,
                 logStreamName=log_stream,
-                nextToken=next_token
+                nextToken=next_token,
+                limit=10000
             )
             
-            # If no more new logs, break
             if next_token == logs_response['nextForwardToken']:
                 break
                 
-            for event in logs_response['events']:
-                log_content += f"{event['message']}\n"
+            log_events.extend(logs_response['events'])
         
-        # Save logs to S3
-        log_file_path = f"{cache_path}/full_log.log"
-        s3_client.put_object(
-            Body=log_content.encode('utf-8'),
-            Bucket=bucket,
-            Key=log_file_path
-        )
-        print(f"Logs saved to s3://{bucket}/{log_file_path}")
-   
+        full_log_content = ""
+        for event in log_events:
+            full_log_content += f"{event['message']}\n"
+
+        # Parse tasks from the logs
+        task_logs = {}
+        task_paths = {}
+        current_task = None
+        current_dataset = None
+        current_tid = None
+        current_fold = None
+        current_method = None
+        task_content = []
+        
+        for line in full_log_content.split('\n'):
+            # Check for task start
+            if "Processing task: Dataset=" in line:
+                if current_task and task_content:
+                    task_logs[current_task] = '\n'.join(task_content)
+                    task_paths[current_task] = f"{current_method}/{current_tid}/{current_fold}"
+                    task_content = []
+                
+                # Extract task identifiers
+                parts = line.split(",")
+                current_dataset = parts[0].split("Dataset=")[1].strip()
+                current_tid = parts[1].split("TID=")[1].strip()  # Extract TID directly
+                current_fold = parts[2].split("Fold=")[1].strip()
+                current_method = parts[3].split("Method=")[1].strip()
+
+                current_task = f"{current_tid}_{current_fold}_{current_method}"
+                    
+            if current_task:
+                task_content.append(line)
+        
+        if current_task and task_content:
+            task_logs[current_task] = '\n'.join(task_content)
+            task_paths[current_task] = f"{current_method}/{current_tid}/{current_fold}"
+        
+        # Extract experiment name from cache_path
+        # Assuming cache_path format: "{experiment_name}/data/{method_name}/{tid}/{fold}"
+        experiment_name = cache_path.split('/')[0]
+
+        # Save individual task + full batch logs
+        for task_name, content in task_logs.items():
+            path_parts = task_paths[task_name].split('/')
+            method_name = path_parts[0]
+            dataset_tid = path_parts[1]
+            fold = path_parts[2]
+            task_file_path = f"{experiment_name}/data/{method_name}/{dataset_tid}/{fold}/task.log"
+            s3_client.put_object(
+                Body=content.encode('utf-8'),
+                Bucket=bucket,
+                Key=task_file_path
+            )
+            print(f"Task log saved to s3://{bucket}/{task_file_path}")
+
+            full_log_file_path = f"{experiment_name}/data/{method_name}/{dataset_tid}/{fold}/full_log.log"
+            s3_client.put_object(
+                Body=full_log_content.encode('utf-8'),
+                Bucket=bucket,
+                Key=full_log_file_path
+            )
+            print(f"Logs saved to s3://{bucket}/{full_log_file_path}")
     except Exception as e:
         logging.exception(f"Error saving logs for job {job_name}")
-        # print(f"Error saving logs for job {job_name}: {e}")
+
 
 class TrainingJobResourceManager:
     def __init__(self, sagemaker_client, max_concurrent_jobs):
@@ -134,7 +187,7 @@ class TrainingJobResourceManager:
             if len(self.job_names) < self.max_concurrent_jobs:
                 return len(self.job_names)
             self.remove_completed_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
-            print(f"Currently running {len(self.job_names)}/{self.max_concurrent_jobs} concurrent jobs. Waiting...")
+            print(f"Currently running {len(self.job_names)} out of {self.max_concurrent_jobs} concurrent jobs. Waiting...")
             time.sleep(poll_interval)
 
     def wait_for_all_jobs(self, s3_client, s3_bucket, poll_interval=10):
@@ -143,6 +196,13 @@ class TrainingJobResourceManager:
             self.remove_completed_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
             print(f"Waiting for {len(self.job_names)} jobs to complete...")
             time.sleep(poll_interval)
+
+
+def create_batch(tasks, batch_size):
+    """Convert all tasks into batches"""
+    it = iter(tasks)
+    for batch in iter(lambda: tuple(islice(it, batch_size)), ()):
+        yield batch
 
 
 def launch_jobs(
@@ -165,6 +225,7 @@ def launch_jobs(
         s3_bucket: str = "test-bucket",
         add_timestamp: bool = False,
         wait: bool = False,
+        batch_size: int = 2,
 ) -> None:
     """
     Launch multiple SageMaker training jobs.
@@ -187,6 +248,7 @@ def launch_jobs(
         S3 bucket: S3 bucket to store the results
         add_timestamp: Whether to add a timestamp to the experiment name
         wait: Whether to wait for all jobs to complete
+        batch_size: Number of models to batch for each task
     """
     
     if add_timestamp:
@@ -213,6 +275,7 @@ def launch_jobs(
 
     methods = yaml_to_methods(methods_file=methods_file)
 
+    # repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
     
     if "run_all" in datasets:
@@ -225,74 +288,88 @@ def launch_jobs(
     else:
         folds = folds
 
-    total_jobs = len(datasets) * len(folds) * len(methods)
+    tasks = [(dataset, fold, method) for dataset in datasets for fold in folds for method in methods]
+    # total_jobs = len(datasets) * len(folds) * len(methods)
+    total_jobs = math.ceil(len(tasks)/batch_size)
     total_launched_jobs = 0
 
-    print(f"Preparing to launch {total_jobs} jobs with max concurrency of {max_concurrent_jobs}")
+    print(f"Preparing to launch {total_jobs} jobs with batch size of {batch_size} and max concurrency of {max_concurrent_jobs}")
     print(f"Instance keep-alive period set to {keep_alive_period_in_seconds} seconds to enable warm-starts")
     
     try:
-        for dataset in datasets:
-            for fold in folds:
-                for method in methods:
+        for task_batch in create_batch(tasks, batch_size):
+            uncached_tasks = []
+            for dataset, fold, method in task_batch:
+                    
+                method_name = method['name']
+                cache_path = f"{experiment_name}/data/{method_name}/{repo_og.dataset_to_tid(dataset)}/{fold}"
+                cache_name = f"{experiment_name}/data/{method_name}/{repo_og.dataset_to_tid(dataset)}/{fold}/results.pkl"
 
-                    method_name = method['name']
-                    cache_path = f"{experiment_name}/data/{method_name}/{repo_og.dataset_to_tid(dataset)}/{fold}"
+                # Change this check based on literals name_first or task_first
+                if check_s3_file_exists(s3_client=s3_client, bucket=s3_bucket, cache_name=cache_name):
+                    print(f"Cache exists for {method_name} on dataset {dataset} fold {fold}. Skipping job launch.")
+                    print(f"Cache path: s3://{s3_bucket}/{cache_path}\n")
+                else:
+                    uncached_tasks.append((dataset, fold, method))
 
-                    cache_name = f"{experiment_name}/data/{method_name}/{repo_og.dataset_to_tid(dataset)}/{fold}/results.pkl"
+            if not uncached_tasks:
+                print(f"All tasks in batch are cached. Skipping job launch.")
+                continue
 
-                    # Change this check based on literals name_first or task_first
-                    if check_s3_file_exists(s3_client=s3_client, bucket=s3_bucket, cache_name=cache_name):
-                        print(f"Cache exists for {method_name} on dataset {dataset} fold {fold}. Skipping job launch.")
-                        print(f"Cache path: s3://{s3_bucket}/{cache_path}\n")
-                        continue
+            current_jobs = resource_manager.wait_for_available_slot(s3_client=s3_client, s3_bucket=s3_bucket)
+            print(f"\nSlot available. Currently running {current_jobs}/{max_concurrent_jobs} jobs")
 
-                    current_jobs = resource_manager.wait_for_available_slot(s3_client=s3_client, s3_bucket=s3_bucket)
-                    print(f"\nSlot available. Currently running {current_jobs}/{max_concurrent_jobs} jobs")
-
-                    # Create a unique job name
-                    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-                    unique_id = str(uuid.uuid4().int)[:19]
-                    base_name = f"{dataset[:4]}-f{fold}-{method_name[:4]}-{timestamp}-{unique_id}"
-                    job_name = sanitize_job_name(base_name)
+            # Create a unique job name
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            unique_id = str(uuid.uuid4().int)[:19]
+            base_name = f"{dataset[:4]}-f{fold}-{method_name[:4]}-{timestamp}-{unique_id}"
+            job_name = sanitize_job_name(base_name)
 
 
-                    if docker_image_uri in DOCKER_IMAGE_ALIASES:
-                        print(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
-                        docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
+            if docker_image_uri in DOCKER_IMAGE_ALIASES:
+                print(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
+                docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
 
-                    # Update hyperparameters for this job
-                    job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
-                    job_hyperparameters.update({
-                        "experiment_name": experiment_name,
-                        "context_name": context_name,
-                        "dataset": dataset,
-                        "fold": fold,   # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
-                        "method_name": method_name,
-                        "method": f"'{json.dumps(method)}'",
-                        "s3_bucket": s3_bucket,
-                    })
+            
+            tasks_json = []
+            for dataset, fold, method in uncached_tasks:
+                tasks_json.append({
+                    "dataset": dataset,
+                    "fold": fold,   # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
+                    "method_name": method["name"],
+                    "method": method,
+                })
+            # Update hyperparameters for this job
+            job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
+            
+            job_hyperparameters.update({
+                "experiment_name": experiment_name,
+                "context_name": context_name,
+                "tasks": f"'{json.dumps(tasks_json)}'",
+                "s3_bucket": s3_bucket,
+            })
 
-                    # Create the estimator
-                    estimator = sagemaker.estimator.Estimator(
-                        entry_point=entry_point,
-                        source_dir=source_dir,
-                        image_uri=docker_image_uri,
-                        role=sagemaker_role,
-                        instance_count=1,
-                        instance_type=instance_type,
-                        sagemaker_session=sagemaker_session,
-                        hyperparameters=job_hyperparameters,
-                        keep_alive_period_in_seconds=keep_alive_period_in_seconds,
-                        max_run=limit_runtime,
-                        disable_profiler=True,  # Prevent debug profiler from running
-                    )
+            # Create the estimator
+            estimator = sagemaker.estimator.Estimator(
+                entry_point=entry_point,
+                source_dir=source_dir,
+                image_uri=docker_image_uri,
+                role=sagemaker_role,
+                instance_count=1,
+                instance_type=instance_type,
+                sagemaker_session=sagemaker_session,
+                hyperparameters=job_hyperparameters,
+                keep_alive_period_in_seconds=keep_alive_period_in_seconds,
+                max_run=limit_runtime,
+                disable_profiler=True,  # Prevent debug profiler from running
+                # output_path=f"s3://{s3_bucket}/{experiment_name}/data/output"  # Add output path configuration to ensure task logs are accessible
+            )
 
-                    # Launch the training job
-                    estimator.fit(wait=False, job_name=job_name)
-                    resource_manager.add_job(job_name=job_name, cache_path=cache_path)
-                    total_launched_jobs += 1
-                    print(f"Launched job {total_launched_jobs} out of a total of {total_jobs} jobs: {job_name}\n")
+            # Launch the training job
+            estimator.fit(wait=False, job_name=job_name)
+            resource_manager.add_job(job_name=job_name, cache_path=cache_path)
+            total_launched_jobs += 1
+            print(f"Launched job {total_launched_jobs} out of a total of {total_jobs} jobs: {job_name}\n")
         
         if wait:
             resource_manager.wait_for_all_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
@@ -314,6 +391,7 @@ def main():
     parser.add_argument('--s3_bucket', type=str, default="test-bucket", help="S3 bucket for the experiment")
     parser.add_argument('--add_timestamp', action='store_true', help="Add timestamp to the experiment name")
     parser.add_argument('--wait', action='store_true', help="Wait for all jobs to complete")
+    parser.add_argument('--batch_size', type=int, default=2, help="Batch size for tasks")
 
     args = parser.parse_args()
 
@@ -326,8 +404,10 @@ def main():
         max_concurrent_jobs=args.max_concurrent_jobs,
         s3_bucket=args.s3_bucket,
         wait=args.wait,
+        batch_size=args.batch_size,
     )
 
 
 if __name__ == "__main__":
     main()
+

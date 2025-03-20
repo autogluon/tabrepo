@@ -22,10 +22,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--experiment_name', type=str, required=True, help="Name of the experiment")
     parser.add_argument('--context_name', type=str, required=True, help="Name of the context")
-    parser.add_argument('--datasets', nargs='+', type=str, required=True, help="List of datasets to evaluate")
-    parser.add_argument('--folds', nargs='+', type=int, required=True, help="List of folds to evaluate")
-    parser.add_argument('--method_name', type=str, required=True, help="Name of the method")
-    parser.add_argument('--method', type=str, required=True, help="Method to evaluate, dict as JSON string")
+    parser.add_argument('--tasks', type=str, required=True, help="List of tasks to evaluate")
     parser.add_argument('--s3_bucket', type=str, required=True, help="S3 bucket for the experiment")
 
     args = parser.parse_args()
@@ -35,21 +32,33 @@ if __name__ == '__main__':
     expname = args.experiment_name
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
+    #FIXME: Cache combined with load predictions is buggy
+    # repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
 
-    datasets = args.datasets
-    folds = args.folds
+    tasks_str = args.tasks
+    if tasks_str.startswith("'") and tasks_str.endswith("'"):
+        tasks_str = tasks_str[1:-1]
 
-    method_dict = json.loads(args.method)
-    print(f"Method dict: {method_dict}")
-    methods = parse_method(method_dict, globals())
-    print("\nMethods: ", methods)
+    tasks = json.loads(args.tasks)
+    for task in tasks:
+        dataset = task["dataset"]
+        fold = task["fold"]
+        method_name = task["method_name"]
+        method = task["method"]
+        tid = repo_og.dataset_to_tid(dataset)   # Solely for logging purposes
+        print(f"Processing task: Dataset={dataset}, TID={tid}, Fold={fold}, Method={method_name}")
+        print("\nMethod Dict: ", method)
+        methods = parse_method(method, globals())
+        print("\nMethods: ", methods)
+        # Repo -> results list
+        # Launch - 8 ExperimentBatchRunner one way to batch or do a for-loop
+        repo: EvaluationRepository = ExperimentBatchRunner(expname=expname, task_metadata=repo_og.task_metadata).run(
+        datasets=[dataset], 
+        folds=[fold],
+        methods=[methods], 
+        ignore_cache=ignore_cache,
+        mode="aws",
+        s3_bucket=args.s3_bucket,
+        )
 
-    repo: EvaluationRepository = ExperimentBatchRunner(expname=expname, task_metadata=repo_og.task_metadata).run(
-    datasets=datasets, 
-    folds=folds,
-    methods=[methods], 
-    ignore_cache=ignore_cache,
-    mode="aws",
-    s3_bucket=args.s3_bucket,
-    )

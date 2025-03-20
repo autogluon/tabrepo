@@ -10,8 +10,7 @@ methods:
       n_estimators: 1000
       learning_rate: 0.05
     num_bag_folds: 8
-    time_limit: 3600
-    calibrate: true
+    time_limit: 3600 
 
   - type: "AGModelBagExperiment"
     name: "LightGBM_c1_BAG_L1_Reproduced-v2"
@@ -22,7 +21,6 @@ methods:
       learning_rate: 0.10
     num_bag_folds: 8
     time_limit: 3600
-    calibrate: true
 
   - type: "AGModelBagExperiment"
     name: "LightGBM_c1_BAG_L1_Reproduced-v3"
@@ -33,7 +31,6 @@ methods:
       learning_rate: 0.15
     num_bag_folds: 8
     time_limit: 3600
-    calibrate: true
 
   - type: "AGModelBagExperiment"
     name: "RealMLP_c2_BAG_L1_TD_v2_SM"
@@ -81,7 +78,6 @@ methods:
   #     n_estimators: 1000
   #   num_bag_folds: 8
   #   time_limit: 3600
-  #   calibrate: true
 
   # - type: "Experiment"
   #   name: "LightGBM_Custom"

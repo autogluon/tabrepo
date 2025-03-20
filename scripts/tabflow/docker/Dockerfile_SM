@@ -7,12 +7,13 @@ RUN cd autogluon && ./full_install.sh
 RUN cd ..
 
 COPY ../../ .
-COPY ./tabflow/src/evaluate.py .
+COPY ./tabflow/src/tabflow/evaluate.py .
 
 # Install the required packages
 RUN pip install -e tabrepo \
     && pip install -e autogluon-bench \
-    && pip install -e autogluon-benchmark
+    && pip install -e autogluon-benchmark \
+    && pip install -e tabflow
 
 # Install pytabkit and seaborn
 RUN pip install pytabkit seaborn

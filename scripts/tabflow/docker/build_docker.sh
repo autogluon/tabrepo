@@ -17,7 +17,7 @@ aws ecr get-login-password --region ${REGION} | docker login --username AWS --pa
 aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${TARGET_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com
 
 # Build the Docker image
-docker build -t ${REPO_NAME} -f ./Dockerfile_SM ../..
+docker build --no-cache -t ${REPO_NAME} -f ./Dockerfile_SM ../..
 
 # Tag the Docker image
 docker tag ${REPO_NAME}:latest ${TARGET_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:${TAG}
