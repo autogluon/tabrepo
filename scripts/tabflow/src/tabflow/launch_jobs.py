@@ -12,7 +12,7 @@ from itertools import islice
 from datetime import datetime
 from pathlib import Path
 from tabrepo import EvaluationRepository
-from tabflow.utils import sanitize_job_name, check_s3_file_exists, yaml_to_methods
+from tabflow.utils import sanitize_job_name, check_s3_file_exists, yaml_to_methods, save_training_job_logs, upload_methods_config, upload_tasks_json
 
 logging.getLogger('botocore').setLevel(logging.ERROR)
 logging.getLogger('sagemaker').setLevel(logging.ERROR)
@@ -22,136 +22,6 @@ logging.getLogger('boto3').setLevel(logging.ERROR)
 DOCKER_IMAGE_ALIASES = {
     "mlflow-image": "{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com/{REPO}:{IMAGE_TAG}",
 }
-
-
-def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_path):
-    """
-    Retrieve logs for a completed SageMaker training job and save to S3.
-    
-    Args:
-        sagemaker_client: Boto3 SageMaker client
-        s3_client: Boto3 S3 client
-        job_name: Name of the SageMaker training job
-        bucket: S3 bucket name
-        cache_path: Path prefix where the logs should be saved (without the .log extension)
-    """
-    try:        
-        # Create CloudWatch logs client + standard log_group
-        retry_config = Config(
-        connect_timeout=5,
-        read_timeout=10,
-        retries={'max_attempts':20,
-                'mode':'adaptive',
-                }
-        )
-        cloudwatch_logs = boto3.client('logs', config=retry_config)
-        log_group ='/aws/sagemaker/TrainingJobs'
-
-        response = cloudwatch_logs.describe_log_streams(
-            logGroupName=log_group,
-            logStreamNamePrefix=job_name
-        )
-
-        # Find the matching log stream
-        log_stream = None
-        for stream in response.get('logStreams', []):
-            if stream['logStreamName'].startswith(job_name):
-                log_stream = stream['logStreamName']
-                break
-        
-        if not log_stream:
-            print(f"No log stream found for job {job_name}")
-            return
-        
-        logs_response = cloudwatch_logs.get_log_events(
-            logGroupName=log_group,
-            logStreamName=log_stream,
-            startFromHead=True,
-            limit=10000
-        )
-        
-        log_events = logs_response['events']
-        
-        # Continue retrieving if more logs are available
-        while 'nextForwardToken' in logs_response:
-            next_token = logs_response['nextForwardToken']
-            logs_response = cloudwatch_logs.get_log_events(
-                logGroupName=log_group,
-                logStreamName=log_stream,
-                nextToken=next_token,
-                limit=10000
-            )
-            
-            if next_token == logs_response['nextForwardToken']:
-                break
-                
-            log_events.extend(logs_response['events'])
-        
-        full_log_content = ""
-        for event in log_events:
-            full_log_content += f"{event['message']}\n"
-
-        # Parse tasks from the logs
-        task_logs = {}
-        task_paths = {}
-        current_task = None
-        current_dataset = None
-        current_tid = None
-        current_fold = None
-        current_method = None
-        task_content = []
-        
-        for line in full_log_content.split('\n'):
-            # Check for task start
-            if "Processing task: Dataset=" in line:
-                if current_task and task_content:
-                    task_logs[current_task] = '\n'.join(task_content)
-                    task_paths[current_task] = f"{current_method}/{current_tid}/{current_fold}"
-                    task_content = []
-                
-                # Extract task identifiers
-                parts = line.split(",")
-                current_dataset = parts[0].split("Dataset=")[1].strip()
-                current_tid = parts[1].split("TID=")[1].strip()  # Extract TID directly
-                current_fold = parts[2].split("Fold=")[1].strip()
-                current_method = parts[3].split("Method=")[1].strip()
-
-                current_task = f"{current_tid}_{current_fold}_{current_method}"
-                    
-            if current_task:
-                task_content.append(line)
-        
-        if current_task and task_content:
-            task_logs[current_task] = '\n'.join(task_content)
-            task_paths[current_task] = f"{current_method}/{current_tid}/{current_fold}"
-        
-        # Extract experiment name from cache_path
-        # Assuming cache_path format: "{experiment_name}/data/{method_name}/{tid}/{fold}"
-        experiment_name = cache_path.split('/')[0]
-
-        # Save individual task + full batch logs
-        for task_name, content in task_logs.items():
-            path_parts = task_paths[task_name].split('/')
-            method_name = path_parts[0]
-            dataset_tid = path_parts[1]
-            fold = path_parts[2]
-            task_file_path = f"{experiment_name}/data/{method_name}/{dataset_tid}/{fold}/task.log"
-            s3_client.put_object(
-                Body=content.encode('utf-8'),
-                Bucket=bucket,
-                Key=task_file_path
-            )
-            print(f"Task log saved to s3://{bucket}/{task_file_path}")
-
-            full_log_file_path = f"{experiment_name}/data/{method_name}/{dataset_tid}/{fold}/full_log.log"
-            s3_client.put_object(
-                Body=full_log_content.encode('utf-8'),
-                Bucket=bucket,
-                Key=full_log_file_path
-            )
-            print(f"Logs saved to s3://{bucket}/{full_log_file_path}")
-    except Exception as e:
-        logging.exception(f"Error saving logs for job {job_name}")
 
 
 class TrainingJobResourceManager:
@@ -273,6 +143,9 @@ def launch_jobs(
     # Initialize the resource manager
     resource_manager = TrainingJobResourceManager(sagemaker_client=sagemaker_client, max_concurrent_jobs=max_concurrent_jobs)
 
+    methods_s3_key = f"{experiment_name}/config/methods_config.yaml"
+    methods_s3_path = upload_methods_config(s3_client, methods_file, s3_bucket, methods_s3_key)
+
     methods = yaml_to_methods(methods_file=methods_file)
 
     # repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
@@ -325,28 +198,32 @@ def launch_jobs(
             base_name = f"{dataset[:4]}-f{fold}-{method_name[:4]}-{timestamp}-{unique_id}"
             job_name = sanitize_job_name(base_name)
 
-
             if docker_image_uri in DOCKER_IMAGE_ALIASES:
                 print(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
                 docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
 
-            
             tasks_json = []
             for dataset, fold, method in uncached_tasks:
                 tasks_json.append({
                     "dataset": dataset,
                     "fold": fold,   # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
                     "method_name": method["name"],
-                    "method": method,
+                    # "method": method,   # We do not need this if we read yaml in evaluate.py
                 })
+
+            # Unique s3 key for a task
+            tasks_s3_key = f"{experiment_name}/config/tasks/{job_name}_tasks_batch_{batch_size}.json"
+            tasks_s3_path = upload_tasks_json(s3_client, tasks_json, s3_bucket, tasks_s3_key)
+            
             # Update hyperparameters for this job
             job_hyperparameters = hyperparameters.copy() if hyperparameters else {}
-            
             job_hyperparameters.update({
                 "experiment_name": experiment_name,
                 "context_name": context_name,
-                "tasks": f"'{json.dumps(tasks_json)}'",
+                # "tasks": f"'{json.dumps(tasks_json)}'",
+                "tasks_s3_path": tasks_s3_path,
                 "s3_bucket": s3_bucket,
+                "methods_s3_path": methods_s3_path,
             })
 
             # Create the estimator
