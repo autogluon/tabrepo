@@ -5,6 +5,7 @@ from typing import Union
 import pandas as pd
 import pickle
 import sys
+import boto3
 from pathlib import Path
 from contextlib import contextmanager
 from time import perf_counter
@@ -13,6 +14,7 @@ from typing import Callable, Generic, Optional, TypeVar
 
 from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
+from autogluon.common.utils import s3_utils
 
 from tabrepo.utils import catchtime
 
@@ -123,18 +125,44 @@ class CacheFunctionPickle(AbstractCacheFunction[object]):
             # TODO: Remove default_cache_path?
             cache_path = default_cache_path
         self.cache_path = cache_path
+        self.is_s3 = str(cache_path).startswith("s3://")
 
     @property
     def cache_file(self) -> str:
+        if self.is_s3:
+            return f"{self.cache_path}/{self.cache_name}.pkl"
         return str(Path(self.cache_path) / (self.cache_name + ".pkl"))
+    
+    @property
+    def exists(self) -> bool:
+        if self.is_s3:
+            try:
+                s3 = boto3.client('s3')
+                bucket, key = s3_utils.s3_path_to_bucket_prefix(self.cache_file)
+                s3.head_object(Bucket=bucket, Key=key)
+                return True
+            except s3.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == '404':
+                    return False
+                else:
+                    raise
+        else:
+            return Path(self.cache_file).exists()
 
     def save_cache(self, data: object) -> None:
-        cache_file = self.cache_file
-        Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
-        with open(cache_file, "wb") as f:
+        if self.is_s3:
+            s3 = boto3.client('s3')
+            bucket, key = s3_utils.s3_path_to_bucket_prefix(self.cache_file)
             cache = pickle.dumps(data)
-            print(f'Writing cache with size {round(sys.getsizeof(cache) / 1e6, 3)} MB')
-            f.write(cache)
+            print(f'Writing cache with size {round(sys.getsizeof(cache) / 1e6, 3)} MB to {self.cache_file}')
+            s3.put_object(Bucket=bucket, Key=key, Body=cache)
+        else:
+            cache_file = self.cache_file
+            Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
+            with open(cache_file, "wb") as f:
+                cache = pickle.dumps(data)
+                print(f'Writing cache with size {round(sys.getsizeof(cache) / 1e6, 3)} MB')
+                f.write(cache)
 
     def load_cache(self) -> object:
         with open(self.cache_file, "rb") as f:
@@ -204,6 +232,50 @@ def catchtime(name: str, logger=None) -> float:
         yield lambda: perf_counter() - start
     finally:
         print_fun(f"Time for {name}: {perf_counter() - start:.4f} secs")
+
+
+# TODO: Delete and use CacheFunctionDF?
+@dataclass
+class Experiment:
+    expname: str  # name of the parent experiment used to store the file
+    name: str  # name of the specific experiment, e.g. "localsearch"
+    run_fun: Callable[..., list]  # function to execute to obtain results
+    kwargs: dict = None
+
+    def data(self, ignore_cache: bool = False):
+        kwargs = self.kwargs
+        if kwargs is None:
+           kwargs = {}
+        cacher = CacheFunctionDF(cache_name=self.name, cache_path=self.expname)
+        return cacher.cache(
+            lambda: pd.DataFrame(self.run_fun(**kwargs)),
+            ignore_cache=ignore_cache,
+        )
+
+
+# TODO: Delete and use CacheFunctionPickle?
+@dataclass
+class SimulationExperiment(Experiment):
+    def data(self, ignore_cache: bool = False) -> object:
+        kwargs = self.kwargs
+        if kwargs is None:
+           kwargs = {}
+        cacher = CacheFunctionPickle(cache_name=self.name, cache_path=self.expname)
+        return cacher.cache(
+            fun=lambda: self.run_fun(**kwargs),
+            ignore_cache=ignore_cache,
+        )
+
+
+# TODO: Delete and use CacheFunctionDummy?
+@dataclass
+class DummyExperiment(Experiment):
+    """
+    Dummy Experiment class that doesn't perform caching and simply runs the run_fun and returns the result.
+    """
+
+    def data(self, ignore_cache: bool = False):
+        return self.run_fun()
 
 
 class SaveLoadMixin:
