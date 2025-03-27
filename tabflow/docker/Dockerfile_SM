@@ -9,10 +9,11 @@ RUN git clone https://github.com/autogluon/autogluon
 RUN cd autogluon && ./full_install.sh
 RUN cd ..
 
-COPY ../../../../autogluon-bench /autogluon-bench
-COPY ../../../../autogluon-benchmark /autogluon-benchmark
+COPY ../../../autogluon-bench /autogluon-bench
+COPY ../../../autogluon-benchmark /autogluon-benchmark
 COPY ../../tabflow /tabflow
-COPY ../../../../tabrepo /tabrepo
+# Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
+COPY ../../../tabrepo /tabrepo
 COPY ./tabflow/src/tabflow/evaluate.py .
 
 WORKDIR /

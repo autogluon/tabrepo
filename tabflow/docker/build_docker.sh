@@ -15,7 +15,7 @@ REGION=$5
 # Check if all required directories exist, this is specific for TabRepo
 # For future integrations, this should be updated with the required directories for Docker build
 REQUIRED_DIRS=("autogluon" "autogluon-benchmark" "tabrepo")
-BASE_DIR="$(cd ../../../.. && pwd)"
+BASE_DIR="$(cd ../../.. && pwd)"
 
 for dir in "${REQUIRED_DIRS[@]}"; do
     if [ ! -d "${BASE_DIR}/${dir}" ]; then
