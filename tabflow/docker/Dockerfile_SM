@@ -9,7 +9,7 @@ RUN git clone https://github.com/autogluon/autogluon
 RUN cd autogluon && ./full_install.sh
 RUN cd ..
 
-COPY ../../../autogluon-bench /autogluon-bench
+# COPY ../../../autogluon-bench /autogluon-bench - bench is not required at the moment
 COPY ../../../autogluon-benchmark /autogluon-benchmark
 COPY ../../tabflow /tabflow
 # Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
@@ -20,7 +20,7 @@ WORKDIR /
 
 # Install the required packages
 RUN pip install -e tabrepo \
-    && pip install -e autogluon-bench \
+    # && pip install -e autogluon-bench \
     && pip install -e autogluon-benchmark \
     && pip install -e tabflow
 

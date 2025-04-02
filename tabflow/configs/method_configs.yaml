@@ -58,31 +58,31 @@ methods:
     num_bag_folds: 8
     time_limit: 3600
 
-  # - type: "AGModelBagExperiment"
-  #   name: "LightGBM_BAG_L1_Custom"
-  #   model_cls: "LGBModel"
-  #   model_hyperparameters:
-  #     num_boost_round: 100
-  #     learning_rate: 0.02
-  #     ag_args_fit: {
-  #       early_stop: None
-  #     }
-  #   num_bag_folds: 8
-  #   time_limit: 3600
+  - type: "AGModelBagExperiment"
+    name: "LightGBM_BAG_L1_Custom"
+    model_cls: "LGBModel"
+    model_hyperparameters:
+      num_boost_round: 100
+      learning_rate: 0.02
+      ag_args_fit: {
+        early_stop: None
+      }
+    num_bag_folds: 8
+    time_limit: 3600
 
-  # - type: "AGModelBagExperiment"
-  #   name: "XGBoost_c1_BAG_L1_Reproduced"
-  #   model_cls: "XGBoostModel"
-  #   model_hyperparameters:
-  #     random_state: 0
-  #     n_estimators: 1000
-  #   num_bag_folds: 8
-  #   time_limit: 3600
+  - type: "AGModelBagExperiment"
+    name: "XGBoost_c1_BAG_L1_Reproduced"
+    model_cls: "XGBoostModel"
+    model_hyperparameters:
+      random_state: 0
+      n_estimators: 1000
+    num_bag_folds: 8
+    time_limit: 3600
 
-  # - type: "Experiment"
-  #   name: "LightGBM_Custom"
-  #   method_cls: "SimpleLightGBM"
-  #   method_kwargs:
-  #     hyperparameters:
-  #       learning_rate: 0.05
+  - type: "Experiment"
+    name: "LightGBM_Custom"
+    method_cls: "SimpleLightGBM"
+    method_kwargs:
+      hyperparameters:
+        learning_rate: 0.05
   

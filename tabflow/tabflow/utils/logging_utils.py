@@ -1,104 +1,27 @@
-import re
-import yaml
-import json
-import boto3
 import logging
-
+import boto3
 from botocore.config import Config
-from tabrepo.benchmark.models.model_register import infer_model_cls
 
-
-def yaml_to_methods(methods_file: str) -> list:
-    with open(methods_file, 'r') as file:
-        methods_config = yaml.safe_load(file)
-
-    return methods_config['methods']
-
-
-def parse_method(method_config: dict, context=None):
-    # Creating copy as we perform pop() which can lead to errors in subsequent calls
-    method_config = method_config.copy()
-
-    if context is None:
-        context = globals()
-    # Convert string class names to actual class references
-    # This assumes the classes are already defined or imported in evaluate.py
-    if 'model_cls' in method_config:
-        method_config["model_cls"] = infer_model_cls(method_config["model_cls"])
-        # method_config['model_cls'] = eval(method_config['model_cls'], context)
-    if 'method_cls' in method_config:
-        method_config['method_cls'] = eval(method_config['method_cls'], context)
-    
-    # Evaluate all values in ag_args_fit
-    if "model_hyperparameters" in method_config:
-        if "ag_args_fit" in method_config["model_hyperparameters"]:
-            for key, value in method_config["model_hyperparameters"]["ag_args_fit"].items():
-                if isinstance(value, str):
-                    try:
-                        method_config["model_hyperparameters"]["ag_args_fit"][key] = eval(value, context)
-                    except NameError:
-                        pass  # If eval fails, keep the original string value
-
-
-
-    method_type = eval(method_config.pop('type'), context)
-    method_obj = method_type(**method_config)
-    return method_obj
-
-
-def sanitize_job_name(name: str) -> str:
+def setup_logging(level=logging.INFO, verbose=False):
     """
-    Sanitize the job name to meet SageMaker requirements:
-    - Must be 1-63 characters long
-    - Must use only alphanumeric characters and hyphens
-    - Must start with a letter or number
-    - Must not end with a hyphen
+    Set up logging configuration for cli.
     """
-    # Replace invalid characters with hyphens
-    name = re.sub('[^a-zA-Z0-9-]', '-', name)
-    # Remove consecutive hyphens
-    name = re.sub('-+', '-', name)
-    # Remove leading/trailing hyphens
-    name = name.strip('-')
-    # Ensure it starts with a letter or number
-    if not name[0].isalnum():
-        name = 'j-' + name
-    # Truncate to 63 characters
-    return name[:63]
-
-
-def check_s3_file_exists(s3_client, bucket: str, cache_name: str) -> bool:
-    s3_path = f"s3://{bucket}/{cache_name}"
-    bucket, key = s3_path.replace("s3://", "").split("/", 1)
-    try:
-        s3_client.head_object(Bucket=bucket, Key=key)
-        return True
-    except s3_client.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == '404':
-            return False
-        else:
-            raise
-
-
-def upload_methods_config(s3_client, methods_file, bucket, key):
-    """Upload methods config to S3, overwriting if it exists."""
-    s3_client.upload_file(methods_file, bucket, key)
-    return f"s3://{bucket}/{key}"
-
-
-def upload_tasks_json(s3_client, tasks_json, bucket, key):
-    """Upload batched tasks JSON to S3, overwriting if it exists."""
-    s3_client.put_object(
-        Body=json.dumps(tasks_json).encode('utf-8'),
-        Bucket=bucket,
-        Key=key
+    logging.basicConfig(
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=level,
     )
-    return f"s3://{bucket}/{key}"
+    
+    if not verbose:
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+        logging.getLogger('sagemaker').setLevel(logging.WARNING)
+
+    return logging.getLogger(__name__)
 
 
 def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_path):
     """
-    Retrieve logs for a completed SageMaker training job and save to S3.
+    Retrieve logs for each completed SageMaker training job and save to S3.
     
     Args:
         sagemaker_client: Boto3 SageMaker client
@@ -132,7 +55,7 @@ def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_
                 break
         
         if not log_stream:
-            print(f"No log stream found for job {job_name}")
+            logging.warning(f"No log stream found for job {job_name}")
             return
         
         logs_response = cloudwatch_logs.get_log_events(
@@ -213,7 +136,7 @@ def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_
                 Bucket=bucket,
                 Key=task_file_path
             )
-            print(f"Task log saved to s3://{bucket}/{task_file_path}")
+            # print(f"Task log saved to s3://{bucket}/{task_file_path}")
 
             full_log_file_path = f"{experiment_name}/data/{method_name}/{dataset_tid}/{fold}/full_log.log"
             s3_client.put_object(
@@ -221,6 +144,7 @@ def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_
                 Bucket=bucket,
                 Key=full_log_file_path
             )
-            print(f"Logs saved to s3://{bucket}/{full_log_file_path}")
+            # print(f"Logs saved to s3://{bucket}/{full_log_file_path}")
     except Exception as e:
         logging.exception(f"Error saving logs for job {job_name}")
+        

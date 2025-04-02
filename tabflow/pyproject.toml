@@ -11,15 +11,15 @@ dependencies = [
     "sagemaker>=2.239",
     "pyyaml>=6.0.2",
     "tabrepo",
-    "autogluon-bench",
     "autogluon-benchmark",
     "autogluon",
 ]
 
 [project.scripts]
-tabflow = "tabflow.launch_jobs:main"
+tabflow = "tabflow.cli.launch_jobs:main"
+tabflow-download = "tabflow.cli.download:main"
 
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-packages = ["tabflow"]
+package-dir = {}
+packages = ["tabflow", "tabflow.cli", "tabflow.core", "tabflow.utils"]

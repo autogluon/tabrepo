@@ -1,79 +1,21 @@
 import boto3
 import sagemaker
 import argparse
-import json
-import time
 import logging
 import uuid
 import math
 
 from botocore.config import Config
-from itertools import islice
 from datetime import datetime
 from pathlib import Path
 from tabrepo import EvaluationRepository
-from tabflow.utils import sanitize_job_name, check_s3_file_exists, yaml_to_methods, save_training_job_logs, upload_methods_config, upload_tasks_json
+from tabflow.core.resource_manager import TrainingJobResourceManager
+from tabflow.utils.utils import sanitize_job_name, yaml_to_methods, create_batch
+from tabflow.utils.s3_utils import check_s3_file_exists, upload_methods_config, upload_tasks_json
+from tabflow.utils.logging_utils import setup_logging
+from tabflow.utils.constants import DOCKER_IMAGE_ALIASES
 
-logging.getLogger('botocore').setLevel(logging.ERROR)
-logging.getLogger('sagemaker').setLevel(logging.ERROR)
-logging.getLogger('boto3').setLevel(logging.ERROR)
-
-
-DOCKER_IMAGE_ALIASES = {
-    "mlflow-image": "{ACCOUNT_ID}.dkr.ecr.{REGION}.amazonaws.com/{REPO}:{IMAGE_TAG}",
-}
-
-
-class TrainingJobResourceManager:
-    def __init__(self, sagemaker_client, max_concurrent_jobs):
-        self.sagemaker_client = sagemaker_client
-        self.max_concurrent_jobs = max_concurrent_jobs
-        self.job_names = []
-        self.job_cache_paths = {} # Job Name -> Training Log
-
-    def add_job(self, job_name, cache_path):
-        self.job_names.append(job_name)
-        self.job_cache_paths[job_name] = cache_path
-
-    def remove_completed_jobs(self, s3_client, s3_bucket):
-        completed_jobs = []
-        for job_name in self.job_names:
-            response = self.sagemaker_client.describe_training_job(TrainingJobName=job_name)    #FIXME:Throttling will happen here if Queue is too big
-            job_status = response['TrainingJobStatus']
-            if job_status in ['Completed', 'Failed', 'Stopped']:
-                save_training_job_logs(
-                    self.sagemaker_client, 
-                    s3_client, 
-                    job_name, 
-                    s3_bucket, 
-                    self.job_cache_paths[job_name]
-                )
-                completed_jobs.append(job_name)
-        for job_name in completed_jobs:
-            self.job_names.remove(job_name)
-
-    def wait_for_available_slot(self, s3_client, s3_bucket, poll_interval=10):
-        while True:
-            if len(self.job_names) < self.max_concurrent_jobs:
-                return len(self.job_names)
-            self.remove_completed_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
-            print(f"Currently running {len(self.job_names)} out of {self.max_concurrent_jobs} concurrent jobs. Waiting...")
-            time.sleep(poll_interval)
-
-    def wait_for_all_jobs(self, s3_client, s3_bucket, poll_interval=10):
-        # Wait for a non-zero value
-        while self.job_names:
-            self.remove_completed_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
-            print(f"Waiting for {len(self.job_names)} jobs to complete...")
-            time.sleep(poll_interval)
-
-
-def create_batch(tasks, batch_size):
-    """Convert all tasks into batches"""
-    it = iter(tasks)
-    for batch in iter(lambda: tuple(islice(it, batch_size)), ()):
-        yield batch
-
+logger = setup_logging(level=logging.ERROR)
 
 def launch_jobs(
         experiment_name: str = "tabflow-test-cache",
@@ -82,7 +24,7 @@ def launch_jobs(
         source_dir: str = str(Path(__file__).parent),
         instance_type: str = "ml.m6i.4xlarge",
         docker_image_uri: str = "mlflow-image",
-        sagemaker_role: str = "arn:aws:iam::{ACCOUNT_ID}:role/service-role/{ROLE}",
+        sagemaker_role: str = "IAM_ROLE_ARN",  # Replace with your actual IAM role ARN
         aws_profile: str | None = None,
         hyperparameters: dict = None,
         keep_alive_period_in_seconds: int = 3600,
@@ -147,8 +89,6 @@ def launch_jobs(
     methods_s3_path = upload_methods_config(s3_client, methods_file, s3_bucket, methods_s3_key)
 
     methods = yaml_to_methods(methods_file=methods_file)
-
-    # repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
     
     if "run_all" in datasets:
@@ -162,12 +102,11 @@ def launch_jobs(
         folds = folds
 
     tasks = [(dataset, fold, method) for dataset in datasets for fold in folds for method in methods]
-    # total_jobs = len(datasets) * len(folds) * len(methods)
     total_jobs = math.ceil(len(tasks)/batch_size)
-    total_launched_jobs = 0
+    resource_manager.total_jobs = total_jobs
 
-    print(f"Preparing to launch {total_jobs} jobs with batch size of {batch_size} and max concurrency of {max_concurrent_jobs}")
-    print(f"Instance keep-alive period set to {keep_alive_period_in_seconds} seconds to enable warm-starts")
+    logger.info(f"Preparing to launch {total_jobs} jobs with batch size of {batch_size} and max concurrency of {max_concurrent_jobs}")
+    logger.info(f"Instance keep-alive period set to {keep_alive_period_in_seconds} seconds to enable warm-starts")
     
     try:
         for task_batch in create_batch(tasks, batch_size):
@@ -180,17 +119,21 @@ def launch_jobs(
 
                 # Change this check based on literals name_first or task_first
                 if check_s3_file_exists(s3_client=s3_client, bucket=s3_bucket, cache_name=cache_name):
-                    print(f"Cache exists for {method_name} on dataset {dataset} fold {fold}. Skipping job launch.")
-                    print(f"Cache path: s3://{s3_bucket}/{cache_path}\n")
+                    logger.info(f"Cache exists for {method_name} on dataset {dataset} fold {fold}. Skipping job launch.")
+                    logger.info(f"Cache path: s3://{s3_bucket}/{cache_path}\n")
                 else:
                     uncached_tasks.append((dataset, fold, method))
 
             if not uncached_tasks:
-                print(f"All tasks in batch are cached. Skipping job launch.")
+                logger.info(f"All tasks in batch are cached. Skipping job launch.")
                 continue
 
-            current_jobs = resource_manager.wait_for_available_slot(s3_client=s3_client, s3_bucket=s3_bucket)
-            print(f"\nSlot available. Currently running {current_jobs}/{max_concurrent_jobs} jobs")
+
+            if docker_image_uri in DOCKER_IMAGE_ALIASES:
+                logger.info(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
+                docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
+
+            resource_manager.wait_for_available_slot(s3_client=s3_client, s3_bucket=s3_bucket)
 
             # Create a unique job name
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -198,17 +141,12 @@ def launch_jobs(
             base_name = f"{dataset[:4]}-f{fold}-{method_name[:4]}-{timestamp}-{unique_id}"
             job_name = sanitize_job_name(base_name)
 
-            if docker_image_uri in DOCKER_IMAGE_ALIASES:
-                print(f"Expanding docker_image_uri alias '{docker_image_uri}' -> '{DOCKER_IMAGE_ALIASES[docker_image_uri]}'")
-                docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
-
             tasks_json = []
             for dataset, fold, method in uncached_tasks:
                 tasks_json.append({
                     "dataset": dataset,
                     "fold": fold,   # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
                     "method_name": method["name"],
-                    # "method": method,   # We do not need this if we read yaml in evaluate.py
                 })
 
             # Unique s3 key for a task
@@ -220,7 +158,6 @@ def launch_jobs(
             job_hyperparameters.update({
                 "experiment_name": experiment_name,
                 "context_name": context_name,
-                # "tasks": f"'{json.dumps(tasks_json)}'",
                 "tasks_s3_path": tasks_s3_path,
                 "s3_bucket": s3_bucket,
                 "methods_s3_path": methods_s3_path,
@@ -239,24 +176,22 @@ def launch_jobs(
                 keep_alive_period_in_seconds=keep_alive_period_in_seconds,
                 max_run=limit_runtime,
                 disable_profiler=True,  # Prevent debug profiler from running
-                # output_path=f"s3://{s3_bucket}/{experiment_name}/data/output"  # Add output path configuration to ensure task logs are accessible
+                # output_path=f"s3://{s3_bucket}/{experiment_name}/data/output"  #TBD: What artifact to save here?
             )
 
             # Launch the training job
             estimator.fit(wait=False, job_name=job_name)
             resource_manager.add_job(job_name=job_name, cache_path=cache_path)
-            total_launched_jobs += 1
-            print(f"Launched job {total_launched_jobs} out of a total of {total_jobs} jobs: {job_name}\n")
         
         if wait:
             resource_manager.wait_for_all_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
     except Exception as e:
-        print(f"Error launching jobs: {e}")
+        logger.error(f"Error launching jobs: {e}", exc_info=True)
         raise
 
 
 def main():
-    """Entrypoint for CLI"""
+    """Entrypoint for Launching sagemaker jobs using CLI"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name', type=str, default="tabflow-test-cache", help="Name of the experiment")
     parser.add_argument('--context_name', type=str, default="D244_F3_C1530_30", help="Name of the context")
@@ -265,10 +200,14 @@ def main():
     parser.add_argument('--methods_file', type=str, required=True, help="Path to the YAML file containing methods")
     parser.add_argument('--max_concurrent_jobs', type=int, default=50,
                         help="Maximum number of concurrent jobs, based on account limit")
+    parser.add_argument('--docker_image_uri', type=str, default="mlflow-image", help="Docker image URI or alias")
+    parser.add_argument('--instance_type', type=str, default="ml.m6i.4xlarge", help="SageMaker instance type")
+    parser.add_argument('--sagemaker_role', type=str, default="IAM_ROLE_ARN", help="AWS IAM role ARN for SageMaker")
     parser.add_argument('--s3_bucket', type=str, default="test-bucket", help="S3 bucket for the experiment")
     parser.add_argument('--add_timestamp', action='store_true', help="Add timestamp to the experiment name")
     parser.add_argument('--wait', action='store_true', help="Wait for all jobs to complete")
     parser.add_argument('--batch_size', type=int, default=2, help="Batch size for tasks")
+    parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
 
     args = parser.parse_args()
 
@@ -279,6 +218,9 @@ def main():
         folds=args.folds,
         methods_file=args.methods_file,
         max_concurrent_jobs=args.max_concurrent_jobs,
+        docker_image_uri=args.docker_image_uri,
+        instance_type=args.instance_type,
+        sagemaker_role=args.sagemaker_role,
         s3_bucket=args.s3_bucket,
         wait=args.wait,
         batch_size=args.batch_size,
@@ -287,4 +229,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
