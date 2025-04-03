@@ -1,0 +1,12 @@
+# Exclude specific directories to avoid copying downlaoded repos
+tabrepo/data/
+tabrepo/docs/
+tabrepo/examples/
+
+# Common files to ignore
+**/__pycache__/
+**/*.py[cod]
+**/*.so
+**/*.egg
+**/*.egg-info/
+**/.DS_Store
