@@ -145,6 +145,10 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
 
+    def tasks(self) -> list[tuple[str, int]]:
+        dataset_folds = self._zeroshot_context.get_tasks(as_dataset_fold=True)
+        return dataset_folds
+
     def configs(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
         """
         Return all valid configs.

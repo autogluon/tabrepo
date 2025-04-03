@@ -228,12 +228,16 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
                 if column not in df_configs:
                     raise AssertionError(f"Missing required column in df_configs: {column}\ndf_configs columns: {list(df_configs.columns)}")
 
-        simulation_artifacts_full = cls._convert_sim_artifacts(results_lst_simulation_artifacts=results_lst_simulation_artifacts)
+        if results_lst_simulation_artifacts is not None:
+            simulation_artifacts_full = cls._convert_sim_artifacts(results_lst_simulation_artifacts=results_lst_simulation_artifacts)
 
-        zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
+            zeroshot_pp, zeroshot_gt = convert_simulation_artifacts_to_tabular_predictions_dict(simulation_artifacts=simulation_artifacts_full)
 
-        predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
-        ground_truth = GroundTruth.from_dict(zeroshot_gt)
+            predictions = TabularPredictionsInMemory.from_dict(zeroshot_pp)
+            ground_truth = GroundTruth.from_dict(zeroshot_gt)
+        else:
+            predictions = None
+            ground_truth = None
 
         zeroshot_context = ZeroshotSimulatorContext(
             df_configs=df_configs,

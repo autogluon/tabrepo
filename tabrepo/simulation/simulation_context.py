@@ -224,7 +224,7 @@ class ZeroshotSimulatorContext:
             )
             df_comparison = df_baselines.copy(deep=True)
         else:
-            df_comparison = pd.concat([df_configs, df_baselines], ignore_index=True)
+            df_comparison = pd.concat([d for d in [df_configs, df_baselines] if len(d) != 0], ignore_index=True)
         rank_scorer = RankScorer(
             df_results=df_comparison,
             tasks=unique_tasks,
@@ -717,10 +717,15 @@ class ZeroshotSimulatorContext:
     def get_configs_hyperparameters(self, configs: List[str] | None = None, include_ag_args: bool = True) -> dict[str, dict | None]:
         if configs is None:
             configs = self.get_configs()
-        return {c: self.get_config_hyperparameters(config=c, include_ag_args=include_ag_args) for c in configs}
+        else:
+            valid_configs = set(self.get_configs())
+            for config in configs:
+                if config not in valid_configs:
+                    raise ValueError(f"User-specified config does not exist: '{config}'")
+        return {c: self.get_config_hyperparameters(config=c, include_ag_args=include_ag_args, check_valid=False) for c in configs}
 
-    def get_config_hyperparameters(self, config: str, include_ag_args: bool = True) -> dict | None:
-        if config not in self.get_configs():
+    def get_config_hyperparameters(self, config: str, include_ag_args: bool = True, check_valid: bool = True) -> dict | None:
+        if check_valid and config not in self.get_configs():
             raise ValueError(f"User-specified config does not exist: '{config}'")
         if self.configs_hyperparameters is None:
             return None
@@ -755,7 +760,7 @@ class ZeroshotSimulatorContext:
         configs = self.get_configs()
         configs_type = {}
         for config in configs:
-            config_hyperparameters = self.get_config_hyperparameters(config=config)
+            config_hyperparameters = self.get_config_hyperparameters(config=config, check_valid=False)
             if config_hyperparameters is None:
                 configs_type[config] = None
             else:

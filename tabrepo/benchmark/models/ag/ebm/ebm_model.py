@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 # TODO: handle interactions for multiclass
 class ExplainableBoostingMachineModel(AbstractModel):
     ag_key = "EBM"
-    ag_name = "ExplainableBoostingMachine"
+    ag_name = "ExplainableBM"
 
     _category_features: list[str] = None
 
@@ -91,7 +91,6 @@ class ExplainableBoostingMachineModel(AbstractModel):
 
         # Default parameters for EBM
         extra_kwargs = dict(
-            early_stopping_rounds=50,
             outer_bags=1,  # AutoGluon ensemble creates outer bags, no need for this overhead.
             inner_bags=0,  # We supply the validation set, no need for inner bags.
             objective=get_metric_from_ag_metric(metric=self.stopping_metric, problem_type=self.problem_type),
