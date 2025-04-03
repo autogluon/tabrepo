@@ -54,6 +54,8 @@ class ExperimentBatchRunner:
         datasets: list[str],
         folds: list[int],
         ignore_cache: bool = False,
+        mode: str = "local",
+        s3_bucket: str = "test-bucket",
     ) -> list[dict[str, Any]]:
         """
 
@@ -87,6 +89,8 @@ class ExperimentBatchRunner:
             cache_cls=self.cache_cls,
             cache_cls_kwargs=self.cache_cls_kwargs,
             cache_path_format=self.cache_path_format,
+            mode=mode,
+            s3_bucket=s3_bucket,
         )
 
     def load_results(
@@ -150,6 +154,8 @@ class ExperimentBatchRunner:
         methods: list[Experiment],
         ignore_cache: bool,
         convert_time_infer_s_from_batch_to_sample: bool = True,
+        mode="local",
+        s3_bucket: str = "test-bucket",
     ) -> EvaluationRepository:
         """
 
@@ -171,6 +177,8 @@ class ExperimentBatchRunner:
             folds=folds,
             methods=methods,
             ignore_cache=ignore_cache,
+            mode=mode,
+            s3_bucket=s3_bucket,
         )
 
         repo = self.repo_from_results(
@@ -294,6 +302,8 @@ def run_experiments(
     cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
     cache_cls_kwargs: dict = None,
     cache_path_format: Literal["name_first", "task_first"] = "name_first",
+    mode: str = "local",
+    s3_bucket: str = "test-bucket",
 ) -> list[dict]:
     """
 
@@ -308,6 +318,8 @@ def run_experiments(
     cache_cls: WIP
     cache_cls_kwargs: WIP
     cache_path_format: {"name_first", "task_first"}, default "name_first"
+    mode: {"local", "aws"}, default "local"
+    S3_bucket: str, default "test-bucket" works only for aws mode, stores artifacts in the given bucket
 
     Returns
     -------
@@ -317,6 +329,12 @@ def run_experiments(
         cache_cls = CacheFunctionDummy
     if cache_cls_kwargs is None:
         cache_cls_kwargs = {}
+
+    # Modify cache path based on mode
+    if mode == "local":
+        base_cache_path = expname
+    else:
+        base_cache_path = f"s3://{s3_bucket}/{expname}"
 
     methods_og = methods
     methods = []
@@ -366,7 +384,7 @@ def run_experiments(
                     f"\tFitting {task_name} on fold {fold} for method {method.name}"
                 )
 
-                cacher = cache_cls(cache_name=cache_name, cache_path=expname, **cache_cls_kwargs)
+                cacher = cache_cls(cache_name=cache_name, cache_path=base_cache_path, **cache_cls_kwargs)
 
                 if task is None:
                     if ignore_cache or not cacher.exists:
