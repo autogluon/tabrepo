@@ -10,7 +10,9 @@ from ._download import download_zs_metadata
 class Paths:
     project_root: Path = Path(__file__).parent.parent.parent
     data_root: Path = project_root / 'data'
-    data_root_cache: Path = Path.home() / ".cache" / "tabrepo" / "data"
+
+    # default path is ~/.cache/tabrepo/data, can be overriden by setting the environment variable TABREPO_CACHE
+    data_root_cache: Path = Path.home() / ".cache" / "tabrepo" / "data" if os.getenv("TABREPO_CACHE") is None else Path(os.getenv("TABREPO_CACHE"))
     results_root_cache: Path = data_root_cache / "results"
 
     @staticmethod

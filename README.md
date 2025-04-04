@@ -106,7 +106,7 @@ predictions and validation groundtruth.
 
 ## Available Contexts
 
-Context's are used to load a repository and are downloaded from S3 with the following code:
+Context's are used to load a repository and are downloaded with the following code:
 
 ```python
 from tabrepo import load_repository
@@ -125,6 +125,9 @@ Below is a list of the available contexts in TabRepo.
 | D244_F3_C1530_10  |         10 |       3 |      1530 |    220 MB | Toy context                                                                           |
 | D244_F3_C1530_3   |          3 |       3 |      1530 |     33 MB | Toy context                                                                           |
 
+
+The files will be downloaded into `~/.cache/tabrepo/data" by default, you can change this location 
+by specifying the environment variable "TABREPO_CACHE".
 
 ## Reproducing paper experiments
 
