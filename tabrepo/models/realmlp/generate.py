@@ -1,5 +1,9 @@
 import numpy as np
 
+from tabrepo.models.utils import convert_numpy_dtypes
+from tabrepo.benchmark.experiment import YamlExperimentSerializer
+from tabrepo.utils.config_utils import generate_bag_experiments
+
 
 def generate_single_config_realmlp(rng, is_classification: bool):
     # common search space
@@ -51,6 +55,7 @@ def generate_single_config_realmlp(rng, is_classification: bool):
         params['n_epochs'] = 256
         params['use_early_stopping'] = False
 
+    params = convert_numpy_dtypes(params)
     return params
 
 
@@ -65,55 +70,14 @@ def generate_configs_realmlp_regression(num_random_configs=200, seed=1234):
     return [generate_single_config_realmlp(rng, is_classification=False) for _ in range(num_random_configs)]
 
 
-def convert_numpy_dtypes(data):
-    """Converts NumPy dtypes in a dictionary to Python dtypes."""
-    converted_data = {}
-    for key, value in data.items():
-        if isinstance(value, np.generic):
-            converted_data[key] = value.item()
-        elif isinstance(value, dict):
-            converted_data[key] = convert_numpy_dtypes(value)
-        elif isinstance(value, list):
-            converted_data[key] = [convert_numpy_dtypes({i: v})[i] if isinstance(v, (dict, np.generic)) else v for i, v in enumerate(value)]
-        else:
-            converted_data[key] = value
-    return converted_data
-
-
 if __name__ == '__main__':
     configs_yaml = []
     config_defaults = [{}]
-    for i, config in enumerate(config_defaults):
-        config = convert_numpy_dtypes(config)
-        config_yaml = dict(
-            type="AGModelBagExperiment",
-            name=f"RealMLP_c{i+1}_BAG_L1",
-            model_cls="RealMLPModel",
-            model_hyperparameters=config,
-            num_bag_folds=8,
-            time_limit=3600,
-        )
-        configs_yaml.append(config_yaml)
-
     configs = generate_configs_realmlp_classification(50, seed=1234) + generate_configs_realmlp_regression(50, seed=1)
-    for i, config in enumerate(configs):
-        config = convert_numpy_dtypes(config)
-        config_yaml = dict(
-            type="AGModelBagExperiment",
-            name=f"RealMLP_r{i+1}_BAG_L1",
-            model_cls="RealMLPModel",
-            model_hyperparameters=config,
-            num_bag_folds=8,
-            time_limit=3600,
-        )
-        configs_yaml.append(config_yaml)
-        print(config_yaml)
-    configs_yaml = {"methods": configs_yaml}
-    print(configs_yaml)
 
-    import yaml
-    a = yaml.dump(configs_yaml)
-    print(a)
+    from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
 
-    with open('configs_realmlp.yaml', 'w') as outfile:
-        yaml.dump(configs_yaml, outfile, default_flow_style=False)
+    experiments_default = generate_bag_experiments(model_cls=RealMLPModel, configs=config_defaults, time_limit=3600, name_id_prefix="c")
+    experiments_random = generate_bag_experiments(model_cls=RealMLPModel, configs=configs, time_limit=3600)
+    experiments = experiments_default + experiments_random
+    YamlExperimentSerializer.to_yaml(experiments=experiments, path="configs_realmlp.yaml")

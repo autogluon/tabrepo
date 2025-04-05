@@ -16,6 +16,7 @@ search_space = {
 }
 
 
-def generate_configs_tabicl(num_random_configs=200):
-    config_generator = ConfigGenerator(name=name, manual_configs=manual_configs, search_space=search_space)
-    return config_generator.generate_all_configs(num_random_configs=num_random_configs)
+def generate_experiments_tabicl(num_random_configs=200):
+    from tabrepo.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
+    config_generator = ConfigGenerator(name=name, model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space)
+    return config_generator.generate_all_bag_experiments(num_random_configs=num_random_configs)
