@@ -20,5 +20,15 @@ search_space = {
 
 
 def generate_configs_lightgbm(num_random_configs=200):
-    config_generator = ConfigGenerator(name=name, manual_configs=manual_configs, search_space=search_space)
+    from autogluon.tabular.models import LGBModel
+    config_generator = ConfigGenerator(name=name, model_cls=LGBModel, manual_configs=manual_configs, search_space=search_space)
     return config_generator.generate_all_configs(num_random_configs=num_random_configs)
+
+
+def generate_experiments_lightgbm(num_random_configs=200):
+    _manual_configs = [
+        {},
+    ]
+    from autogluon.tabular.models import LGBModel
+    config_generator = ConfigGenerator(name=name, model_cls=LGBModel, manual_configs=_manual_configs, search_space=search_space)
+    return config_generator.generate_all_bag_experiments(num_random_configs=num_random_configs)
