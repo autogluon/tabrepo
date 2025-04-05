@@ -2,7 +2,7 @@ import re
 import yaml
 
 from itertools import islice
-from tabrepo.benchmark.models.model_register import infer_model_cls
+
 
 def create_batch(tasks, batch_size):
     """Convert all tasks into batches"""
@@ -53,25 +53,9 @@ def parse_method(method_config: dict, context=None):
 
     if context is None:
         context = globals()
-    # Convert string class names to actual class references
-    # This assumes the classes are already defined or imported in evaluate.py
-    if 'model_cls' in method_config:
-        method_config["model_cls"] = infer_model_cls(method_config["model_cls"])
-    if 'method_cls' in method_config:
-        method_config['method_cls'] = eval(method_config['method_cls'], context)
-    
-    # Evaluate all values in ag_args_fit
-    if "model_hyperparameters" in method_config:
-        if "ag_args_fit" in method_config["model_hyperparameters"]:
-            for key, value in method_config["model_hyperparameters"]["ag_args_fit"].items():
-                if isinstance(value, str):
-                    try:
-                        method_config["model_hyperparameters"]["ag_args_fit"][key] = eval(value, context)
-                    except NameError:
-                        pass  # If eval fails, keep the original string value
 
     method_type = eval(method_config.pop('type'), context)
-    method_obj = method_type(**method_config)
+    method_obj = method_type.from_yaml(**method_config)
     return method_obj
 
 

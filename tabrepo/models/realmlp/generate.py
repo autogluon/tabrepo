@@ -1,5 +1,9 @@
 import numpy as np
 
+from tabrepo.models.utils import convert_numpy_dtypes
+from tabrepo.benchmark.experiment import YamlExperimentSerializer
+from tabrepo.utils.config_utils import generate_bag_experiments
+
 
 def generate_single_config_realmlp(rng, is_classification: bool):
     # common search space
@@ -51,6 +55,7 @@ def generate_single_config_realmlp(rng, is_classification: bool):
         params['n_epochs'] = 256
         params['use_early_stopping'] = False
 
+    params = convert_numpy_dtypes(params)
     return params
 
 
@@ -66,5 +71,13 @@ def generate_configs_realmlp_regression(num_random_configs=200, seed=1234):
 
 
 if __name__ == '__main__':
-    for config in generate_configs_realmlp_classification(20):
-        print(config)
+    configs_yaml = []
+    config_defaults = [{}]
+    configs = generate_configs_realmlp_classification(50, seed=1234) + generate_configs_realmlp_regression(50, seed=1)
+
+    from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
+
+    experiments_default = generate_bag_experiments(model_cls=RealMLPModel, configs=config_defaults, time_limit=3600, name_id_prefix="c")
+    experiments_random = generate_bag_experiments(model_cls=RealMLPModel, configs=configs, time_limit=3600)
+    experiments = experiments_default + experiments_random
+    YamlExperimentSerializer.to_yaml(experiments=experiments, path="configs_realmlp.yaml")
