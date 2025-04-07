@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--s3_bucket', type=str, required=True, help="S3 bucket for the experiment")
     parser.add_argument('--methods_s3_path', type=str, required=True, help="S3 path to methods config")
     parser.add_argument('--load_predictions', action='store_true', help="Load predictions from S3")
+    parser.add_argument('--run_mode', type=str, default='aws', choices=['aws', 'local'], help="Run mode: aws or local")
 
     args = parser.parse_args()
 
@@ -62,12 +63,11 @@ if __name__ == '__main__':
         logger.info(f"Method Dict: {method}")
         methods = parse_method(method, globals())
         logger.info(f"Methods: {methods}")
-        # Repo -> results list
         repo: EvaluationRepository = ExperimentBatchRunner(expname=expname, task_metadata=repo_og.task_metadata).run(
         datasets=[dataset], 
         folds=[fold],
         methods=[methods], 
         ignore_cache=ignore_cache,
-        mode="aws",
+        mode=args.run_mode, # We use AWS for TabFlow
         s3_bucket=args.s3_bucket,
         )

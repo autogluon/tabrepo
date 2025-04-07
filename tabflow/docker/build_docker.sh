@@ -11,10 +11,14 @@ SOURCE_ACCOUNT=$3
 TARGET_ACCOUNT=$4
 REGION=$5
 
+# Get the script directory path regardless of where the script is called from
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Determine the base directory by going up from the script location
+BASE_DIR="$( cd "${SCRIPT_DIR}/../../.." && pwd )"
+
 # Check if all required directories exist, this is specific for TabRepo
-# For future integrations, this should be updated with the required directories for Docker build
 REQUIRED_DIRS=("autogluon" "autogluon-benchmark" "tabrepo")
-BASE_DIR="$(cd ../../.. && pwd)"
 
 for dir in "${REQUIRED_DIRS[@]}"; do
     if [ ! -d "${BASE_DIR}/${dir}" ]; then
@@ -24,14 +28,15 @@ for dir in "${REQUIRED_DIRS[@]}"; do
 done
 
 echo "All required directories exist. Proceeding with Docker build."
-cp ./.dockerignore ${BASE_DIR}/.dockerignore
+echo "Using base directory: ${BASE_DIR}"
+cp "${SCRIPT_DIR}/.dockerignore" "${BASE_DIR}/.dockerignore"
 
 # Login to AWS ECR
 aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${SOURCE_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com
 aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${TARGET_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com
 
-# Buid, tag and push the Docker image
-docker build --no-cache -t ${REPO_NAME} -f ./Dockerfile_SM ${BASE_DIR}
+# Build, tag and push the Docker image
+docker build --no-cache -t ${REPO_NAME} -f "${SCRIPT_DIR}/Dockerfile_SM" ${BASE_DIR}
 
 docker tag ${REPO_NAME}:latest ${TARGET_ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:${TAG}
 
