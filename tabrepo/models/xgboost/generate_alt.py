@@ -22,7 +22,10 @@ search_space = ConfigurationSpace(space=[
 
 
 def generate_configs_xgboost_alt(num_random_configs=200):
-    configs = [dict(config) for config in search_space.sample_configuration(num_random_configs)]
+    configs = search_space.sample_configuration(num_random_configs)
+    if num_random_configs == 1:
+        configs = [configs]
+    configs = [dict(config) for config in configs]
     configs = [convert_numpy_dtypes(config) for config in configs]
     return configs
 
