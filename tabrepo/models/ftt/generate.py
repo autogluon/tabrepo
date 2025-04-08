@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import FTTransformerModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -56,6 +57,8 @@ manual_configs = [
     },
 ]
 search_space = {}
+
+gen_fttransformer = ConfigGenerator(model_cls=FTTransformerModel, manual_configs=[{}], search_space=search_space)
 
 
 def generate_configs_ftt(num_random_configs=0):

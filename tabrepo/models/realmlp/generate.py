@@ -1,8 +1,10 @@
 import numpy as np
 
+from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
 from tabrepo.models.utils import convert_numpy_dtypes
 from tabrepo.benchmark.experiment import YamlExperimentSerializer
 from tabrepo.utils.config_utils import generate_bag_experiments
+from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 
 def generate_single_config_realmlp(rng, is_classification: bool):
@@ -70,12 +72,24 @@ def generate_configs_realmlp_regression(num_random_configs=200, seed=1234):
     return [generate_single_config_realmlp(rng, is_classification=False) for _ in range(num_random_configs)]
 
 
+def generate_configs_realmlp(num_random_configs: int = 200, seed=1234) -> list[dict]:
+    rng = np.random.default_rng(seed)
+    configs = []
+    for n in range(num_random_configs):
+        is_classification = (n % 2 == 0)
+        configs.append(generate_single_config_realmlp(rng, is_classification=is_classification))
+    return configs
+
+
+gen_realmlp = CustomAGConfigGenerator(model_cls=RealMLPModel, search_space_func=generate_configs_realmlp, manual_configs=[{}])
+
+
 if __name__ == '__main__':
     configs_yaml = []
     config_defaults = [{}]
     configs = generate_configs_realmlp_classification(50, seed=1234) + generate_configs_realmlp_regression(50, seed=1)
 
-    from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
+    experiments_realmlp_streamlined = gen_realmlp.generate_all_bag_experiments(100)
 
     experiments_default = generate_bag_experiments(model_cls=RealMLPModel, configs=config_defaults, time_limit=3600, name_id_prefix="c")
     experiments_random = generate_bag_experiments(model_cls=RealMLPModel, configs=configs, time_limit=3600)

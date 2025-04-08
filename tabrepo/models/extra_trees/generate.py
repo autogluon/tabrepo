@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import XTModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -12,6 +13,8 @@ search_space = {
     'min_samples_leaf': Categorical(1, 2, 3, 4, 5, 10, 20, 40, 80),
     'max_features': Categorical('sqrt', 'log2', 0.5, 0.75, 1.0)
 }
+
+gen_extratrees = ConfigGenerator(model_cls=XTModel, manual_configs=manual_configs, search_space=search_space)
 
 
 def generate_configs_extra_trees(num_random_configs=200):

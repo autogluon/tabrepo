@@ -1,4 +1,5 @@
 from autogluon.common.space import Categorical, Real, Int
+from autogluon.tabular.models import CatBoostModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -15,6 +16,8 @@ search_space = {
     'one_hot_max_size': Categorical(2, 3, 5, 10),
     'grow_policy': Categorical("SymmetricTree", "Depthwise")
 }
+
+gen_catboost = ConfigGenerator(model_cls=CatBoostModel, manual_configs=manual_configs, search_space=search_space)
 
 
 def generate_configs_catboost(num_random_configs=200):

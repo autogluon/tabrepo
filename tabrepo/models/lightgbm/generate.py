@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import LGBModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -32,3 +33,6 @@ def generate_experiments_lightgbm(num_random_configs=200):
     from autogluon.tabular.models import LGBModel
     config_generator = ConfigGenerator(name=name, model_cls=LGBModel, manual_configs=_manual_configs, search_space=search_space)
     return config_generator.generate_all_bag_experiments(num_random_configs=num_random_configs)
+
+
+gen_lightgbm = ConfigGenerator(search_space=search_space, model_cls=LGBModel, manual_configs=[{}])

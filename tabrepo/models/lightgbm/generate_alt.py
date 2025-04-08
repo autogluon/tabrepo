@@ -1,8 +1,10 @@
 from ConfigSpace import ConfigurationSpace, Float, Categorical, Integer
 
+from autogluon.tabular.models import LGBModel
+
 from tabrepo.models.utils import convert_numpy_dtypes
 from tabrepo.benchmark.experiment import YamlExperimentSerializer
-from tabrepo.utils.config_utils import generate_bag_experiments
+from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 
 def generate_configs_lightgbm_alt(num_random_configs=200) -> list:
@@ -33,9 +35,12 @@ def generate_configs_lightgbm_alt(num_random_configs=200) -> list:
     return configs
 
 
-if __name__ == '__main__':
-    lightgbm_configs = generate_configs_lightgbm_alt(200)
+gen_lightgbm_alt = CustomAGConfigGenerator(
+    model_cls=LGBModel,
+    search_space_func=generate_configs_lightgbm_alt,
+)
 
-    from autogluon.tabular.models import LGBModel
-    experiments = generate_bag_experiments(model_cls=LGBModel, configs=lightgbm_configs, time_limit=3600)
+
+if __name__ == '__main__':
+    experiments = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=200)
     YamlExperimentSerializer.to_yaml(experiments=experiments, path="configs_lightgbm_alt.yaml")

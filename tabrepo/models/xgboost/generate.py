@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import XGBoostModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -17,6 +18,8 @@ search_space = {
     'colsample_bytree': Real(0.5, 1.0, default=1.0),
     'enable_categorical': Categorical(True, False),
 }
+
+gen_xgboost = ConfigGenerator(model_cls=XGBoostModel, manual_configs=[{}], search_space=search_space)
 
 
 def generate_configs_xgboost(num_random_configs=200):
