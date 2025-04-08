@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Union
 
 import pandas as pd
@@ -31,6 +32,9 @@ T = TypeVar("T")
 class AbstractCacheFunction(Generic[T]):
     _save_after_run = True
     _load_after_cache = True
+
+    def __init__(self, include_self_in_call: bool = False):
+        self.include_self_in_call = include_self_in_call
 
     def cache(
         self,
@@ -71,7 +75,10 @@ class AbstractCacheFunction(Generic[T]):
         if fun_kwargs is None:
             fun_kwargs = {}
         assert isinstance(fun_kwargs, dict)
-        return fun(**fun_kwargs)
+        if self.include_self_in_call:
+            return fun(cacher=self, **fun_kwargs)
+        else:
+            return fun(**fun_kwargs)
 
     @property
     def exists(self) -> bool:
@@ -97,7 +104,7 @@ class CacheFunctionDummy(AbstractCacheFunction[object]):
     _load_after_cache = False
 
     def __init__(self, *args, **kwargs):
-        pass
+        super().__init__(*args, **kwargs)
 
     @property
     def exists(self) -> bool:
@@ -119,11 +126,14 @@ class CacheFunctionPickle(AbstractCacheFunction[object]):
     """
     _load_after_cache = False  # Loading a pickle is unnecessary when the contents are already in memory
 
-    def __init__(self, cache_name: str, cache_path: Path | str | None = None):
+    def __init__(self, cache_name: str, cache_path: Path | str | None = None, include_self_in_call: bool = False):
+        super().__init__(include_self_in_call=include_self_in_call)
         self.cache_name = cache_name
         if cache_path is None:
             # TODO: Remove default_cache_path?
             cache_path = default_cache_path
+        if cache_path.endswith(os.path.sep):
+            raise ValueError(f"cache_path must not end with a directory separator! (cache_path='{cache_path}'")
         self.cache_path = cache_path
         self.is_s3 = str(cache_path).startswith("s3://")
 
@@ -132,7 +142,7 @@ class CacheFunctionPickle(AbstractCacheFunction[object]):
         if self.is_s3:
             return f"{self.cache_path}/{self.cache_name}.pkl"
         return str(Path(self.cache_path) / (self.cache_name + ".pkl"))
-    
+
     @property
     def exists(self) -> bool:
         if self.is_s3:
@@ -205,7 +215,8 @@ def cache_function(
 class CacheFunctionDF(AbstractCacheFunction[pd.DataFrame]):
     _load_after_cache = True  # Loading from cache is necessary because .to_csv loses information from the original DataFrame
 
-    def __init__(self, cache_name: str, cache_path: Path | str):
+    def __init__(self, cache_name: str, cache_path: Path | str, include_self_in_call: bool = False):
+        super().__init__(include_self_in_call=include_self_in_call)
         self.cache_name = cache_name
         self.cache_path = cache_path
 

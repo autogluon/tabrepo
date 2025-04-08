@@ -9,6 +9,7 @@ from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
 from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
+from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy, CacheFunctionDF
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 
 
@@ -24,6 +25,7 @@ class ExperimentRunner:
         cleanup: bool = True,
         compute_simulation_artifacts: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
+        cacher: AbstractCacheFunction | None = None,
     ):
         assert input_format in ["openml", "csv"]
         self.method_cls = method_cls
@@ -43,6 +45,9 @@ class ExperimentRunner:
             self.X = self.task.to_csv_format(X=self.X)
             self.X_test = self.task.to_csv_format(X=self.X_test)
         self.label_cleaner = LabelCleaner.construct(problem_type=self.task.problem_type, y=self.y)
+        if cacher is None:
+            cacher = CacheFunctionDummy()
+        self.cacher = cacher
 
     def init_method(self) -> AbstractExecModel:
         model = self.method_cls(
@@ -72,6 +77,7 @@ class ExperimentRunner:
         fit_args: dict = None,
         cleanup: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
+        cacher: AbstractCacheFunction | None = None,
     ):
         obj = cls(
             method_cls=method_cls,
@@ -82,6 +88,7 @@ class ExperimentRunner:
             fit_args=fit_args,
             cleanup=cleanup,
             input_format=input_format,
+            cacher=cacher,
         )
         return obj.run()
 
@@ -90,7 +97,11 @@ class ExperimentRunner:
         time_start_str = utc_time.strftime('%Y-%m-%d %H:%M:%S')
         time_start = utc_time.timestamp()
         self.model = self.init_method()
-        out = self.run_model_fit()
+        try:
+            out = self.run_model_fit()
+        except Exception as exc:
+            self.handle_failure(exc=exc)
+            raise
         out = self.post_fit(out=out)
         out["metric_error"] = self.evaluate(
             y_true=self.y_test,
@@ -101,6 +112,19 @@ class ExperimentRunner:
         out["experiment_metadata"] = self._experiment_metadata(time_start=time_start, time_start_str=time_start_str)
         out = self.convert_to_output(out=out)
         return out
+
+    def handle_failure(self, exc: Exception):
+        # TODO: This is autogluon specific, make a subclass AGExperimentRunner?
+        failures = self.model.failure_artifact
+        if not hasattr(self.cacher, "cache_path") or self.cacher.cache_path is None:
+            return
+        if failures is None:
+            return
+        if "model_failures" in failures:
+            model_failures = failures["model_failures"]
+            if len(model_failures) > 0:
+                cacher_model_failures = CacheFunctionDF(cache_path=self.cacher.cache_path, cache_name="model_failures")
+                cacher_model_failures.save_cache(data=model_failures)
 
     def post_fit(self, out: dict) -> dict:
         return out

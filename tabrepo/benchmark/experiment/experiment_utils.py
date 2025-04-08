@@ -21,6 +21,7 @@ class ExperimentBatchRunner:
         cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
         cache_cls_kwargs: dict | None = None,
         cache_path_format: Literal["name_first", "task_first"] = "name_first",
+        only_cache: bool = False,
     ):
         """
 
@@ -35,13 +36,14 @@ class ExperimentBatchRunner:
             "task_first" -> {expname}/data/tasks/{tid}/{fold}/{method}/
         """
         cache_cls = CacheFunctionDummy if cache_cls is None else cache_cls
-        cache_cls_kwargs = {} if cache_cls_kwargs is None else cache_cls_kwargs
+        cache_cls_kwargs = {"include_self_in_call": True} if cache_cls_kwargs is None else cache_cls_kwargs
 
         self.expname = expname
         self.task_metadata = task_metadata
         self.cache_cls = cache_cls
         self.cache_cls_kwargs = cache_cls_kwargs
         self.cache_path_format = cache_path_format
+        self.only_cache = only_cache
         self._dataset_to_tid_dict = task_metadata[['tid', 'dataset']].drop_duplicates(['tid', 'dataset']).set_index('dataset')['tid'].to_dict()
 
     @property
@@ -54,6 +56,7 @@ class ExperimentBatchRunner:
         datasets: list[str],
         folds: list[int],
         ignore_cache: bool = False,
+        raise_on_failure: bool = True,
         mode: str = "local",
         s3_bucket: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -95,6 +98,8 @@ class ExperimentBatchRunner:
             cache_path_format=self.cache_path_format,
             mode=mode,
             s3_bucket=s3_bucket,
+            only_cache=self.only_cache,
+            raise_on_failure=raise_on_failure,
         )
 
     def load_results(
@@ -312,6 +317,8 @@ def run_experiments(
     cache_path_format: Literal["name_first", "task_first"] = "name_first",
     mode: str = "local",
     s3_bucket: str | None = None,
+    only_cache: bool = False,
+    raise_on_failure: bool = True,
 ) -> list[dict]:
     """
 
@@ -329,6 +336,9 @@ def run_experiments(
     mode: {"local", "aws"}, default "local"
     s3_bucket: str, default None
         Required when mode="aws". The S3 bucket where artifacts will be stored.
+    raise_on_failure: bool, default True
+        If True, will raise exceptions that occur during experiments, stopping all runs.
+        If False, will ignore exceptions and continue fitting queued experiments. Experiments with exceptions will not be included in the output list.
 
     Returns
     -------
@@ -379,37 +389,76 @@ def run_experiments(
     )
     result_lst = []
     num_datasets = len(tids)
+    missing_tasks = []
+    cur_experiment_idx = -1
+    experiment_success_count = 0
+    experiment_fail_count = 0
+    experiment_missing_count = 0
+    experiment_cache_exists_count = 0
+    experiment_count_total = len(tids) * len(folds) * len(methods)
     for i, tid in enumerate(tids):
         task = None  # lazy task loading
         task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
         print(f"Starting Dataset {i+1}/{num_datasets}...")
         for fold in folds:
             for method in methods:
+                cur_experiment_idx += 1
                 if cache_path_format == "name_first":
-                    cache_name = f"data/{method.name}/{tid}/{fold}/results"
+                    cache_prefix = f"data/{method.name}/{tid}/{fold}"
+                    cache_name = "results"
                 elif cache_path_format == "task_first":
                     # Legacy format from early prototyping
-                    cache_name = f"data/tasks/{tid}/{fold}/{method.name}/results"
+                    cache_prefix = f"data/tasks/{tid}/{fold}/{method.name}"
+                    cache_name = "results"
                 else:
                     raise ValueError(f"Invalid cache_path_format: {cache_path_format}")
                 print(
-                    f"\tFitting {task_name} on fold {fold} for method {method.name}"
+                    f"\t"
+                    f"{cur_experiment_idx}/{experiment_count_total} ran | "
+                    f"{experiment_success_count} success | "
+                    f"{experiment_fail_count} fail | "
+                    f"{experiment_cache_exists_count} cache_exists | "
+                    f"{experiment_missing_count} missing | "
+                    f"Fitting {task_name} on fold {fold} for method {method.name}"
                 )
+                cache_path = f"{base_cache_path}/{cache_prefix}"
 
-                cacher = cache_cls(cache_name=cache_name, cache_path=base_cache_path, **cache_cls_kwargs)
+                cacher = cache_cls(cache_name=cache_name, cache_path=cache_path, **cache_cls_kwargs)
 
-                if task is None:
-                    if ignore_cache or not cacher.exists:
-                        task = OpenMLTaskWrapper.from_task_id(task_id=tid)
+                cache_exists = cacher.exists
+                if cache_exists and not ignore_cache:
+                    experiment_cache_exists_count += 1
 
-                out = method.run(
-                    task=task,
-                    fold=fold,
-                    task_name=task_name,
-                    cacher=cacher,
-                    ignore_cache=ignore_cache,
-                )
-                result_lst.append(out)
+                if only_cache:
+                    if not cache_exists:
+                        missing_tasks.append(cache_name)
+                        experiment_missing_count += 1
+                        continue
+                    else:
+                        out = cacher.load_cache()
+                else:
+                    if task is None:
+                        if ignore_cache or not cache_exists:
+                            task = OpenMLTaskWrapper.from_task_id(task_id=tid)
+
+                    try:
+                        out = method.run(
+                            task=task,
+                            fold=fold,
+                            task_name=task_name,
+                            cacher=cacher,
+                            ignore_cache=ignore_cache,
+                        )
+                    except Exception as exc:
+                        if raise_on_failure:
+                            raise
+                        print(exc.__class__)
+                        out = None
+                if out is not None:
+                    experiment_success_count += 1
+                    result_lst.append(out)
+                else:
+                    experiment_fail_count += 1
 
     return result_lst
 

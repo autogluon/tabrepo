@@ -337,6 +337,7 @@ class AGModelBagExperiment(AGModelExperiment):
         time_limit: float | None = None,
         num_bag_folds: int = 8,
         num_bag_sets: int = 1,
+        raise_on_model_failure: bool = True,
         method_kwargs: dict = None,
         experiment_kwargs: dict = None,
     ):
@@ -360,6 +361,7 @@ class AGModelBagExperiment(AGModelExperiment):
             model_cls=model_cls,
             model_hyperparameters=model_hyperparameters,
             time_limit=time_limit,
+            raise_on_model_failure=raise_on_model_failure,
             method_kwargs=method_kwargs,
             experiment_kwargs=experiment_kwargs,
         )
