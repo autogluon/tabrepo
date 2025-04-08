@@ -1,5 +1,6 @@
 from autogluon.core.models import DummyModel
 
+from tabrepo.benchmark.experiment import AGModelBagExperiment, YamlExperimentSerializer
 from tabrepo.utils.config_utils import ConfigGenerator
 from tabrepo.models.lightgbm.generate import gen_lightgbm
 from tabrepo.models.tabicl.generate import gen_tabicl
@@ -15,10 +16,9 @@ from tabrepo.models.nn_torch.generate import gen_nn_torch
 from tabrepo.models.random_forest.generate import gen_randomforest
 from tabrepo.models.lr.generate import gen_linear
 from tabrepo.models.ftt.generate import gen_fttransformer
-from tabrepo.models.tabpfn_v2.generate import gen_tabpfnv2
+from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
 from tabrepo.models.realmlp.generate import gen_realmlp
 from tabrepo.models.ebm.generate import gen_ebm
-from tabrepo.benchmark.experiment import YamlExperimentSerializer
 
 
 if __name__ == '__main__':
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     experiments_catboost = gen_catboost.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_nn_torch = gen_nn_torch.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_fttransformer = gen_fttransformer.generate_all_bag_experiments(num_random_configs=0)  # No search space defined
-    # tabpfnv1?
+    # TODO: TabPFNv1?
 
     # New Search Space
     experiments_lightgbm_alt = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
@@ -77,7 +77,7 @@ if __name__ == '__main__':
         experiments_dummy,
     ]
 
-    experiments_all = [exp for exp_family_lst in experiments_lst for exp in exp_family_lst]
+    experiments_all: list[AGModelBagExperiment] = [exp for exp_family_lst in experiments_lst for exp in exp_family_lst]
 
     # Verify no duplicate names
     experiment_names = set()
