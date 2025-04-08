@@ -11,7 +11,7 @@ search_space = ConfigurationSpace(space=[
     Float('min_child_weight', (1e-3, 5.0), log=True),
     Float('subsample', (0.6, 1.0)),
     Float('colsample_bylevel', (0.6, 1.0)),
-    Float('colsample_bynode', (1e-4, 5.0)),
+    Float('colsample_bynode', (0.6, 1.0)),
     Float('reg_alpha', (1e-4, 5.0)),
     Float('reg_lambda', (1e-4, 5.0)),
     Categorical('grow_policy', ['depthwise', 'lossguide']),

@@ -22,7 +22,7 @@ from tabrepo.models.ebm.generate import gen_ebm
 
 
 if __name__ == '__main__':
-    n_random_configs = 3  # 3 for now as a toy example
+    n_random_configs = 1  # 1 for now as a toy example
 
     # Original Search Space
     experiments_linear = gen_linear.generate_all_bag_experiments(num_random_configs=n_random_configs)
@@ -49,6 +49,7 @@ if __name__ == '__main__':
     experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=0)  # No search space defined
     # TODO: TabDPT
     # TODO: TabPFNMix
+    # TODO: TuneTables?
 
     # Dummy (constant predictor)
     experiments_dummy = ConfigGenerator(model_cls=DummyModel, search_space={}, manual_configs=[{}]).generate_all_bag_experiments(num_random_configs=0)
