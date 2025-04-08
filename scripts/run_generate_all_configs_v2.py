@@ -37,9 +37,9 @@ if __name__ == '__main__':
     # tabpfnv1?
 
     # New Search Space
-    experiments_lightgbm_alt = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_xgboost_alt = gen_xgboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_catboost_alt = gen_catboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_lightgbm_alt = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
+    experiments_xgboost_alt = gen_xgboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
+    experiments_catboost_alt = gen_catboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
 
     # New methods
     experiments_fastai = gen_fastai.generate_all_bag_experiments(num_random_configs=n_random_configs)
@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     experiments_all = [exp for exp_family_lst in experiments_lst for exp in exp_family_lst]
 
-    # TODO: Verify no duplicate names, move to `to_yaml?`
+    # Verify no duplicate names
     experiment_names = set()
     for experiment in experiments_all:
         if experiment.name not in experiment_names:
