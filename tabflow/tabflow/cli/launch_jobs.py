@@ -31,7 +31,7 @@ def launch_jobs(
         limit_runtime: int = 24 * 60 * 60,
         max_concurrent_jobs: int = 30,
         max_retry_attempts: int = 20,
-        batch_size: int = 16,
+        batch_size: int = 1,
         aws_profile: str | None = None,
         hyperparameters: dict = None,
         datasets: list = None,
