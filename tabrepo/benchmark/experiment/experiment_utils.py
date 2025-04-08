@@ -55,7 +55,7 @@ class ExperimentBatchRunner:
         folds: list[int],
         ignore_cache: bool = False,
         mode: str = "local",
-        s3_bucket: str = "test-bucket",
+        s3_bucket: str | None = None,
     ) -> list[dict[str, Any]]:
         """
 
@@ -67,6 +67,10 @@ class ExperimentBatchRunner:
         ignore_cache: bool, default False
             If True, will run the experiments regardless if the cache exists already, and will overwrite the cache file upon completion.
             If False, will load the cache result if it exists for a given experiment, rather than running the experiment again.
+        mode: str, default "local"
+        Either "local" or "aws". In "aws" mode, s3_bucket must be provided.
+        s3_bucket: str, default None
+            Required when mode="aws". The S3 bucket where artifacts will be stored.
 
         Returns
         -------
@@ -155,7 +159,7 @@ class ExperimentBatchRunner:
         ignore_cache: bool,
         convert_time_infer_s_from_batch_to_sample: bool = True,
         mode="local",
-        s3_bucket: str = "test-bucket",
+        s3_bucket: str | None = None,
     ) -> EvaluationRepository:
         """
 
@@ -166,6 +170,10 @@ class ExperimentBatchRunner:
         methods
         ignore_cache
         convert_time_infer_s_from_batch_to_sample
+        mode: str, default "local"
+            Either "local" or "aws". In "aws" mode, s3_bucket must be provided.
+        s3_bucket: str, default None
+            Required when mode="aws". The S3 bucket where artifacts will be stored.
 
         Returns
         -------
@@ -303,7 +311,7 @@ def run_experiments(
     cache_cls_kwargs: dict = None,
     cache_path_format: Literal["name_first", "task_first"] = "name_first",
     mode: str = "local",
-    s3_bucket: str = "test-bucket",
+    s3_bucket: str | None = None,
 ) -> list[dict]:
     """
 
@@ -319,12 +327,16 @@ def run_experiments(
     cache_cls_kwargs: WIP
     cache_path_format: {"name_first", "task_first"}, default "name_first"
     mode: {"local", "aws"}, default "local"
-    S3_bucket: str, default "test-bucket" works only for aws mode, stores artifacts in the given bucket
+    s3_bucket: str, default None
+        Required when mode="aws". The S3 bucket where artifacts will be stored.
 
     Returns
     -------
     result_lst: list[dict], containing all metrics from fit() and predict() of all the given OpenML tasks
     """
+    if mode == "aws" and (s3_bucket is None or s3_bucket == ""):
+        raise ValueError(f"s3_bucket parameter is required when mode is 'aws', got {s3_bucket}")
+
     if cache_cls is None:
         cache_cls = CacheFunctionDummy
     if cache_cls_kwargs is None:

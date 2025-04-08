@@ -18,36 +18,37 @@ from tabflow.utils.constants import DOCKER_IMAGE_ALIASES
 logger = setup_logging(level=logging.ERROR)
 
 def launch_jobs(
-        experiment_name: str = "tabflow-test-cache",
+        experiment_name: str,
+        methods_file: str,
+        s3_bucket: str,
+        docker_image_uri: str,
+        sagemaker_role: str,
         context_name: str = "D244_F3_C1530_30", # 30 datasets. To run larger, set to "D244_F3_C1530_200"
         entry_point: str = "evaluate.py",
         source_dir: str = str(Path(__file__).parent),
         instance_type: str = "ml.m6i.4xlarge",
-        docker_image_uri: str = "mlflow-image",
-        sagemaker_role: str = "IAM_ROLE_ARN",  # Replace with your actual IAM role ARN
-        aws_profile: str | None = None,
-        hyperparameters: dict = None,
         keep_alive_period_in_seconds: int = 3600,
         limit_runtime: int = 24 * 60 * 60,
-        datasets: list = None,
-        folds: list = None,
-        methods_file: str = "methods.yaml",
         max_concurrent_jobs: int = 30,
         max_retry_attempts: int = 20,
-        s3_bucket: str = "test-bucket",
+        batch_size: int = 1,
+        aws_profile: str | None = None,
+        hyperparameters: dict = None,
+        datasets: list = None,
+        folds: list = None,
         add_timestamp: bool = False,
-        wait: bool = False,
-        batch_size: int = 2,
+        wait: bool = True,
 ) -> None:
     """
     Launch multiple SageMaker training jobs.
 
     Args:
         experiment_name: Name of the experiment
-        entry_point: The Python script to run
-        source_dir: Directory containing the training code
+        context_name: Name of the TabRepo context
+        entry_point: The Python script to run in sagemaker training job
+        source_dir: Directory containing the training code (here the entry point)
         instance_type: SageMaker instance type
-        docker_image_uri: Docker image to use
+        docker_image_uri: Docker image to use URI or alias in constants.py
         sagemaker_role: AWS IAM role for SageMaker
         aws_profile: AWS profile name
         hyperparameters: Dictionary of hyperparameters to pass to the training script
@@ -59,7 +60,7 @@ def launch_jobs(
         max_concurrent_jobs: Maximum number of concurrent jobs, based on account limit
         S3 bucket: S3 bucket to store the results
         add_timestamp: Whether to add a timestamp to the experiment name
-        wait: Whether to wait for all jobs to complete
+        wait: Whether to wait for all jobs to complete (no-wait from CLI)
         batch_size: Number of models to batch for each task
     """
     
@@ -193,20 +194,21 @@ def launch_jobs(
 def main():
     """Entrypoint for Launching sagemaker jobs using CLI"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--experiment_name', type=str, default="tabflow-test-cache", help="Name of the experiment")
+    parser.add_argument('--experiment_name', type=str, required=True, help="Name of the experiment")
     parser.add_argument('--context_name', type=str, default="D244_F3_C1530_30", help="Name of the context")
     parser.add_argument('--datasets', nargs='+', type=str, required=True, help="List of datasets to evaluate")
     parser.add_argument('--folds', nargs='+', type=int, required=True, help="List of folds to evaluate")
     parser.add_argument('--methods_file', type=str, required=True, help="Path to the YAML file containing methods")
     parser.add_argument('--max_concurrent_jobs', type=int, default=50,
                         help="Maximum number of concurrent jobs, based on account limit")
-    parser.add_argument('--docker_image_uri', type=str, default="mlflow-image", help="Docker image URI or alias")
+    parser.add_argument('--docker_image_uri', type=str, required=True, help="Docker image URI or alias in constants.py")
     parser.add_argument('--instance_type', type=str, default="ml.m6i.4xlarge", help="SageMaker instance type")
-    parser.add_argument('--sagemaker_role', type=str, default="IAM_ROLE_ARN", help="AWS IAM role ARN for SageMaker")
-    parser.add_argument('--s3_bucket', type=str, default="test-bucket", help="S3 bucket for the experiment")
+    parser.add_argument('--sagemaker_role', type=str, required=True, help="AWS IAM role ARN for SageMaker")
+    parser.add_argument('--s3_bucket', type=str, required=True, help="S3 bucket for the experiment")
     parser.add_argument('--add_timestamp', action='store_true', help="Add timestamp to the experiment name")
-    parser.add_argument('--wait', action='store_true', help="Wait for all jobs to complete")
-    parser.add_argument('--batch_size', type=int, default=2, help="Batch size for tasks")
+    parser.add_argument('--no-wait', dest='wait', action='store_false', help="Skip waiting for jobs to complete")
+    parser.set_defaults(wait=True)
+    parser.add_argument('--batch_size', type=int, default=16, help="Batch size for tasks")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
 
     args = parser.parse_args()
