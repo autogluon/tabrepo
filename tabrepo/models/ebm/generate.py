@@ -1,5 +1,6 @@
 from autogluon.common.space import Real, Int, Categorical
 
+from tabrepo.benchmark.models.ag.ebm.ebm_model import ExplainableBoostingMachineModel
 from ...utils.config_utils import ConfigGenerator
 
 name = 'EBM'
@@ -17,6 +18,8 @@ search_space = {
     'early_stopping_tolerance': Real(1e-10, 1e-5, default=1e-5, log=True),
     'gain_scale': Real(0.5, 5.0, default=5.0, log=True),
 }
+
+gen_ebm = ConfigGenerator(model_cls=ExplainableBoostingMachineModel, search_space=search_space, manual_configs=[{}])
 
 
 def generate_configs_ebm(num_random_configs=200):

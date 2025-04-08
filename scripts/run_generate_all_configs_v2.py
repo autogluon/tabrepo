@@ -17,13 +17,12 @@ from tabrepo.models.lr.generate import gen_linear
 from tabrepo.models.ftt.generate import gen_fttransformer
 from tabrepo.models.tabpfn_v2.generate import gen_tabpfnv2
 from tabrepo.models.realmlp.generate import gen_realmlp
+from tabrepo.models.ebm.generate import gen_ebm
 from tabrepo.benchmark.experiment import YamlExperimentSerializer
 
 
 if __name__ == '__main__':
-    n_random_configs = 3
-
-
+    n_random_configs = 3  # 3 for now as a toy example
 
     # Original Search Space
     experiments_linear = gen_linear.generate_all_bag_experiments(num_random_configs=n_random_configs)
@@ -44,10 +43,10 @@ if __name__ == '__main__':
 
     # New methods
     experiments_fastai = gen_fastai.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_ebm = gen_ebm.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_realmlp = gen_realmlp.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=0)  # No search space defined
-    # TODO: EBM
     # TODO: TabDPT
     # TODO: TabPFNMix
 
@@ -70,6 +69,7 @@ if __name__ == '__main__':
         experiments_catboost_alt,
 
         experiments_fastai,
+        experiments_ebm,
         experiments_realmlp,
         experiments_tabicl,
         experiments_tabpfnv2,
