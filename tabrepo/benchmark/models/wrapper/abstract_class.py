@@ -10,6 +10,8 @@ from autogluon_benchmark.utils.time_utils import Timer
 
 class AbstractExecModel:
     can_get_oof = False
+    can_get_per_child_oof = False
+    can_get_per_child_test = False
 
     # TODO: Prateek: Find a way to put AutoGluon as default - in the case the user does not want their own class
     def __init__(
@@ -25,6 +27,7 @@ class AbstractExecModel:
         self.preprocess_label = preprocess_label
         self.label_cleaner: LabelCleaner = None
         self._feature_generator = None
+        self.failure_artifact = None
 
     def transform_y(self, y: pd.Series) -> pd.Series:
         return self.label_cleaner.transform(y)
@@ -54,6 +57,9 @@ class AbstractExecModel:
         y = self.transform_y(y)
         return X, y
 
+    def post_fit(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
+        pass
+
     # TODO: Prateek, Add a toggle here to see if user wants to fit or fit and predict, also add model saving functionality
     # TODO: Nick: Temporary name
     def fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
@@ -67,6 +73,8 @@ class AbstractExecModel:
         '''
         with (Timer() as timer_fit):
             self.fit(X, y)
+
+        self.post_fit(X=X, y=y, X_test=X_test)
 
         if self.problem_type in ['binary', 'multiclass']:
             with Timer() as timer_predict:

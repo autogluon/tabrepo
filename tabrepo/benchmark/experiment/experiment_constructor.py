@@ -9,7 +9,7 @@ import yaml
 from autogluon.core.models import AbstractModel
 
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
-from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGSingleWrapper
+from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGSingleWrapper, AGSingleBagWrapper
 from tabrepo.benchmark.models.wrapper.ag_model import AGModelWrapper
 from tabrepo.benchmark.experiment.experiment_runner import ExperimentRunner, OOFExperimentRunner
 from tabrepo.benchmark.models.model_register import infer_model_cls
@@ -220,6 +220,7 @@ class AGModelExperiment(Experiment):
     experiment_kwargs: dict, optional
         The kwargs passed to the init of `experiment_cls`.
     """
+    _method_cls = AGSingleWrapper
 
     def __init__(
         self,
@@ -251,7 +252,7 @@ class AGModelExperiment(Experiment):
         method_kwargs["fit_kwargs"]["raise_on_model_failure"] = raise_on_model_failure
         super().__init__(
             name=name,
-            method_cls=AGSingleWrapper,
+            method_cls=self._method_cls,
             method_kwargs={
                 "model_cls": model_cls,
                 "model_hyperparameters": model_hyperparameters,
@@ -328,6 +329,8 @@ class AGModelBagExperiment(AGModelExperiment):
     method_kwargs: dict, optional
     experiment_kwargs: dict, optional
     """
+    _method_cls = AGSingleBagWrapper
+
     def __init__(
         self,
         name: str,

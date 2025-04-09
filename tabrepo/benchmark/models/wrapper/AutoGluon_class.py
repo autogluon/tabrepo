@@ -4,6 +4,7 @@ import copy
 import shutil
 from typing import Type
 
+import numpy as np
 import pandas as pd
 
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
@@ -132,6 +133,9 @@ class AGSingleWrapper(AGWrapper):
 
         super().__init__(init_kwargs=init_kwargs, fit_kwargs=fit_kwargs, preprocess_data=preprocess_data, preprocess_label=preprocess_label, **kwargs)
 
+    def post_fit(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
+        self.failure_artifact = self.get_metadata_failure()
+
     def get_hyperparameters(self):
         hyperparameters = self.predictor.model_hyperparameters(model=self.predictor.model_best, output_format="user")
         return hyperparameters
@@ -146,11 +150,14 @@ class AGSingleWrapper(AGWrapper):
             model_cls = ag_model_register.key_to_cls(key=self._model_cls)
         return model_cls
 
-    def get_metadata(self) -> dict:
-        metadata = {}
+    def _load_model(self):
+        model_names = self.predictor.model_names(can_infer=True)
+        assert len(model_names) == 1
+        model_name = self.predictor.model_names()[0]
+        return self.predictor._trainer.load_model(model_name)
 
-        model = self.predictor._trainer.load_model(self.predictor.model_best)
-        metadata["info"] = model.get_info(include_feature_metadata=False)
+    def get_metadata_init(self) -> dict:
+        metadata = {}
         metadata["hyperparameters"] = self.get_hyperparameters()
         metadata["model_cls"] = self.model_cls.__name__
         metadata["model_type"] = self.model_cls.ag_key  # TODO: rename to ag_key?
@@ -158,6 +165,12 @@ class AGSingleWrapper(AGWrapper):
         metadata["model_hyperparameters"] = self.model_hyperparameters
         metadata["init_kwargs_extra"] = self.init_kwargs_extra
         metadata["fit_kwargs_extra"] = self.fit_kwargs_extra
+        return metadata
+
+    def get_metadata_fit(self) -> dict:
+        metadata = {}
+        model = self.predictor._trainer.load_model(self.predictor.model_best)
+        metadata["info"] = model.get_info(include_feature_metadata=False)
         metadata["disk_usage"] = model.disk_usage()
         metadata["num_cpus"] = model.fit_num_cpus
         metadata["num_gpus"] = model.fit_num_gpus
@@ -165,3 +178,63 @@ class AGSingleWrapper(AGWrapper):
         metadata["num_gpus_child"] = model.fit_num_gpus_child
         metadata["fit_metadata"] = model.get_fit_metadata()
         return metadata
+
+    def get_metadata_failure(self) -> dict:
+        metadata = {
+            "model_failures": self.predictor.model_failures()
+        }
+        return metadata
+
+    def get_metadata(self) -> dict:
+        metadata = self.get_metadata_init()
+        metadata_fit = self.get_metadata_fit()
+
+        metadata.update(metadata_fit)
+        return metadata
+
+
+class AGSingleBagWrapper(AGSingleWrapper):
+    can_get_per_child_oof = True
+    can_get_per_child_val_idx = True
+
+    def bag_artifact(self, X_test: pd.DataFrame):
+        model = self._load_model()
+        bag_info = {}
+        bag_info["pred_proba_test_per_child"] = self.get_per_child_test(X_test=X_test, model=model)
+        bag_info["val_idx_per_child"] = self.get_per_child_val_idx(model=model)
+        return bag_info
+
+    def get_per_child_val_idx(self, model=None) -> list[np.ndarray]:
+        if model is None:
+            model = self._load_model()
+        X, y = self.predictor.load_data_internal()
+        all_kfolds = []
+        # TODO: Make this a bagged ensemble method
+        if model._child_oof:
+            all_kfolds = [(None, X.index.values)]
+        else:
+            for n_repeat, k in enumerate(model._k_per_n_repeat):
+                kfolds = model._cv_splitters[n_repeat].split(X=X, y=y)
+                cur_kfolds = kfolds[n_repeat * k: (n_repeat + 1) * k]
+                all_kfolds += cur_kfolds
+
+        val_idx_per_child = []
+        for fold_idx, (train_idx, val_idx) in enumerate(all_kfolds):
+            val_idx = pd.to_numeric(val_idx, downcast="integer")  # memory opt
+            val_idx_per_child.append(val_idx)
+
+        return val_idx_per_child
+
+    # TODO: Can avoid predicting on test twice by doing it all in one go
+    def get_per_child_test(self, X_test: pd.DataFrame, model=None) -> list[np.ndarray]:
+        if model is None:
+            model = self._load_model()
+        X_test_inner = self.predictor.transform_features(data=X_test, model=model.name)
+
+        if model.can_predict_proba():
+            per_child_test_preds = model.predict_proba_children(X=X_test_inner)
+        else:
+            per_child_test_preds = model.predict_children(X=X_test_inner)
+
+        per_child_test_preds = [preds_child.astype(np.float32) for preds_child in per_child_test_preds]  # memory opt
+        return per_child_test_preds

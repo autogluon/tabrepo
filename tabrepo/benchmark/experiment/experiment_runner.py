@@ -3,7 +3,9 @@ from __future__ import annotations
 import datetime
 from typing import Literal, Type
 
+import numpy as np
 import pandas as pd
+from pandas.api.types import is_integer_dtype
 
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import get_metric, Scorer
@@ -13,9 +15,11 @@ from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy, Cache
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 
 
+# TODO: make a dataclass so type hinter is happy with subclasses?
 class ExperimentRunner:
     def __init__(
         self,
+        *,
         method_cls: Type[AbstractExecModel],
         task: OpenMLTaskWrapper,
         fold: int,
@@ -23,7 +27,6 @@ class ExperimentRunner:
         method: str,
         fit_args: dict | None = None,
         cleanup: bool = True,
-        compute_simulation_artifacts: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
         cacher: AbstractCacheFunction | None = None,
     ):
@@ -36,7 +39,6 @@ class ExperimentRunner:
         self.fit_args = fit_args
         self.cleanup = cleanup
         self.input_format = input_format
-        self.compute_simulation_artifacts = compute_simulation_artifacts
         self.eval_metric_name = ag_eval_metric_map[self.task.problem_type]  # FIXME: Don't hardcode eval metric
         self.eval_metric: Scorer = get_metric(metric=self.eval_metric_name, problem_type=self.task.problem_type)
         self.model = None
@@ -194,6 +196,19 @@ class ExperimentRunner:
 
 
 class OOFExperimentRunner(ExperimentRunner):
+    def __init__(
+        self,
+        *,
+        compute_simulation_artifacts: bool = True,
+        compute_bag_info: bool = True,
+        optimize_simulation_artifacts_memory: bool = True,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.compute_simulation_artifacts = compute_simulation_artifacts
+        self.compute_bag_info = compute_bag_info
+        self.optimize_simulation_artifacts_memory = optimize_simulation_artifacts_memory
+
     def post_evaluate(self, out: dict) -> dict:
         out = super().post_evaluate(out=out)
         if self.compute_simulation_artifacts and self.model.can_get_oof:
@@ -205,16 +220,36 @@ class OOFExperimentRunner(ExperimentRunner):
                 if self.task.problem_type == "binary":
                     simulation_artifact["pred_proba_dict_test"] = simulation_artifact["pred_proba_dict_test"].iloc[:, 1]
             simulation_artifact["y_test"] = self.label_cleaner.transform(self.y_test)
+
+            if self.optimize_simulation_artifacts_memory:
+                # optimize memory
+                simulation_artifact["y_test"].index = pd.to_numeric(simulation_artifact["y_test"].index, downcast="integer")
+                simulation_artifact["y_val"].index = pd.to_numeric(simulation_artifact["y_val"].index, downcast="integer")
+
+                simulation_artifact["y_test_idx"] = simulation_artifact["y_test"].index.values
+                simulation_artifact["y_val_idx"] = simulation_artifact["y_val"].index.values
+
+                simulation_artifact["y_test"] = simulation_artifact["y_test"].values
+                simulation_artifact["y_val"] = simulation_artifact["y_val"].values
+                if is_integer_dtype(simulation_artifact["y_test"]):
+                    simulation_artifact["y_test"] = pd.to_numeric(simulation_artifact["y_test"], downcast="integer")
+                if is_integer_dtype(simulation_artifact["y_val"]):
+                    simulation_artifact["y_val"] = pd.to_numeric(simulation_artifact["y_val"], downcast="integer")
+
+                simulation_artifact["pred_proba_dict_test"] = simulation_artifact["pred_proba_dict_test"].astype(np.float32)
+                simulation_artifact["pred_proba_dict_val"] = simulation_artifact["pred_proba_dict_val"].astype(np.float32)
+
+                simulation_artifact["pred_proba_dict_test"] = simulation_artifact["pred_proba_dict_test"].values
+                simulation_artifact["pred_proba_dict_val"] = simulation_artifact["pred_proba_dict_val"].values
+
             simulation_artifact["label"] = self.task.label
             simulation_artifact["metric"] = self.eval_metric_name
 
             out["metric_error_val"] = self.model.get_metric_error_val()
-            # out["metric_error_val"] = evaluate(
-            #     y_true=simulation_artifact["y_val"],
-            #     y_pred=self.label_cleaner.transform(out["predictions"]),
-            #     y_pred_proba=self.label_cleaner.transform_proba(out["probabilities"])
-            # )
-            # out["metric_error_val"] = self.eval_metric.error(simulation_artifact["y_val"], simulation_artifact["pred_proba_dict_val"])
+
+            if self.compute_bag_info and (self.model.can_get_per_child_oof and self.model.can_get_per_child_val_idx):
+                simulation_artifact["bag_info"] = self.model.bag_artifact(X_test=self.X_test)
+
 
             simulation_artifact["pred_proba_dict_val"] = {self.method: simulation_artifact["pred_proba_dict_val"]}
             simulation_artifact["pred_proba_dict_test"] = {self.method: simulation_artifact["pred_proba_dict_test"]}
