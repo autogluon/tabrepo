@@ -24,6 +24,7 @@ class ExperimentBatchRunner:
         only_cache: bool = False,
         mode: str = "local",
         s3_bucket: str | None = None,
+        debug_mode: bool = True,
     ):
         """
 
@@ -40,7 +41,14 @@ class ExperimentBatchRunner:
             Either "local" or "aws". In "aws" mode, s3_bucket must be provided.
         s3_bucket: str, optional
             Required when mode="aws". The S3 bucket where artifacts will be stored.
+        debug_mode: bool, default True
+            If True, will operate in a manner best suited for local model development.
+            This mode will be friendly to local debuggers and will avoid subprocesses/threads
+            and complex try/except logic.
 
+            IF False, will operate in a manner best suited for large-scale benchmarking.
+            This mode will try to record information when method's fail
+            and might not work well with local debuggers.
         """
         cache_cls = CacheFunctionDummy if cache_cls is None else cache_cls
         cache_cls_kwargs = {"include_self_in_call": True} if cache_cls_kwargs is None else cache_cls_kwargs
@@ -54,6 +62,7 @@ class ExperimentBatchRunner:
         self._dataset_to_tid_dict = self.task_metadata[['tid', 'dataset']].drop_duplicates(['tid', 'dataset']).set_index('dataset')['tid'].to_dict()
         self.mode = mode
         self.s3_bucket = s3_bucket
+        self.debug_mode = debug_mode
 
     @property
     def datasets(self) -> list[str]:
@@ -103,6 +112,7 @@ class ExperimentBatchRunner:
             s3_bucket=self.s3_bucket,
             only_cache=self.only_cache,
             raise_on_failure=raise_on_failure,
+            debug_mode=self.debug_mode,
         )
 
     def load_results(
@@ -314,6 +324,7 @@ def run_experiments(
     s3_bucket: str | None = None,
     only_cache: bool = False,
     raise_on_failure: bool = True,
+    debug_mode: bool = True,
 ) -> list[dict]:
     """
 
@@ -443,6 +454,7 @@ def run_experiments(
                             task_name=task_name,
                             cacher=cacher,
                             ignore_cache=ignore_cache,
+                            debug_mode=debug_mode,
                         )
                     except Exception as exc:
                         if raise_on_failure:

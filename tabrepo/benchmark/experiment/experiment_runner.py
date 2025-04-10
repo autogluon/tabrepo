@@ -29,7 +29,30 @@ class ExperimentRunner:
         cleanup: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
         cacher: AbstractCacheFunction | None = None,
+        debug_mode: bool = True,
     ):
+        """
+
+        Parameters
+        ----------
+        method_cls
+        task
+        fold
+        task_name
+        method
+        fit_args
+        cleanup
+        input_format
+        cacher
+        debug_mode: bool, default True
+            If True, will operate in a manner best suited for local model development.
+            This mode will be friendly to local debuggers and will avoid subprocesses/threads
+            and complex try/except logic.
+
+            IF False, will operate in a manner best suited for large-scale benchmarking.
+            This mode will try to record information when method's fail
+            and might not work well with local debuggers.
+        """
         assert input_format in ["openml", "csv"]
         self.method_cls = method_cls
         self.task = task
@@ -50,6 +73,7 @@ class ExperimentRunner:
         if cacher is None:
             cacher = CacheFunctionDummy()
         self.cacher = cacher
+        self.debug_mode = debug_mode
 
     def init_method(self) -> AbstractExecModel:
         model = self.method_cls(
@@ -80,6 +104,7 @@ class ExperimentRunner:
         cleanup: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
         cacher: AbstractCacheFunction | None = None,
+        debug_mode: bool = True,
     ):
         obj = cls(
             method_cls=method_cls,
@@ -91,6 +116,7 @@ class ExperimentRunner:
             cleanup=cleanup,
             input_format=input_format,
             cacher=cacher,
+            debug_mode=debug_mode,
         )
         return obj.run()
 
@@ -102,7 +128,9 @@ class ExperimentRunner:
         try:
             out = self.run_model_fit()
         except Exception as exc:
-            self.handle_failure(exc=exc)
+            if not self.debug_mode:
+                # Only do this in benchmark mode, since it could mess with a local debugger.
+                self.handle_failure(exc=exc)
             raise
         out = self.post_fit(out=out)
         out["metric_error"] = self.evaluate(
@@ -120,6 +148,11 @@ class ExperimentRunner:
         failures = self.model.failure_artifact
         if not hasattr(self.cacher, "cache_path") or self.cacher.cache_path is None:
             return
+        if failures is None:
+            try:
+                failures = self.model.get_metadata_failure()
+            except:
+                return
         if failures is None:
             return
         if "model_failures" in failures:

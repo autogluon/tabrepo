@@ -116,6 +116,7 @@ class Experiment:
         task_name: str,
         cacher: AbstractCacheFunction | None = None,
         ignore_cache: bool = False,
+        **experiment_kwargs,
     ) -> object:
         if cacher is None:
             cacher = CacheFunctionDummy()
@@ -130,6 +131,7 @@ class Experiment:
                     method=self.name,
                     fit_args=self.method_kwargs,
                     **self.experiment_kwargs,
+                    **experiment_kwargs,
                 ),
                 ignore_cache=ignore_cache,
             )
