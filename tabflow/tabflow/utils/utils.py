@@ -42,28 +42,10 @@ def yaml_to_methods(methods_file: str) -> list:
     return methods_config['methods']
 
 
-def parse_method(method_config: dict, context=None):
-    """
-    Parse a method configuration dictionary and return an instance of the method class.
-    This function evaluates the 'type' field in the method_config to determine the class to instantiate.
-    It also evaluates any string values in the configuration that are meant to be Python expressions.
-    """
-    # Creating copy as we perform pop() which can lead to errors in subsequent calls
-    method_config = method_config.copy()
-
-    if context is None:
-        context = globals()
-
-    method_type = eval(method_config.pop('type'), context)
-    method_obj = method_type.from_yaml(**method_config)
-    return method_obj
-
-
 def find_method_by_name(methods_config, method_name):
     """Find a method configuration by name in the methods configuration"""
-    if "methods" in methods_config:
-        for method in methods_config["methods"]:
-            if method.get("name") == method_name:
-                # Return copy to ensure next method if same can be popped as well
-                return method.copy()
-    return None
+    for method in methods_config:
+        if method.get("name") == method_name:
+            # Return copy to ensure next method if same can be popped as well
+            return method.copy()
+    raise ValueError(f"Unknown method: {method_name}")

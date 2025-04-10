@@ -22,6 +22,8 @@ class ExperimentBatchRunner:
         cache_cls_kwargs: dict | None = None,
         cache_path_format: Literal["name_first", "task_first"] = "name_first",
         only_cache: bool = False,
+        mode: str = "local",
+        s3_bucket: str | None = None,
     ):
         """
 
@@ -34,6 +36,11 @@ class ExperimentBatchRunner:
             Determines the folder structure for artifacts.
             "name_first" -> {expname}/data/{method}/{tid}/{fold}/
             "task_first" -> {expname}/data/tasks/{tid}/{fold}/{method}/
+        mode: str, default "local"
+            Either "local" or "aws". In "aws" mode, s3_bucket must be provided.
+        s3_bucket: str, optional
+            Required when mode="aws". The S3 bucket where artifacts will be stored.
+
         """
         cache_cls = CacheFunctionDummy if cache_cls is None else cache_cls
         cache_cls_kwargs = {"include_self_in_call": True} if cache_cls_kwargs is None else cache_cls_kwargs
@@ -44,7 +51,9 @@ class ExperimentBatchRunner:
         self.cache_cls_kwargs = cache_cls_kwargs
         self.cache_path_format = cache_path_format
         self.only_cache = only_cache
-        self._dataset_to_tid_dict = task_metadata[['tid', 'dataset']].drop_duplicates(['tid', 'dataset']).set_index('dataset')['tid'].to_dict()
+        self._dataset_to_tid_dict = self.task_metadata[['tid', 'dataset']].drop_duplicates(['tid', 'dataset']).set_index('dataset')['tid'].to_dict()
+        self.mode = mode
+        self.s3_bucket = s3_bucket
 
     @property
     def datasets(self) -> list[str]:
@@ -57,8 +66,6 @@ class ExperimentBatchRunner:
         folds: list[int],
         ignore_cache: bool = False,
         raise_on_failure: bool = True,
-        mode: str = "local",
-        s3_bucket: str | None = None,
     ) -> list[dict[str, Any]]:
         """
 
@@ -70,10 +77,6 @@ class ExperimentBatchRunner:
         ignore_cache: bool, default False
             If True, will run the experiments regardless if the cache exists already, and will overwrite the cache file upon completion.
             If False, will load the cache result if it exists for a given experiment, rather than running the experiment again.
-        mode: str, default "local"
-        Either "local" or "aws". In "aws" mode, s3_bucket must be provided.
-        s3_bucket: str, default None
-            Required when mode="aws". The S3 bucket where artifacts will be stored.
 
         Returns
         -------
@@ -96,8 +99,8 @@ class ExperimentBatchRunner:
             cache_cls=self.cache_cls,
             cache_cls_kwargs=self.cache_cls_kwargs,
             cache_path_format=self.cache_path_format,
-            mode=mode,
-            s3_bucket=s3_bucket,
+            mode=self.mode,
+            s3_bucket=self.s3_bucket,
             only_cache=self.only_cache,
             raise_on_failure=raise_on_failure,
         )
@@ -163,8 +166,6 @@ class ExperimentBatchRunner:
         methods: list[Experiment],
         ignore_cache: bool,
         convert_time_infer_s_from_batch_to_sample: bool = True,
-        mode="local",
-        s3_bucket: str | None = None,
     ) -> EvaluationRepository:
         """
 
@@ -175,10 +176,6 @@ class ExperimentBatchRunner:
         methods
         ignore_cache
         convert_time_infer_s_from_batch_to_sample
-        mode: str, default "local"
-            Either "local" or "aws". In "aws" mode, s3_bucket must be provided.
-        s3_bucket: str, default None
-            Required when mode="aws". The S3 bucket where artifacts will be stored.
 
         Returns
         -------
@@ -190,8 +187,6 @@ class ExperimentBatchRunner:
             folds=folds,
             methods=methods,
             ignore_cache=ignore_cache,
-            mode=mode,
-            s3_bucket=s3_bucket,
         )
 
         repo = self.repo_from_results(

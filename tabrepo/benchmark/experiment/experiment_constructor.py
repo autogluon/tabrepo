@@ -373,6 +373,11 @@ class AGModelBagExperiment(AGModelExperiment):
 class YamlExperimentSerializer:
     @classmethod
     def parse_method(cls, method_config: dict, context=None) -> Experiment:
+        """
+        Parse a method configuration dictionary and return an instance of the method class.
+        This function evaluates the 'type' field in the method_config to determine the class to instantiate.
+        It also evaluates any string values in the configuration that are meant to be Python expressions.
+        """
         # Creating copy as we perform pop() which can lead to errors in subsequent calls
         method_config = method_config.copy()
 
@@ -385,16 +390,21 @@ class YamlExperimentSerializer:
 
     @classmethod
     def from_yaml(cls, path: str, context=None) -> list[Experiment]:
+        yaml_out = cls.load_yaml(path=path)
+
+        experiments = []
+        for experiment in yaml_out:
+            experiments.append(cls.parse_method(experiment, context=context))
+
+        return experiments
+
+    @classmethod
+    def load_yaml(cls, path: str) -> list[dict]:
         assert path.endswith(".yaml")
 
         with open(path, 'r') as file:
             yaml_out = yaml.safe_load(file)
-
-        experiments = []
-        for experiment in yaml_out["methods"]:
-            experiments.append(cls.parse_method(experiment, context=context))
-
-        return experiments
+        return yaml_out["methods"]
 
     @classmethod
     def to_yaml(cls, experiments: list[Experiment], path: str):
