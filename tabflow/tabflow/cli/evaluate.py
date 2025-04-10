@@ -35,8 +35,6 @@ if __name__ == '__main__':
     expname = args.experiment_name
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
-    #FIXME: Cache combined with load predictions is buggy
-    # repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
     repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=args.load_predictions)
 
     # Download methods and tasks to parse from S3
@@ -63,11 +61,11 @@ if __name__ == '__main__':
         logger.info(f"Method Dict: {method}")
         methods = parse_method(method, globals())
         logger.info(f"Methods: {methods}")
-        repo: EvaluationRepository = ExperimentBatchRunner(expname=expname, task_metadata=repo_og.task_metadata).run(
-        datasets=[dataset], 
-        folds=[fold],
-        methods=[methods], 
-        ignore_cache=ignore_cache,
-        mode=args.run_mode, # We use AWS for TabFlow
-        s3_bucket=args.s3_bucket,
+        results_lst: list[dict] = ExperimentBatchRunner(expname=expname, task_metadata=repo_og.task_metadata).run(
+            datasets=[dataset],
+            folds=[fold],
+            methods=[methods],
+            ignore_cache=ignore_cache,
+            mode=args.run_mode,  # We use AWS for TabFlow
+            s3_bucket=args.s3_bucket,
         )
