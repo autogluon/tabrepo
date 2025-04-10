@@ -132,10 +132,11 @@ class CacheFunctionPickle(AbstractCacheFunction[object]):
         if cache_path is None:
             # TODO: Remove default_cache_path?
             cache_path = default_cache_path
+        cache_path = str(cache_path)
         if cache_path.endswith(os.path.sep):
             raise ValueError(f"cache_path must not end with a directory separator! (cache_path='{cache_path}'")
         self.cache_path = cache_path
-        self.is_s3 = str(cache_path).startswith("s3://")
+        self.is_s3 = self.cache_path.startswith("s3://")
 
     @property
     def cache_file(self) -> str:
