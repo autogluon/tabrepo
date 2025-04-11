@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import KNNModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -13,6 +14,8 @@ search_space = {
     'weights': Categorical('uniform', 'distance'),
     'p': Categorical(2, 1),
 }
+
+gen_knn = ConfigGenerator(model_cls=KNNModel, manual_configs=[{}], search_space=search_space)
 
 
 def generate_configs_knn(num_random_configs=50):

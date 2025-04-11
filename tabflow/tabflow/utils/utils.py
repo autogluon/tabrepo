@@ -2,7 +2,7 @@ import re
 import yaml
 
 from itertools import islice
-from tabrepo.benchmark.models.model_register import infer_model_cls
+
 
 def create_batch(tasks, batch_size):
     """Convert all tasks into batches"""
@@ -42,44 +42,10 @@ def yaml_to_methods(methods_file: str) -> list:
     return methods_config['methods']
 
 
-def parse_method(method_config: dict, context=None):
-    """
-    Parse a method configuration dictionary and return an instance of the method class.
-    This function evaluates the 'type' field in the method_config to determine the class to instantiate.
-    It also evaluates any string values in the configuration that are meant to be Python expressions.
-    """
-    # Creating copy as we perform pop() which can lead to errors in subsequent calls
-    method_config = method_config.copy()
-
-    if context is None:
-        context = globals()
-    # Convert string class names to actual class references
-    # This assumes the classes are already defined or imported in evaluate.py
-    if 'model_cls' in method_config:
-        method_config["model_cls"] = infer_model_cls(method_config["model_cls"])
-    if 'method_cls' in method_config:
-        method_config['method_cls'] = eval(method_config['method_cls'], context)
-    
-    # Evaluate all values in ag_args_fit
-    if "model_hyperparameters" in method_config:
-        if "ag_args_fit" in method_config["model_hyperparameters"]:
-            for key, value in method_config["model_hyperparameters"]["ag_args_fit"].items():
-                if isinstance(value, str):
-                    try:
-                        method_config["model_hyperparameters"]["ag_args_fit"][key] = eval(value, context)
-                    except NameError:
-                        pass  # If eval fails, keep the original string value
-
-    method_type = eval(method_config.pop('type'), context)
-    method_obj = method_type(**method_config)
-    return method_obj
-
-
 def find_method_by_name(methods_config, method_name):
     """Find a method configuration by name in the methods configuration"""
-    if "methods" in methods_config:
-        for method in methods_config["methods"]:
-            if method.get("name") == method_name:
-                # Return copy to ensure next method if same can be popped as well
-                return method.copy()
-    return None
+    for method in methods_config:
+        if method.get("name") == method_name:
+            # Return copy to ensure next method if same can be popped as well
+            return method.copy()
+    raise ValueError(f"Unknown method: {method_name}")

@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages
 
 requirements = [
-    'autogluon.core[all]',
+    'autogluon.core[all]>=1.0',
+    'openml>=0.14.1',  # consider making optional
     'pytest',
     'typing-extensions>=4.11,<5',  # used for `Self` type hint
     'huggingface-hub',

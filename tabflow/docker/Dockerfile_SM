@@ -5,24 +5,22 @@ FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-cpu-py3
 # Source install Autogluon mainline or any branch that the user wants to benchmark against
 # User can also source install tabrepo or any other libraries, if required
 # Make sure to delete the copy statements if you clone the repos and install it in the Dockerfile
-RUN git clone https://github.com/autogluon/autogluon
-RUN cd autogluon && ./full_install.sh
-RUN cd ..
+RUN mkdir workspace
+
+RUN cd workspace && git clone https://github.com/autogluon/autogluon
+RUN ./workspace/autogluon/full_install.sh
 
 # COPY ../../../autogluon-bench /autogluon-bench - bench is not required at the moment
-COPY autogluon-benchmark /autogluon-benchmark
-COPY tabrepo/tabflow /tabflow
+COPY autogluon-benchmark /workspace/autogluon-benchmark
 # Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
-COPY tabrepo /tabrepo
+COPY tabrepo /workspace/tabrepo
 COPY ./tabrepo/tabflow/tabflow/cli/evaluate.py .
 
-WORKDIR /
-
 # Install the required packages
-RUN pip install -e tabrepo \
+RUN pip install -e workspace/tabrepo/ \
     # && pip install -e autogluon-bench \
-    && pip install -e autogluon-benchmark \
-    && pip install -e tabflow
+    && pip install -e workspace/autogluon-benchmark/ \
+    && pip install -e workspace/tabrepo/tabflow/
 
 # Install pytabkit and seaborn for RealMLP models
 # User can add any more dependencies here
@@ -33,6 +31,6 @@ RUN pip install "interpret-core>=0.6.1" \
 
 
 # Generate tabrepo configs and give permissions
-RUN chmod +x ./tabrepo/scripts/run_generate_all_configs.py
-RUN python ./tabrepo/scripts/run_generate_all_configs.py
+RUN chmod +x ./workspace/tabrepo/scripts/run_generate_all_configs.py
+RUN python ./workspace/tabrepo/scripts/run_generate_all_configs.py
 RUN chmod +x ./evaluate.py
