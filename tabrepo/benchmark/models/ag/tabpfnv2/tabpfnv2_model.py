@@ -1,8 +1,22 @@
+import os
+from contextlib import contextmanager
+
 import pandas as pd
 
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
+
+
+@contextmanager
+def override_env_var(key, value):
+    original_value = os.getenv(key)
+    os.environ[key] = value
+    yield
+    if original_value is not None:
+        os.environ[key] = original_value
+    else:
+        del os.environ[key]
 
 
 # FIXME: why so slow?
@@ -61,12 +75,11 @@ class TabPFNV2Model(AbstractModel):
         # if X_val is not None:
         #     X_val = self.preprocess(X_val)
 
-        self.model = self.model.fit(
-            X=X,
-            y=y,
-            # X_val=X_val,
-            # y_val=y_val,
-        )
+        with override_env_var("TABPFN_ALLOW_CPU_LARGE_DATASET", "1"):
+            self.model = self.model.fit(
+                X=X,
+                y=y,
+            )
 
     def _preprocess(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
