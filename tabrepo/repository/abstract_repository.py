@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
+from ..benchmark.task.openml import OpenMLTaskWrapper
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
@@ -587,7 +588,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
             return predictions
 
     # TODO: repo.reproduce(config, dataset, fold)
-    def get_openml_task(self, dataset: str) -> "OpenMLTaskWrapper":
+    def get_openml_task(self, dataset: str) -> OpenMLTaskWrapper:
         """
         Fetch an OpenML task given a dataset name
 
@@ -599,13 +600,8 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
         Returns
         -------
-        OpenMLTaskWrapper object from autogluon_benchmark
+        OpenMLTaskWrapper object
         """
-        try:
-            from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
-        except ImportError:
-            raise ImportError(f"To use `repo.get_openml_task, you must first install autogluon_benchmark.")
-
         tid = self.dataset_to_tid(dataset=dataset)
         task = OpenMLTaskWrapper.from_task_id(task_id=tid)
         return task

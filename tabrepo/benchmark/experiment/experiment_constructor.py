@@ -14,7 +14,7 @@ from tabrepo.benchmark.models.wrapper.ag_model import AGModelWrapper
 from tabrepo.benchmark.experiment.experiment_runner import ExperimentRunner, OOFExperimentRunner
 from tabrepo.benchmark.models.model_register import infer_model_cls
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy
-from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper
 
 
 class Experiment:

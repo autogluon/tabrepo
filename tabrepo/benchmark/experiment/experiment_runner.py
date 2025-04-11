@@ -9,8 +9,7 @@ from pandas.api.types import is_integer_dtype
 
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import get_metric, Scorer
-from autogluon_benchmark.frameworks.autogluon.run import ag_eval_metric_map
-from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy, CacheFunctionDF
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 
@@ -62,6 +61,11 @@ class ExperimentRunner:
         self.fit_args = fit_args
         self.cleanup = cleanup
         self.input_format = input_format
+        ag_eval_metric_map = {
+            'binary': 'roc_auc',
+            'multiclass': 'log_loss',
+            'regression': 'rmse',
+        }
         self.eval_metric_name = ag_eval_metric_map[self.task.problem_type]  # FIXME: Don't hardcode eval metric
         self.eval_metric: Scorer = get_metric(metric=self.eval_metric_name, problem_type=self.task.problem_type)
         self.model = None

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Literal, Type
 
 import pandas as pd
-from autogluon_benchmark.tasks.task_wrapper import OpenMLTaskWrapper
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper
 
 from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionPickle, CacheFunctionDummy

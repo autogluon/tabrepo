@@ -5,7 +5,8 @@ import pandas as pd
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
 from autogluon.core.metrics import get_metric, Scorer
 from autogluon.features import AutoMLPipelineFeatureGenerator
-from autogluon_benchmark.utils.time_utils import Timer
+
+from tabrepo.utils.time_utils import Timer
 
 
 class AbstractExecModel:

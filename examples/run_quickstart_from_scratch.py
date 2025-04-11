@@ -1,7 +1,7 @@
 import pandas as pd
 
 from autogluon.tabular import TabularPredictor
-from autogluon_benchmark import OpenMLTaskWrapper
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper
 
 from tabrepo import EvaluationRepository
 
