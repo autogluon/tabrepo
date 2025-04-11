@@ -1,6 +1,9 @@
 from ConfigSpace import ConfigurationSpace, Float, Categorical, Integer
 
-name = 'XGBoost'
+from autogluon.tabular.models import XGBoostModel
+
+from tabrepo.models.utils import convert_numpy_dtypes
+from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 search_space = ConfigurationSpace(space=[
     Float('learning_rate', (5e-3, 1e-1), log=True),
@@ -8,7 +11,7 @@ search_space = ConfigurationSpace(space=[
     Float('min_child_weight', (1e-3, 5.0), log=True),
     Float('subsample', (0.6, 1.0)),
     Float('colsample_bylevel', (0.6, 1.0)),
-    Float('colsample_bynode', (1e-4, 5.0)),
+    Float('colsample_bynode', (0.6, 1.0)),
     Float('reg_alpha', (1e-4, 5.0)),
     Float('reg_lambda', (1e-4, 5.0)),
     Categorical('grow_policy', ['depthwise', 'lossguide']),
@@ -19,7 +22,15 @@ search_space = ConfigurationSpace(space=[
 
 
 def generate_configs_xgboost_alt(num_random_configs=200):
-    return [dict(config) for config in search_space.sample_configuration(num_random_configs)]
+    configs = search_space.sample_configuration(num_random_configs)
+    if num_random_configs == 1:
+        configs = [configs]
+    configs = [dict(config) for config in configs]
+    configs = [convert_numpy_dtypes(config) for config in configs]
+    return configs
+
+
+gen_xgboost_alt = CustomAGConfigGenerator(model_cls=XGBoostModel, search_space_func=generate_configs_xgboost_alt)
 
 if __name__ == '__main__':
     print(generate_configs_xgboost_alt(3))

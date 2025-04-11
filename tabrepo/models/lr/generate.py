@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import LinearModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -14,6 +15,8 @@ search_space = {
     "proc.impute_strategy": Categorical("median", "mean"),
     "penalty": Categorical("L2", "L1"),
 }
+
+gen_linear = ConfigGenerator(model_cls=LinearModel, manual_configs=[{}], search_space=search_space)
 
 
 def generate_configs_lr(num_random_configs=50):

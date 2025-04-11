@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import NNFastAiTabularModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -16,6 +17,8 @@ search_space = {
     'lr': Real(5e-4, 1e-1, default=1e-2, log=True),
     'epochs': Int(lower=20, upper=50, default=30),
 }
+
+gen_fastai = ConfigGenerator(model_cls=NNFastAiTabularModel, manual_configs=manual_configs, search_space=search_space)
 
 
 def generate_configs_fastai(num_random_configs=200):

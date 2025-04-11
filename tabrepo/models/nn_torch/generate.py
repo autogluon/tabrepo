@@ -1,4 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
+from autogluon.tabular.models import TabularNeuralNetTorchModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -24,6 +25,8 @@ search_space = {
     'hidden_size': Int(8, 256, default=128),
     'activation': Categorical('relu', 'elu'),
 }
+
+gen_nn_torch = ConfigGenerator(model_cls=TabularNeuralNetTorchModel, manual_configs=[{}], search_space=search_space)
 
 
 def generate_configs_nn_torch(num_random_configs=200):

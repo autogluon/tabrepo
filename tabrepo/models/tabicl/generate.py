@@ -1,5 +1,6 @@
 from autogluon.common.space import Real, Int, Categorical
 
+from tabrepo.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
 from ...utils.config_utils import ConfigGenerator
 
 name = 'TabICL'
@@ -15,7 +16,4 @@ search_space = {
     'softmax_temperature': Real(0.7, 1.0),
 }
 
-
-def generate_configs_tabicl(num_random_configs=200):
-    config_generator = ConfigGenerator(name=name, manual_configs=manual_configs, search_space=search_space)
-    return config_generator.generate_all_configs(num_random_configs=num_random_configs)
+gen_tabicl = ConfigGenerator(model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space)
