@@ -6,10 +6,10 @@ from tabrepo.models.utils import convert_numpy_dtypes
 from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 search_space = ConfigurationSpace(space=[
-    Float('max_features', (0.4, 1.0)),
-    Float('max_samples', (0.5, 1.0)),
-    Integer('min_samples_split', (2, 4), log=True),
-    Categorical('bootstrap', [False, True]),  # bootstrap=False doesn't allow OOB scores but seems to help
+    Categorical('max_features', ['sqrt', 0.5, 0.75, 1.0]),
+    # Float('max_samples', (0.5, 1.0)),  # not relevant for bootstrap=False
+    Integer('min_samples_split', (2, 32), log=True),
+    Categorical('bootstrap', [False]),  # bootstrap=False doesn't allow OOB scores but seems to help
     Categorical('n_estimators', [50]),  # 50 is decent, could go a bit higher for small gains
 
     # for raw model performance it seems to be best to not tune this
@@ -19,8 +19,9 @@ search_space = ConfigurationSpace(space=[
     # Categorical('max_depth', [16, 20, None]),
     # Integer('max_leaf_nodes', (5000, 50_000), use_log=True),
 
-    # this seems to be quite helpful although including zero in the space might be helpful as well
-    Float('min_impurity_decrease', (1e-5, 1e-3), log=True),
+    # this seems to be quite helpful
+    # Float('min_impurity_decrease', (1e-6, 1e-3), log=True),
+    Categorical('min_impurity_decrease', [0.0, 0.0, 0.0, 0.0, 0.0, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3]),
     # for regression it is important to standardize targets for min_impurity_decrease>0
     # having values > 0 can also speed up things
 
@@ -29,19 +30,19 @@ search_space = ConfigurationSpace(space=[
 ], seed=1234)
 
 
-def generate_configs_rf_alt(num_random_configs=200):
+def generate_configs_xt_alt(num_random_configs=200):
     configs = search_space.sample_configuration(num_random_configs)
     if num_random_configs == 1:
         configs = [configs]
     configs = [dict(config) for config in configs]
     configs = [convert_numpy_dtypes(config) for config in configs]
     for config in configs:
-        if config['bootstrap'] == False:
+        if config['bootstrap'] == False and 'max_samples' in config:
             del config['max_samples']  # can't be used in this case
     return configs
 
 
-gen_rf_alt = CustomAGConfigGenerator(model_cls=XGBoostModel, search_space_func=generate_configs_rf_alt)
+gen_xt_alt = CustomAGConfigGenerator(model_cls=XGBoostModel, search_space_func=generate_configs_xt_alt)
 
 if __name__ == '__main__':
-    print(generate_configs_rf_alt(3))
+    print(generate_configs_xt_alt(3))
