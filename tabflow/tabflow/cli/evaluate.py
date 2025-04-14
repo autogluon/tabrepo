@@ -26,6 +26,7 @@ def evaluate(
     run_mode: str = "aws",
     raise_on_failure: bool = False,
     debug_mode: bool = False,
+    s3_dataset_cache: str = None,
 ):
     # Load Context
     expname = experiment_name
@@ -45,6 +46,7 @@ def evaluate(
         mode=run_mode,  # We use AWS for TabFlow
         s3_bucket=s3_bucket,
         debug_mode=debug_mode,
+        s3_dataset_cache=s3_dataset_cache,
     )
 
     logger.info(f"Downloaded Tasks to run are: {tasks}")

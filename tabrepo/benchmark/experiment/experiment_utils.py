@@ -25,6 +25,7 @@ class ExperimentBatchRunner:
         mode: str = "local",
         s3_bucket: str | None = None,
         debug_mode: bool = True,
+        s3_dataset_cache: str | None = None,
     ):
         """
 
@@ -49,6 +50,9 @@ class ExperimentBatchRunner:
             IF False, will operate in a manner best suited for large-scale benchmarking.
             This mode will try to record information when method's fail
             and might not work well with local debuggers.
+        s3_dataset_cache: str, optional
+            Full S3 URI to the openml dataset cache (format: s3://bucket/prefix)
+            If None, skip S3 download attempt
         """
         cache_cls = CacheFunctionDummy if cache_cls is None else cache_cls
         cache_cls_kwargs = {"include_self_in_call": True} if cache_cls_kwargs is None else cache_cls_kwargs
@@ -63,6 +67,7 @@ class ExperimentBatchRunner:
         self.mode = mode
         self.s3_bucket = s3_bucket
         self.debug_mode = debug_mode
+        self.s3_dataset_cache = s3_dataset_cache
 
     @property
     def datasets(self) -> list[str]:
@@ -113,6 +118,7 @@ class ExperimentBatchRunner:
             only_cache=self.only_cache,
             raise_on_failure=raise_on_failure,
             debug_mode=self.debug_mode,
+            s3_dataset_cache=self.s3_dataset_cache
         )
 
     def load_results(
@@ -325,6 +331,7 @@ def run_experiments(
     only_cache: bool = False,
     raise_on_failure: bool = True,
     debug_mode: bool = True,
+    s3_dataset_cache: str | None = None,
 ) -> list[dict]:
     """
 
@@ -345,6 +352,9 @@ def run_experiments(
     raise_on_failure: bool, default True
         If True, will raise exceptions that occur during experiments, stopping all runs.
         If False, will ignore exceptions and continue fitting queued experiments. Experiments with exceptions will not be included in the output list.
+    s3_dataset_cache: str, default None
+        Full S3 URI to the openml dataset cache (format: s3://bucket/prefix)
+        If None, skip S3 download attempt
 
     Returns
     -------
@@ -445,7 +455,7 @@ def run_experiments(
                 else:
                     if task is None:
                         if ignore_cache or not cache_exists:
-                            task = OpenMLTaskWrapper.from_task_id(task_id=tid)
+                            task = OpenMLTaskWrapper.from_task_id(task_id=tid, s3_dataset_cache=s3_dataset_cache)
 
                     try:
                         out = method.run(
