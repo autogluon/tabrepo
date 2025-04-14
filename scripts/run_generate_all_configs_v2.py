@@ -8,12 +8,14 @@ from tabrepo.models.lightgbm.generate_alt import gen_lightgbm_alt
 from tabrepo.models.knn.generate import gen_knn
 from tabrepo.models.fastai.generate import gen_fastai
 from tabrepo.models.extra_trees.generate import gen_extratrees
+from tabrepo.models.extra_trees.generate_alt import gen_xt_alt
 from tabrepo.models.catboost.generate import gen_catboost
 from tabrepo.models.catboost.generate_alt import gen_catboost_alt
 from tabrepo.models.xgboost.generate import gen_xgboost
 from tabrepo.models.xgboost.generate_alt import gen_xgboost_alt
 from tabrepo.models.nn_torch.generate import gen_nn_torch
 from tabrepo.models.random_forest.generate import gen_randomforest
+from tabrepo.models.random_forest.generate_alt import gen_rf_alt
 from tabrepo.models.lr.generate import gen_linear
 from tabrepo.models.ftt.generate import gen_fttransformer
 from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
@@ -37,6 +39,8 @@ if __name__ == '__main__':
     # TODO: TabPFNv1?
 
     # New Search Space
+    experiments_randomforest_alt = gen_rf_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
+    experiments_extratrees_alt = gen_xt_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
     experiments_lightgbm_alt = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
     experiments_xgboost_alt = gen_xgboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
     experiments_catboost_alt = gen_catboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
@@ -65,6 +69,8 @@ if __name__ == '__main__':
         experiments_nn_torch,
         experiments_fttransformer,
 
+        experiments_randomforest_alt,
+        experiments_extratrees_alt,
         experiments_lightgbm_alt,
         experiments_xgboost_alt,
         experiments_catboost_alt,
