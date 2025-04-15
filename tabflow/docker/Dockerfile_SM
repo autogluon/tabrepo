@@ -31,7 +31,6 @@ RUN pip install "interpret-core>=0.6.1" \
 
 
 # Generate tabrepo configs and give permissions
-# Does not work - Apr 14th
 RUN chmod +x ./workspace/tabrepo/scripts/run_generate_all_configs.py
 RUN python ./workspace/tabrepo/scripts/run_generate_all_configs.py
 RUN chmod +x ./evaluate.py

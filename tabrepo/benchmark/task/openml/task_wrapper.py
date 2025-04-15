@@ -3,6 +3,7 @@ from __future__ import annotations
 import boto3
 import os
 import io
+import logging
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -14,6 +15,8 @@ from autogluon.core.utils import generate_train_test_split
 from tabflow.utils.s3_utils import parse_s3_uri
 
 from .task_utils import get_task_data, get_ag_problem_type, get_task_with_retry
+
+logger = logging.getLogger(__name__)
 
 
 class OpenMLTaskWrapper:
@@ -78,24 +81,22 @@ class OpenMLTaskWrapper:
             
             if not cached_split_file.exists():
                 try:
-                    # Initialize S3 client
                     s3_client = boto3.client('s3')
-                    # The path below may be subject to change 
+                    #FIXME: The path below may be subject to change
                     s3_bucket, s3_prefix = parse_s3_uri(self.s3_dataset_cache)
                     s3_key = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}/datasplits.arff"
                     
                     try:
-                        # Download splits file
                         s3_client.download_file(
                             Bucket=s3_bucket,
                             Key=s3_key,
                             Filename=str(cached_split_file)
                         )
-                        print(f"Downloaded splits for task {task_id} from S3")
+                        logger.info(f"Downloaded splits for task {task_id} from S3")
                     except s3_client.exceptions.ClientError as e:
-                        print(f"Could not download splits from S3 for task {task_id}: {e}")
+                        logger.warning(f"Could not download splits from S3 for task {task_id}: {e}")
                 except Exception as e:
-                    print(f"Error attempting to get splits from S3: {str(e)}")
+                    logger.error(f"Error attempting to get splits from S3: {str(e)}")
 
         train_indices, test_indices = self.task.get_train_test_split_indices(fold=fold, repeat=repeat, sample=sample)
         return train_indices, test_indices

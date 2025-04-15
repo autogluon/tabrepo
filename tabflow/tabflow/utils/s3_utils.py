@@ -16,13 +16,15 @@ def check_s3_file_exists(s3_client, bucket: str, cache_name: str) -> bool:
             raise
 
 
-def parse_s3_uri(s3_uri):
+def parse_s3_uri(s3_uri: str = None):
     """Parse an S3 URI into bucket and key parts"""
     if s3_uri.startswith('s3://'):
-        s3_uri = s3_uri[5:]  # Remove 's3://'
+        s3_uri = s3_uri[5:]
     parts = s3_uri.split('/', 1)
     bucket = parts[0]
     prefix = parts[1] if len(parts) > 1 else ''
+    if prefix and prefix.endswith('/'):
+        prefix = prefix[:-1]
     return bucket, prefix
 
 
