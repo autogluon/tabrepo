@@ -206,6 +206,70 @@ class TabArena:
                 f"{invalid_tasks_per_method_filtered}"
             )
 
+    # FIXME: Cleanup
+    # FIXME: Other fill methods
+    # FIXME: What about fill value of other columns besides self.error_col?
+    def fillna_data(
+        self,
+        data: pd.DataFrame,
+        df_fillna: pd.DataFrame | None = None,
+        fillna_method: str = "worst",
+    ) -> pd.DataFrame:
+        """
+        Fills missing (dataset, fold, framework) rows in data with the (dataset, fold) row in df_fillna.
+
+        Parameters
+        ----------
+        data
+        df_fillna
+
+        Returns
+        -------
+
+        """
+        if self.seed_column:
+            task_columns = [self.task_col, self.seed_column]
+        else:
+            task_columns = [self.task_col]
+
+        unique_methods = list(data[self.method_col].unique())
+
+        if fillna_method == "worst":
+            assert df_fillna is None, f"df_fillna must be None if fillna_method='worst'"
+            idx_worst = data.groupby(task_columns)[self.error_col].idxmax()
+            df_fillna = data.loc[idx_worst]
+            df_fillna = df_fillna.drop(columns=[self.method_col])
+            pass
+
+        data = data.set_index([*task_columns, self.method_col], drop=True)
+
+        assert self.method_col not in df_fillna.columns, f"Method column '{self.method_col}' must not be in df_fillna"
+
+        df_filled = df_fillna[task_columns].merge(
+            pd.Series(data=unique_methods, name=self.method_col),
+            how="cross",
+        )
+        df_filled = df_filled.set_index(keys=list(df_filled.columns))
+
+        # missing results
+        nan_vals = df_filled.index.difference(data.index)
+
+        # fill valid values
+        fill_cols = list(data.columns)
+        df_filled[fill_cols] = np.nan
+        df_filled[fill_cols] = df_filled[fill_cols].astype(data.dtypes)
+        df_filled.loc[data.index] = data
+
+        df_fillna = df_fillna.set_index(task_columns, drop=True)
+        a = df_fillna.loc[nan_vals.droplevel(level=self.method_col)]
+        a.index = nan_vals
+        df_filled.loc[nan_vals] = a
+        data = df_filled
+
+        data = data.reset_index(drop=False)
+
+        return data
+
     # FIXME: Don't hard-code time_train_s time_infer_s
     # FIXME: Failures, mean when folds are missing is wrong, prevent duplicates
     def compute_results_per_task(self, data: pd.DataFrame) -> pd.DataFrame:
