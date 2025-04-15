@@ -20,18 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 class OpenMLTaskWrapper:
-    def __init__(self, task: OpenMLSupervisedTask, s3_dataset_cache: str = None):
+    def __init__(self, task: OpenMLSupervisedTask):
         assert isinstance(task, OpenMLSupervisedTask)
         self.task: OpenMLSupervisedTask = task
         self.X, self.y = get_task_data(task=self.task)
         self.problem_type = get_ag_problem_type(self.task)
         self.label = self.task.target_name
-        self.s3_dataset_cache = s3_dataset_cache
 
     @classmethod
-    def from_task_id(cls, task_id: int, s3_dataset_cache: str = None) -> Self:
-        task = get_task_with_retry(task_id=task_id, s3_dataset_cache=s3_dataset_cache)
-        return cls(task, s3_dataset_cache=s3_dataset_cache)
+    def from_task_id(cls, task_id: int) -> Self:
+        task = get_task_with_retry(task_id=task_id)
+        return cls(task)
 
     @property
     def task_id(self) -> int:
@@ -72,32 +71,6 @@ class OpenMLTaskWrapper:
         save_json.save(path=path_full, obj=metadata)
 
     def get_split_indices(self, fold: int = 0, repeat: int = 0, sample: int = 0) -> tuple[np.ndarray, np.ndarray]:
-        # Try to download splits from S3 first if they don't exist locally
-        if self.task.split is None and self.s3_dataset_cache:
-            task_id = self.task.task_id
-            cache_dir = Path(os.path.expanduser("~/.cache/openml/org/openml/www/tasks"))
-            task_cache_dir = cache_dir / str(task_id)
-            cached_split_file = task_cache_dir / "datasplits.arff"
-            
-            if not cached_split_file.exists():
-                try:
-                    s3_client = boto3.client('s3')
-                    #FIXME: The path below may be subject to change
-                    s3_bucket, s3_prefix = parse_s3_uri(self.s3_dataset_cache)
-                    s3_key = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}/datasplits.arff"
-                    
-                    try:
-                        s3_client.download_file(
-                            Bucket=s3_bucket,
-                            Key=s3_key,
-                            Filename=str(cached_split_file)
-                        )
-                        logger.info(f"Downloaded splits for task {task_id} from S3")
-                    except s3_client.exceptions.ClientError as e:
-                        logger.warning(f"Could not download splits from S3 for task {task_id}: {e}")
-                except Exception as e:
-                    logger.error(f"Error attempting to get splits from S3: {str(e)}")
-
         train_indices, test_indices = self.task.get_train_test_split_indices(fold=fold, repeat=repeat, sample=sample)
         return train_indices, test_indices
 
@@ -188,3 +161,48 @@ class OpenMLTaskWrapper:
     ) -> pd.DataFrame:
         data, _ = self.subsample(X=data, y=data[self.label], size=size, random_state=random_state)
         return data
+
+
+class OpenMLS3TaskWrapper(OpenMLTaskWrapper):
+    """
+    Class which uses S3 cache to download task splits.
+    """
+    def __init__(self, task, s3_dataset_cache: str = None):
+        super().__init__(task)
+        self.s3_dataset_cache = s3_dataset_cache
+    
+    @classmethod
+    def from_task_id(cls, task_id: int, s3_dataset_cache: str = None) -> Self:
+        task = get_task_with_retry(task_id=task_id, s3_dataset_cache=s3_dataset_cache)
+        return cls(task, s3_dataset_cache=s3_dataset_cache)
+
+    def get_split_indices(self, fold: int = 0, repeat: int = 0, sample: int = 0) -> tuple[np.ndarray, np.ndarray]:
+        # Try to download splits from S3 first if they don't exist locally
+        if self.task.split is None and self.s3_dataset_cache:
+            task_id = self.task.task_id
+            cache_dir = Path(os.path.expanduser("~/.cache/openml/org/openml/www/tasks"))
+            task_cache_dir = cache_dir / str(task_id)
+            cached_split_file = task_cache_dir / "datasplits.arff"
+            
+            if not cached_split_file.exists():
+                try:
+                    s3_client = boto3.client('s3')
+                    s3_bucket, s3_prefix = parse_s3_uri(self.s3_dataset_cache)
+                    s3_key = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}/datasplits.arff"
+                    
+                    try:
+                        s3_client.download_file(
+                            Bucket=s3_bucket,
+                            Key=s3_key,
+                            Filename=str(cached_split_file)
+                        )
+                        logger.info(f"Downloaded splits for task {task_id} from S3")
+                    except s3_client.exceptions.ClientError as e:
+                        logger.warning(f"Could not download splits from S3 for task {task_id}: {e}")
+                except Exception as e:
+                    logger.error(f"Error attempting to get splits from S3: {str(e)}")
+
+        #If no s3 cache, proceed with the normal method
+        train_indices, test_indices = self.task.get_train_test_split_indices(fold=fold, repeat=repeat, sample=sample)
+        return train_indices, test_indices
+    

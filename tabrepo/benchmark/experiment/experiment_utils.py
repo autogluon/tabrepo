@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Literal, Type
 
 import pandas as pd
-from tabrepo.benchmark.task.openml import OpenMLTaskWrapper
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
 
 from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionPickle, CacheFunctionDummy
@@ -455,7 +455,10 @@ def run_experiments(
                 else:
                     if task is None:
                         if ignore_cache or not cache_exists:
-                            task = OpenMLTaskWrapper.from_task_id(task_id=tid, s3_dataset_cache=s3_dataset_cache)
+                            if s3_dataset_cache:
+                                task = OpenMLS3TaskWrapper.from_task_id(task_id=tid, s3_dataset_cache=s3_dataset_cache)
+                            else:
+                                task = OpenMLTaskWrapper.from_task_id(task_id=tid)
 
                     try:
                         out = method.run(
