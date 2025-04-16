@@ -28,9 +28,18 @@ To install the repository, ensure you are using Python 3.9-3.11. Other Python ve
 
 ```bash
 git clone https://github.com/autogluon/tabrepo.git
-cd tabrepo 
-pip install -e .
-cd ..
+pip install -e tabrepo/
+```
+
+To install the dependencies needed for the upcoming TabRepo 2.0, you must instead do the following:
+
+```bash
+# Requires latest mainline AutoGluon (or AutoGluon 1.3+)
+git clone https://github.com/autogluon/autogluon
+./autogluon/full_install.sh
+
+git clone https://github.com/autogluon/tabrepo.git
+pip install -e tabrepo/[benchmark]
 ```
 
 Only Linux support has been tested. Support for Windows and MacOS is not confirmed, and you may run into bugs or a suboptimal experience (especially if you are unable to install ray).
@@ -43,14 +52,10 @@ If you are interested in reproducing the experiments of the paper, you will need
 # Install AG benchmark, required only to reproduce results showing win-rate tables
 
 git clone https://github.com/autogluon/autogluon-bench.git
-cd autogluon-bench
-pip install -e .
-cd ..
+pip install -e autogluon-bench/
 
 git clone https://github.com/Innixma/autogluon-benchmark.git
-cd autogluon-benchmark
-pip install -e .
-cd ..
+pip install -e autogluon-benchmark/
 
 # Install extra dependencies used for results scripts
 pip install autorank seaborn
