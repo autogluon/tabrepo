@@ -1,12 +1,11 @@
-from tabrepo.benchmark.models.ag.ebm.ebm_model import ExplainableBoostingMachineModel
-
 
 def test_ebm():
-    model_cls = ExplainableBoostingMachineModel
     model_hyperparameters = {}
 
     try:
         from autogluon.tabular.testing import FitHelper
+        from tabrepo.benchmark.models.ag.ebm.ebm_model import ExplainableBoostingMachineModel
+        model_cls = ExplainableBoostingMachineModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:
         print(
