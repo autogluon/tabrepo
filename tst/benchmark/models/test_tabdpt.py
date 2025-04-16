@@ -12,7 +12,7 @@ def test_tabdpt():
         model_cls = TabDPTModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:
-        print(
+        pytest.skip(
             f"Import Error, skipping test... "
             f"Ensure you have the proper dependencies installed to run this test:\n"
             f"{err}"

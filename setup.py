@@ -8,6 +8,27 @@ requirements = [
     'huggingface-hub',
 ]
 
+extras_require = {
+    "autogluon": [
+        "autogluon.tabular[all]>=1.2",
+    ],
+    "tabpfn": [
+        "tabpfn>=2",
+    ],
+    "tabicl": [
+        "tabicl",
+    ],
+    "ebm": [
+        "interpret-core>=0.6.1",
+    ],
+}
+
+benchmark_requires = []
+for extra_package in ["autogluon", "tabpfn", "tabicl", "ebm"]:
+    benchmark_requires += extras_require[extra_package]
+benchmark_requires = list(set(benchmark_requires))
+extras_require["benchmark"] = benchmark_requires
+
 setup(
     name='tabrepo',
     version='0.0.1',
@@ -20,5 +41,6 @@ setup(
     license='Apache-2.0',
     author='AutoGluon Community',
     install_requires=requirements,
+    extras_require=extras_require,
     description='Dataset of model evaluations supporting ensembling and simulation'
 )
