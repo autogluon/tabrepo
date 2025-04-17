@@ -165,8 +165,9 @@ def launch_jobs(
                 "tasks_s3_path": tasks_s3_path,
                 "s3_bucket": s3_bucket,
                 "methods_s3_path": methods_s3_path,
-                "s3_dataset_cache": s3_dataset_cache,
             })
+            if s3_dataset_cache is not None:
+                job_hyperparameters["s3_dataset_cache"] = s3_dataset_cache
 
             # Create the estimator
             estimator = sagemaker.estimator.Estimator(
@@ -214,7 +215,7 @@ def main():
     parser.set_defaults(wait=True)
     parser.add_argument('--batch_size', type=int, default=16, help="Batch size for tasks")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
-    parser.add_argument('--s3_dataset_cache', type=str, default=None,
+    parser.add_argument('--s3_dataset_cache', type=str, required=False, default=None,
                         help="S3 URI for OpenML dataset cache (format: s3://bucket/prefix)")
     
     args = parser.parse_args()
