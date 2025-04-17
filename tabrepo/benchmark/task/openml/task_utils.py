@@ -19,20 +19,7 @@ logger = logging.getLogger(__name__)
 
 def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
     """
-    Attempt to download an OpenML task + dataset from S3 before hitting the OpenML server.
-    
-    Parameters
-    ----------
-    task_id : int
-        The OpenML task ID
-    s3_dataset_cache : str, optional
-        Full S3 URI to the dataset cache (format: s3://bucket/prefix)
-        If None, skip S3 download attempt
-        
-    Returns
-    -------
-    bool
-        True if successfully downloaded from S3, False otherwise
+    Downloads the task and dataset from S3 if available.
     """
     if s3_dataset_cache is None:
         return False
