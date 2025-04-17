@@ -95,3 +95,8 @@ if __name__ == '__main__':
             raise AssertionError(f"Found multiple instances of experiment named {experiment.name}. All experiment names must be unique!")
 
     YamlExperimentSerializer.to_yaml(experiments=experiments_all, path="configs_all.yaml")
+
+    from tabrepo.models.automl import generate_autogluon_experiments
+    experiments_autogluon = generate_autogluon_experiments()
+
+    YamlExperimentSerializer.to_yaml(experiments=experiments_autogluon, path="configs_autogluon.yaml")
