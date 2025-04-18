@@ -167,12 +167,8 @@ class OpenMLS3TaskWrapper(OpenMLTaskWrapper):
     """
     Class which uses S3 cache to download task splits.
     """
-    def __init__(self, task, s3_dataset_cache: str = None):
-        super().__init__(task)
-        self.s3_dataset_cache = s3_dataset_cache
-    
     @classmethod
     def from_task_id(cls, task_id: int, s3_dataset_cache: str = None) -> Self:
         task = get_task_with_retry(task_id=task_id, s3_dataset_cache=s3_dataset_cache)
-        return cls(task, s3_dataset_cache=s3_dataset_cache)
+        return cls(task)
     

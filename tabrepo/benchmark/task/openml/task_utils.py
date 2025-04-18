@@ -39,22 +39,30 @@ def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
         s3_key_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
         
         try:
-            s3_client.download_file(
-                Bucket=s3_bucket,
-                Key=f"{s3_key_prefix}/task.xml",
-                Filename=str(task_cache_dir / "task.xml")
-            )
-            logger.info(f"Downloaded task.xml for task {task_id} from S3")
-            
-            try:
+            task_xml_path = task_cache_dir / "task.xml"
+            if not task_xml_path.exists():
                 s3_client.download_file(
                     Bucket=s3_bucket,
-                    Key=f"{s3_key_prefix}/datasplits.arff",
-                    Filename=str(task_cache_dir / "datasplits.arff")
+                    Key=f"{s3_key_prefix}/task.xml",
+                    Filename=str(task_cache_dir / "task.xml")
                 )
-                logger.info(f"Downloaded datasplits.arff for task {task_id} from S3")
-            except s3_client.exceptions.ClientError:
-                logger.info(f"No datasplits.arff found in S3 for task {task_id}")
+                logger.info(f"Downloaded task.xml for task {task_id} from S3")
+            else:
+                logger.info(f"task.xml already exists for task {task_id}, skipping download")
+            
+            datasplits_path = task_cache_dir / "datasplits.arff"
+            if not datasplits_path.exists():
+                try:
+                    s3_client.download_file(
+                        Bucket=s3_bucket,
+                        Key=f"{s3_key_prefix}/datasplits.arff",
+                        Filename=str(task_cache_dir / "datasplits.arff")
+                    )
+                    logger.info(f"Downloaded datasplits.arff for task {task_id} from S3")
+                except s3_client.exceptions.ClientError:
+                    logger.info(f"No datasplits.arff found in S3 for task {task_id}")
+            else:
+                logger.info(f"datasplits.arff already exists for task {task_id}, skipping download")
 
             with open(task_cache_dir / "task.xml", 'r') as f:
                 task_xml = f.read()
@@ -90,16 +98,20 @@ def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
                             filename = os.path.basename(s3_key)
                             if filename == '':
                                 continue
-                            try:
-                                local_file_path = str(dataset_cache_dir / filename)
-                                s3_client.download_file(
-                                    Bucket=s3_bucket,
-                                    Key=s3_key,
-                                    Filename=local_file_path
-                                )
-                                logger.info(f"Downloaded {filename} for dataset {dataset_id} from S3")
-                            except s3_client.exceptions.ClientError as e:
-                                logger.info(f"Error downloading {filename} for dataset {dataset_id}: {e}")
+
+                            local_file_path = dataset_cache_dir / filename
+                            if not local_file_path.exists():
+                                try:
+                                    s3_client.download_file(
+                                        Bucket=s3_bucket,
+                                        Key=s3_key,
+                                        Filename=str(local_file_path)
+                                    )
+                                    logger.info(f"Downloaded {filename} for dataset {dataset_id} from S3")
+                                except s3_client.exceptions.ClientError as e:
+                                    logger.info(f"Error downloading {filename} for dataset {dataset_id}: {e}")
+                            else:
+                                logger.info(f"{filename} already exists for dataset {dataset_id}, skipping download")
                     else:
                         logger.info(f"No files found in S3 for dataset {dataset_id}")
                 except s3_client.exceptions.ClientError as e:
@@ -146,7 +158,9 @@ def get_ag_problem_type(task: OpenMLSupervisedTask) -> str:
 
 def get_task_with_retry(task_id: int, s3_dataset_cache: str = None, max_delay_exp: int = 8) -> OpenMLSupervisedTask:
     # Try to download from S3 first
-    download_task_from_s3(task_id, s3_dataset_cache=s3_dataset_cache)
+    if s3_dataset_cache is not None:
+        download_task_from_s3(task_id, s3_dataset_cache=s3_dataset_cache)
+        
     # If that fails, try to get from OpenML server
     delay_exp = 0
     while True:
