@@ -25,6 +25,7 @@ def generate_single_config_realmlp_alt(rng):
         'p_drop_sched': 'flat_cos',
         'lr': np.exp(rng.uniform(np.log(2e-2), np.log(3e-1))),
         'wd': np.exp(rng.uniform(np.log(1e-3), np.log(5e-2))),
+        'use_ls': True,  # use label smoothing (will be ignored for regression)
     }
 
     if rng.uniform(0.0, 1.0) > 0.5:
