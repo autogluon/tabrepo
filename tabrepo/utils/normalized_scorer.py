@@ -17,8 +17,13 @@ class NormalizedScorer:
         `dataset_col` and `framework_col`.
         :param tasks: tasks to consider
         """
-        assert all(col in df_results for col in [metric_error_col, task_col, framework_col])
-        all_tasks = set(df_results[task_col].unique())
+        if isinstance(tasks[0], tuple):
+            task_col = ["dataset", "fold"]
+            all_tasks = df_results[task_col].drop_duplicates().values.tolist()
+            all_tasks = set([tuple(task) for task in all_tasks])
+        else:
+            assert all(col in df_results for col in [metric_error_col, task_col, framework_col])
+            all_tasks = set(df_results[task_col].unique())
         for task in tasks:
             assert task in all_tasks, f"{task_col} {task} not present in passed evaluations"
         self.topline_dict = df_results.groupby(task_col).min()[metric_error_col].to_dict()
