@@ -195,6 +195,11 @@ class TabArena:
             invalid_methods_per_task_filtered = invalid_methods_per_task[invalid_methods_per_task != 0]
             num_invalid_results = invalid_tasks_per_method.sum()
             # num_invalid_tasks = invalid_methods_per_task_filtered.sum()
+            with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
+                print("\nMethods sorted by failure count:")
+                print(invalid_tasks_per_method_filtered)
+                print("\nDatasets sorted by failure count:")
+                print(invalid_methods_per_dataset_filtered)
             # missing results
             raise AssertionError(
                 f"Missing results for some methods. Ensure that all methods have results for all tasks.\n"
