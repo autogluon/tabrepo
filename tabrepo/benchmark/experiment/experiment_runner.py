@@ -109,6 +109,7 @@ class ExperimentRunner:
         input_format: Literal["openml", "csv"] = "openml",
         cacher: AbstractCacheFunction | None = None,
         debug_mode: bool = True,
+        **kwargs,
     ):
         obj = cls(
             method_cls=method_cls,
@@ -121,6 +122,7 @@ class ExperimentRunner:
             input_format=input_format,
             cacher=cacher,
             debug_mode=debug_mode,
+            **kwargs,
         )
         return obj.run()
 

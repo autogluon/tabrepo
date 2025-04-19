@@ -8,7 +8,7 @@ from tabflow.utils.utils import find_method_by_name
 from tabflow.utils.s3_utils import download_from_s3
 from tabflow.utils.logging_utils import setup_logging
 from tabrepo import EvaluationRepository
-from tabrepo.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer
+from tabrepo.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer, AGExperiment
 from tabrepo.benchmark.models.simple import SimpleLightGBM
 from autogluon.tabular.models import *
 from tabrepo.benchmark.models.ag import *

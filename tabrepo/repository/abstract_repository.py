@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
+from ..benchmark.task.openml import OpenMLTaskWrapper
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
@@ -39,10 +40,12 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def _tid_to_dataset_dict(self) -> Dict[int, str]:
         return {v: k for k, v in self._dataset_to_tid_dict.items()}
 
+    # TODO: tasks
     def subset(self,
                datasets: List[str] = None,
                folds: List[int] = None,
                configs: List[str] = None,
+               baselines: List[str] = None,
                problem_types: List[str] = None,
                force_to_dense: bool = False,
                inplace: bool = False,
@@ -54,6 +57,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         :param datasets: The list of datasets to subset. Ignored if unspecified.
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param configs: The list of configs to subset. Ignored if unspecified.
+        :param baselines: The list of baselines to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param force_to_dense: If True, forces the output to dense representation.
         :param inplace: If True, will perform subset logic inplace.
@@ -65,6 +69,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
                 datasets=datasets,
                 folds=folds,
                 configs=configs,
+                baselines=baselines,
                 problem_types=problem_types,
                 force_to_dense=force_to_dense,
                 inplace=True,
@@ -74,6 +79,8 @@ class AbstractRepository(ABC, SaveLoadMixin):
             self._zeroshot_context.subset_folds(folds=folds)
         if configs is not None:
             self._zeroshot_context.subset_configs(configs=configs)
+        if baselines is not None:
+            self._zeroshot_context.subset_baselines(baselines=baselines)
         if datasets is not None:
             self._zeroshot_context.subset_datasets(datasets=datasets)
         if problem_types is not None:
@@ -127,7 +134,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
     def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
-        """
+        """repo_subset2.datasets()
         Return all valid datasets.
         By default, will return all datasets that appear in any config at least once.
 
@@ -584,3 +591,22 @@ class AbstractRepository(ABC, SaveLoadMixin):
             return np.stack([1 - predictions, predictions], axis=predictions.ndim)
         else:
             return predictions
+
+    # TODO: repo.reproduce(config, dataset, fold)
+    def get_openml_task(self, dataset: str) -> OpenMLTaskWrapper:
+        """
+        Fetch an OpenML task given a dataset name
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset name used to fetch the OpenML task.
+            Must be part of `repo.datasets`
+
+        Returns
+        -------
+        OpenMLTaskWrapper object
+        """
+        tid = self.dataset_to_tid(dataset=dataset)
+        task = OpenMLTaskWrapper.from_task_id(task_id=tid)
+        return task

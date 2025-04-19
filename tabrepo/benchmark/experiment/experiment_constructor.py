@@ -9,7 +9,7 @@ import yaml
 from autogluon.core.models import AbstractModel
 
 from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
-from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGSingleWrapper, AGSingleBagWrapper
+from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGWrapper, AGSingleWrapper, AGSingleBagWrapper
 from tabrepo.benchmark.models.wrapper.ag_model import AGModelWrapper
 from tabrepo.benchmark.experiment.experiment_runner import ExperimentRunner, OOFExperimentRunner
 from tabrepo.benchmark.models.model_register import infer_model_cls
@@ -189,6 +189,76 @@ class AGModelOuterExperiment(Experiment):
                         except NameError:
                             pass  # If eval fails, keep the original string value
         obj = cls(model_cls=model_cls, **kwargs)
+        return obj
+
+
+class AGExperiment(Experiment):
+    _method_cls = AGWrapper
+
+    def __init__(
+        self,
+        name: str,
+        init_kwargs: dict | None = None,
+        fit_kwargs: dict | None = None,
+        method_kwargs: dict | None = None,
+        experiment_kwargs: dict | None = None,
+    ):
+        _experiment_kwargs = {"compute_simulation_artifacts": False}
+        if experiment_kwargs is None:
+            experiment_kwargs = {}
+        if method_kwargs is None:
+            method_kwargs = {}
+        experiment_kwargs = copy.deepcopy(experiment_kwargs)
+        method_kwargs = copy.deepcopy(method_kwargs)
+        _experiment_kwargs.update(experiment_kwargs)
+        assert "fit_kwargs" not in method_kwargs
+        assert "init_kwargs" not in method_kwargs
+        if init_kwargs is not None:
+            method_kwargs["init_kwargs"] = init_kwargs
+        if fit_kwargs is not None:
+            method_kwargs["fit_kwargs"] = fit_kwargs
+        super().__init__(
+            name=name,
+            method_cls=self._method_cls,
+            method_kwargs=method_kwargs,
+            experiment_cls=OOFExperimentRunner,
+            experiment_kwargs=_experiment_kwargs,
+        )
+
+    def to_yaml(self):
+        class_name, locals = super().to_yaml()
+
+        locals = copy.deepcopy(locals)
+        items = list(locals.items())
+        for k, v in items:
+            if k == "fit_kwargs":
+                if "hyperparameters" in v:
+                    hyperparameters = v["hyperparameters"]
+                    keys = list(hyperparameters.keys())
+                    for model in keys:
+                        if inspect.isclass(model):
+                            val = locals["fit_kwargs"]["hyperparameters"].pop(model)
+                            locals["fit_kwargs"]["hyperparameters"][model.ag_key] = val
+        return class_name, locals
+
+    @classmethod
+    def from_yaml(cls, _context=None, **kwargs) -> Self:
+        if _context is None:
+            _context = globals()
+        from tabrepo.benchmark.models.model_register import tabrepo_model_register
+        tabrepo_model_keys = tabrepo_model_register.keys
+
+        if "experiment_cls" in kwargs:
+            kwargs["experiment_cls"] = eval(kwargs["experiment_cls"], _context)
+        if "fit_kwargs" in kwargs:
+            if "hyperparameters" in kwargs["fit_kwargs"]:
+                hyperparameters = kwargs["fit_kwargs"]["hyperparameters"]
+                keys = list(hyperparameters.keys())
+                for model in keys:
+                    if model in tabrepo_model_keys:
+                        val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
+                        kwargs["fit_kwargs"]["hyperparameters"][tabrepo_model_register.key_to_cls(model)] = val
+        obj = cls(**kwargs)
         return obj
 
 
