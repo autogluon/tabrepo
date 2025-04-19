@@ -45,6 +45,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
                datasets: List[str] = None,
                folds: List[int] = None,
                configs: List[str] = None,
+               baselines: List[str] = None,
                problem_types: List[str] = None,
                force_to_dense: bool = False,
                inplace: bool = False,
@@ -56,6 +57,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         :param datasets: The list of datasets to subset. Ignored if unspecified.
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param configs: The list of configs to subset. Ignored if unspecified.
+        :param baselines: The list of baselines to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param force_to_dense: If True, forces the output to dense representation.
         :param inplace: If True, will perform subset logic inplace.
@@ -67,6 +69,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
                 datasets=datasets,
                 folds=folds,
                 configs=configs,
+                baselines=baselines,
                 problem_types=problem_types,
                 force_to_dense=force_to_dense,
                 inplace=True,
@@ -76,6 +79,8 @@ class AbstractRepository(ABC, SaveLoadMixin):
             self._zeroshot_context.subset_folds(folds=folds)
         if configs is not None:
             self._zeroshot_context.subset_configs(configs=configs)
+        if baselines is not None:
+            self._zeroshot_context.subset_baselines(baselines=baselines)
         if datasets is not None:
             self._zeroshot_context.subset_datasets(datasets=datasets)
         if problem_types is not None:

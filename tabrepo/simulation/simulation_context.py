@@ -628,6 +628,15 @@ class ZeroshotSimulatorContext:
         ]
         self._update_all()
 
+    def subset_baselines(self, baselines: List[str]):
+        """
+        Only keep the provided configs, drop all others
+        """
+        self.df_baselines = self.df_baselines[
+            self.df_baselines['framework'].isin(baselines)
+        ]
+        self._update_all()
+
     def subset_folds(self, folds: List[int]):
         """
         Only keep the provided folds, drop all others
