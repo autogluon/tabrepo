@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import copy
 import inspect
-from typing import Type, Self
+from typing import Type
 
 import yaml
+from typing_extensions import Self
 
 from autogluon.core.models import AbstractModel
 
