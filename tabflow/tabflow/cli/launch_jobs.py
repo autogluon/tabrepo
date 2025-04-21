@@ -38,6 +38,7 @@ def launch_jobs(
         folds: list = None,
         add_timestamp: bool = False,
         wait: bool = True,
+        s3_dataset_cache: str = None,
 ) -> None:
     """
     Launch multiple SageMaker training jobs.
@@ -62,6 +63,8 @@ def launch_jobs(
         add_timestamp: Whether to add a timestamp to the experiment name
         wait: Whether to wait for all jobs to complete (no-wait from CLI)
         batch_size: Number of models to batch for each task
+        s3_dataset_cache: Full S3 URI for OpenML dataset cache (format: s3://bucket/prefix), note that after prefix
+        the following will be appended to the path - tasks/{task_id}/org/openml/www/tasks/{task_id}, where the xml and arff is expected to be situated
     """
     
     if add_timestamp:
@@ -163,6 +166,8 @@ def launch_jobs(
                 "s3_bucket": s3_bucket,
                 "methods_s3_path": methods_s3_path,
             })
+            if s3_dataset_cache is not None:
+                job_hyperparameters["s3_dataset_cache"] = s3_dataset_cache
 
             # Create the estimator
             estimator = sagemaker.estimator.Estimator(
@@ -210,7 +215,9 @@ def main():
     parser.set_defaults(wait=True)
     parser.add_argument('--batch_size', type=int, default=16, help="Batch size for tasks")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
-
+    parser.add_argument('--s3_dataset_cache', type=str, required=False, default=None,
+                        help="S3 URI for OpenML dataset cache (format: s3://bucket/prefix)")
+    
     args = parser.parse_args()
 
     launch_jobs(
@@ -226,6 +233,7 @@ def main():
         s3_bucket=args.s3_bucket,
         wait=args.wait,
         batch_size=args.batch_size,
+        s3_dataset_cache=args.s3_dataset_cache,
     )
 
 
