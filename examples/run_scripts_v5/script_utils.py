@@ -4,7 +4,6 @@ import pandas as pd
 
 from autogluon.common.loaders import load_pd
 from autogluon_benchmark.preprocessing.amlb_preprocessor import AMLBPreprocessor
-from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample
 from tabrepo.repository.abstract_repository import AbstractRepository
 
 
@@ -27,7 +26,6 @@ def load_ag11_bq_baseline(datasets: list[str], folds: list[int], repo: AbstractR
     baseline_df = baseline_df.drop(columns=["task"])
     baseline_df = baseline_df[baseline_df["framework"] == baseline_fillna]
 
-    df_processed_ag12_2024 = convert_time_infer_s_from_batch_to_sample(df_processed_ag12_2024, repo=repo)
     df_processed_ag12_2024_ref = df_processed_ag12_2024.set_index(["dataset", "fold"])
 
     fillna_rows = []
