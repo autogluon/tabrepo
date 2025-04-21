@@ -20,6 +20,7 @@ from tabrepo.models.lr.generate import gen_linear
 from tabrepo.models.ftt.generate import gen_fttransformer
 from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
 from tabrepo.models.realmlp.generate import gen_realmlp
+from tabrepo.models.realmlp.generate_alt import gen_realmlp_alt
 from tabrepo.models.ebm.generate import gen_ebm
 
 
@@ -49,6 +50,7 @@ if __name__ == '__main__':
     experiments_fastai = gen_fastai.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_ebm = gen_ebm.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_realmlp = gen_realmlp.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_realmlp_alt = gen_realmlp_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
     experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=0)  # No search space defined
     # TODO: TabDPT
@@ -78,6 +80,7 @@ if __name__ == '__main__':
         experiments_fastai,
         experiments_ebm,
         experiments_realmlp,
+        experiments_realmlp_alt,
         experiments_tabicl,
         experiments_tabpfnv2,
 

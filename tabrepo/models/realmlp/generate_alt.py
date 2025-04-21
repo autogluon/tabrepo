@@ -51,8 +51,8 @@ def generate_configs_realmlp_alt(num_random_configs=200, seed=1234):
     return [generate_single_config_realmlp_alt(rng) for _ in range(num_random_configs)]
 
 
-gen_realmlp_alt = CustomAGConfigGenerator(model_cls=RealMLPModel, search_space_func=generate_configs_realmlp_alt,
-                                          manual_configs=[{}])
+gen_realmlp_alt = CustomAGConfigGenerator(model_cls=RealMLPModel, search_space_func=generate_configs_realmlp_alt)
+
 
 if __name__ == '__main__':
     configs_yaml = []
