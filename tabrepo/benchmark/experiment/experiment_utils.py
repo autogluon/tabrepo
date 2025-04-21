@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import copy
 from typing import Any, Literal, Type
 
 import pandas as pd
-from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
 
+from tabrepo.benchmark.result import AGBagResult, BaselineResult, ConfigResult
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
 from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionPickle, CacheFunctionDummy
 from tabrepo import EvaluationRepository
@@ -212,31 +214,151 @@ class ExperimentBatchRunner:
 
         return repo
 
+    # TODO: Maybe calibrating model binary pred proba will improve ensemble roc_auc?
+    def temp_scale(self, y_val, y_pred_proba_val, method: str = "v2"):
+        init_val = 1.0
+        max_iter = 200
+        lr = 0.1
+        from tabrepo.utils.temp_scaling.calibrators import AutoGluonTemperatureScalingCalibrator, TemperatureScalingCalibrator, AutoGluonTemperatureScalingCalibratorFixed, TemperatureScalingCalibratorFixed
+        if method == "v1":
+            calibrator = AutoGluonTemperatureScalingCalibrator(init_val=init_val, max_iter=max_iter, lr=lr)
+        elif method == "v2":
+            calibrator = TemperatureScalingCalibrator(max_iter=max_iter, lr=lr)
+        elif method == "v1_fix":
+            calibrator = AutoGluonTemperatureScalingCalibratorFixed(init_val=init_val, max_iter=max_iter, lr=lr)
+        elif method == "v2_fix":
+            calibrator = TemperatureScalingCalibratorFixed(max_iter=max_iter, lr=lr)
+        else:
+            raise ValueError(f"Unknown temp_scale method: {method}")
+        calibrator.fit(X=y_pred_proba_val, y=y_val)
+        return calibrator
+
+    def generate_calibrated(self, result, method: str = "v2", name_suffix: str = "_CAL"):
+        sim_artifact = result["simulation_artifacts"]
+        metric = sim_artifact["metric"]
+        from autogluon.core.metrics import get_metric
+        problem_type = sim_artifact["problem_type_transform"]
+        ag_metric = get_metric(metric=metric, problem_type=problem_type)
+        y_test = sim_artifact["y_test"]
+
+        y_val = sim_artifact["y_val"]
+        y_pred_proba_val = sim_artifact["pred_val"]
+        calibrator = self.temp_scale(y_val=y_val, y_pred_proba_val=y_pred_proba_val, method=method)
+        y_pred_proba_test = sim_artifact["pred_test"]
+        y_pred_proba_test_scaled = calibrator.predict_proba(y_pred_proba_test)
+        y_pred_proba_val_scaled = calibrator.predict_proba(y_pred_proba_val)
+
+        # metric_error_og = ag_metric.error(y_test, y_pred_proba_test)
+        metric_error_cal = ag_metric.error(y_test, y_pred_proba_test_scaled)
+        metric_error_val_og = ag_metric.error(y_val, y_pred_proba_val)
+        metric_error_val_cal = ag_metric.error(y_val, y_pred_proba_val_scaled)
+
+        if metric_error_val_cal > metric_error_val_og:
+            print(f"WARNING:")
+            print(metric_error_val_cal, metric_error_val_og)
+            print(result["framework"], result["dataset"], result["fold"])
+
+        result_calibrated = copy.deepcopy(result)
+        result_calibrated["metric_error"] = metric_error_cal
+        result_calibrated["metric_error_val"] = metric_error_val_cal
+        result_calibrated["simulation_artifacts"]["pred_test"] = y_pred_proba_test_scaled
+        result_calibrated["simulation_artifacts"]["pred_val"] = y_pred_proba_val_scaled
+        result_calibrated["framework"] = result_calibrated["framework"] + name_suffix
+        # FIXME: Fix bag children? Should they be calibrated?
+
+        return result_calibrated
+
+    def _align_result_input_format(self, result: dict | BaselineResult) -> BaselineResult:
+        """
+        Converts results in old format to new format
+        Keeps results in new format as-is.
+
+        This enables the use of results in the old format alongside results in the new format.
+
+        Parameters
+        ----------
+        result
+
+        Returns
+        -------
+
+        """
+        if isinstance(result, BaselineResult):
+            return result
+        assert isinstance(result, dict)
+        result_cls = BaselineResult
+        sim_artifacts = result.get("simulation_artifacts", None)
+        if sim_artifacts is not None:
+            assert isinstance(sim_artifacts, dict)
+            dataset = result["dataset"]
+            fold = result["fold"]
+            result_cls = ConfigResult
+            if list(sim_artifacts.keys()) == [dataset]:
+                sim_artifacts = sim_artifacts[dataset][fold]
+            bag_info = sim_artifacts.get("bag_info", None)
+            if bag_info is not None:
+                assert isinstance(bag_info, dict)
+                result_cls = AGBagResult
+        result_obj = result_cls(result=result, convert_format=True, inplace=False)
+        return result_obj
+
+    def _calibrate(self, result: ConfigResult) -> ConfigResult:
+        problem_type = result.result["problem_type"]
+        if problem_type == "multiclass":
+            # FIXME: What about binary?
+            result_calibrated = result.generate_calibrated(method="v2", name_suffix="_CAL")
+        else:
+            result_calibrated = copy.deepcopy(result)
+            result_calibrated.result["framework"] = result_calibrated.result["framework"] + "_CAL"
+        return result_calibrated
+
     def repo_from_results(
         self,
-        results_lst: list[dict[str, Any]],
+        results_lst: list[dict[str, Any] | BaselineResult],
+        calibrate: bool = False,
+        include_holdout: bool = False,
         convert_time_infer_s_from_batch_to_sample: bool = True,  # FIXME: Remove this, it should be False eventually
     ) -> EvaluationRepository:
-        configs_hyperparameters = self.get_configs_hyperparameters(results_lst=results_lst)
+        results_lst: list[BaselineResult] = [self._align_result_input_format(result) for result in results_lst]
 
-        results_baselines = [result["df_results"] for result in results_lst if result["simulation_artifacts"] is None]
-        df_baselines = pd.concat(results_baselines, ignore_index=True) if results_baselines else None
+        results_configs: list[ConfigResult] = []
+        results_baselines: list[BaselineResult] = []
+        for result in results_lst:
+            if isinstance(result, ConfigResult):
+                results_configs.append(result)
+            else:
+                results_baselines.append(result)
 
-        results_configs = [result for result in results_lst if result["simulation_artifacts"] is not None]
+        n_configs = len(results_configs)
+        if calibrate:
+            results_configs_calibrated = []
+            for i, result in enumerate(results_configs):
+                if i % 100 == 0:
+                    print(f"Calibrating: {i+1}/{n_configs}\t{result.framework}")
+                results_configs_calibrated.append(self._calibrate(result=result))
+            results_configs += results_configs_calibrated
 
-        results_lst_simulation_artifacts = [result["simulation_artifacts"] for result in results_configs]
-        results_lst_df = [result["df_results"] for result in results_configs]
+        n_configs = len(results_configs)
+        if include_holdout:
+            for r_i, result in enumerate(results_configs):
+                if isinstance(result, AGBagResult):
+                    if r_i % 100 == 0:
+                        print(f"Generating Holdout Results: {r_i + 1}/{n_configs}\t{result.framework}")
+                    results_new: list[BaselineResult] = result.bag_artifacts()
+                    results_baselines += results_new
 
-        if results_lst_df:
-            df_configs = pd.concat(results_lst_df, ignore_index=True)
-            if convert_time_infer_s_from_batch_to_sample:
-                df_configs = _convert_time_infer_s_from_batch_to_sample(df=df_configs, task_metadata=self.task_metadata)
-        else:
-            df_configs = None
+        results_lst_df = [result.compute_df_result() for result in results_configs]
+        results_lst_df_baselines = [result.compute_df_result() for result in results_baselines]
+        df_configs = pd.concat(results_lst_df, ignore_index=True) if results_lst_df else None
+        df_baselines = pd.concat(results_lst_df_baselines, ignore_index=True) if results_lst_df_baselines else None
 
-        if df_baselines is not None:
-            if convert_time_infer_s_from_batch_to_sample:
-                df_baselines = _convert_time_infer_s_from_batch_to_sample(df=df_baselines, task_metadata=self.task_metadata)
+        if df_configs is not None and convert_time_infer_s_from_batch_to_sample:
+            df_configs = _convert_time_infer_s_from_batch_to_sample(df=df_configs, task_metadata=self.task_metadata)
+        if df_baselines is not None and convert_time_infer_s_from_batch_to_sample:
+            df_baselines = _convert_time_infer_s_from_batch_to_sample(df=df_baselines, task_metadata=self.task_metadata)
+
+        configs_hyperparameters = self.get_configs_hyperparameters(results_configs=results_configs)
+        results_lst_simulation_artifacts = [result.generate_old_sim_artifact() for result in results_configs]
 
         # TODO: per-fold pred_proba_test and pred_proba_val (indices?)
         repo: EvaluationRepository = EvaluationRepository.from_raw(
@@ -249,25 +371,12 @@ class ExperimentBatchRunner:
 
         return repo
 
-    def get_configs_hyperparameters(self, results_lst: list[dict]) -> dict | None:
+    def get_configs_hyperparameters(self, results_configs: list[ConfigResult]) -> dict | None:
         configs_hyperparameters = {}
-        for result in results_lst:
-            if "method_metadata" in result and "model_hyperparameters" in result["method_metadata"]:
-                method_name = result["framework"]
-                if method_name in configs_hyperparameters:
-                    continue
-                method_metadata = result["method_metadata"]
-                model_hyperparameters = method_metadata["model_hyperparameters"]
-                model_cls = method_metadata.get("model_cls", None)
-                model_type = method_metadata.get("model_type", None)
-                name_prefix = method_metadata.get("name_prefix", None)
-
-                configs_hyperparameters[method_name] = dict(
-                    model_cls=model_cls,
-                    model_type=model_type,
-                    name_prefix=name_prefix,
-                    hyperparameters=model_hyperparameters,
-                )
+        for result in results_configs:
+            if result.framework in configs_hyperparameters:
+                continue
+            configs_hyperparameters[result.framework] = result.hyperparameters
         if not configs_hyperparameters:
             configs_hyperparameters = None
         return configs_hyperparameters

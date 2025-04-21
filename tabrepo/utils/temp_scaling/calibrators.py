@@ -21,7 +21,7 @@ class Calibrator(BaseEstimator, ClassifierMixin):
     """
 
     def __init__(self):
-        assert self.__class__.fit == Calibrator.fit
+        # assert self.__class__.fit == Calibrator.fit
         assert self.__class__.fit_torch == Calibrator.fit_torch
 
     def fit(self, X, y) -> 'Calibrator':
@@ -206,6 +206,50 @@ class AutoGluonTemperatureScalingCalibrator(Calibrator):
     def predict_proba_torch(self, y_pred: CategoricalDistribution) -> CategoricalDistribution:
         with torch.no_grad():
             return CategoricalLogits(y_pred.get_logits() / self.temperature)
+
+
+class AutoGluonTemperatureScalingCalibratorFixed(AutoGluonTemperatureScalingCalibrator):
+    def fit(self, X, y, scorer=None):
+        if scorer is None:
+            from autogluon.core.metrics import get_metric
+            scorer = get_metric("log_loss", problem_type="multiclass")
+        super().fit(X=X, y=y)
+        if self.temperature == 1:
+            return self
+        elif self.temperature <= 0:
+            print(f"NEGATIVE TEMP, SETTING TO 1")
+            self.temperature = 1
+            return self
+        y_pred_proba_post = self.predict_proba(X)
+
+        err_og = scorer.error(y, X)
+        err_post = scorer.error(y, y_pred_proba_post)
+        if err_post > err_og:
+            print(f"WORSE ERROR: SETTING TO 1")
+            self.temperature = 1
+        return self
+
+
+class TemperatureScalingCalibratorFixed(TemperatureScalingCalibrator):
+    def fit(self, X, y, scorer=None):
+        if scorer is None:
+            from autogluon.core.metrics import get_metric
+            scorer = get_metric("log_loss", problem_type="multiclass")
+        super().fit(X=X, y=y)
+        if self.inv_temp_init == 1:
+            return self
+        elif self.inv_temp_init <= 0:
+            print(f"NEGATIVE TEMP, SETTING TO 1")
+            self.inv_temp_init = 1
+            return self
+        y_pred_proba_post = self.predict_proba(X)
+
+        err_og = scorer.error(y, X)
+        err_post = scorer.error(y, y_pred_proba_post)
+        if err_post > err_og:
+            print(f"WORSE ERROR: SETTING TO 1")
+            self.inv_temp_init = 1
+        return self
 
 
 def logloss_np(y_true: np.ndarray, y_proba: np.ndarray):
