@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from tabrepo.benchmark.result import AGBagResult, BaselineResult, ConfigResult
-from tabrepo.benchmark.experiment import ExperimentBatchRunner
+from tabrepo.benchmark.result import AGBagResult, BaselineResult, ConfigResult, ExperimentResults
 
 
 task_metadata = pd.DataFrame({
@@ -10,7 +9,7 @@ task_metadata = pd.DataFrame({
     "tid": [0],
 })
 
-experiment_batch_runner = ExperimentBatchRunner(expname="tmp", task_metadata=task_metadata)
+experiment_batch_runner = ExperimentResults(task_metadata=task_metadata)
 
 
 def _make_result_baseline():

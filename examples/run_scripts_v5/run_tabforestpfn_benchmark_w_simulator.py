@@ -11,11 +11,11 @@ from tabrepo.benchmark.models.ag import (
     TabPFNV2ClientModel,
 )
 from autogluon.tabular.models import TabPFNMixModel
-from tabrepo.benchmark.experiment.experiment_utils import run_experiments, convert_leaderboard_to_configs
+from tabrepo.benchmark.experiment.experiment_utils import run_experiments
 from tabrepo.utils.cache import CacheFunctionPickle
 from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample
 
-from script_utils import load_ag11_bq_baseline
+from script_utils import load_ag11_bq_baseline, convert_leaderboard_to_configs
 from autogluon.core.models import DummyModel  # This model is a placeholder for models that don't work anymore/are deleted
 
 

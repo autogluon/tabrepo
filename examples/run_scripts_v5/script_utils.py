@@ -72,3 +72,29 @@ def load_ag12_eq_baseline(datasets: list[str], folds: list[int], repo: AbstractR
     df_processed_ag12_2024_eq = df_processed_ag12_2024_eq[minimum_columns]
 
     return df_processed_ag12_2024_eq
+
+
+def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = True) -> pd.DataFrame:
+    df_configs = leaderboard.rename(columns=dict(
+        time_fit="time_train_s",
+        time_predict="time_infer_s",
+        test_error="metric_error",
+        eval_metric="metric",
+        val_error="metric_error_val",
+    ))
+    if minimal:
+        minimal_columns = [
+            "dataset",
+            "fold",
+            "framework",
+            "metric_error",
+            "metric",
+            "problem_type",
+            "time_train_s",
+            "time_infer_s",
+            "tid",
+        ]
+        if "metric_error_val" in df_configs:
+            minimal_columns.append("metric_error_val")
+        df_configs = df_configs[minimal_columns]
+    return df_configs
