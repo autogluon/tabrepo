@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-import boto3
-import os
 import io
 import logging
 import numpy as np
 import pandas as pd
-from pathlib import Path
+
 from openml.tasks.task import OpenMLSupervisedTask
 from typing_extensions import Self
 
 from autogluon.common.savers import save_pd, save_json
 from autogluon.core.utils import generate_train_test_split
-from tabflow.utils.s3_utils import parse_s3_uri
 
 from .task_utils import get_task_data, get_ag_problem_type, get_task_with_retry
+from ....utils.s3_utils import download_task_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +166,8 @@ class OpenMLS3TaskWrapper(OpenMLTaskWrapper):
     Class which uses S3 cache to download task splits.
     """
     @classmethod
-    def from_task_id(cls, task_id: int, s3_dataset_cache: str = None) -> Self:
-        task = get_task_with_retry(task_id=task_id, s3_dataset_cache=s3_dataset_cache)
+    def from_task_id(cls, task_id: int, s3_dataset_cache: str) -> Self:
+        assert s3_dataset_cache is not None
+        download_task_from_s3(task_id, s3_dataset_cache=s3_dataset_cache)
+        task = get_task_with_retry(task_id=task_id)
         return cls(task)
-    
