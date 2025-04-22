@@ -33,10 +33,12 @@ class AGBagResult(ConfigResult):
 
         pred_val = self._pred_val_from_children()
         if "pred_val" in self.result["simulation_artifacts"]:
+            assert pred_val.shape == self.simulation_artifacts["pred_val"].shape
             assert np.isclose(pred_val, self.simulation_artifacts["pred_val"]).all()
         self.simulation_artifacts["pred_val"] = pred_val
         pred_test = self._pred_test_from_children()
         if "pred_test" in self.result["simulation_artifacts"]:
+            assert pred_test.shape == self.simulation_artifacts["pred_test"].shape
             assert np.isclose(pred_test, self.simulation_artifacts["pred_test"]).all()
         self.simulation_artifacts["pred_test"] = pred_test
         return self.result
@@ -51,8 +53,10 @@ class AGBagResult(ConfigResult):
         for val_idx_child, pred_val_child in zip(self.bag_info["val_idx_per_child"], self.bag_info["pred_val_per_child"]):
             val_child_count[val_idx_child] += 1
             pred_val[val_idx_child] += pred_val_child
-            pass
-        pred_val = pred_val / val_child_count[:, None]
+        if len(pred_val.shape) == 1:
+            pred_val = pred_val / val_child_count
+        else:
+            pred_val = pred_val / val_child_count[:, None]
         pred_val = pred_val.astype(np.float32)
         return pred_val
 
