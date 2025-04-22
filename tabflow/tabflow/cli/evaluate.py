@@ -16,6 +16,35 @@ from tabrepo.benchmark.models.ag import *
 logger = setup_logging(level=logging.INFO)
 
 
+def load_tasks(
+    tasks_s3_path: str,
+    methods_s3_path: str,
+):
+    # Download methods and tasks to parse from S3
+    methods_config_path = download_from_s3(s3_path=methods_s3_path, destination_path=None)
+    methods_config: list[dict] = YamlExperimentSerializer.load_yaml(path=methods_config_path)
+
+    tasks: list[dict] = load_json.load(path=tasks_s3_path, verbose=False)
+
+    tasks_lst = []
+
+    logger.info(f"Downloaded Tasks to run are: {tasks}")
+    for task in tasks:
+        dataset = task["dataset"]
+        fold = task["fold"]
+        method_name = task["method_name"]
+        method_kwargs = find_method_by_name(methods_config, method_name)
+        method: Experiment = YamlExperimentSerializer.parse_method(method_kwargs, globals())
+
+        task_dict = dict(
+            method=method,
+            dataset=dataset,
+            fold=fold,
+        )
+        tasks_lst.append(task_dict)
+    return tasks_lst
+
+
 def evaluate(
     experiment_name: str,
     context_name: str,
@@ -33,41 +62,57 @@ def evaluate(
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
     repo: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=load_predictions)
+    task_metadata = repo.task_metadata
 
-    # Download methods and tasks to parse from S3
-    methods_config_path = download_from_s3(s3_path=methods_s3_path, destination_path=None)
-    methods_config: list[dict] = YamlExperimentSerializer.load_yaml(path=methods_config_path)
-
-    tasks: list[dict] = load_json.load(path=tasks_s3_path, verbose=False)
+    tasks = load_tasks(
+        tasks_s3_path=tasks_s3_path,
+        methods_s3_path=methods_s3_path,
+    )
 
     experiment_batch_runner = ExperimentBatchRunner(
         expname=expname,
-        task_metadata=repo.task_metadata,
+        task_metadata=task_metadata,
         mode=run_mode,  # We use AWS for TabFlow
         s3_bucket=s3_bucket,
         debug_mode=debug_mode,
         s3_dataset_cache=s3_dataset_cache,
     )
 
-    logger.info(f"Downloaded Tasks to run are: {tasks}")
     for task in tasks:
         dataset = task["dataset"]
-        tid = repo.dataset_to_tid(dataset)  # Solely for logging purposes
         fold = task["fold"]
-        method_name = task["method_name"]
-        method_kwargs = find_method_by_name(methods_config, method_name)
-        method = YamlExperimentSerializer.parse_method(method_kwargs, globals())
-        # This print is needed for task-wise log parsing
-        print(f"Processing task: Dataset={dataset}, TID={tid}, Fold={fold}, Method={method_name}")
-        logger.info(f"Method Dict: {method_kwargs}")
-        logger.info(f"Method: {method}")
-        results_lst: list[dict] = experiment_batch_runner.run(
-            datasets=[dataset],
-            folds=[fold],
-            methods=[method],
+        method = task["method"]
+        evaluate_single(
+            experiment_batch_runner=experiment_batch_runner,
+            dataset=dataset,
+            fold=fold,
+            method=method,
             ignore_cache=ignore_cache,
             raise_on_failure=raise_on_failure,
         )
+
+
+def evaluate_single(
+    experiment_batch_runner: ExperimentBatchRunner,
+    dataset: str,
+    fold: int,
+    method: Experiment,
+    ignore_cache: bool = False,
+    raise_on_failure: bool = False,
+):
+    tid = experiment_batch_runner._dataset_to_tid_dict[dataset]  # Solely for logging purposes
+    # This print is needed for task-wise log parsing
+    print(f"Processing task: Dataset={dataset}, TID={tid}, Fold={fold}, Method={method.name}")
+    logger.info(f"Method Dict: {method._locals}")
+    logger.info(f"Method: {method}")
+    results_lst: list[dict] = experiment_batch_runner.run(
+        datasets=[dataset],
+        folds=[fold],
+        methods=[method],
+        ignore_cache=ignore_cache,
+        raise_on_failure=raise_on_failure,
+    )
+    return results_lst
 
 
 if __name__ == '__main__':
