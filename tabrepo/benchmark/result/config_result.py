@@ -43,6 +43,8 @@ class ConfigResult(BaselineResult):
             pred_proba_val = pred_proba_dict_val[framework]
             self.result["simulation_artifacts"]["pred_val"] = pred_proba_val
         if "eval_metric" in self.result["simulation_artifacts"]:
+            if self.result["simulation_artifacts"]["eval_metric"] == "root_mean_squared_error":
+                self.result["simulation_artifacts"]["eval_metric"] = "rmse"
             assert self.result["simulation_artifacts"]["eval_metric"] == self.result["metric"]
             self.result["simulation_artifacts"].pop("eval_metric")
         if "metric" in self.result["simulation_artifacts"]:
