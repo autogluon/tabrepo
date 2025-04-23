@@ -124,7 +124,7 @@ class TrainerFinetune(BaseEstimator):
                     # Convert numerical y_query to bin ids
                     if self.cfg.task == Task.REGRESSION and self.cfg.hyperparams['regression_loss'] == LossName.CROSS_ENTROPY:
                         loss = self.loss(y_hat, y_query_bin_ids)
-                    elif self.cfg.data.task == Task.CLASSIFICATION:
+                    elif self.cfg.task == Task.CLASSIFICATION:
                         # for b in range(y_support.shape[0]):
                         #     unique_classes = len(torch.unique(torch.cat((y_support[b], y_query[b]))))
                         #     y_hat[b, :, unique_classes:] = 0
