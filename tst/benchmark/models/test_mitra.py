@@ -7,7 +7,7 @@ from autogluon.core.models import BaggedEnsembleModel
 from tabrepo.benchmark.models.ag.mitra.mitra_model import MitraModel
 from autogluon.tabular.testing import FitHelper
 from sklearn.metrics import accuracy_score
-
+import shutil
 import torch
 import time
 import os
@@ -31,7 +31,7 @@ def run_bagging(task_id, fold, bagging=True):
 
     print('Task id', task_id, 'Fold', fold)
 
-    bagged_custom_model = BaggedEnsembleModel(MitraModel())
+    bagged_custom_model = BaggedEnsembleModel(MitraModel(path=""))
     custom_model = MitraModel()
     bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
 
@@ -98,7 +98,7 @@ def run_bagging(task_id, fold, bagging=True):
 
 
     if bagging:
-        file_path = '/fsx/xiyuanz/mitra_bagging.csv'
+        file_path = '/fsx/xiyuanz/mitra_bagging_ft.csv'
     else:
         file_path = '/fsx/xiyuanz/mitra_no_bagging.csv'
 
@@ -134,5 +134,9 @@ if __name__ == "__main__":
     print(len(dids))
 
     for did in dids:
+
         for fold in range(5):
+
             run_bagging(task_id=did, fold=fold, bagging=True)  
+
+            shutil.rmtree("/home/ubuntu/tabular/tabrepo/AutogluonModels")

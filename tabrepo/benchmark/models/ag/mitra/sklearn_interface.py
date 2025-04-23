@@ -24,7 +24,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 # Constants
 DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
-DEFAULT_EPOCH = 0
+DEFAULT_EPOCH = 50
 DEFAULT_ENSEMBLE = 1
 DEFAULT_DIM = 512
 DEFAULT_LAYERS = 12
