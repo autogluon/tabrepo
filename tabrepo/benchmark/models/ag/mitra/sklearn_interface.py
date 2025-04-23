@@ -156,7 +156,7 @@ class MitraClassifier(MitraBase, ClassifierMixin):
     """Classifier implementation of Mitra model."""
 
     def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, state_dict='/fsx/xiyuanz/atticmix4.pt'):
+                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, state_dict='/fsx/xiyuanz/mix5_multi_cat.pt'):
         """Initialize the classifier."""
         super().__init__(model_type, n_estimators, device, epoch, state_dict)
         self.task = 'classification'
@@ -318,7 +318,7 @@ if __name__ == '__main__':
         n_estimators=DEFAULT_ENSEMBLE, 
         device=DEFAULT_DEVICE, 
         epoch=1000, 
-        state_dict='/home/yuyawang/checkpoints/atticmix4.pt'
+        state_dict='/home/yuyawang/checkpoints/mix5_multi_cat.pt'
     )
     clf.fit(X_train, y_train)
 
