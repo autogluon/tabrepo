@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Literal
 
 import pandas as pd
@@ -218,9 +219,60 @@ class RealMLPModel(AbstractModel):
         cls,
         *,
         X: pd.DataFrame,
+        hyperparameters: dict = None,
         **kwargs,
     ) -> int:
-        return 10 * get_approximate_df_mem_usage(X).sum()
+        """
+        Heuristic memory estimate that correlates strongly with RealMLP's more sophisticated method
+
+        More comprehensive memory estimate logic:
+
+        ```python
+        from typing import Any
+
+        from pytabkit.models.alg_interfaces.nn_interfaces import NNAlgInterface
+        from pytabkit.models.data.data import DictDataset, TensorInfo
+        from pytabkit.models.sklearn.default_params import DefaultParams
+
+        def estimate_realmlp_cpu_ram_gb(hparams: dict[str, Any], n_numerical: int, cat_sizes: list[int], n_classes: int,
+                                        n_samples: int):
+            params = copy.copy(DefaultParams.RealMLP_TD_CLASS if n_classes > 0 else DefaultParams.RealMLP_TD_REG)
+            params.update(hparams)
+
+            ds = DictDataset(tensors=None, tensor_infos=dict(x_cont=TensorInfo(feat_shape=[n_numerical]),
+                                                             x_cat=TensorInfo(cat_sizes=cat_sizes),
+                                                             y=TensorInfo(cat_sizes=[n_classes])), device='cpu',
+                             n_samples=n_samples)
+
+            alg_interface = NNAlgInterface(**params)
+            res = alg_interface.get_required_resources(ds, n_cv=1, n_refit=0, n_splits=1, split_seeds=[0], n_train=n_samples)
+            return res.cpu_ram_gb
+        ```
+
+        """
+        if hyperparameters is None:
+            hyperparameters = {}
+        plr_hidden_1 = hyperparameters.get("plr_hidden_1", 16)
+        plr_hidden_2 = hyperparameters.get("plr_hidden_2", 4)
+        hidden_width = hyperparameters.get("hidden_width", 256)
+
+        num_features = len(X.columns)
+        columns_mem_est = num_features * 8e5
+
+        hidden_1_weight = 0.13
+        hidden_2_weight = 0.42
+        width_factor = math.sqrt(hidden_width / 256 + 0.6)
+
+        columns_mem_est_hidden_1 = columns_mem_est * hidden_1_weight * plr_hidden_1 / 16 * width_factor
+        columns_mem_est_hidden_2 = columns_mem_est * hidden_2_weight * plr_hidden_2 / 16 * width_factor
+        columns_mem_est = columns_mem_est_hidden_1 + columns_mem_est_hidden_2
+
+        dataset_size_mem_est = 5 * get_approximate_df_mem_usage(X).sum()  # roughly 5x DataFrame memory size
+        baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
+
+        mem_estimate = dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
+
+        return mem_estimate
 
     @classmethod
     def _class_tags(cls):
