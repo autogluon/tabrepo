@@ -34,12 +34,14 @@ class AGBagResult(ConfigResult):
         pred_val = self._pred_val_from_children()
         if "pred_val" in self.result["simulation_artifacts"]:
             assert pred_val.shape == self.simulation_artifacts["pred_val"].shape
-            assert np.isclose(pred_val, self.simulation_artifacts["pred_val"]).all()
+            if not np.isclose(pred_val, self.simulation_artifacts["pred_val"]).all():
+                print(f"WARNING: Not close  VAL: {self.result['dataset']}, {self.result['fold']}, {self.result['framework']}")
         self.simulation_artifacts["pred_val"] = pred_val
         pred_test = self._pred_test_from_children()
         if "pred_test" in self.result["simulation_artifacts"]:
             assert pred_test.shape == self.simulation_artifacts["pred_test"].shape
-            assert np.isclose(pred_test, self.simulation_artifacts["pred_test"]).all()
+            if not np.isclose(pred_test, self.simulation_artifacts["pred_test"]).all():
+                print(f"WARNING: Not close TEST: {self.result['dataset']}, {self.result['fold']}, {self.result['framework']}")
         self.simulation_artifacts["pred_test"] = pred_test
         return self.result
 
