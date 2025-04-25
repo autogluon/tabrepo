@@ -186,8 +186,23 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             raise ValueError(f'Invalid config_scorer_type: {config_scorer_type}')
 
     @classmethod
-    def from_context(cls, version: str = None, cache: bool = False, load_predictions: bool = True, prediction_format: str = "memmap", use_s3: bool = True) -> Self:
-        return load_repository(version=version, cache=cache, load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3)
+    def from_context(
+        cls,
+        version: str = None,
+        cache: bool = False,
+        load_predictions: bool = True,
+        prediction_format: str = "memmap",
+        use_s3: bool = True,
+        verbose: bool = True,
+    ) -> Self:
+        return load_repository(
+            version=version,
+            cache=cache,
+            load_predictions=load_predictions,
+            prediction_format=prediction_format,
+            use_s3=use_s3,
+            verbose=verbose,
+        )
 
     # TODO: 1. Cleanup results_lst_simulation_artifacts, 2. Make context work with tasks instead of datasets x folds
     # TODO: Get raw data from repo method (X, y)
@@ -332,7 +347,15 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         return simulation_artifacts_full
 
 
-def load_repository(version: str, *, load_predictions: bool = True, cache: bool | str = False, prediction_format: str = "memmap", use_s3: bool = True) -> EvaluationRepository:
+def load_repository(
+    version: str,
+    *,
+    load_predictions: bool = True,
+    cache: bool | str = False,
+    prediction_format: str = "memmap",
+    use_s3: bool = True,
+    verbose: bool = True,
+) -> EvaluationRepository:
     """
     Load the specified EvaluationRepository. Will automatically download all required inputs if they do not already exist on local disk.
 
@@ -364,7 +387,7 @@ def load_repository(version: str, *, load_predictions: bool = True, cache: bool 
         if isinstance(cache, str) and cache == "overwrite":
             kwargs["ignore_cache"] = True
             kwargs["exists"] = "overwrite"
-        repo = get_subcontext(version).load(load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3, **kwargs)
+        repo = get_subcontext(version).load(load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3, verbose=verbose, **kwargs)
     else:
-        repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3)
+        repo = get_subcontext(version).load_from_parent(load_predictions=load_predictions, prediction_format=prediction_format, use_s3=use_s3, verbose=verbose)
     return repo

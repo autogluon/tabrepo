@@ -261,10 +261,12 @@ class BenchmarkPaths:
         df_baselines = load_pd.load(self.baselines_full)
         return df_baselines
 
-    def load_predictions(self,
-                         zsc: ZeroshotSimulatorContext,
-                         prediction_format: str = "memmap",
-                         ) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
+    def load_predictions(
+        self,
+        zsc: ZeroshotSimulatorContext,
+        prediction_format: str = "memmap",
+        verbose: bool = True,
+    ) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
         """
         :param prediction_format: Determines the format of the loaded tabular_predictions. Default = "memmap".
             "memmap": Fast and low memory usage.
@@ -281,6 +283,7 @@ class BenchmarkPaths:
             zsc=zsc,
             datasets=self.datasets,
             prediction_format=prediction_format,
+            verbose=verbose,
         )
         return zeroshot_pred_proba, zeroshot_gt, zsc
 
@@ -369,6 +372,7 @@ class BenchmarkContext:
              prediction_format: str = "memmap",
              exists: str = 'ignore',
              use_s3: bool = True,
+             verbose: bool = True,
              ) -> Tuple[ZeroshotSimulatorContext, TabularModelPredictions, GroundTruth]:
         """
         :param folds: If None, uses self.folds as default.
@@ -403,32 +407,37 @@ class BenchmarkContext:
             assert f in self.folds, f'Fold {f} does not exist in available folds! self.folds={self.folds}'
 
         with catchtime("Loading ZS Context"):
-            print(f'Loading BenchmarkContext:\n'
-                  f'\tname: {self.name}\n'
-                  f'\tdescription: {self.description}\n'
-                  f'\tdate: {self.date}\n'
-                  f'\tfolds: {folds}')
+            if verbose:
+                print(f'Loading BenchmarkContext:\n'
+                      f'\tname: {self.name}\n'
+                      f'\tdescription: {self.description}\n'
+                      f'\tdate: {self.date}\n'
+                      f'\tfolds: {folds}')
             if download_files and exists == 'ignore':
                 if self.benchmark_paths.exists_all(check_zs=load_predictions):
-                    print(f'All required files are present...')
+                    if verbose:
+                        print(f'All required files are present...')
                     download_files = False
             if download_files:
-                self.benchmark_paths.print_summary()
+                if verbose:
+                    self.benchmark_paths.print_summary()
                 if self.s3_download_map is None:
                     missing_files = self.benchmark_paths.missing_files()
                     if missing_files:
                         missing_files_str = [f'\n\t"{m}"' for m in missing_files]
                         raise FileNotFoundError(f'Missing {len(missing_files)} required files: \n[{",".join(missing_files_str)}\n]')
-                print(f'Downloading input files from s3...')
-                self.download(include_zs=load_predictions, exists=exists, use_s3=use_s3)
+                if verbose:
+                    print(f'Downloading input files from s3...')
+                self.download(include_zs=load_predictions, exists=exists, use_s3=use_s3, verbose=verbose)
             self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
 
             configs_hyperparameters = self.load_configs_hyperparameters()
-            zsc = self._load_zsc(folds=folds, configs_hyperparameters=configs_hyperparameters)
-            print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
+            zsc = self._load_zsc(folds=folds, configs_hyperparameters=configs_hyperparameters, verbose=verbose)
+            if verbose:
+                print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
 
             if load_predictions:
-                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format)
+                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format, verbose=verbose)
             else:
                 zeroshot_pred_proba = None
                 zeroshot_gt = None
@@ -443,6 +452,7 @@ class BenchmarkContext:
         prediction_format: str = "memmap",
         exists: str = 'ignore',
         use_s3: bool = True,
+        verbose: bool = True,
     ) -> EvaluationRepository:
         zsc, zeroshot_pred_proba, zeroshot_gt = self.load(
             folds=folds,
@@ -451,6 +461,7 @@ class BenchmarkContext:
             prediction_format=prediction_format,
             exists=exists,
             use_s3=use_s3,
+            verbose=verbose,
         )
         repo = EvaluationRepository(
             zeroshot_context=zsc,
@@ -467,16 +478,20 @@ class BenchmarkContext:
     def load_configs_hyperparameters(self) -> dict:
         return self.benchmark_paths.load_configs_hyperparameters()
 
-    def _load_predictions(self,
-                          zsc: ZeroshotSimulatorContext,
-                          prediction_format: str) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
-        return self.benchmark_paths.load_predictions(zsc=zsc, prediction_format=prediction_format)
+    def _load_predictions(
+        self,
+        zsc: ZeroshotSimulatorContext,
+        prediction_format: str,
+        verbose: bool = True,
+    ) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
+        return self.benchmark_paths.load_predictions(zsc=zsc, prediction_format=prediction_format, verbose=verbose)
 
-    def _load_zsc(self, folds: List[int], configs_hyperparameters: dict) -> ZeroshotSimulatorContext:
+    def _load_zsc(self, folds: List[int], configs_hyperparameters: dict, verbose: bool = True) -> ZeroshotSimulatorContext:
         df_configs, df_metadata = self._load_results()
 
         # Load in real framework results to score against
-        print(f'Loading baselines: {self.benchmark_paths.baselines}')
+        if verbose:
+            print(f'Loading baselines: {self.benchmark_paths.baselines}')
         df_baselines = self.benchmark_paths.load_baselines()
 
         score_against_only_baselines = df_baselines is not None

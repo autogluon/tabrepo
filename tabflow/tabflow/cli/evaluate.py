@@ -61,7 +61,7 @@ def evaluate(
     expname = experiment_name
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
-    repo: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=load_predictions)
+    repo: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=load_predictions, verbose=False)
     task_metadata = repo.task_metadata
 
     tasks = load_tasks(
@@ -103,8 +103,6 @@ def evaluate_single(
     tid = experiment_batch_runner._dataset_to_tid_dict[dataset]  # Solely for logging purposes
     # This print is needed for task-wise log parsing
     print(f"Processing task: Dataset={dataset}, TID={tid}, Fold={fold}, Method={method.name}")
-    logger.info(f"Method Dict: {method._locals}")
-    logger.info(f"Method: {method}")
     results_lst: list[dict] = experiment_batch_runner.run(
         datasets=[dataset],
         folds=[fold],

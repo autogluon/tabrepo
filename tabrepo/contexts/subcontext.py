@@ -82,12 +82,13 @@ class BenchmarkSubcontext:
     def exists(self):
         return BenchmarkPaths.exists(self.path)
 
-    def load(self, download_files: bool = True, ignore_cache: bool = False, exists: str = 'ignore', **kwargs) -> EvaluationRepository:
+    def load(self, download_files: bool = True, ignore_cache: bool = False, exists: str = 'ignore', verbose: bool = True, **kwargs) -> EvaluationRepository:
         if not self.exists() or ignore_cache:
             if not download_files:
                 raise FileNotFoundError(f'Missing file: "{self.path}", try calling `load` with `download_files=True`')
-            print(f'Downloading subcontext {self.name}...')
-            return self.download(exists=exists, **kwargs)
+            if verbose:
+                print(f'Downloading subcontext {self.name}...')
+            return self.download(exists=exists, verbose=verbose, **kwargs)
         return self._load()
 
     def _load(self) -> EvaluationRepository:
