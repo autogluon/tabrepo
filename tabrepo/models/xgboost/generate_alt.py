@@ -18,6 +18,7 @@ def generate_configs_xgboost_alt(num_random_configs=200):
         Float('reg_lambda', (1e-4, 5.0)),
         Categorical('grow_policy', ['depthwise', 'lossguide']),
         Integer('max_cat_to_onehot', (8, 100), log=True),
+        Integer('max_leaves', (8, 1024), log=True),
         # todo: do we still need to set enable_categorical?
         # could search max_bin and num_parallel_tree but this is expensive
     ], seed=1234)
