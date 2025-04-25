@@ -26,6 +26,8 @@ def generate_configs_xgboost_alt(num_random_configs=200):
     if num_random_configs == 1:
         configs = [configs]
     configs = [dict(config) for config in configs]
+    for c in configs:
+        c["enable_categorical"] = True
     configs = [convert_numpy_dtypes(config) for config in configs]
     return configs
 
