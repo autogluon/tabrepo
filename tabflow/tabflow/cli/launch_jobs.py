@@ -164,7 +164,8 @@ class JobManager:
         self._is_methods_file_uploaded = True
         self.s3_client.upload_file(self.methods_file, self.s3_bucket, self.methods_s3_key)
 
-    def load_methods_from_yaml(self, methods_file: str):
+    @classmethod
+    def load_methods_from_yaml(cls, methods_file: str):
         methods = yaml_to_methods(methods_file=methods_file)
         return methods
 
