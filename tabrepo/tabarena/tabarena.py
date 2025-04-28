@@ -176,7 +176,9 @@ class TabArena:
         task_cols = [self.task_col]
         if self.seed_column is not None:
             task_cols.append(self.seed_column)
-        unique_seeds_per_dataset = data[task_cols].drop_duplicates()[self.task_col].value_counts()
+        unique_tasks = data[task_cols].drop_duplicates().reset_index(drop=True)
+
+        unique_seeds_per_dataset = unique_tasks[self.task_col].value_counts()
         num_tasks = unique_seeds_per_dataset.sum()
         valid_tasks_per_method = data[self.method_col].value_counts()
         valid_methods_per_dataset = data[self.task_col].value_counts()
@@ -195,7 +197,19 @@ class TabArena:
             invalid_methods_per_task_filtered = invalid_methods_per_task[invalid_methods_per_task != 0]
             num_invalid_results = invalid_tasks_per_method.sum()
             # num_invalid_tasks = invalid_methods_per_task_filtered.sum()
+
+            df_experiments_dense = unique_tasks.merge(
+                pd.Series(data=methods, name=self.method_col),
+                how="cross",
+            )
+            experiment_cols = task_cols + [self.method_col]
+            overlap = pd.merge(df_experiments_dense, data[experiment_cols], on=experiment_cols, how='left', indicator='exist')
+            df_missing_experiments = overlap[overlap["exist"] == "left_only"][experiment_cols].sort_values(by=experiment_cols).reset_index(drop=True)
+
             with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
+                if len(df_missing_experiments) <= 500:
+                    print(f"\nFailed Experiments ({len(df_missing_experiments)}):")
+                    print(df_missing_experiments)
                 print("\nMethods sorted by failure count:")
                 print(invalid_tasks_per_method_filtered)
                 print("\nDatasets sorted by failure count:")
