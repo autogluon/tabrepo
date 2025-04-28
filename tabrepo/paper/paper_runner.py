@@ -41,6 +41,7 @@ class PaperRun:
             hpo_results_lst.append(df_results_family_hpo.reset_index())
             hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
         df_results_hpo_all = pd.concat(hpo_results_lst, ignore_index=True)
+        df_results_hpo_all = df_results_hpo_all.set_index(["dataset", "fold", "framework"])
         # df_results_hpo_all = self.evaluator.compare_metrics(results_df=df_results_hpo_all, configs=[], baselines=[])
         return df_results_hpo_all
 
@@ -305,9 +306,9 @@ class PaperRun:
 
 class PaperRunMini(PaperRun):
     def run(self) -> pd.DataFrame:
-
         df_results_baselines = self.run_baselines()
         df_results_configs = self.run_configs()
+        df_results_hpo_all = self.run_hpo_by_family()
         n_portfolios = [200]
         df_results_n_portfolio = []
         for n_portfolio in n_portfolios:
@@ -327,8 +328,9 @@ class PaperRunMini(PaperRun):
 
         df_results_all = pd.concat([
             df_results_all,
+            df_results_hpo_all,
             df_results_baselines,
-            # df_results_configs,
+            df_results_configs,
         ])
 
         df_results_all["seed"] = 0
@@ -351,6 +353,7 @@ class PaperRunMini(PaperRun):
             "LR",
             "TABPFN",
             "REALMLP",
+            "EBM",
         ]
         df_results = df_results.copy()
         df_results = df_results.reset_index()
@@ -372,6 +375,7 @@ class PaperRunMini(PaperRun):
             "LinearModel_c1_BAG_L1": "LR (default)",
             "TabPFN_c1_BAG_L1": "TABPFN (default)",
             "RealMLP_c1_BAG_L1": "REALMLP (default)",
+            "ExplainableBM_c1_BAG_L1": "EBM (default)",
         }).fillna(df_results["method"])
         print(df_results)
         rank_scorer, normalized_scorer = make_scorers(self.repo)
@@ -394,11 +398,12 @@ class PaperRunMini(PaperRun):
             "ExtraTrees",
             "LinearModel",
             "KNeighbors",
-            "TabPFNv2",
+            # "TabPFNv2",
             "TabPFN",
-            "TabForestPFN",
-            "EBM",
+            # "TabForestPFN",
+            "ExplainableBM",
             "NeuralNetFastAI",
+            "FTTransformer",
         ]
 
         plot_family_proportion(df=df_results, save_prefix="tmp/family_prop", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
