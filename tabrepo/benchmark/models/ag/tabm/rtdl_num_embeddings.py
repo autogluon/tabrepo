@@ -1,20 +1,19 @@
 # taken from https://github.com/yandex-research/rtdl-num-embeddings/blob/main/package/rtdl_num_embeddings.py
 """On Embeddings for Numerical Features in Tabular Deep Learning."""
 
-__version__ = '0.0.11'
+__version__ = '0.0.12'
 
 __all__ = [
     'LinearEmbeddings',
     'LinearReLUEmbeddings',
     'PeriodicEmbeddings',
-    'compute_bins',
-    'PiecewiseLinearEncoding',
     'PiecewiseLinearEmbeddings',
+    'PiecewiseLinearEncoding',
+    'compute_bins',
 ]
 
 import math
 import warnings
-from collections import OrderedDict
 from typing import Any, Literal, Optional, Union
 
 try:
@@ -60,6 +59,8 @@ class LinearEmbeddings(nn.Module):
     >>> x = torch.randn(batch_size, n_cont_features)
     >>> d_embedding = 4
     >>> m = LinearEmbeddings(n_cont_features, d_embedding)
+    >>> m.get_output_shape()
+    torch.Size([3, 4])
     >>> m(x).shape
     torch.Size([2, 3, 4])
     """
@@ -85,13 +86,17 @@ class LinearEmbeddings(nn.Module):
         nn.init.uniform_(self.weight, -d_rqsrt, d_rqsrt)
         nn.init.uniform_(self.bias, -d_rqsrt, d_rqsrt)
 
+    def get_output_shape(self) -> torch.Size:
+        """Get the output shape without the batch dimensions."""
+        return self.weight.shape
+
     def forward(self, x: Tensor) -> Tensor:
         """Do the forward pass."""
         _check_input_shape(x, self.weight.shape[0])
         return torch.addcmul(self.bias, self.weight, x[..., None])
 
 
-class LinearReLUEmbeddings(nn.Sequential):
+class LinearReLUEmbeddings(nn.Module):
     """Simple non-linear embeddings for continuous features.
 
     **Shape**
@@ -107,22 +112,31 @@ class LinearReLUEmbeddings(nn.Sequential):
     >>>
     >>> d_embedding = 32
     >>> m = LinearReLUEmbeddings(n_cont_features, d_embedding)
+    >>> m.get_output_shape()
+    torch.Size([3, 32])
     >>> m(x).shape
     torch.Size([2, 3, 32])
     """
 
     def __init__(self, n_features: int, d_embedding: int = 32) -> None:
-        super().__init__(
-            OrderedDict(
-                [
-                    (
-                        'linear',
-                        LinearEmbeddings(n_features, d_embedding),
-                    ),
-                    ('activation', nn.ReLU()),
-                ]
-            )
-        )
+        """
+        Args:
+            n_features: the number of continuous features.
+            d_embedding: the embedding size.
+        """
+        super().__init__()
+        self.linear = LinearEmbeddings(n_features, d_embedding)
+        self.activation = nn.ReLU()
+
+    def get_output_shape(self) -> torch.Size:
+        """Get the output shape without the batch dimensions."""
+        return self.linear.weight.shape
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Do the forward pass."""
+        x = self.linear(x)
+        x = self.activation(x)
+        return x
 
 
 class _Periodic(nn.Module):
@@ -218,15 +232,21 @@ class PeriodicEmbeddings(nn.Module):
     >>>
     >>> d_embedding = 24
     >>> m = PeriodicEmbeddings(n_cont_features, d_embedding, lite=False)
+    >>> m.get_output_shape()
+    torch.Size([3, 24])
     >>> m(x).shape
     torch.Size([2, 3, 24])
     >>>
     >>> m = PeriodicEmbeddings(n_cont_features, d_embedding, lite=True)
+    >>> m.get_output_shape()
+    torch.Size([3, 24])
     >>> m(x).shape
     torch.Size([2, 3, 24])
     >>>
     >>> # PL embeddings.
     >>> m = PeriodicEmbeddings(n_cont_features, d_embedding=8, activation=False, lite=False)
+    >>> m.get_output_shape()
+    torch.Size([3, 8])
     >>> m(x).shape
     torch.Size([2, 3, 8])
     """  # noqa: E501
@@ -268,6 +288,16 @@ class PeriodicEmbeddings(nn.Module):
         else:
             self.linear = _NLinear(n_features, 2 * n_frequencies, d_embedding)
         self.activation = nn.ReLU() if activation else None
+
+    def get_output_shape(self) -> torch.Size:
+        """Get the output shape without the batch dimensions."""
+        n_features = self.periodic.weight.shape[0]
+        d_embedding = (
+            self.linear.weight.shape[0]
+            if isinstance(self.linear, nn.Linear)
+            else self.linear.weight.shape[-1]
+        )
+        return torch.Size((n_features, d_embedding))
 
     def forward(self, x: Tensor) -> Tensor:
         """Do the forward pass."""
@@ -676,6 +706,15 @@ class PiecewiseLinearEncoding(nn.Module):
         super().__init__()
         self.impl = _PiecewiseLinearEncodingImpl(bins)
 
+    def get_output_shape(self) -> torch.Size:
+        """Get the output shape without the batch dimensions."""
+        total_n_bins = (
+            self.impl.weight.shape.numel()
+            if self.impl.mask is None
+            else int(self.impl.mask.long().sum().cpu().item())
+        )
+        return torch.Size((total_n_bins,))
+
     def forward(self, x: Tensor) -> Tensor:
         """Do the forward pass."""
         x = self.impl(x)
@@ -744,6 +783,12 @@ class PiecewiseLinearEmbeddings(nn.Module):
             # The piecewise-linear component is incrementally learnt during training.
             nn.init.zeros_(self.linear.weight)
         self.activation = nn.ReLU() if activation else None
+
+    def get_output_shape(self) -> torch.Size:
+        """Get the output shape without the batch dimensions."""
+        n_features = self.linear.weight.shape[0]
+        d_embedding = self.linear.weight.shape[2]
+        return torch.Size((n_features, d_embedding))
 
     def forward(self, x: Tensor) -> Tensor:
         """Do the forward pass."""
