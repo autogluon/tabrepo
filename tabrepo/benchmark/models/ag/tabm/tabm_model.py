@@ -5,16 +5,32 @@ import time
 from typing import Literal, Optional, List, Any
 
 import pandas as pd
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
+from sklearn.utils.validation import check_is_fitted
 
-from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm
+from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm_reference
 
 logger = logging.getLogger(__name__)
+
+
+import math
+import random
+from pathlib import Path
+
+import scipy
+import sklearn
+import torch
+import numpy as np
+from torch import nn
+
+
+# partially adapted from pytabkit's TabM implementation
 
 
 def get_tabm_auto_batch_size(n_train: int) -> int:
@@ -30,15 +46,47 @@ def get_tabm_auto_batch_size(n_train: int) -> int:
         return 1024
 
 
-import math
-import random
-from pathlib import Path
+class RTDLQuantileTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, noise=1e-5, random_state=None, n_quantiles=1000, subsample=1_000_000_000,
+                 output_distribution="normal"):
+        self.noise = noise
+        self.random_state = random_state
+        self.n_quantiles = n_quantiles
+        self.subsample = subsample
+        self.output_distribution = output_distribution
 
-import scipy
-import sklearn
-import torch
-import numpy as np
-from torch import nn
+    def fit(self, X, y=None):
+        # Calculate the number of quantiles based on data size
+        n_quantiles = max(min(X.shape[0] // 30, self.n_quantiles), 10)
+
+        # Initialize QuantileTransformer
+        normalizer = QuantileTransformer(
+            output_distribution=self.output_distribution,
+            n_quantiles=n_quantiles,
+            subsample=self.subsample,
+            random_state=self.random_state
+        )
+
+        # Add noise if required
+        X_modified = self._add_noise(X) if self.noise > 0 else X
+
+        # Fit the normalizer
+        normalizer.fit(X_modified)
+        # show that it's fitted
+        self.normalizer_ = normalizer
+
+        return self
+
+    def transform(self, X, y=None):
+        check_is_fitted(self)
+        return self.normalizer_.transform(X)
+
+    def _add_noise(self, X):
+        # todo: small adaptation, adding noise on a scale relative to the feature's standard deviation
+        #  instead of just using an absolute scale for the noise
+        stds = np.std(X, axis=0, keepdims=True)
+        rng = np.random.default_rng(self.random_state)
+        return X + self.noise * stds * rng.standard_normal(X.shape)
 
 
 class TabMImplementation:
@@ -98,12 +146,18 @@ class TabMImplementation:
         self.ord_enc_ = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1,
                                        encoded_missing_value=-1)
         self.ord_enc_.fit(X_train[cat_col_names])
+        self.num_prep_ = RTDLQuantileTransformer()
 
         for part, X, y in [('train', X_train, y_train), ('val', X_val, y_val)]:
             tensors = dict()
 
             tensors['x_cat'] = torch.as_tensor(self.ord_enc_.transform(X[cat_col_names]), dtype=torch.long)
-            tensors['x_cont'] = torch.as_tensor(X.drop(columns=cat_col_names).to_numpy(dtype=np.float32))
+            x_cont_np = X.drop(columns=cat_col_names).to_numpy(dtype=np.float32)
+
+            if part == 'train':
+                self.num_prep_.fit(x_cont_np)
+
+            tensors['x_cont'] = torch.as_tensor(self.num_prep_.transform(x_cont_np))
             if task_type == 'regression':
                 tensors['y'] = torch.as_tensor(y.to_numpy(np.float32))
                 if part == 'train':
@@ -181,15 +235,11 @@ class TabMImplementation:
                    f'\ntorch.compile: {compile_model}'
                    )
         # fmt: on
-        pass
 
-        # Choose one of the two configurations below.
-
-        # TabM
         bins = None if num_emb_type != 'pwl' or n_cont_features == 0 else rtdl_num_embeddings.compute_bins(
             data['train']['x_cont'], n_bins=num_emb_n_bins)
 
-        model = tabm.Model(
+        model = tabm_reference.Model(
             n_num_features=n_cont_features,
             cat_cardinalities=cat_cardinalities,
             n_classes=n_classes if n_classes > 0 else None,
@@ -212,7 +262,7 @@ class TabMImplementation:
             ),
             arch_type=arch_type,
             k=tabm_k,
-            # share_training_batches=True,
+            share_training_batches=share_training_batches,
         ).to(device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -243,7 +293,8 @@ class TabMImplementation:
             # (regression)     y_pred.shape == (batch_size, k)
             # (classification) y_pred.shape == (batch_size, k, n_classes)
             k = y_pred.shape[1]
-            return base_loss_fn(y_pred.flatten(0, 1), y_true.repeat_interleave(k))
+            return base_loss_fn(y_pred.flatten(0, 1),
+                                y_true.repeat_interleave(k) if model.share_training_batches else y_true)
 
         @evaluation_mode()
         def evaluate(part: str) -> float:
@@ -315,11 +366,18 @@ class TabMImplementation:
                 if pred_time_after_next_epoch > time_to_fit_in_seconds:
                     break
 
-            for batch_idx in tqdm(
-                    torch.randperm(len(data['train']['y']), device=device).split(batch_size),
-                    desc=f'Epoch {epoch}',
-                    total=epoch_size,
-            ):
+            batches = (
+                torch.randperm(n_train, device=device).split(batch_size)
+                if model.share_training_batches
+                else [
+                    x.transpose(0, 1).flatten()
+                    for x in torch.rand((model.k, n_train), device=device)
+                    .argsort(dim=1)
+                    .split(batch_size, dim=1)
+                ]
+            )
+
+            for batch_idx in tqdm(batches, desc=f'Epoch {epoch}'):
                 model.train()
                 optimizer.zero_grad()
                 loss = loss_fn(apply_model('train', batch_idx), Y_train[batch_idx])
