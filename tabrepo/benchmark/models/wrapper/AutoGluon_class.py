@@ -145,9 +145,9 @@ class AGSingleWrapper(AGWrapper):
         if not isinstance(self._model_cls, str):
             model_cls = self._model_cls
         else:
-            # TODO: Get it from predictor instead? What if we allow passing custom model register?
-            from autogluon.tabular.register import ag_model_register  # If this raises an exception, you need to update to latest mainline AutoGluon
-            model_cls = ag_model_register.key_to_cls(key=self._model_cls)
+            # TODO: Get it from predictor instead? What if we allow passing custom model registry?
+            from autogluon.tabular.registry import ag_model_registry  # If this raises an exception, you need to update to latest mainline AutoGluon
+            model_cls = ag_model_registry.key_to_cls(key=self._model_cls)
         return model_cls
 
     def _load_model(self):
