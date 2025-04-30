@@ -114,8 +114,9 @@ class TabMImplementation:
         task_type: TaskType = self.config['problem_type']
 
         # hyperparams
-        arch_type = self.config.get('arch_type', 'tabm')
-        num_emb_type = self.config.get('num_emb_type', 'none')
+        # set defaults to tabm-mini defaults
+        arch_type = self.config.get('arch_type', 'tabm-mini')
+        num_emb_type = self.config.get('num_emb_type', 'pwl')
         n_epochs = self.config.get('n_epochs', 1_000_000_000)
         patience = self.config.get('patience', 16)
         batch_size = self.config.get('batch_size', 'auto')
@@ -135,7 +136,7 @@ class TabMImplementation:
             batch_size = get_tabm_auto_batch_size(n_train=len(X_train))
 
         weight_decay = self.config.get('weight_decay', 0.0)
-        gradient_clipping_norm = self.config.get('gradient_clipping_norm', None)
+        gradient_clipping_norm = self.config.get('gradient_clipping_norm', 1.0)  # this is the search space default
 
         ds_parts = dict()
 
@@ -229,8 +230,7 @@ class TabMImplementation:
         grad_scaler = torch.cuda.amp.GradScaler() if amp_dtype is torch.float16 else None  # type: ignore
 
         # fmt: off
-        logger.log(1,
-                   f'Device:        {device.type.upper()}'
+        logger.info(f'Device:        {device.type.upper()}'
                    f'\nAMP:           {amp_enabled} (dtype: {amp_dtype})'
                    f'\ntorch.compile: {compile_model}'
                    )
@@ -357,7 +357,7 @@ class TabMImplementation:
         except ImportError:
             tqdm = lambda arr, desc, total: arr
 
-        logger.log(1, '-' * 88 + '\n')
+        logger.info('-' * 88 + '\n')
         for epoch in range(n_epochs):
             # check time limit
             if epoch > 0 and time_to_fit_in_seconds is not None:
@@ -399,12 +399,10 @@ class TabMImplementation:
                     grad_scaler.update()
 
             val_score = evaluate('val')
-            # test_score = evaluate('test')
-            # logger.log(1, f'(val) {val_score:.4f} (test) {test_score:.4f}')
-            logger.log(1, f'(val) {val_score:.4f}')
+            logger.info(f'(val) {val_score:.4f}')
 
             if val_score > best['val']:
-                logger.log(1, '🌸 New best epoch! 🌸')
+                logger.info('🌸 New best epoch! 🌸')
                 # best = {'val': val_score, 'test': test_score, 'epoch': epoch}
                 best = {'val': val_score, 'epoch': epoch}
                 remaining_patience = patience
@@ -417,12 +415,12 @@ class TabMImplementation:
             if remaining_patience < 0:
                 break
 
-            logger.log(1, '')
+            logger.info('')
 
-        logger.log(1, '\n\nResult:')
-        logger.log(1, str(best))
+        logger.info('\n\nResult:')
+        logger.info(str(best))
 
-        logger.log(1, f'Restoring best model')
+        logger.info(f'Restoring best model')
         with torch.no_grad():
             for bp, p in zip(best_params, model.parameters()):
                 p.copy_(bp)
@@ -532,7 +530,6 @@ class TabMModel(AbstractModel):
 
         bool_to_cat = hyp.pop("bool_to_cat", True)
         impute_bool = hyp.pop("impute_bool", True)
-        name_categories = True
 
         # TODO: GPU
         self.model = TabMImplementation(
@@ -542,15 +539,7 @@ class TabMModel(AbstractModel):
             **hyp,
         )
 
-        # todo: correct numerical preprocessing
-
         X = self.preprocess(X, is_train=True, bool_to_cat=bool_to_cat, impute_bool=impute_bool)
-
-        # FIXME: In rare cases can cause exceptions if name_categories=False, unknown why
-        extra_fit_kwargs = {}
-        if name_categories:
-            cat_col_names = X.select_dtypes(include='category').columns.tolist()
-            extra_fit_kwargs["cat_col_names"] = cat_col_names
 
         if X_val is not None:
             X_val = self.preprocess(X_val)
@@ -560,8 +549,8 @@ class TabMModel(AbstractModel):
             y_train=y,
             X_val=X_val,
             y_val=y_val,
+            cat_col_names=X.select_dtypes(include='category').columns.tolist(),
             time_to_fit_in_seconds=time_limit,
-            **extra_fit_kwargs,
         )
 
     # TODO: Move missing indicator + mean fill to a generic preprocess flag available to all models
