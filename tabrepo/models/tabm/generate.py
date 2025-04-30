@@ -55,6 +55,8 @@ def generate_single_config_tabm(rng):
         'num_emb_type': 'pwl',
         'd_embedding': rng.choice([i for i in range(8, 32+1) if i%4==0]),
         'num_emb_n_bins': rng.integers(2, 128, endpoint=True),
+
+        # could reduce eval_batch_size in case of OOM
     }
 
     params = convert_numpy_dtypes(params)

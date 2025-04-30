@@ -6,7 +6,7 @@
 import itertools
 from typing import Any, Literal
 
-import rtdl_num_embeddings
+from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings
 import torch
 import torch.nn as nn
 from torch import Tensor

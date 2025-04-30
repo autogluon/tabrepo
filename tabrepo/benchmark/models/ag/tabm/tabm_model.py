@@ -18,7 +18,6 @@ from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm_reference
 
 logger = logging.getLogger(__name__)
 
-
 import math
 import random
 from pathlib import Path
@@ -132,6 +131,11 @@ class TabMImplementation:
         eval_batch_size = self.config.get('eval_batch_size', 1024)
         share_training_batches = self.config.get('share_training_batches', False)
 
+        # todo: is this okay? otherwise the test fails
+        num_emb_n_bins = min(num_emb_n_bins, len(X_train)-1)
+        if len(X_train) <= 2:
+            num_emb_type = 'none'  # there is no valid number of bins for piecewise linear embeddings
+
         if batch_size == 'auto':
             batch_size = get_tabm_auto_batch_size(n_train=len(X_train))
 
@@ -172,7 +176,7 @@ class TabMImplementation:
             ds_parts[part] = tensors
 
         n_train = len(X_train)
-        cat_cardinalities = ds_parts['train']['x_cat'].max(dim=1)[0].numpy().tolist()
+        cat_cardinalities = ds_parts['train']['x_cat'].max(dim=0)[0].numpy().tolist()
         device = self.config['device']
         device = torch.device(device)
 
@@ -231,9 +235,9 @@ class TabMImplementation:
 
         # fmt: off
         logger.info(f'Device:        {device.type.upper()}'
-                   f'\nAMP:           {amp_enabled} (dtype: {amp_dtype})'
-                   f'\ntorch.compile: {compile_model}'
-                   )
+                    f'\nAMP:           {amp_enabled} (dtype: {amp_dtype})'
+                    f'\ntorch.compile: {compile_model}'
+                    )
         # fmt: on
 
         bins = None if num_emb_type != 'pwl' or n_cont_features == 0 else rtdl_num_embeddings.compute_bins(
@@ -353,9 +357,9 @@ class TabMImplementation:
             if self.config.get('verbosity', 0) >= 1:
                 from tqdm.std import tqdm
             else:
-                tqdm = lambda arr, desc, total: arr
+                tqdm = lambda arr, desc: arr
         except ImportError:
-            tqdm = lambda arr, desc, total: arr
+            tqdm = lambda arr, desc: arr
 
         logger.info('-' * 88 + '\n')
         for epoch in range(n_epochs):
@@ -429,13 +433,14 @@ class TabMImplementation:
 
         return None
 
-    def predict(self, X: pd.DataFrame) -> torch.Tensor:
+    def predict_raw(self, X: pd.DataFrame) -> torch.Tensor:
         self.model_.eval()
 
         tensors = dict()
         tensors['x_cat'] = torch.as_tensor(self.ord_enc_.transform(X[self.cat_col_names_]), dtype=torch.long).to(
             self.device_)
-        tensors['x_cont'] = torch.as_tensor(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32)).to(
+        tensors['x_cont'] = torch.as_tensor(
+            self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))).to(
             self.device_)
 
         tensors['x_cont'] = tensors['x_cont'][:, self.num_col_mask_]
@@ -461,7 +466,7 @@ class TabMImplementation:
             # Transform the predictions back to the original label space.
             y_pred = y_pred * self.y_std_ + self.y_mean_
             y_pred = y_pred.mean(1)
-            y_pred = y_pred.unsqueeze(-1)  # add extra "features" dimension
+            # y_pred = y_pred.unsqueeze(-1)  # add extra "features" dimension
         else:
             average_logits = self.config.get('average_logits', False)
             if average_logits:
@@ -470,7 +475,22 @@ class TabMImplementation:
                 # For classification, the mean must be computed in the probability space.
                 y_pred = torch.log(torch.softmax(y_pred, dim=-1).mean(1) + 1e-30)
 
-        return y_pred.cpu().numpy()
+        return y_pred.cpu()
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        y_pred = self.predict_raw(X)
+        if self.task_type_ == 'regression':
+            return y_pred.numpy()
+        else:
+            return y_pred.argmax(dim=-1).numpy()
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        probas = torch.softmax(self.predict_raw(X), dim=-1).numpy()
+        if probas.shape[1] == 2:
+            probas = probas[:, 1]
+        return probas
+
+
 
 
 # pip install pytabkit
@@ -535,6 +555,7 @@ class TabMModel(AbstractModel):
         self.model = TabMImplementation(
             n_threads=num_cpus,
             device="cpu",
+            problem_type=self.problem_type,
             **init_kwargs,
             **hyp,
         )
@@ -544,7 +565,7 @@ class TabMModel(AbstractModel):
         if X_val is not None:
             X_val = self.preprocess(X_val)
 
-        self.model = self.model.fit(
+        self.model.fit(
             X_train=X,
             y_train=y,
             X_val=X_val,
