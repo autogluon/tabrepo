@@ -98,9 +98,9 @@ def run_bagging(task_id, fold, bagging=True):
 
 
     if bagging:
-        file_path = '/fsx/xiyuanz/mitra_bagging_ft.csv'
+        file_path = '/fsx/results/tabrepo10fold/mitra_bagging_ft.csv'
     else:
-        file_path = '/fsx/xiyuanz/mitra_no_bagging.csv'
+        file_path = '/fsx/results/tabrepo10fold/mitra_no_bagging.csv'
 
     file_exists = os.path.isfile(file_path)
     df = pd.DataFrame({
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     for did in dids:
 
-        for fold in range(5):
+        for fold in range(10):
 
             run_bagging(task_id=did, fold=fold, bagging=True)  
 
