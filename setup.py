@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 requirements = [
-    'autogluon.core[all]>=1.0',
+    'autogluon.core[all]>=1.3',
     'openml>=0.14.1',  # consider making optional
     'pytest',
     'typing-extensions>=4.11,<5',  # used for `Self` type hint
@@ -10,7 +10,7 @@ requirements = [
 
 extras_require = {
     "autogluon": [
-        "autogluon.tabular[all]>=1.2",
+        "autogluon.tabular[all]>=1.3",
     ],
     "tabpfn": [
         "tabpfn>=2",
