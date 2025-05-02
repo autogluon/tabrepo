@@ -3,11 +3,11 @@ import copy
 import pandas as pd
 
 from autogluon.common.loaders import load_pd
-from autogluon_benchmark.preprocessing.amlb_preprocessor import AMLBPreprocessor
 from tabrepo.repository.abstract_repository import AbstractRepository
 
 
 def load_ag11_bq_baseline(datasets: list[str], folds: list[int], repo: AbstractRepository) -> pd.DataFrame:
+    from autogluon_benchmark.preprocessing.amlb_preprocessor import AMLBPreprocessor
     ag12_raw = load_pd.load(f"s3://automl-benchmark-ag/aggregated/ec2/2024_10_25/results.csv")
 
     df_processed_ag12_2024: pd.DataFrame = AMLBPreprocessor(framework_suffix="2024_10_25").transform(df=ag12_raw)
