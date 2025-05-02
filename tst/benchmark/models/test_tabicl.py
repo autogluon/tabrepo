@@ -33,8 +33,8 @@ def run_bagging(task_id, fold, bagging=True):
 
     print('Task id', task_id, 'Fold', fold)
 
-    bagged_custom_model = BaggedEnsembleModel(TabICLModel(path="", hyperparameters={"n_estimators": 32}))
-    custom_model = TabICLModel(hyperparameters={"n_estimators": 32})
+    bagged_custom_model = BaggedEnsembleModel(TabICLModel(path="", hyperparameters={"n_estimators": 1}))
+    custom_model = TabICLModel(hyperparameters={"n_estimators": 1})
     bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
 
     task = openml.tasks.get_task(task_id, download_splits=False)
