@@ -223,13 +223,19 @@ class JobManager:
             return
 
         # TODO: Only include tasks without caches! Keep adding to task_batch until it is of size self.batch_size
-        task_batch_lst = list(create_batch(tasks, self.batch_size))
+        task_batch_lst = self.batch_tasks(tasks=tasks, batch_size=self.batch_size)
+        logger.info(
+            f"Preparing to launch jobs with batch size of {self.batch_size}"
+        )
+
+        self.run_tasks_batched(task_batch_lst=task_batch_lst, check_cache=check_cache)
+
+    def run_tasks_batched(self, task_batch_lst: list[list[tuple]], check_cache: bool = False):
         total_jobs = len(task_batch_lst)
         self.resource_manager.total_jobs = total_jobs
 
         logger.info(
-            f"Preparing to launch {total_jobs} jobs with batch size of "
-            f"{self.batch_size} and max concurrency of {self.max_concurrent_jobs}"
+            f"Preparing to launch {total_jobs} jobs with max concurrency of {self.max_concurrent_jobs}"
         )
         logger.info(
             f"Instance keep-alive period set to "
@@ -241,6 +247,11 @@ class JobManager:
 
         if self.wait:
             self.resource_manager.wait_for_all_jobs(s3_client=self.s3_client, s3_bucket=self.s3_bucket)
+
+
+    def batch_tasks(self, tasks: list[tuple], batch_size: int) -> list[list[tuple]]:
+        task_batch_lst = list(create_batch(tasks, batch_size))
+        return task_batch_lst
 
     def check_if_task_is_cached(self, dataset, fold, method, verbose: bool = False):
         method_name = method['name']
@@ -337,7 +348,7 @@ class JobManager:
             })
 
         # Unique s3 key for a task
-        tasks_s3_key = f"{self.experiment_name}/config/tasks/{job_name}_tasks_batch_{self.batch_size}.json"
+        tasks_s3_key = f"{self.experiment_name}/config/tasks/{job_name}_tasks.json"
         tasks_s3_path = upload_tasks_json(self.s3_client, tasks_json, self.s3_bucket, tasks_s3_key)
 
         # Update hyperparameters for this job

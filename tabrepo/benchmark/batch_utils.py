@@ -23,7 +23,7 @@ def compute_batched_tasks_all(batch_size_groups: list[int], time_per_dataset: pd
     for batch_size in batch_size_groups:
         df_datasets_in_batch_size = time_per_dataset[time_per_dataset["batch_size_group"] == batch_size]
         datasets_in_batch_size = list(df_datasets_in_batch_size.index)
-        tasks_in_ = [(dataset, fold, method) for method in methods for fold in folds for dataset in datasets_in_batch_size]
+        tasks_in_ = [(dataset, fold, method) for dataset in datasets_in_batch_size for fold in folds for method in methods]
         tasks_in_batched = []
         n_tasks = len(tasks_in_)
         prev_i = 0
