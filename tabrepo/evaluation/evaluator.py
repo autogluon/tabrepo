@@ -37,6 +37,7 @@ class Evaluator:
         configs: list[str] = None,
         baselines: list[str] = None,
         convert_from_sample_to_batch: bool = False,
+        keep_extra_columns: bool = False,
         fillna: bool = True,
     ) -> pd.DataFrame:
         if datasets is None:
@@ -44,7 +45,12 @@ class Evaluator:
         columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type"]
 
         if results_df is not None:
-            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
+            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])
+            if not keep_extra_columns:
+                df_exp = df_exp[columns]
+            else:
+                extra_columns = [c for c in df_exp.columns if c not in columns]
+                df_exp = df_exp[columns + extra_columns]
         else:
             df_exp = None
 

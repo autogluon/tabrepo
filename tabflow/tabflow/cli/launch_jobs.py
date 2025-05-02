@@ -3,11 +3,12 @@ import sagemaker
 import argparse
 import logging
 import uuid
+import pandas as pd
 
+from autogluon.common.savers import save_pd
 from botocore.config import Config
 from datetime import datetime
 from pathlib import Path
-from tabrepo import EvaluationRepository
 from tabflow.core.resource_manager import TrainingJobResourceManager
 from tabflow.utils.utils import sanitize_job_name, yaml_to_methods, create_batch
 from tabflow.utils.s3_utils import check_s3_file_exists, upload_tasks_json
@@ -34,10 +35,10 @@ class JobManager:
         self,
         experiment_name: str,
         methods_file: str,
+        task_metadata: pd.DataFrame,
         s3_bucket: str,
         docker_image_uri: str,
         sagemaker_role: str,
-        context_name: str,  # Example: "D244_F3_C1530_200"
         entry_point: str = "evaluate.py",
         source_dir: str = str(Path(__file__).parent),
         instance_type: str = "ml.m6i.2xlarge",
@@ -58,8 +59,8 @@ class JobManager:
         ----------
         experiment_name:
             Name of the experiment
-        context_name:
-            Name of the TabRepo context
+        task_metadata : pd.DataFrame
+            The task metadata. Must contain "tid" and "name" columns.
         entry_point:
             The Python script to run in sagemaker training job
         source_dir:
@@ -105,12 +106,15 @@ class JobManager:
             )
             docker_image_uri = DOCKER_IMAGE_ALIASES[docker_image_uri]
 
+        self.task_metadata = self._process_task_metadata(task_metadata=task_metadata)
+        # FIXME: Don't do this. Just rely on `name` or `tid`
+        self.datasets_to_tids = self.task_metadata.set_index("dataset")["tid"].to_dict()
+
         self.experiment_name = experiment_name
         self.methods_file = methods_file
         self.s3_bucket = s3_bucket
         self.docker_image_uri = docker_image_uri
         self.sagemaker_role = sagemaker_role
-        self.context_name = context_name
         self.entry_point = entry_point
         self.source_dir = source_dir
         self.instance_type = instance_type
@@ -146,11 +150,8 @@ class JobManager:
             max_concurrent_jobs=self.max_concurrent_jobs,
         )
 
-        # FIXME: Remove this, don't depend on EvaluationRepository
-        repo_og: EvaluationRepository = EvaluationRepository.from_context(self.context_name, load_predictions=False)
-        self.datasets_to_tids = repo_og.datasets_to_tids()
-
         self._is_methods_file_uploaded = False
+        self._is_task_metadata_file_uploaded = False
 
     @property
     def methods_s3_key(self) -> str:
@@ -160,9 +161,45 @@ class JobManager:
     def methods_s3_path(self) -> str:
         return f"s3://{self.s3_bucket}/{self.methods_s3_key}"
 
+    @property
+    def task_metadata_s3_path(self) -> str:
+        return f"s3://{self.s3_bucket}/{self.experiment_name}/task_metadata.csv"
+
+    def _process_task_metadata(self, task_metadata: pd.DataFrame) -> pd.DataFrame:
+        """
+        Ensure task_metadata is in the proper format.
+
+        Parameters
+        ----------
+        task_metadata: pd.DataFrame
+
+        Returns
+        -------
+
+        """
+        assert isinstance(task_metadata, pd.DataFrame)
+        task_metadata = task_metadata.copy(deep=True)
+        assert "tid" in task_metadata
+        assert "name" in task_metadata
+        assert len(task_metadata.drop_duplicates(subset=["name"])) == len(task_metadata)
+        assert len(task_metadata.drop_duplicates(subset=["tid"])) == len(task_metadata)
+        if "dataset" in task_metadata:
+            is_matching_names = (task_metadata["name"] == task_metadata["dataset"]).all()
+            if not is_matching_names:
+                print(f"WARNING: NAME NOT MATCHING IN TASK_METADATA! THIS MAY LEAD TO MAJOR ISSUES. PLEASE AVOID THIS.")
+        else:
+            # FIXME: Don't do this. Just rely on `name` or `tid`
+            task_metadata["dataset"] = task_metadata["name"]
+        assert len(task_metadata.drop_duplicates(subset=["dataset"])) == len(task_metadata)
+        return task_metadata
+
     def upload_methods_file_to_s3(self):
         self._is_methods_file_uploaded = True
         self.s3_client.upload_file(self.methods_file, self.s3_bucket, self.methods_s3_key)
+
+    def upload_task_metadata_file_to_s3(self):
+        self._is_task_metadata_file_uploaded = True
+        save_pd.save(path=self.task_metadata_s3_path, df=self.task_metadata)
 
     @classmethod
     def load_methods_from_yaml(cls, methods_file: str):
@@ -277,6 +314,8 @@ class JobManager:
     def run_task_batch(self, tasks: list[tuple], check_cache: bool = False):
         if not self._is_methods_file_uploaded:
             self.upload_methods_file_to_s3()
+        if not self._is_task_metadata_file_uploaded:
+            self.upload_task_metadata_file_to_s3()
 
         if check_cache:
             tasks = self.filter_to_only_uncached_tasks(tasks=tasks, verbose=True)
@@ -305,7 +344,7 @@ class JobManager:
         job_hyperparameters = self.hyperparameters.copy() if self.hyperparameters else {}
         job_hyperparameters.update({
             "experiment_name": self.experiment_name,
-            "context_name": self.context_name,
+            "task_metadata_path": self.task_metadata_s3_path,
             "tasks_s3_path": tasks_s3_path,
             "s3_bucket": self.s3_bucket,
             "methods_s3_path": self.methods_s3_path,
@@ -326,7 +365,7 @@ def launch_jobs(
         s3_bucket: str,
         docker_image_uri: str,
         sagemaker_role: str,
-        context_name: str = "D244_F3_C1530_30", # 30 datasets. To run larger, set to "D244_F3_C1530_200"
+        task_metadata: pd.DataFrame,
         entry_point: str = "evaluate.py",
         source_dir: str = str(Path(__file__).parent),
         instance_type: str = "ml.m6i.4xlarge",
@@ -372,7 +411,7 @@ def launch_jobs(
 
     job_manager = JobManager(
         experiment_name=experiment_name,
-        context_name=context_name,
+        task_metadata=task_metadata,
         methods_file=methods_file,
         max_concurrent_jobs=max_concurrent_jobs,
         s3_bucket=s3_bucket,
