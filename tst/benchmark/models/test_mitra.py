@@ -12,7 +12,7 @@ import torch
 import time
 import os
 import pandas as pd
-from .metrics import AccuracyMeter, ConfusionMeter, CEMeter, ROCMeter
+from sklearn.metrics import roc_auc_score, log_loss, accuracy_score
 
 def test_mitra():
     model_hyperparameters = {"n_estimators": 1}
@@ -49,12 +49,7 @@ def run_bagging(task_id, fold, bagging=True):
     x_train = feature_generator.fit_transform(X=x_train, y=y_train)
     y_train = label_cleaner.transform(y_train)
     x_test = feature_generator.transform(X=x_test)
-    y_test = torch.from_numpy(label_cleaner.transform(y_test).values)
-
-    acc_meter = AccuracyMeter(None)
-    conf_meter = ConfusionMeter(n_class, None)
-    ce_meter = CEMeter(None)
-    roc_meter = ROCMeter(None)
+    y_test = label_cleaner.transform(y_test).values
 
     time1 = time.time()
 
@@ -72,30 +67,20 @@ def run_bagging(task_id, fold, bagging=True):
     
     if n_class == 2 and (out.ndim == 1 or out.shape[1] == 1):
         out = np.vstack([1 - out[:, 0], out[:, 0]]).T if out.ndim > 1 else np.vstack([1 - out, out]).T
-    out = torch.from_numpy(out)
 
     time3 = time.time()
 
     train_time = time2 - time1
     infer_time = time3 - time2
 
-    acc_meter.add(out[:,:n_class], y_test)
-    conf_meter.add(out[:,:n_class], y_test)
-    ce_meter.add(out[:,:n_class], y_test)
-    roc_meter.add(out[:,:n_class], y_test)
+    accuracy = accuracy_score(y_test, out[:,:n_class].argmax(axis=-1))
+    ce = log_loss(y_test, out[:,:n_class], labels=list(range(n_class)))
+    if n_class == 2:
+        roc = roc_auc_score(y_test, out[:,:2][:, 1])
+    else:
+        roc = roc_auc_score(y_test, out[:,:n_class], multi_class='ovo', labels=list(range(n_class)))
 
-    accuracy = acc_meter.accuracy()
-    precisions = conf_meter.precision().cpu().numpy().tolist()
-    recalls = conf_meter.recall().cpu().numpy().tolist()
-    conf_mat = conf_meter.conf_mat().cpu().numpy()
-    ce = ce_meter.ce()
-    roc = roc_meter.roc()
-
-    print(f"accuracy : {accuracy}")
-    print(f"precisions = {precisions}")
-    print(f"recalls = {recalls}")
-    print(f"confusion_matrix :\n{conf_mat}")
-
+    print(f"accuracy: {accuracy}, ce: {ce}, roc: {roc}")
 
     if bagging:
         file_path = '/fsx/results/tabrepo10fold/mitra_bagging_ft.csv'
