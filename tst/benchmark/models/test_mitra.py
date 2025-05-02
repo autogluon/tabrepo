@@ -4,7 +4,7 @@ from autogluon.core.data.label_cleaner import LabelCleaner
 from autogluon.features import AutoMLPipelineFeatureGenerator
 import numpy as np
 from autogluon.core.models import BaggedEnsembleModel
-from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
+from tabrepo.benchmark.models.ag.mitra.mitra_model import MitraModel
 from autogluon.tabular.testing import FitHelper
 from sklearn.metrics import accuracy_score
 import shutil
@@ -14,13 +14,11 @@ import os
 import pandas as pd
 from sklearn.metrics import roc_auc_score, log_loss, accuracy_score
 
-def test_tabpfnv2():
+def test_mitra():
     model_hyperparameters = {"n_estimators": 1}
 
     try:
-        from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
-        model_cls = TabPFNV2Model
+        model_cls = MitraModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:
         pytest.skip(
@@ -33,8 +31,8 @@ def run_bagging(task_id, fold, bagging=True):
 
     print('Task id', task_id, 'Fold', fold)
 
-    bagged_custom_model = BaggedEnsembleModel(TabPFNV2Model(path="", hyperparameters={"n_estimators": 1}))
-    custom_model = TabPFNV2Model(hyperparameters={"n_estimators": 1})
+    bagged_custom_model = BaggedEnsembleModel(MitraModel(path=""))
+    custom_model = MitraModel()
     bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
 
     task = openml.tasks.get_task(task_id, download_splits=False)
@@ -85,9 +83,9 @@ def run_bagging(task_id, fold, bagging=True):
     print(f"accuracy: {accuracy}, ce: {ce}, roc: {roc}")
 
     if bagging:
-        file_path = '/fsx/results/tabrepo10fold/tabpfnv2_bagging_ft.csv'
+        file_path = '/fsx/results/tabrepo10fold/mitra_bagging_ft.csv'
     else:
-        file_path = '/fsx/results/tabrepo10fold/tabpfnv2_no_bagging.csv'
+        file_path = '/fsx/results/tabrepo10fold/mitra_no_bagging.csv'
 
     file_exists = os.path.isfile(file_path)
     df = pd.DataFrame({
@@ -99,8 +97,9 @@ def run_bagging(task_id, fold, bagging=True):
     }, index=[f'tabrepo_{task_id}' + f'_fold_{fold}'])
     df.to_csv(file_path, mode='a', index=True, header=not file_exists, float_format='%.4f')
 
-
 if __name__ == "__main__":
+
+    # test_mitra()
 
     df = pd.read_csv("/home/ubuntu/tabular/mitra/tabpfnmix/evaluate/task_metadata_244.csv")
     df = df[df['ttid']=='TaskType.SUPERVISED_CLASSIFICATION']
