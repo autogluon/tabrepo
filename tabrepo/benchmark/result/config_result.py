@@ -26,13 +26,13 @@ class ConfigResult(BaselineResult):
 
     def _align_result_input_format(self) -> dict:
         self.result = super()._align_result_input_format()
-        dataset = self.result["dataset"]
-        fold = self.result["fold"]
+        dataset = self.result["task_metadata"]["name"]
+        split_idx = self.result["task_metadata"]["split_idx"]
         framework = self.result["framework"]
 
-        if list(self.result["simulation_artifacts"].keys()) == [self.result["dataset"]]:
+        if list(self.result["simulation_artifacts"].keys()) == [dataset]:
             # if old format
-            new_sim_artifacts = self.result["simulation_artifacts"][dataset][fold]
+            new_sim_artifacts = self.result["simulation_artifacts"][dataset][split_idx]
             self.result["simulation_artifacts"] = new_sim_artifacts
         if "pred_proba_dict_test" in self.result["simulation_artifacts"]:
             pred_proba_dict_test = self.result["simulation_artifacts"].pop("pred_proba_dict_test")
@@ -149,16 +149,16 @@ class ConfigResult(BaselineResult):
 
     def generate_old_sim_artifact(self) -> dict[str, dict[int, dict[str, Any]]]:
         sim_artifacts = copy.deepcopy(self.simulation_artifacts)
-        framework = self.result["framework"]
-        dataset = self.result["dataset"]
-        fold = self.result["fold"]
+        framework = self.framework
+        dataset = self.dataset
+        split_idx = self.split_idx
 
         sim_artifacts["pred_proba_dict_test"] = {framework: sim_artifacts.pop("pred_test")}
         sim_artifacts["pred_proba_dict_val"] = {framework: sim_artifacts.pop("pred_val")}
         sim_artifacts["eval_metric"] = self.result["metric"]
         sim_artifacts["problem_type"] = self.result["problem_type"]
         sim_artifacts["problem_type_transform"] = self.result["problem_type"]
-        sim_artifacts = {dataset: {fold: sim_artifacts}}
+        sim_artifacts = {dataset: {split_idx: sim_artifacts}}
         return sim_artifacts
 
     @property

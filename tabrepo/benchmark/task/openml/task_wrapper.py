@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import numpy as np
 import pandas as pd
 
@@ -71,6 +72,27 @@ class OpenMLTaskWrapper:
     def get_split_indices(self, fold: int = 0, repeat: int = 0, sample: int = 0) -> tuple[np.ndarray, np.ndarray]:
         train_indices, test_indices = self.task.get_train_test_split_indices(fold=fold, repeat=repeat, sample=sample)
         return train_indices, test_indices
+
+    def get_split_idx(self, fold: int = 0, repeat: int = 0, sample: int = 0) -> int:
+        n_repeats, n_folds, n_samples = self.get_split_dimensions()
+        assert fold < n_folds
+        assert repeat < n_repeats
+        assert sample < n_samples
+        split_idx = n_folds * n_samples * repeat + n_samples * fold + sample
+        return split_idx
+
+    def split_vals_from_split_idx(self, split_idx: int) -> tuple[int, int, int]:
+        n_repeats, n_folds, n_samples = self.get_split_dimensions()
+
+        repeat = math.floor(split_idx / (n_folds * n_samples))
+        remainder = split_idx % (n_folds * n_samples)
+        fold = math.floor(remainder / n_samples)
+        sample = remainder % n_samples
+
+        assert fold < n_folds
+        assert repeat < n_repeats
+        assert sample < n_samples
+        return repeat, fold, sample
 
     def get_train_test_split(
         self,

@@ -16,8 +16,7 @@ class BaselineResult(AbstractResult):
 
         required_keys = [
             "framework",
-            "dataset",
-            "fold",
+            "task_metadata",
             "metric_error",
             "metric",
             "problem_type",
@@ -30,6 +29,14 @@ class BaselineResult(AbstractResult):
     @property
     def framework(self):
         return self.result["framework"]
+
+    @property
+    def dataset(self):
+        return self.result["task_metadata"]["name"]
+
+    @property
+    def split_idx(self):
+        return self.result["task_metadata"]["split_idx"]
 
     def _align_result_input_format(self) -> dict:
         """
@@ -46,12 +53,22 @@ class BaselineResult(AbstractResult):
             self.result["metric_error_val"] = float(self.result["metric_error_val"])
         if "df_results" in self.result:
             self.result.pop("df_results")
+        if "task_metadata" not in self.result:
+            self.result["task_metadata"] = dict(
+                fold=self.result["fold"],
+                repeat=0,
+                sample=0,
+                split_idx=self.result["fold"],
+                tid=self.result["tid"],
+                name=self.result["dataset"],
+            )
+            self.result.pop("fold")
+            self.result.pop("tid")
+            self.result.pop("dataset")
         return self.result
 
     def compute_df_result(self) -> pd.DataFrame:
         required_columns = [
-            "dataset",
-            "fold",
             "framework",
             "metric_error",
             "metric",
@@ -60,9 +77,13 @@ class BaselineResult(AbstractResult):
             "problem_type",
         ]
 
+        data = {
+            "dataset": self.dataset,
+            "fold": self.split_idx,
+        }
+
         optional_columns = [
             "metric_error_val",
-            "tid",
         ]
 
         columns_to_use = copy.deepcopy(required_columns)
@@ -73,6 +94,11 @@ class BaselineResult(AbstractResult):
             if c in self.result:
                 columns_to_use.append(c)
 
-        df_result = pd.DataFrame([{c: self.result[c] for c in columns_to_use}])
+        data.update({c: self.result[c] for c in columns_to_use})
+
+        if "tid" in self.result["task_metadata"]:
+            data.update({"tid": self.result["task_metadata"]["tid"]})
+
+        df_result = pd.DataFrame([data])
 
         return df_result

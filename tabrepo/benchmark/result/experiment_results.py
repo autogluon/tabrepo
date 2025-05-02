@@ -100,11 +100,15 @@ class ExperimentResults:
         sim_artifacts = result.get("simulation_artifacts", None)
         if sim_artifacts is not None:
             assert isinstance(sim_artifacts, dict)
-            dataset = result["dataset"]
-            fold = result["fold"]
+            if "task_metadata" in result:
+                dataset = result["task_metadata"]["name"]
+                split_idx = result["task_metadata"]["split_idx"]
+            else:
+                dataset = result["dataset"]
+                split_idx = result["fold"]
             result_cls = ConfigResult
             if list(sim_artifacts.keys()) == [dataset]:
-                sim_artifacts = sim_artifacts[dataset][fold]
+                sim_artifacts = sim_artifacts[dataset][split_idx]
             bag_info = sim_artifacts.get("bag_info", None)
             if bag_info is not None:
                 assert isinstance(bag_info, dict)

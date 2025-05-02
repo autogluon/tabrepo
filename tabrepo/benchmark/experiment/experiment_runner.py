@@ -24,6 +24,8 @@ class ExperimentRunner:
         fold: int,
         task_name: str,
         method: str,
+        repeat: int = 0,
+        sample: int = 0,
         fit_args: dict | None = None,
         cleanup: bool = True,
         input_format: Literal["openml", "csv"] = "openml",
@@ -56,6 +58,8 @@ class ExperimentRunner:
         self.method_cls = method_cls
         self.task = task
         self.fold = fold
+        self.repeat = repeat
+        self.sample = sample
         self.task_name = task_name
         self.method = method
         self.fit_args = fit_args
@@ -69,7 +73,8 @@ class ExperimentRunner:
         self.eval_metric_name = ag_eval_metric_map[self.task.problem_type]  # FIXME: Don't hardcode eval metric
         self.eval_metric: Scorer = get_metric(metric=self.eval_metric_name, problem_type=self.task.problem_type)
         self.model = None
-        self.X, self.y, self.X_test, self.y_test = self.task.get_train_test_split(fold=self.fold)
+        self.task_split_idx = self.task.get_split_idx(fold=self.fold, repeat=self.repeat, sample=self.sample)
+        self.X, self.y, self.X_test, self.y_test = self.task.get_train_test_split(fold=self.fold, repeat=self.repeat, sample=self.sample)
         if input_format == "csv":
             self.X = self.task.to_csv_format(X=self.X)
             self.X_test = self.task.to_csv_format(X=self.X_test)
@@ -171,10 +176,15 @@ class ExperimentRunner:
         return out
 
     def post_evaluate(self, out: dict) -> dict:
+        out["task_metadata"] = {
+            "tid": self.task.task_id,
+            "name": self.task_name,
+            "fold": self.fold,
+            "repeat": self.repeat,
+            "sample": self.sample,
+            "split_idx": self.task_split_idx,
+        }
         out["framework"] = self.method
-        out["dataset"] = self.task_name
-        out["tid"] = self.task.task_id
-        out["fold"] = self.fold
         out["problem_type"] = self.task.problem_type
         out["metric"] = self.eval_metric_name
 
@@ -195,24 +205,8 @@ class ExperimentRunner:
         return metadata
 
     def convert_to_output(self, out: dict) -> dict:
-        ignored_columns = [
-            "predictions",
-            "probabilities",
-            "simulation_artifacts",
-            "experiment_metadata",
-            "method_metadata",
-        ]
-        out_keys = list(out.keys())
-
-        ordered_columns = ["dataset", "fold", "framework", "metric_error", "metric", "time_train_s"]
-        columns_reorder = ordered_columns + [c for c in out_keys if c not in ordered_columns and c not in ignored_columns]
-        df_results = pd.DataFrame([{k: out[k] for k in columns_reorder}])
-        df_results = df_results[columns_reorder]
-
-        out["df_results"] = df_results
         out.pop("predictions")
         out.pop("probabilities")
-
         return out
 
     def evaluate(
@@ -292,10 +286,9 @@ class OOFExperimentRunner(ExperimentRunner):
 
             simulation_artifact["pred_proba_dict_val"] = {self.method: simulation_artifact["pred_proba_dict_val"]}
             simulation_artifact["pred_proba_dict_test"] = {self.method: simulation_artifact["pred_proba_dict_test"]}
-            simulation_artifacts = {self.task_name: {self.fold: simulation_artifact}}
         else:
-            simulation_artifacts = None
-        out["simulation_artifacts"] = simulation_artifacts
+            simulation_artifact = None
+        out["simulation_artifacts"] = simulation_artifact
         return out
 
 
