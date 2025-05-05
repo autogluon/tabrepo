@@ -345,24 +345,26 @@ class Method(object, metaclass=abc.ABCMeta):
             return (mae, r2, rmse), ("MAE", "R2", "RMSE")
         elif self.is_binclass:
             # if not softmax, convert to probabilities
+            classes = list(range(predictions.shape[-1]))
             predictions = check_softmax(predictions)
             accuracy = skm.accuracy_score(labels, predictions.argmax(axis=-1))
             avg_recall = skm.balanced_accuracy_score(labels, predictions.argmax(axis=-1))
             avg_precision = skm.precision_score(labels, predictions.argmax(axis=-1), average='macro')
             f1_score = skm.f1_score(labels, predictions.argmax(axis=-1), average='binary')
-            log_loss = skm.log_loss(labels, predictions)
-            auc = skm.roc_auc_score(labels, predictions[:, 1])
+            log_loss = skm.log_loss(labels, predictions, labels=classes)
+            auc = skm.roc_auc_score(labels, predictions[:, 1], labels=classes)
             return (accuracy, avg_recall, avg_precision, f1_score, log_loss, auc), (
             "Accuracy", "Avg_Recall", "Avg_Precision", "F1", "LogLoss", "AUC")
         elif self.is_multiclass:
             # if not softmax, convert to probabilities
+            classes = list(range(predictions.shape[-1]))
             predictions = check_softmax(predictions)
             accuracy = skm.accuracy_score(labels, predictions.argmax(axis=-1))
             avg_recall = skm.balanced_accuracy_score(labels, predictions.argmax(axis=-1))
             avg_precision = skm.precision_score(labels, predictions.argmax(axis=-1), average='macro')
             f1_score = skm.f1_score(labels, predictions.argmax(axis=-1), average='macro')
-            log_loss = skm.log_loss(labels, predictions)
-            auc = skm.roc_auc_score(labels, predictions, average='macro', multi_class='ovr')
+            log_loss = skm.log_loss(labels, predictions, labels=classes)
+            auc = skm.roc_auc_score(labels, predictions, average='macro', multi_class='ovr', labels=classes)
             return (accuracy, avg_recall, avg_precision, f1_score, log_loss, auc), (
             "Accuracy", "Avg_Recall", "Avg_Precision", "F1", "LogLoss", "AUC")
         else:

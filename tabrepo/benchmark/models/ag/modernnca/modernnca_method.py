@@ -103,7 +103,7 @@ class ModernNCAMethod(Method):
                 self.N_test, self.C_test = None, C_test['test']
             else:
                 self.N_test, self.C_test = N_test['test'], None
-            self.y_test = y_test['test']
+            # self.y_test = y_test['test']
 
     def fit(self, data, info, train=True, config=None):
         N, C, y = data
@@ -143,12 +143,17 @@ class ModernNCAMethod(Method):
             dict(params=self.model.state_dict()),
             osp.join(self.args.save_path, 'epoch-last-{}.pth'.format(str(self.args.seed)))
         )
+
+        # new: restore to best val model
+        self.model.load_state_dict(
+            torch.load(osp.join(self.args.save_path, 'best-val-{}.pth'.format(str(self.args.seed))))['params'])
+
         return time_cost
 
     def predict(self, data, info, model_name):
         N, C, y = data
-        self.model.load_state_dict(
-            torch.load(osp.join(self.args.save_path, model_name + '-{}.pth'.format(str(self.args.seed))))['params'])
+        # self.model.load_state_dict(
+        #     torch.load(osp.join(self.args.save_path, model_name + '-{}.pth'.format(str(self.args.seed))))['params'])
         print('best epoch {}, best val res={:.4f}'.format(self.trlog['best_epoch'], self.trlog['best_res']))
         ## Evaluation Stage
         self.model.eval()
@@ -158,6 +163,7 @@ class ModernNCAMethod(Method):
         test_logit, test_label = [], []
         with torch.no_grad():
             for i, (X, y) in tqdm(enumerate(self.test_loader)):
+                print(f'method predict {X=}')
                 if self.N is not None and self.C is not None:
                     X_num, X_cat = X[0], X[1]
                 elif self.C is not None and self.N is None:

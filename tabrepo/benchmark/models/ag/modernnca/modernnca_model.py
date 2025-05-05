@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
+import shutil
+import tempfile
 import time
 from types import SimpleNamespace
 from typing import Literal, Optional, List, Any
@@ -93,7 +96,10 @@ class ModernNCAImplementation:
 
         TaskType = Literal['regression', 'binclass', 'multiclass']
 
-        task_type: TaskType = self.config['problem_type']
+        problem_type = self.config['problem_type']
+        task_type: TaskType = 'binclass' if problem_type == 'binary' else problem_type
+
+        print(f'{task_type=}')
 
         # hyperparams
         # defaults taken from https://github.com/LAMDA-Tabular/TALENT/blob/cb6cb0cc9d69ac75c467e8dae8ca5ac3d3beb2f2/TALENT/configs/default/modernNCA.json
@@ -130,17 +136,17 @@ class ModernNCAImplementation:
         for part, X, y in [('train', X_train, y_train), ('val', X_val, y_val)]:
             tensors = dict()
 
-            tensors['x_cat'] = torch.as_tensor(self.ord_enc_.transform(X[cat_col_names]), dtype=torch.long)
+            tensors['x_cat'] = self.ord_enc_.transform(X[cat_col_names])
             x_cont_np = X.drop(columns=cat_col_names).to_numpy(dtype=np.float32)
 
-            tensors['x_cont'] = torch.as_tensor(x_cont_np)
+            tensors['x_cont'] = x_cont_np
             if task_type == 'regression':
-                tensors['y'] = torch.as_tensor(y.to_numpy(np.float32))
+                tensors['y'] = y.to_numpy(np.float32)
                 if part == 'train':
                     n_classes = 0
             else:
                 # todo: we assume that it's already ordinally encoded
-                tensors['y'] = torch.as_tensor(y.to_numpy(np.int32), dtype=torch.long)
+                tensors['y'] = y.to_numpy(np.int32)
                 if part == 'train':
                     n_classes = tensors['y'].max().item() + 1
 
@@ -154,29 +160,9 @@ class ModernNCAImplementation:
         self.task_type_ = task_type
         self.device_ = device
 
-        args = {
-            'cat_policy': 'tabr_ohe',  # mandatory
-            'num_policy': 'none',  # mandatory
-            'use_float': True,
-            'device': device,
-            'num_nan_policy': self.config.get('num_nan_policy', 'mean'),  # todo
-            'cat_nan_policy': self.config.get('cat_nan_policy', 'new'),  # todo
-            'normalization': self.config.get('normalization', 'standard'),  # todo
-            'seed': seed,
-            'batch_size': batch_size,
-            'max_epoch': n_epochs,
-            'save_path': None,  # todo
-        }
-        args = SimpleNamespace(**args)  # convert to an object with the keys as attributes
-
-        data = tuple({part: ds_parts[part][tens_name]} for tens_name in ['x_cont', 'x_cat', 'y'])
-        info = {
-            'task_type': task_type,
-            'n_num_features': ds_parts['train']['x_cont'].shape[1],
-            'n_cat_features': ds_parts['train']['x_cat'].shape[1],
-        }
-
-        assert num_emb_type == 'plr'  # ohthers are currently not implemented
+        self.save_path_ = tempfile.mkdtemp()  # todo: can we get a temp folder from outside? such that we can delete it afterwards?
+        # print(f'{self.save_path_=}')
+        # os.makedirs(self.save_path_)
 
         config = {
             'training': {
@@ -200,6 +186,44 @@ class ModernNCAImplementation:
             },
         }
 
+        args = {
+            'cat_policy': 'tabr_ohe',  # mandatory
+            'num_policy': 'none',  # mandatory
+            'use_float': True,
+            'device': device,
+            'num_nan_policy': self.config.get('num_nan_policy', 'mean'),  # todo
+            'cat_nan_policy': self.config.get('cat_nan_policy', 'new'),  # todo
+            'normalization': self.config.get('normalization', 'standard'),  # todo
+            'seed': seed,
+            'batch_size': batch_size,
+            'max_epoch': n_epochs,
+            'save_path': self.save_path_,
+            'config': config,
+        }
+        args = SimpleNamespace(**args)  # convert to an object with the keys as attributes
+        info = {
+            'task_type': task_type,
+            'n_num_features': ds_parts['train']['x_cont'].shape[1],
+            'n_cat_features': ds_parts['train']['x_cat'].shape[1],
+        }
+
+        # # set empty tensors to None
+        # for tensors in ds_parts.values():
+        #     for tens_name in ['x_cat', 'x_cont']:
+        #         if tensors[tens_name].size == 0:
+        #             tensors[tens_name] = None
+
+        data = [{part: ds_parts[part][tens_name] for part in ['train', 'val']} for tens_name in ['x_cont', 'x_cat', 'y']]
+
+        if info['n_num_features'] == 0:
+            data[0] = None
+        if info['n_cat_features'] == 0:
+            data[1] = None
+
+        data = tuple(data)
+
+        assert num_emb_type == 'plr'  # ohthers are currently not implemented
+
         # todo: time limit
         # todo: custom validation metric
         # todo: is GPU handled correctly?
@@ -210,22 +234,31 @@ class ModernNCAImplementation:
 
     def predict_raw(self, X: pd.DataFrame) -> torch.Tensor:
         tensors = dict()
-        tensors['x_cat'] = torch.as_tensor(self.ord_enc_.transform(X[self.cat_col_names_]), dtype=torch.long).to(
-            self.device_)
-        tensors['x_cont'] = torch.as_tensor(
-            self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))).to(
-            self.device_)
+        tensors['x_cat'] = self.ord_enc_.transform(X[self.cat_col_names_])
+        tensors['x_cont'] = X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32)
+
+        # for tens_name in ['x_cat', 'x_cont']:
+        #     if tensors[tens_name].size == 0:
+        #         tensors[tens_name] = None
 
         # generate dummy y
         if self.task_type_ == 'regression':
-            tensors['y'] = torch.zeros(self.n_train_)
+            tensors['y'] = np.zeros(tensors['x_cat'].shape[0])
         else:
-            tensors['y'] = torch.zeros(self.n_train_, dtype=torch.long)
+            tensors['y'] = np.zeros(tensors['x_cat'].shape[0], dtype=np.int32)
 
-        data = tuple({'test': tensors[tens_name]} for tens_name in ['x_cont', 'x_cat', 'y'])
+        data = [{'test': tensors[tens_name]} for tens_name in ['x_cont', 'x_cat', 'y']]
+
+        # eliminate empty tensors
+        for i in range(2):
+            if data[i]['test'].size == 0:
+                data[i] = None
+        data = tuple(data)
 
         # could use 'epoch-last' instead of 'best-val' for the last model
         y_pred = self.model_.predict(data=data, info=None, model_name='best-val')
+
+        print(f'predict: {X=}, {y_pred=}')
 
         return y_pred.cpu()
 
@@ -241,6 +274,13 @@ class ModernNCAImplementation:
         if probas.shape[1] == 2:
             probas = probas[:, 1]
         return probas
+
+    def __del__(self):
+        # todo: okay?
+        # need the check perhaps because the delete can be called multiple times
+        # if the object is serialized, deleted, loaded again, deleted again
+        if os.path.exists(self.save_path_):
+            shutil.rmtree(self.save_path_)
 
 
 class ModernNCAModel(AbstractModel):
