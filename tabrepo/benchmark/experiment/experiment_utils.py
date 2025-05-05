@@ -78,6 +78,7 @@ class ExperimentBatchRunner:
         methods: list[Experiment],
         datasets: list[str],
         folds: list[int],
+        repeats: list[int] | None = None,
         ignore_cache: bool = False,
         raise_on_failure: bool = True,
     ) -> list[dict[str, Any]]:
@@ -88,6 +89,7 @@ class ExperimentBatchRunner:
         methods
         datasets
         folds
+        repeats
         ignore_cache: bool, default False
             If True, will run the experiments regardless if the cache exists already, and will overwrite the cache file upon completion.
             If False, will load the cache result if it exists for a given experiment, rather than running the experiment again.
@@ -101,12 +103,14 @@ class ExperimentBatchRunner:
         """
         self._validate_datasets(datasets=datasets)
         self._validate_folds(folds=folds)
+        self._validate_repeats(repeats=repeats)
 
         tids = [self._dataset_to_tid_dict[dataset] for dataset in datasets]
         return run_experiments(
             expname=self.expname,
             tids=tids,
             folds=folds,
+            repeats=repeats,
             methods=methods,
             task_metadata=self.task_metadata,
             ignore_cache=ignore_cache,
@@ -126,6 +130,7 @@ class ExperimentBatchRunner:
         methods: list[Experiment | str],
         datasets: list[str],
         folds: list[int],
+        repeats: list[int] | None = None,
         require_all: bool = True,
     ) -> list[dict[str, Any]]:
         """
@@ -136,6 +141,7 @@ class ExperimentBatchRunner:
         methods
         datasets
         folds
+        repeats
         require_all: bool, default True
             If True, will raise an exception if not all methods x datasets x folds have a cached result to load.
             If False, will return only the list of results with a cached result. This can be an empty list if no cached results exist.
@@ -149,15 +155,19 @@ class ExperimentBatchRunner:
         results_lst = []
         results_lst_exists = []
         results_lst_missing = []
+        if repeats is not None:
+            repeat_fold_pairs = [(r, f) for r in repeats for f in folds]
+        else:
+            repeat_fold_pairs = [(None, f) for f in folds]
         for method in methods:
             if isinstance(method, Experiment):
                 method_name = method.name
             else:
                 method_name = method
             for dataset in datasets:
-                for fold in folds:
+                for repeat, fold in repeat_fold_pairs:
                     cache_exists = self._cache_exists(method_name=method_name, dataset=dataset, fold=fold)
-                    cache_args = (method_name, dataset, fold)
+                    cache_args = (method_name, dataset, fold, repeat)
                     if cache_exists:
                         results_lst_exists.append(cache_args)
                         print(method.name, dataset, fold)
@@ -171,8 +181,8 @@ class ExperimentBatchRunner:
                 f"or call `exp_batch_runner.run(methods=methods, datasets=datasets, folds=folds)` to run the missing experiments."
                 f"\nMissing experiments:\n\t{results_lst_missing}"
             )
-        for method_name, dataset, fold in results_lst_exists:
-            results_lst.append(self._load_result(method_name=method_name, dataset=dataset, fold=fold))
+        for method_name, dataset, fold, repeat in results_lst_exists:
+            results_lst.append(self._load_result(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat))
         return results_lst
 
     def repo_from_results(
@@ -191,28 +201,37 @@ class ExperimentBatchRunner:
         )
         return repo
 
-    def _cache_name(self, method_name: str, dataset: str, fold: int) -> str:
+    @classmethod
+    def _subtask_name(cls, fold: int, repeat: int | None = None) -> str:
+        if repeat is None:
+            subtask_name = f"{fold}"
+        else:
+            subtask_name = f"{repeat}_{fold}"
+        return subtask_name
+
+    def _cache_name(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> str:
+        subtask_name = self._subtask_name(fold=fold, repeat=repeat)
         # TODO: Windows? Use Path?
         tid = self._dataset_to_tid_dict[dataset]
         if self.cache_path_format == "name_first":
-            cache_name = f"data/{method_name}/{tid}/{fold}/results"
+            cache_name = f"data/{method_name}/{tid}/{subtask_name}/results"
         elif self.cache_path_format == "task_first":
             # Legacy format from early prototyping
-            cache_name = f"data/tasks/{tid}/{fold}/{method_name}/results"
+            cache_name = f"data/tasks/{tid}/{subtask_name}/{method_name}/results"
         else:
             raise ValueError(f"Unknown cache_path_format: {self.cache_path_format}")
         return cache_name
 
-    def _cache_exists(self, method_name: str, dataset: str, fold: int) -> bool:
-        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold)
+    def _cache_exists(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> bool:
+        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat)
         return cacher.exists
 
-    def _load_result(self, method_name: str, dataset: str, fold: int) -> dict[str, Any]:
-        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold)
+    def _load_result(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> dict[str, Any]:
+        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat)
         return cacher.load_cache()
 
-    def _get_cacher(self, method_name: str, dataset: str, fold: int) -> AbstractCacheFunction:
-        cache_name = self._cache_name(method_name=method_name, dataset=dataset, fold=fold)
+    def _get_cacher(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> AbstractCacheFunction:
+        cache_name = self._cache_name(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat)
         cacher = self.cache_cls(cache_name=cache_name, cache_path=self.expname, **self.cache_cls_kwargs)
         return cacher
 
@@ -234,6 +253,12 @@ class ExperimentBatchRunner:
         if len(folds) != len(set(folds)):
             raise AssertionError(f"Duplicate folds present! Ensure all folds are unique.")
 
+    def _validate_repeats(self, repeats: list[int] | None):
+        if repeats is None:
+            return
+        if len(repeats) != len(set(repeats)):
+            raise AssertionError(f"Duplicate repeats present! Ensure all repeats are unique.")
+
 
 def run_experiments(
     expname: str,
@@ -242,6 +267,7 @@ def run_experiments(
     methods: list[Experiment],
     task_metadata: pd.DataFrame,
     ignore_cache: bool,
+    repeats: list[int] | None = None,
     cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
     cache_cls_kwargs: dict = None,
     cache_path_format: Literal["name_first", "task_first"] = "name_first",
@@ -259,6 +285,7 @@ def run_experiments(
     expname: str, Name of the experiment given by the user
     tids: list[int], List of OpenML task IDs given by the user
     folds: list[int], Number of folds present for the given task
+    repeats: list[int] | None, Number of repeats present for the given task. If None, defaults to [0]
     methods: list[Experiment], Models used for fit() and predict() in this experiment
     task_metadata: pd.DataFrame, OpenML task metadata
     ignore_cache: bool, whether to use cached results (if present)
@@ -320,6 +347,7 @@ def run_experiments(
         f"\n\tTIDs    : {tids}"
         f"\n\tDatasets: {dataset_names}"
         f"\n\tFolds   : {folds}"
+        f"\n\tRepeats : {repeats}"
         f"\n\tMethods : {[method.name for method in methods]}"
     )
     result_lst = []
@@ -331,19 +359,26 @@ def run_experiments(
     experiment_missing_count = 0
     experiment_cache_exists_count = 0
     experiment_count_total = len(tids) * len(folds) * len(methods)
+    if repeats is not None:
+        experiment_count_total *= len(repeats)
+    if repeats is not None:
+        repeat_fold_pairs = [(r, f) for r in repeats for f in folds]
+    else:
+        repeat_fold_pairs = [(None, f) for f in folds]
     for i, tid in enumerate(tids):
         task = None  # lazy task loading
         task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
         print(f"Starting Dataset {i+1}/{num_datasets}...")
-        for fold in folds:
+        for repeat, fold in repeat_fold_pairs:
+            subtask_cache_name = ExperimentBatchRunner._subtask_name(fold=fold, repeat=repeat)
             for method in methods:
                 cur_experiment_idx += 1
                 if cache_path_format == "name_first":
-                    cache_prefix = f"data/{method.name}/{tid}/{fold}"
+                    cache_prefix = f"data/{method.name}/{tid}/{subtask_cache_name}"
                     cache_name = "results"
                 elif cache_path_format == "task_first":
                     # Legacy format from early prototyping
-                    cache_prefix = f"data/tasks/{tid}/{fold}/{method.name}"
+                    cache_prefix = f"data/tasks/{tid}/{subtask_cache_name}/{method.name}"
                     cache_name = "results"
                 else:
                     raise ValueError(f"Invalid cache_path_format: {cache_path_format}")
@@ -354,7 +389,7 @@ def run_experiments(
                     f"{experiment_fail_count} fail | "
                     f"{experiment_cache_exists_count} cache_exists | "
                     f"{experiment_missing_count} missing | "
-                    f"Fitting {task_name} on fold {fold} for method {method.name}"
+                    f"Fitting {task_name} on repeat {repeat}, fold {fold} for method {method.name}"
                 )
                 cache_path = f"{base_cache_path}/{cache_prefix}"
 
@@ -379,6 +414,13 @@ def run_experiments(
                             else:
                                 task = OpenMLTaskWrapper.from_task_id(task_id=tid)
 
+                    if repeat is not None:
+                        run_kwargs = {
+                            "repeat": repeat,
+                        }
+                    else:
+                        run_kwargs = {}
+
                     try:
                         out = method.run(
                             task=task,
@@ -387,6 +429,7 @@ def run_experiments(
                             cacher=cacher,
                             ignore_cache=ignore_cache,
                             debug_mode=debug_mode,
+                            **run_kwargs,
                         )
                     except Exception as exc:
                         if raise_on_failure:
