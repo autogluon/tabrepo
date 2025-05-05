@@ -35,12 +35,12 @@ def generate_single_config_tabm(rng):
     params = {
         'batch_size': 'auto',
         'patience': 16,
-        'amp': 'True',  # only for GPU
+        'amp': False,  # only for GPU, maybe we should change it to True?
         'arch_type': 'tabm-mini',
         'tabm_k': 32,
         'gradient_clipping_norm': 1.0,
         # this makes it probably slower with numerical embeddings, and also more RAM intensive
-        # according to the paper it's not very important (?)
+        # according to the paper it's not very important but should be a bit better (?)
         'share_training_batches': False,
         'lr': np.exp(rng.uniform(np.log(1e-4), np.log(3e-3))),
         'weight_decay': rng.choice([0.0, np.exp(rng.uniform(np.log(1e-4), np.log(1e-1)))]),
@@ -51,7 +51,6 @@ def generate_single_config_tabm(rng):
         'dropout': rng.choice([0.0, rng.uniform([0.0, 0.5])]),
 
         # numerical embeddings
-        # todo: num_emb_type: new version?
         'num_emb_type': 'pwl',
         'd_embedding': rng.choice([i for i in range(8, 32+1) if i%4==0]),
         'num_emb_n_bins': rng.integers(2, 128, endpoint=True),

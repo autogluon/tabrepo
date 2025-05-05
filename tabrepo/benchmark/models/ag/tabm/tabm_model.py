@@ -15,6 +15,7 @@ from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from sklearn.utils.validation import check_is_fitted
 
 from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm_reference
+from tabrepo.benchmark.models.ag.tabm.tabm_reference import make_parameter_groups
 
 logger = logging.getLogger(__name__)
 
@@ -33,19 +34,23 @@ from torch import nn
 
 
 def get_tabm_auto_batch_size(n_train: int) -> int:
-    # taken from tabr paper table 14
-    # the cutoffs might not be exactly the same
-    if n_train < 10_000:
+    # by Yury Gorishniy, inferred from the choices in the TabM paper.
+    if n_train < 2_800:
+        return 32
+    elif n_train < 4_500:
+        return 64
+    elif n_train < 6_400:
         return 128
-    elif n_train < 30_000:
+    elif n_train < 32_000:
         return 256
-    elif n_train < 200_000:
+    elif n_train < 108_000:
         return 512
     else:
         return 1024
 
 
 class RTDLQuantileTransformer(BaseEstimator, TransformerMixin):
+    # adapted from pytabkit
     def __init__(self, noise=1e-5, random_state=None, n_quantiles=1000, subsample=1_000_000_000,
                  output_distribution="normal"):
         self.noise = noise
@@ -86,6 +91,46 @@ class RTDLQuantileTransformer(BaseEstimator, TransformerMixin):
         stds = np.std(X, axis=0, keepdims=True)
         rng = np.random.default_rng(self.random_state)
         return X + self.noise * stds * rng.standard_normal(X.shape)
+
+
+class TabMOrdinalEncoder(BaseEstimator, TransformerMixin):
+    # encodes missing and unknown values to a value one larger than the known values
+    def __init__(self):
+        # No fitted attributes here — only parameters
+        pass
+
+    def fit(self, X, y=None):
+        X = pd.DataFrame(X)
+
+        # Fit internal OrdinalEncoder with NaNs preserved for now
+        self.encoder_ = OrdinalEncoder(
+            handle_unknown='use_encoded_value',
+            unknown_value=np.nan,
+            encoded_missing_value=np.nan
+        )
+        self.encoder_.fit(X)
+
+        # Cardinalities = number of known categories per column
+        self.cardinalities_ = [len(cats) for cats in self.encoder_.categories_]
+
+        return self
+
+    def transform(self, X):
+        check_is_fitted(self, ['encoder_', 'cardinalities_'])
+
+        X = pd.DataFrame(X)
+        X_enc = self.encoder_.transform(X)
+
+        # Replace np.nan (unknown or missing) with cardinality value
+        for col_idx, cardinality in enumerate(self.cardinalities_):
+            mask = np.isnan(X_enc[:, col_idx])
+            X_enc[mask, col_idx] = cardinality
+
+        return X_enc.astype(int)
+
+    def get_cardinalities(self):
+        check_is_fitted(self, ['cardinalities_'])
+        return self.cardinalities_
 
 
 class TabMImplementation:
@@ -130,6 +175,9 @@ class TabMImplementation:
         num_emb_n_bins = self.config.get('num_emb_n_bins', 48)
         eval_batch_size = self.config.get('eval_batch_size', 1024)
         share_training_batches = self.config.get('share_training_batches', False)
+        weight_decay = self.config.get('weight_decay', 3e-4)
+        # this is the search space default but not the example default (which is 'none')
+        gradient_clipping_norm = self.config.get('gradient_clipping_norm', 1.0)
 
         # todo: is this okay? otherwise the test fails
         num_emb_n_bins = min(num_emb_n_bins, len(X_train)-1)
@@ -139,17 +187,13 @@ class TabMImplementation:
         if batch_size == 'auto':
             batch_size = get_tabm_auto_batch_size(n_train=len(X_train))
 
-        weight_decay = self.config.get('weight_decay', 0.0)
-        gradient_clipping_norm = self.config.get('gradient_clipping_norm', 1.0)  # this is the search space default
-
         ds_parts = dict()
 
         n_classes = None
 
         self.cat_col_names_ = cat_col_names
         # todo: do we need to do this here or is it already done before?
-        self.ord_enc_ = OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1,
-                                       encoded_missing_value=-1)
+        self.ord_enc_ = TabMOrdinalEncoder()
         self.ord_enc_.fit(X_train[cat_col_names])
         self.num_prep_ = RTDLQuantileTransformer()
 
@@ -176,7 +220,7 @@ class TabMImplementation:
             ds_parts[part] = tensors
 
         n_train = len(X_train)
-        cat_cardinalities = ds_parts['train']['x_cat'].max(dim=0)[0].numpy().tolist()
+        cat_cardinalities = self.ord_enc_.get_cardinalities()
         device = self.config['device']
         device = torch.device(device)
 
@@ -268,7 +312,7 @@ class TabMImplementation:
             k=tabm_k,
             share_training_batches=share_training_batches,
         ).to(device)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+        optimizer = torch.optim.AdamW(make_parameter_groups(model), lr=lr, weight_decay=weight_decay)
 
         if compile_model:
             # NOTE
