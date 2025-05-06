@@ -152,7 +152,8 @@ class TabMImplementation:
 
         TaskType = Literal['regression', 'binclass', 'multiclass']
 
-        task_type: TaskType = self.config['problem_type']
+        problem_type = self.config['problem_type']
+        task_type: TaskType = 'binclass' if problem_type == 'binary' else problem_type
 
         # hyperparams
         # set defaults to tabm-mini defaults

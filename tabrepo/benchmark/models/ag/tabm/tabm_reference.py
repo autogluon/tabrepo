@@ -381,7 +381,7 @@ def make_module(type: str, *args, **kwargs) -> nn.Module:
 def default_zero_weight_decay_condition(
     module_name: str, module: nn.Module, parameter_name: str, parameter: nn.Parameter
 ):
-    from rtdl_num_embeddings import _Periodic
+    from tabrepo.benchmark.models.ag.tabm.rtdl_num_embeddings import _Periodic
 
     del module_name, parameter
     return parameter_name.endswith('bias') or isinstance(
