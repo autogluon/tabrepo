@@ -13,7 +13,7 @@ extras_require = {
         "autogluon.tabular[all]>=1.3",
     ],
     "tabpfn": [
-        "tabpfn>=2",
+        "tabpfn @ git+https://github.com/PriorLabs/TabPFN.git", # Required bug fixes are only on main.
     ],
     "tabicl": [
         "tabicl",
