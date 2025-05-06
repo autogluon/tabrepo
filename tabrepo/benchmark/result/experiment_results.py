@@ -78,7 +78,8 @@ class ExperimentResults:
 
         return repo
 
-    def _align_result_input_format(self, result: dict | BaselineResult) -> BaselineResult:
+    @classmethod
+    def _align_result_input_format(cls, result: dict | BaselineResult) -> BaselineResult:
         """
         Converts results in old format to new format
         Keeps results in new format as-is.
