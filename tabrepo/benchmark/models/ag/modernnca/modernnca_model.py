@@ -224,6 +224,7 @@ class ModernNCAImplementation:
 
         assert num_emb_type == 'plr'  # ohthers are currently not implemented
 
+        # todo: number of threads
         # todo: time limit
         # todo: custom validation metric
         # todo: is GPU handled correctly?
