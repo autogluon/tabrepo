@@ -86,11 +86,7 @@ class RTDLQuantileTransformer(BaseEstimator, TransformerMixin):
         return self.normalizer_.transform(X)
 
     def _add_noise(self, X):
-        # todo: small adaptation, adding noise on a scale relative to the feature's standard deviation
-        #  instead of just using an absolute scale for the noise
-        stds = np.std(X, axis=0, keepdims=True)
-        rng = np.random.default_rng(self.random_state)
-        return X + self.noise * stds * rng.standard_normal(X.shape)
+        return X + np.random.default_rng(self.random_state).normal(0.0, 1e-5, X.shape).astype(X.dtype)
 
 
 class TabMOrdinalEncoder(BaseEstimator, TransformerMixin):
