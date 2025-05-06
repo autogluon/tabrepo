@@ -75,6 +75,7 @@ class PaperRunTabArena(PaperRun):
             "TABPFN",
             "REALMLP",
             "EBM",
+            "FT_TRANSFORMER",
         ]
 
         # for model_key, model_name in [("XGB", "XGBoost"), ("CAT", "CatBoost"), ("GBM", "LightGBM"), ("RF", "RandomForest"),
@@ -103,6 +104,7 @@ class PaperRunTabArena(PaperRun):
             "TabPFN_c1_BAG_L1": "TABPFN (default)",
             "RealMLP_c1_BAG_L1": "REALMLP (default)",
             "ExplainableBM_c1_BAG_L1": "EBM (default)",
+            "FTTransformer_c1_BAG_L1": "FT_TRANSFORMER (default)",
         }).fillna(df_results["method"])
         print(df_results)
         rank_scorer, normalized_scorer = make_scorers(self.repo)
