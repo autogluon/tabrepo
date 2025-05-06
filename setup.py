@@ -21,10 +21,16 @@ extras_require = {
     "ebm": [
         "interpret-core>=0.6.1",
     ],
+    "search_spaces": [
+        "configspace",
+    ],
+    "realmlp": [
+        "pytabkit"
+    ]
 }
 
 benchmark_requires = []
-for extra_package in ["autogluon", "tabpfn", "tabicl", "ebm"]:
+for extra_package in ["autogluon", "tabpfn", "tabicl", "ebm", "search_spaces", "realmlp"]:
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
 extras_require["benchmark"] = benchmark_requires
