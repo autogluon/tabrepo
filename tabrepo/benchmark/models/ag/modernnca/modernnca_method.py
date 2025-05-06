@@ -129,8 +129,17 @@ class ModernNCAMethod(Method):
         if not train:
             return
 
+        start_time = time.time()
+
         time_cost = 0
         for epoch in range(self.args.max_epoch):
+            # check time limit
+            if epoch > 0 and self.args.time_to_fit_in_seconds is not None:
+                cur_time = time.time()
+                pred_time_after_next_epoch = (epoch + 1) / epoch * (cur_time - start_time)
+                if pred_time_after_next_epoch > self.args.time_to_fit_in_seconds:
+                    break
+
             tic = time.time()
             self.train_epoch(epoch)
             self.validate(epoch)

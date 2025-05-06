@@ -197,6 +197,7 @@ class ModernNCAImplementation:
             'seed': seed,
             'batch_size': batch_size,
             'max_epoch': n_epochs,
+            'time_to_fit_in_seconds': time_to_fit_in_seconds,
             'save_path': self.save_path_,
             'config': config,
         }
@@ -360,6 +361,7 @@ class ModernNCAModel(AbstractModel):
             y_train=y,
             X_val=X_val,
             y_val=y_val,
+            # todo: does this find all categorical features or should we also detect 'object', 'string', etc.?
             cat_col_names=X.select_dtypes(include='category').columns.tolist(),
             time_to_fit_in_seconds=time_limit,
         )
@@ -379,27 +381,6 @@ class ModernNCAModel(AbstractModel):
         if is_train:
             self._bool_to_cat = bool_to_cat
             self._features_bool = self._feature_metadata.get_features(required_special_types=["bool"])
-            if impute_bool:  # Technically this should do nothing useful because bools will never have NaN
-                self._features_to_impute = self._feature_metadata.get_features(valid_raw_types=["int", "float"])
-                self._features_to_keep = self._feature_metadata.get_features(invalid_raw_types=["int", "float"])
-            else:
-                self._features_to_impute = self._feature_metadata.get_features(valid_raw_types=["int", "float"],
-                                                                               invalid_special_types=["bool"])
-                self._features_to_keep = [f for f in self._feature_metadata.get_features() if
-                                          f not in self._features_to_impute]
-            if self._features_to_impute:
-                self._imputer = SimpleImputer(strategy="mean", add_indicator=True)
-                self._imputer.fit(X=X[self._features_to_impute])
-                self._indicator_columns = [c for c in self._imputer.get_feature_names_out() if
-                                           c not in self._features_to_impute]
-        if self._imputer is not None:
-            X_impute = self._imputer.transform(X=X[self._features_to_impute])
-            X_impute = pd.DataFrame(X_impute, index=X.index, columns=self._imputer.get_feature_names_out())
-            if self._indicator_columns:
-                # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
-                # TODO: Add to features_bool?
-                X_impute[self._indicator_columns] = X_impute[self._indicator_columns].astype("category")
-            X = pd.concat([X[self._features_to_keep], X_impute], axis=1)
         if self._bool_to_cat and self._features_bool:
             # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
             X[self._features_bool] = X[self._features_bool].astype("category")
