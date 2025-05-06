@@ -309,9 +309,8 @@ class ModernNCAModel(AbstractModel):
             num_gpus: float = 0,
             **kwargs,
     ):
-        if num_gpus > 0:
-            logger.log(30,
-                       f"WARNING: GPUs are not yet implemented for ModernNCA model, but `num_gpus={num_gpus}` was specified... Ignoring GPU.")
+        # todo: is that sufficient or do we need to do something else?
+        device = 'cpu' if num_gpus == 0 else 'cuda'
 
         hyp = self._get_model_params()
 
@@ -342,10 +341,9 @@ class ModernNCAModel(AbstractModel):
         bool_to_cat = hyp.pop("bool_to_cat", True)
         impute_bool = hyp.pop("impute_bool", True)
 
-        # TODO: GPU
         self.model = ModernNCAImplementation(
             n_threads=num_cpus,
-            device="cpu",
+            device=device,
             problem_type=self.problem_type,
             **init_kwargs,
             **hyp,
