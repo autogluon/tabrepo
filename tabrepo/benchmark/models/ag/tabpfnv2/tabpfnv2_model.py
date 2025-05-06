@@ -57,19 +57,21 @@ class TabPFNV2Model(AbstractModel):
     ):
         import torch
         from tabpfn import TabPFNClassifier, TabPFNRegressor
+        from tabpfn.model.loading import resolve_model_path
 
         ag_params = self._get_ag_params()
         max_classes = ag_params.get("max_classes")
+        is_classification = self.problem_type in ["binary", "multiclass"]
 
-        if self.problem_type in ["binary", "multiclass"]:
+        if is_classification:
             if max_classes is not None and self.num_classes > max_classes:
                 raise AssertionError(
                     f"Max allowed classes for the model is {max_classes}, but found {self.num_classes} classes.",
                 )
 
-            model_cls = TabPFNClassifier
+            model_base = TabPFNClassifier
         else:
-            model_cls = TabPFNRegressor
+            model_base = TabPFNRegressor
 
         device = "cuda" if num_gpus != 0 else "cpu"
         if (device == "cuda") and (not torch.cuda.is_available()):
@@ -82,14 +84,52 @@ class TabPFNV2Model(AbstractModel):
         X = self.preprocess(X, is_train=True)
 
         hps = self._get_model_params()
-        self.model = model_cls(
-            device=device,
-            n_jobs=num_cpus,
-            random_state=42,  # TODO: get seed from AutoGluon.
-            categorical_features_indices=self._cat_indices,
-            ignore_pretraining_limits=True,  # to ignore warnings and size limits
-            **hps,
+        hps["device"] = device
+        hps["n_jobs"] = num_cpus
+        hps["random_state"] = 42  # TODO: get seed from AutoGluon.
+        hps["categorical_features_indices"] = self._cat_indices
+        hps["ignore_pretraining_limits"] = True  # to ignore warnings and size limits
+
+        _, model_dir, _, _ = resolve_model_path(
+            model_path=None, which="classifier" if is_classification else "regressor"
         )
+        if is_classification:
+            hps["model_path"] = model_dir / hps.pop("classification_model_path")
+            del hps["regression_model_path"]
+        else:
+            hps["model_path"] = model_dir / hps.pop("regression_model_path")
+            del hps["classification_model_path"]
+
+        # Resolve inference_config
+        inference_config = {
+            _k: v for k, v in hps.items() if k.startswith("inference_config/") and (_k := k.split("/")[-1])
+        }
+        if inference_config:
+            hps["inference_config"] = inference_config
+        for k in list(hps.keys()):
+            if k.startswith("inference_config/"):
+                del hps[k]
+
+        # Resolve model_type
+        n_ensemble_repeats = hps.pop("n_ensemble_repeats", None)
+        model_is_rf_pfn = hps.pop("model_type", "no") == "dt_pfn"
+        if model_is_rf_pfn:
+            from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn import (
+                RandomForestTabPFNClassifier,
+                RandomForestTabPFNRegressor,
+            )
+
+            hps["n_estimators"] = 1
+            rf_model_base = RandomForestTabPFNClassifier if is_classification else RandomForestTabPFNRegressor
+            self.model = rf_model_base(
+                tabpfn=model_base(**hps),
+                categorical_features=self._cat_indices,
+                n_estimators=n_ensemble_repeats,
+            )
+        else:
+            if n_ensemble_repeats is not None:
+                hps["n_estimators"] = n_ensemble_repeats
+            self.model = model_base(**hps)
 
         self.model = self.model.fit(
             X=X,
@@ -97,33 +137,38 @@ class TabPFNV2Model(AbstractModel):
         )
 
 
-    # FIXME: unsure what the purpose of this code is
-    # def _get_default_resources(self) -> tuple[int, int]:
-    #     # logical=False is faster in training
-    #     num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-    #     num_gpus = 0
-    #     return num_cpus, num_gpus
+# FIXME: unsure what the purpose of this code is
+# def _get_default_resources(self) -> tuple[int, int]:
+#     # logical=False is faster in training
+#     num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
+#     num_gpus = 0
+#     return num_cpus, num_gpus
 
-    def _set_default_params(self):
-        default_params = {}
-        for param, val in default_params.items():
-            self._set_default_param_value(param, val)
 
-    @classmethod
-    def supported_problem_types(cls) -> list[str] | None:
-        return ["binary", "multiclass", "regression"]
+def _set_default_params(self):
+    default_params = {}
+    for param, val in default_params.items():
+        self._set_default_param_value(param, val)
 
-    def _get_default_auxiliary_params(self) -> dict:
-        default_auxiliary_params = super()._get_default_auxiliary_params()
-        default_auxiliary_params.update(
-            {
-                "max_classes": 10,
-            },
-        )
-        return default_auxiliary_params
 
-    def _ag_params(self) -> set:
-        return {"max_classes"}
+@classmethod
+def supported_problem_types(cls) -> list[str] | None:
+    return ["binary", "multiclass", "regression"]
 
-    def _more_tags(self) -> dict:
-        return {"can_refit_full": True}
+
+def _get_default_auxiliary_params(self) -> dict:
+    default_auxiliary_params = super()._get_default_auxiliary_params()
+    default_auxiliary_params.update(
+        {
+            "max_classes": 10,
+        },
+    )
+    return default_auxiliary_params
+
+
+def _ag_params(self) -> set:
+    return {"max_classes"}
+
+
+def _more_tags(self) -> dict:
+    return {"can_refit_full": True}
