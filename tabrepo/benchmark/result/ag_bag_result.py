@@ -26,6 +26,13 @@ class AGBagResult(ConfigResult):
             assert num_samples_val == sum([len(val_idx_child) for val_idx_child in bag_info["val_idx_per_child"]])
             # convert to pred_val_per_child
             pred_val_per_child = []
+            if len(bag_info["val_idx_per_child"]) == 1:
+                # FIXME: Bug in AutoGluon's output! Wrong indices. This logic fixes that.
+                y_val_idx = self.result["simulation_artifacts"]["y_val_idx"]
+                value_to_index = {value: idx for idx, value in enumerate(y_val_idx)}
+                val_idx_child = bag_info["val_idx_per_child"][0]
+                val_idx_child_iloc = np.array([value_to_index[v] for v in val_idx_child])
+                bag_info["val_idx_per_child"][0] = val_idx_child_iloc
             for val_idx_child in bag_info["val_idx_per_child"]:
                 pred_val_child_cur = self.result["simulation_artifacts"]["pred_val"][val_idx_child]
                 pred_val_per_child.append(pred_val_child_cur)
@@ -35,13 +42,13 @@ class AGBagResult(ConfigResult):
         if "pred_val" in self.result["simulation_artifacts"]:
             assert pred_val.shape == self.simulation_artifacts["pred_val"].shape
             if not np.isclose(pred_val, self.simulation_artifacts["pred_val"]).all():
-                print(f"WARNING: Not close  VAL: {self.result['dataset']}, {self.result['fold']}, {self.result['framework']}")
+                print(f"WARNING: Not close  VAL: {self.result['task_metadata']['name']}, {self.result['task_metadata']['split_idx']}, {self.result['framework']}")
         self.simulation_artifacts["pred_val"] = pred_val
         pred_test = self._pred_test_from_children()
         if "pred_test" in self.result["simulation_artifacts"]:
             assert pred_test.shape == self.simulation_artifacts["pred_test"].shape
             if not np.isclose(pred_test, self.simulation_artifacts["pred_test"]).all():
-                print(f"WARNING: Not close TEST: {self.result['dataset']}, {self.result['fold']}, {self.result['framework']}")
+                print(f"WARNING: Not close TEST: {self.result['task_metadata']['name']}, {self.result['task_metadata']['split_idx']}, {self.result['framework']}")
         self.simulation_artifacts["pred_test"] = pred_test
         return self.result
 
