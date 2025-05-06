@@ -11,6 +11,7 @@ from sklearn.impute import SimpleImputer
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from sklearn.utils.validation import check_is_fitted
 
@@ -176,7 +177,7 @@ class TabMImplementation:
         gradient_clipping_norm = self.config.get('gradient_clipping_norm', 1.0)
 
         # todo: is this okay? otherwise the test fails
-        num_emb_n_bins = min(num_emb_n_bins, len(X_train)-1)
+        num_emb_n_bins = min(num_emb_n_bins, len(X_train) - 1)
         if len(X_train) <= 2:
             num_emb_type = 'none'  # there is no valid number of bins for piecewise linear embeddings
 
@@ -191,7 +192,7 @@ class TabMImplementation:
         # todo: do we need to do this here or is it already done before?
         self.ord_enc_ = TabMOrdinalEncoder()
         self.ord_enc_.fit(X_train[cat_col_names])
-        self.num_prep_ = RTDLQuantileTransformer()
+        self.num_prep_ = Pipeline(steps=[('qt', RTDLQuantileTransformer()), ('imp', SimpleImputer(add_indicator=True))])
 
         for part, X, y in [('train', X_train, y_train), ('val', X_val, y_val)]:
             tensors = dict()
@@ -531,8 +532,6 @@ class TabMImplementation:
         return probas
 
 
-
-
 # pip install pytabkit
 class TabMModel(AbstractModel):
     ag_key = "TABM"
@@ -614,7 +613,6 @@ class TabMModel(AbstractModel):
             time_to_fit_in_seconds=time_limit,
         )
 
-    # TODO: Move missing indicator + mean fill to a generic preprocess flag available to all models
     # FIXME: bool_to_cat is a hack: Maybe move to abstract model?
     def _preprocess(self, X: pd.DataFrame, is_train: bool = False, bool_to_cat: bool = False, impute_bool: bool = True,
                     **kwargs) -> pd.DataFrame:
@@ -629,27 +627,6 @@ class TabMModel(AbstractModel):
         if is_train:
             self._bool_to_cat = bool_to_cat
             self._features_bool = self._feature_metadata.get_features(required_special_types=["bool"])
-            if impute_bool:  # Technically this should do nothing useful because bools will never have NaN
-                self._features_to_impute = self._feature_metadata.get_features(valid_raw_types=["int", "float"])
-                self._features_to_keep = self._feature_metadata.get_features(invalid_raw_types=["int", "float"])
-            else:
-                self._features_to_impute = self._feature_metadata.get_features(valid_raw_types=["int", "float"],
-                                                                               invalid_special_types=["bool"])
-                self._features_to_keep = [f for f in self._feature_metadata.get_features() if
-                                          f not in self._features_to_impute]
-            if self._features_to_impute:
-                self._imputer = SimpleImputer(strategy="mean", add_indicator=True)
-                self._imputer.fit(X=X[self._features_to_impute])
-                self._indicator_columns = [c for c in self._imputer.get_feature_names_out() if
-                                           c not in self._features_to_impute]
-        if self._imputer is not None:
-            X_impute = self._imputer.transform(X=X[self._features_to_impute])
-            X_impute = pd.DataFrame(X_impute, index=X.index, columns=self._imputer.get_feature_names_out())
-            if self._indicator_columns:
-                # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
-                # TODO: Add to features_bool?
-                X_impute[self._indicator_columns] = X_impute[self._indicator_columns].astype("category")
-            X = pd.concat([X[self._features_to_keep], X_impute], axis=1)
         if self._bool_to_cat and self._features_bool:
             # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
             X[self._features_bool] = X[self._features_bool].astype("category")
