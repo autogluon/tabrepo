@@ -96,16 +96,6 @@ class TabPFNV2Model(AbstractModel):
             y=y,
         )
 
-    # FIXME: We have to assume the models are downloaded beforehand / as part of the installation.
-    # @classmethod
-    # def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
-    #     default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
-    #     # FIXME: Will raise an exception if the model isn't downloaded
-    #     extra_ag_args_ensemble = {
-    #        "fold_fitting_strategy": "sequential_local",  # FIXME: Comment out after debugging for large speedup
-    #     }
-    #     default_ag_args_ensemble.update(extra_ag_args_ensemble)
-    #     return default_ag_args_ensemble
 
     # FIXME: unsure what the purpose of this code is
     # def _get_default_resources(self) -> tuple[int, int]:
