@@ -6,25 +6,29 @@ import logging
 import math
 import random
 import time
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import pandas as pd
 import scipy
-import sklearn
 import torch
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
+from autogluon.core.metrics import compute_metric
 from autogluon.core.models import AbstractModel
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from sklearn.utils.validation import check_is_fitted
-from torch import nn
 
 from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm_reference
 from tabrepo.benchmark.models.ag.tabm.tabm_reference import make_parameter_groups
+
+if TYPE_CHECKING:
+    from autogluon.core.metrics import Scorer
+
+TaskType = Literal["regression", "binclass", "multiclass"]
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +135,16 @@ class TabMOrdinalEncoder(BaseEstimator, TransformerMixin):
 
 
 class TabMImplementation:
-    def __init__(self, **config):
+    def __init__(self, early_stopping_metric: Scorer, **config):
         self.config = config
+        self.early_stopping_metric = early_stopping_metric
+
+        self.ord_enc_ = None
+        self.num_prep_ = None
+        self.cat_col_names_ = None
+        self.n_classes_ = None
+        self.task_type_ = None
+        self.device_ = None
 
     def fit(
         self,
@@ -143,27 +155,30 @@ class TabMImplementation:
         cat_col_names: list[Any],
         time_to_fit_in_seconds: float | None = None,
     ):
+        start_time = time.time()
+
+        if X_val is None or len(X_val) == 0:
+            raise ValueError("Training without validation set is currently not implemented")
         seed: int | None = self.config.get("random_state", None)
         if seed is not None:
             torch.manual_seed(seed)
             np.random.seed(seed)
             random.seed(seed)
-
-        start_time = time.time()
-
         if "n_threads" in self.config:
             torch.set_num_threads(self.config["n_threads"])
 
-        if X_val is None or len(X_val) == 0:
-            raise ValueError("Training without validation set is currently not implemented")
-
-        TaskType = Literal["regression", "binclass", "multiclass"]
-
+        # -- Meta parameters
         problem_type = self.config["problem_type"]
         task_type: TaskType = "binclass" if problem_type == "binary" else problem_type
+        n_train = len(X_train)
+        n_classes = None
+        device = self.config["device"]
+        device = torch.device(device)
+        self.task_type_ = task_type
+        self.device_ = device
+        self.cat_col_names_ = cat_col_names
 
-        # hyperparams
-        # set defaults to tabm-mini defaults
+        # -- Hyperparameters
         arch_type = self.config.get("arch_type", "tabm-mini")
         num_emb_type = self.config.get("num_emb_type", "pwl")
         n_epochs = self.config.get("n_epochs", 1_000_000_000)
@@ -184,24 +199,20 @@ class TabMImplementation:
         # this is the search space default but not the example default (which is 'none')
         gradient_clipping_norm = self.config.get("gradient_clipping_norm", 1.0)
 
-        # todo: is this okay? otherwise the test fails
-        num_emb_n_bins = min(num_emb_n_bins, len(X_train) - 1)
-        if len(X_train) <= 2:
+        # -- Verify HPs
+        num_emb_n_bins = min(num_emb_n_bins, n_train - 1)
+        if n_train <= 2:
             num_emb_type = "none"  # there is no valid number of bins for piecewise linear embeddings
-
         if batch_size == "auto":
-            batch_size = get_tabm_auto_batch_size(n_train=len(X_train))
+            batch_size = get_tabm_auto_batch_size(n_train=n_train)
 
+        # -- Preprocessing
         ds_parts = dict()
-
-        n_classes = None
-
-        self.cat_col_names_ = cat_col_names
-        # todo: do we need to do this here or is it already done before?
-        self.ord_enc_ = TabMOrdinalEncoder()
-        self.ord_enc_.fit(X_train[cat_col_names])
+        self.ord_enc_ = (
+            TabMOrdinalEncoder()
+        )  # Unique ordinal encoder -> replaces nan and missing values with the cardinality
+        self.ord_enc_.fit(X_train[self.cat_col_names_])
         self.num_prep_ = Pipeline(steps=[("qt", RTDLQuantileTransformer()), ("imp", SimpleImputer(add_indicator=True))])
-
         for part, X, y in [("train", X_train, y_train), ("val", X_val, y_val)]:
             tensors = dict()
 
@@ -217,35 +228,23 @@ class TabMImplementation:
                 if part == "train":
                     n_classes = 0
             else:
-                # todo: we assume that it's already ordinally encoded
                 tensors["y"] = torch.as_tensor(y.to_numpy(np.int32), dtype=torch.long)
                 if part == "train":
                     n_classes = tensors["y"].max().item() + 1
 
             ds_parts[part] = tensors
 
-        n_train = len(X_train)
-        cat_cardinalities = self.ord_enc_.get_cardinalities()
-        device = self.config["device"]
-        device = torch.device(device)
-
-        self.n_classes_ = n_classes
-        self.task_type_ = task_type
-        self.device_ = device
-
         part_names = ["train", "val"]
+        cat_cardinalities = self.ord_enc_.get_cardinalities()
+        self.n_classes_ = n_classes
 
         # filter out numerical columns with only a single value
+        #  -> AG also does this already but preprocessing might create constant columns again
         x_cont_train = ds_parts["train"]["x_cont"]
-
-        # todo: do we need to do this or does AG do it already?
-        # mask of which columns are not constant
         self.num_col_mask_ = ~torch.all(x_cont_train == x_cont_train[0:1, :], dim=0)
-
         for part in part_names:
             ds_parts[part]["x_cont"] = ds_parts[part]["x_cont"][:, self.num_col_mask_]
             # tensor infos are not correct anymore, but might not be used either
-
         for part in part_names:
             for tens_name in ds_parts[part]:
                 ds_parts[part][tens_name] = ds_parts[part][tens_name].to(device)
@@ -344,6 +343,7 @@ class TabMImplementation:
                 .float()
             )
 
+        # TODO: use BCELoss for binary classification
         base_loss_fn = torch.nn.functional.mse_loss if task_type == "regression" else torch.nn.functional.cross_entropy
 
         def loss_fn(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
@@ -387,16 +387,13 @@ class TabMImplementation:
             if not average_logits:
                 y_pred = y_pred.mean(1)
 
-            y_true = data[part]["y"].cpu().numpy()
-            # todo: here we need more metrics. Can we use ones from AutoGluon?
-            score = (
-                -(sklearn.metrics.mean_squared_error(y_true, y_pred) ** 0.5)
-                if task_type == "regression"
-                else sklearn.metrics.accuracy_score(y_true, y_pred.argmax(1))
+            return compute_metric(
+                y=data[part]["y"].cpu().numpy(),
+                metric=self.early_stopping_metric,
+                y_pred=y_pred if task_type == "regression" else y_pred.argmax(1),
+                y_pred_proba=y_pred[:, 1] if task_type == "binclass" else y_pred,
+                silent=True,
             )
-            return float(score)  # The higher -- the better.
-
-        # print(f'Test score before training: {evaluate("test"):.4f}')
 
         math.ceil(n_train / batch_size)
         best = {
@@ -406,7 +403,7 @@ class TabMImplementation:
         }
         best_params = [p.clone() for p in model.parameters()]
         # Early stopping: the training stops when
-        # there are more than `patience` consequtive bad updates.
+        # there are more than `patience` consecutive bad updates.
         remaining_patience = patience
 
         try:
@@ -421,9 +418,8 @@ class TabMImplementation:
         for epoch in range(n_epochs):
             # check time limit
             if epoch > 0 and time_to_fit_in_seconds is not None:
-                cur_time = time.time()
-                pred_time_after_next_epoch = (epoch + 1) / epoch * (cur_time - start_time)
-                if pred_time_after_next_epoch > time_to_fit_in_seconds:
+                pred_time_after_next_epoch = (epoch + 1) / epoch * (time.time() - start_time)
+                if pred_time_after_next_epoch >= time_to_fit_in_seconds:
                     break
 
             batches = (
@@ -444,7 +440,7 @@ class TabMImplementation:
                 if gradient_clipping_norm is not None and gradient_clipping_norm != "none":
                     if grad_scaler is not None:
                         grad_scaler.unscale_(optimizer)
-                    nn.utils.clip_grad.clip_grad_norm_(
+                    torch.nn.utils.clip_grad.clip_grad_norm_(
                         model.parameters(),
                         gradient_clipping_norm,
                     )
@@ -454,7 +450,7 @@ class TabMImplementation:
                     optimizer.step()
                 else:
                     grad_scaler.scale(loss).backward()  # type: ignore
-                    grad_scaler.step(optimizer)
+                    grad_scaler.step(optimizer)  # Ignores grad scaler might skip steps; should not break anything
                     grad_scaler.update()
 
             val_score = evaluate("val")
@@ -542,7 +538,6 @@ class TabMImplementation:
         return probas
 
 
-# pip install pytabkit
 class TabMModel(AbstractModel):
     ag_key = "TABM"
     ag_name = "TabM"
@@ -567,50 +562,40 @@ class TabMModel(AbstractModel):
         num_gpus: float = 0,
         **kwargs,
     ):
-        # todo: is that sufficient or do we need to do something else?
+        start_time = time.time()
         device = "cpu" if num_gpus == 0 else "cuda"
-
-        hyp = self._get_model_params()
-
-        # todo: not implemented yet
-        metric_map = {
-            "roc_auc": "1-auc_ovr_alt",
-            "accuracy": "class_error",
-            "balanced_accuracy": "1-balanced_accuracy",
-            "log_loss": "cross_entropy",
-            "rmse": "rmse",
-            "root_mean_squared_error": "rmse",
-            "r2": "rmse",
-            "mae": "mae",
-            "mean_average_error": "mae",
-        }
-
-        val_metric_name = metric_map.get(self.stopping_metric.name, None)
-
-        init_kwargs = dict()
-
-        if val_metric_name is not None:
-            init_kwargs["val_metric_name"] = val_metric_name
+        if (device == "cuda") and (not torch.cuda.is_available()):
+            # FIXME: warn instead and switch to CPU.
+            raise AssertionError(
+                "Fit specified to use GPU, but CUDA is not available on this machine. "
+                "Please switch to CPU usage instead.",
+            )
 
         if X_val is None:
-            # todo
-            raise NotImplementedError()
+            from autogluon.core.utils import generate_train_test_split
 
+            X_train, X_val, y_train, y_val = generate_train_test_split(
+                X=X,
+                y=y,
+                problem_type=self.problem_type,
+                test_size=0.2,
+                random_state=0,
+            )
+
+        hyp = self._get_model_params()
         bool_to_cat = hyp.pop("bool_to_cat", True)
-        impute_bool = hyp.pop("impute_bool", True)
+
+        X = self.preprocess(X, is_train=True, bool_to_cat=bool_to_cat)
+        if X_val is not None:
+            X_val = self.preprocess(X_val)
 
         self.model = TabMImplementation(
             n_threads=num_cpus,
             device=device,
             problem_type=self.problem_type,
-            **init_kwargs,
+            early_stopping_metric=self.stopping_metric,
             **hyp,
         )
-
-        X = self.preprocess(X, is_train=True, bool_to_cat=bool_to_cat, impute_bool=impute_bool)
-
-        if X_val is not None:
-            X_val = self.preprocess(X_val)
 
         self.model.fit(
             X_train=X,
@@ -618,7 +603,7 @@ class TabMModel(AbstractModel):
             X_val=X_val,
             y_val=y_val,
             cat_col_names=X.select_dtypes(include="category").columns.tolist(),
-            time_to_fit_in_seconds=time_limit,
+            time_to_fit_in_seconds=time_limit - (time.time() - start_time) if time_limit is not None else None,
         )
 
     # FIXME: bool_to_cat is a hack: Maybe move to abstract model?
@@ -627,7 +612,6 @@ class TabMModel(AbstractModel):
         X: pd.DataFrame,
         is_train: bool = False,
         bool_to_cat: bool = False,
-        impute_bool: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         """Imputes missing values via the mean and adds indicator columns for numerical features.
@@ -635,14 +619,14 @@ class TabMModel(AbstractModel):
         """
         X = super()._preprocess(X, **kwargs)
 
-        # FIXME: is copy needed?
-        X = X.copy(deep=True)
         if is_train:
             self._bool_to_cat = bool_to_cat
             self._features_bool = self._feature_metadata.get_features(required_special_types=["bool"])
         if self._bool_to_cat and self._features_bool:
             # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
+            X = X.copy(deep=True)
             X[self._features_bool] = X[self._features_bool].astype("category")
+
         return X
 
     def _set_default_params(self):
@@ -662,7 +646,7 @@ class TabMModel(AbstractModel):
     def _get_default_resources(self) -> tuple[int, int]:
         # logical=False is faster in training
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = 0  # TODO: Test GPU support
+        num_gpus = 1 if torch.cuda.is_available() else 0
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:

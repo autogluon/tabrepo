@@ -337,13 +337,14 @@ def _check_bins(bins: list[Tensor]) -> None:
                 'Bin edges must be sorted.'
                 f' However, the for the {i}-th feature, the bin edges are not sorted'
             )
-        if len(feature_bins) == 2:
-            warnings.warn(
-                f'The {i}-th feature has just two bin edges, which means only one bin.'
-                ' Strictly speaking, using a single bin for the'
-                ' piecewise-linear encoding should not break anything,'
-                ' but it is the same as using sklearn.preprocessing.MinMaxScaler'
-            )
+        # Commented out due to spaming warnings.
+        # if len(feature_bins) == 2:
+        #     warnings.warn(
+        #         f'The {i}-th feature has just two bin edges, which means only one bin.'
+        #         ' Strictly speaking, using a single bin for the'
+        #         ' piecewise-linear encoding should not break anything,'
+        #         ' but it is the same as using sklearn.preprocessing.MinMaxScaler'
+        #     )
 
 
 def compute_bins(
