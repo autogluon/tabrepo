@@ -56,6 +56,20 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         self_zeroshot.__class__ = EvaluationRepositoryZeroshot
         return self_zeroshot
 
+    def _subset_folds(self, folds: list[int]):
+        super()._subset_folds(folds=folds)
+        if self._tabular_predictions is not None:
+            self._tabular_predictions.restrict_folds(folds=folds)
+        if self._ground_truth is not None:
+            self._ground_truth.restrict_folds(folds=folds)
+
+    def _subset_datasets(self, datasets: list[str]):
+        super()._subset_datasets(datasets=datasets)
+        if self._tabular_predictions is not None:
+            self._tabular_predictions.restrict_datasets(datasets=datasets)
+        if self._ground_truth is not None:
+            self._ground_truth.restrict_datasets(datasets=datasets)
+
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
         """
         Method to force the repository to a dense representation inplace.
@@ -286,6 +300,10 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         self._tabular_predictions.to_data_dir(data_dir=path_data_dir)
         self._ground_truth.to_data_dir(data_dir=path_data_dir)
+
+        dataset_fold_lst_pp = self._tabular_predictions.dataset_fold_lst()
+        dataset_fold_lst_gt = self._ground_truth.dataset_fold_lst()
+
         metadata = self._zeroshot_context.to_dir(path=path)
 
         configs_hyperparameters = metadata["configs_hyperparameters"]
@@ -305,6 +323,8 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
             configs_hyperparameters=configs_hyperparameters,
             is_relative=True,
             config_fallback=self._config_fallback,
+            dataset_fold_lst_pp=dataset_fold_lst_pp,
+            dataset_fold_lst_gt=dataset_fold_lst_gt,
         )
 
         context.to_json(path=str(Path(path) / "context.json"))
