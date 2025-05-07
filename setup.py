@@ -37,10 +37,23 @@ extras_require = {
     "tabm": [
         "pytabkit>=1.3.0",
     ],
+    "mondernnca": [
+        "category_encoders",
+    ],
 }
 
 benchmark_requires = []
-for extra_package in ["autogluon", "tabpfn", "tabicl", "ebm", "search_spaces", "realmlp", "tabdpt", "tabm"]:
+for extra_package in [
+    "autogluon",
+    "tabpfn",
+    "tabicl",
+    "ebm",
+    "search_spaces",
+    "realmlp",
+    "tabdpt",
+    "tabm",
+    "mondernnca",
+]:
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
 extras_require["benchmark"] = benchmark_requires
@@ -53,7 +66,7 @@ setup(
         "tabrepo": [
             "metrics/_roc_auc_cpp/compile.sh",
             "metrics/_roc_auc_cpp/cpp_auc.cpp",
-        ]
+        ],
     },
     url="https://github.com/autogluon/tabrepo",
     license="Apache-2.0",

@@ -6,6 +6,7 @@ from autogluon.tabular.registry import ModelRegistry, ag_model_registry
 
 from tabrepo.benchmark.models.ag import (
     ExplainableBoostingMachineModel,
+    ModernNCAModel,
     RealMLPModel,
     TabDPTModel,
     TabICLModel,
@@ -24,6 +25,7 @@ _models_to_add = [
     TabICLModel,
     TabDPTModel,
     TabMModel,
+    ModernNCAModel,
 ]
 
 for _model_cls in _models_to_add:

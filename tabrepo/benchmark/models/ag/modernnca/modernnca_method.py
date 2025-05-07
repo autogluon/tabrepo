@@ -9,9 +9,10 @@ from tabrepo.benchmark.models.ag.modernnca.utils import (
 )
 from typing import Optional
 
-from tabrepo.benchmark.models.ag.modernnca.base import Method
+from tabrepo.benchmark.models.ag.modernnca.base import Method, check_softmax
 from tabrepo.benchmark.models.ag.modernnca.modernNCA import ModernNCA
 
+from autogluon.core.metrics import compute_metric
 
 from tabrepo.benchmark.models.ag.modernnca.data import (
     Dataset,
@@ -135,9 +136,8 @@ class ModernNCAMethod(Method):
         for epoch in range(self.args.max_epoch):
             # check time limit
             if epoch > 0 and self.args.time_to_fit_in_seconds is not None:
-                cur_time = time.time()
-                pred_time_after_next_epoch = (epoch + 1) / epoch * (cur_time - start_time)
-                if pred_time_after_next_epoch > self.args.time_to_fit_in_seconds:
+                pred_time_after_next_epoch = (epoch + 1) / epoch * (time.time() - start_time)
+                if pred_time_after_next_epoch >= self.args.time_to_fit_in_seconds:
                     break
 
             tic = time.time()
@@ -172,7 +172,7 @@ class ModernNCAMethod(Method):
         test_logit, test_label = [], []
         with torch.no_grad():
             for i, (X, y) in tqdm(enumerate(self.test_loader)):
-                print(f'method predict {X=}')
+                # print(f'method predict {X=}')
                 if self.N is not None and self.C is not None:
                     X_num, X_cat = X[0], X[1]
                 elif self.C is not None and self.N is None:
@@ -325,23 +325,22 @@ class ModernNCAMethod(Method):
                 test_logit.append(pred)
                 test_label.append(y)
 
-        test_logit = torch.cat(test_logit, 0)
-        test_label = torch.cat(test_label, 0)
+        y_pred = torch.cat(test_logit, 0).cpu().numpy()
+        labels = torch.cat(test_label, 0).cpu().numpy()
 
-        vl = self.criterion(test_logit, test_label).item()
+        if not self.is_regression:
+            y_pred = check_softmax(y_pred)
 
-        if self.is_regression:
-            task_type = 'regression'
-            measure = np.less_equal
-        else:
-            task_type = 'classification'
-            measure = np.greater_equal
+        validation_score = compute_metric(
+            y=labels,
+            metric=self.args.early_stopping_metric,
+            y_pred=y_pred if self.is_regression else y_pred.argmax(axis=-1),
+            y_pred_proba=y_pred[:, 1] if self.is_binclass else y_pred,
+            silent=True,
+        )
 
-        vres, metric_name = self.metric(test_logit, test_label, self.y_info)
-
-        print('epoch {}, val, loss={:.4f} {} result={:.4f}'.format(epoch, vl, task_type, vres[0]))
-        if measure(vres[0], self.trlog['best_res']) or epoch == 0:
-            self.trlog['best_res'] = vres[0]
+        if validation_score > self.trlog['best_res'] or epoch == 0:
+            self.trlog['best_res'] = validation_score
             self.trlog['best_epoch'] = epoch
             torch.save(
                 dict(params=self.model.state_dict()),
