@@ -20,8 +20,9 @@ logger = setup_logging(level=logging.ERROR)
 
 # TODO: Integrate this into JobManager
 class Task:
-    def __init__(self, dataset: str, fold: int, method: dict):
+    def __init__(self, dataset: str, repeat: int, fold: int, method: dict):
         self.dataset = dataset
+        self.repeat = repeat
         self.fold = fold
         self.method = method
 
@@ -209,23 +210,26 @@ class JobManager:
     def get_tasks_dense(
         self,
         datasets: list[str],
+        repeats: list[int],
         folds: list[int],
         methods: list[dict],
     ):
         for dataset in datasets:
             assert dataset in self.datasets_to_tids
-        tasks = [(dataset, fold, method) for dataset in datasets for fold in folds for method in methods]
+        tasks = [(dataset, repeat, fold, method) for dataset in datasets for repeat in repeats for fold in folds for method in methods]
         return tasks
 
-    def run_tasks(self, tasks: list[tuple], check_cache: bool = False):
+    def run_tasks(self, tasks: list[tuple], check_cache: bool = False, batch_size: int | None = None):
+        if batch_size is None:
+            batch_size = self.batch_size
         if len(tasks) == 0:
             logger.info(f"All jobs are already completed.")
             return
 
         # TODO: Only include tasks without caches! Keep adding to task_batch until it is of size self.batch_size
-        task_batch_lst = self.batch_tasks(tasks=tasks, batch_size=self.batch_size)
+        task_batch_lst = self.batch_tasks(tasks=tasks, batch_size=batch_size)
         logger.info(
-            f"Preparing to launch jobs with batch size of {self.batch_size}"
+            f"Preparing to launch jobs with batch size of {batch_size}"
         )
 
         self.run_tasks_batched(task_batch_lst=task_batch_lst, check_cache=check_cache)
@@ -253,35 +257,35 @@ class JobManager:
         task_batch_lst = list(create_batch(tasks, batch_size))
         return task_batch_lst
 
-    def check_if_task_is_cached(self, dataset, fold, method, verbose: bool = False):
+    def check_if_task_is_cached(self, dataset: dict, repeat: int, fold: int, method, verbose: bool = False):
         method_name = method['name']
-        cache_path = f"{self.experiment_name}/data/{method_name}/{self.datasets_to_tids[dataset]}/{fold}"
+        cache_path = f"{self.experiment_name}/data/{method_name}/{self.datasets_to_tids[dataset]}/{repeat}_{fold}"
         cache_name = f"{cache_path}/results.pkl"
         if check_s3_file_exists(s3_client=self.s3_client, bucket=self.s3_bucket, cache_name=cache_name):
             if verbose:
-                logger.info(f"Cache exists for {method_name} on dataset {dataset} fold {fold}. Skipping job launch.")
+                logger.info(f"Cache exists for {method_name} on dataset {dataset} repeat {repeat} fold {fold}. Skipping job launch.")
                 logger.info(f"Cache path: s3://{self.s3_bucket}/{cache_path}\n")
             return True
         else:
             return False
 
     def _task_cache_path(self, task: tuple) -> str:
-        dataset, fold, method = task
+        dataset, repeat, fold, method = task
         method_name = method["name"]
-        cache_path = f"{self.experiment_name}/data/{method_name}/{self.datasets_to_tids[dataset]}/{fold}"
+        cache_path = f"{self.experiment_name}/data/{method_name}/{self.datasets_to_tids[dataset]}/{repeat}_{fold}"
         return cache_path
 
     def _task_cache_name(self, task: tuple) -> str:
         return f"{self._task_cache_path(task=task)}/results.pkl"
 
     def make_job_name(self, task: tuple):
-        dataset, fold, method = task
+        dataset, repeat, fold, method = task
         method_name = method["name"]
 
         # Create a unique job name
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        unique_id = str(uuid.uuid4().int)[:19]
-        base_name = f"{dataset[:4]}-f{fold}-{method_name[:4]}-{timestamp}-{unique_id}"
+        unique_id = str(uuid.uuid4().int)[:8]
+        base_name = f"{dataset[:4]}-r{repeat}-f{fold}-{method_name[:8]}-{timestamp}-{unique_id}"
         job_name = sanitize_job_name(base_name)
         return job_name
 
@@ -289,15 +293,15 @@ class JobManager:
         num_tasks = len(tasks)
         num_cached = 0
         is_cached_lst = []
-        for i, (dataset, fold, method) in enumerate(tasks):
-            is_cached = self.check_if_task_is_cached(dataset=dataset, fold=fold, method=method, verbose=False)
+        for i, (dataset, repeat, fold, method) in enumerate(tasks):
+            is_cached = self.check_if_task_is_cached(dataset=dataset, repeat=repeat, fold=fold, method=method, verbose=False)
 
             is_cached_lst.append(is_cached)
 
             if is_cached:
                 num_cached += 1
             if verbose and (i % 100 == 0):
-                print(f"{i + 1}/{num_tasks}\tCached: {num_cached}\t({dataset}, {fold}, {method['name']})")
+                print(f"{i + 1}/{num_tasks}\tCached: {num_cached}\t({dataset}, {repeat}, {fold}, {method['name']})")
         return is_cached_lst
 
     def filter_to_only_uncached_tasks(self, tasks: list[tuple], verbose: bool = False) -> list[tuple]:
@@ -340,10 +344,11 @@ class JobManager:
         cache_path = self._task_cache_path(task=tasks[0])
 
         tasks_json = []
-        for dataset, fold, method in tasks:
+        for dataset, repeat, fold, method in tasks:
             tasks_json.append({
                 "dataset": dataset,
                 "fold": fold,  # NOTE: Can be a 'str' as well, refer to Estimators in SM docs
+                "repeat": repeat,
                 "method_name": method["name"],
             })
 

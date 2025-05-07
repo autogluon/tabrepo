@@ -48,6 +48,7 @@ class TabICLModel(AbstractModel):
         default_params = {
             "device": "cpu",
             "n_estimators": 1,
+            "checkpoint_version": "tabicl-classifier-v1-0208.ckpt",
         }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)

@@ -13,10 +13,10 @@ extras_require = {
         "autogluon.tabular[all]>=1.3",
     ],
     "tabpfn": [
-        "tabpfn>=2",
+        "tabpfn>=2,<3",
     ],
     "tabicl": [
-        "tabicl",
+        "tabicl>=0.1.1,<1",
     ],
     "ebm": [
         "interpret-core>=0.6.1",
