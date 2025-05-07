@@ -13,10 +13,10 @@ extras_require = {
         "autogluon.tabular[all]>=1.3",
     ],
     "tabpfn": [
-        "tabpfn @ git+https://github.com/PriorLabs/TabPFN.git", # Required bug fixes are only on main.
+        "tabpfn>=2.0.9", # We used version 2.0.9
     ],
     "tabicl": [
-        "tabicl",
+        "tabicl>=0.1.1",
     ],
     "ebm": [
         "interpret-core>=0.6.1",
@@ -25,12 +25,16 @@ extras_require = {
         "configspace",
     ],
     "realmlp": [
-        "pytabkit"
+        "pytabkit>=1.3.0"
+    ],
+    "tabdpt": [
+        # TODO: pypi package is not available yet
+        "tabdpt @ git+https://github.com/layer6ai-labs/TabDPT.git" # used hash: 9699d9592b61c5f70fc88f5531cdb87b40cbedf5
     ]
 }
 
 benchmark_requires = []
-for extra_package in ["autogluon", "tabpfn", "tabicl", "ebm", "search_spaces", "realmlp"]:
+for extra_package in ["autogluon", "tabpfn", "tabicl", "ebm", "search_spaces", "realmlp", "tabdpt"]:
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
 extras_require["benchmark"] = benchmark_requires

@@ -49,8 +49,6 @@ class TabPFNV2Model(AbstractModel):
         self,
         X: pd.DataFrame,
         y: pd.Series,
-        X_val: pd.DataFrame = None,
-        y_val: pd.Series = None,
         num_cpus: int = 1,
         num_gpus: int = 0,
         **kwargs,
