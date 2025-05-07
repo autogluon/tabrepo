@@ -10,9 +10,3 @@ def test_tabm():
     from tabrepo.benchmark.models.ag.tabm.tabm_model import TabMModel
     model_cls = TabMModel
     FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
-    # except ImportError as err:
-    #     pytest.skip(
-    #         f"Import Error, skipping test... "
-    #         f"Ensure you have the proper dependencies installed to run this test:\n"
-    #         f"{err}"
-    #     )
