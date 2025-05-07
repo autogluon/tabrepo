@@ -94,11 +94,15 @@ class TabPFNV2Model(AbstractModel):
             model_path=None, which="classifier" if is_classification else "regressor"
         )
         if is_classification:
-            hps["model_path"] = model_dir / hps.pop("classification_model_path")
-            del hps["regression_model_path"]
+            if "classification_model_path" in hps:
+                hps["model_path"] = model_dir / hps.pop("classification_model_path")
+            if "regression_model_path" in hps:
+                del hps["regression_model_path"]
         else:
-            hps["model_path"] = model_dir / hps.pop("regression_model_path")
-            del hps["classification_model_path"]
+            if "regression_model_path" in hps:
+                hps["model_path"] = model_dir / hps.pop("regression_model_path")
+            if "classification_model_path" in hps:
+                del hps["classification_model_path"]
 
         # Resolve inference_config
         inference_config = {
