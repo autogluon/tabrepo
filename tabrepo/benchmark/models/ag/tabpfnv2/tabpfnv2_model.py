@@ -55,9 +55,9 @@ class TabPFNV2Model(AbstractModel):
         num_gpus: int = 0,
         **kwargs,
     ):
-        import torch
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
+        from torch.cuda import is_available
 
         ag_params = self._get_ag_params()
         max_classes = ag_params.get("max_classes")
@@ -74,7 +74,7 @@ class TabPFNV2Model(AbstractModel):
             model_base = TabPFNRegressor
 
         device = "cuda" if num_gpus != 0 else "cpu"
-        if (device == "cuda") and (not torch.cuda.is_available()):
+        if (device == "cuda") and (not is_available()):
             # FIXME: warn instead and switch to CPU.
             raise AssertionError(
                 "Fit specified to use GPU, but CUDA is not available on this machine. "
@@ -91,7 +91,8 @@ class TabPFNV2Model(AbstractModel):
         hps["ignore_pretraining_limits"] = True  # to ignore warnings and size limits
 
         _, model_dir, _, _ = resolve_model_path(
-            model_path=None, which="classifier" if is_classification else "regressor"
+            model_path=None,
+            which="classifier" if is_classification else "regressor",
         )
         if is_classification:
             if "classification_model_path" in hps:
@@ -140,39 +141,34 @@ class TabPFNV2Model(AbstractModel):
             y=y,
         )
 
+    def _get_default_resources(self) -> tuple[int, int]:
+        from autogluon.common.utils.resource_utils import ResourceManager
+        from torch.cuda import is_available
 
-# FIXME: unsure what the purpose of this code is
-# def _get_default_resources(self) -> tuple[int, int]:
-#     # logical=False is faster in training
-#     num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-#     num_gpus = 0
-#     return num_cpus, num_gpus
+        num_cpus = ResourceManager.get_cpu_count_psutil()
+        num_gpus = 1 if is_available() else 0
+        return num_cpus, num_gpus
 
+    def _set_default_params(self):
+        default_params = {}
+        for param, val in default_params.items():
+            self._set_default_param_value(param, val)
 
-def _set_default_params(self):
-    default_params = {}
-    for param, val in default_params.items():
-        self._set_default_param_value(param, val)
+    @classmethod
+    def supported_problem_types(cls) -> list[str] | None:
+        return ["binary", "multiclass", "regression"]
 
+    def _get_default_auxiliary_params(self) -> dict:
+        default_auxiliary_params = super()._get_default_auxiliary_params()
+        default_auxiliary_params.update(
+            {
+                "max_classes": 10,
+            },
+        )
+        return default_auxiliary_params
 
-@classmethod
-def supported_problem_types(cls) -> list[str] | None:
-    return ["binary", "multiclass", "regression"]
+    def _ag_params(self) -> set:
+        return {"max_classes"}
 
-
-def _get_default_auxiliary_params(self) -> dict:
-    default_auxiliary_params = super()._get_default_auxiliary_params()
-    default_auxiliary_params.update(
-        {
-            "max_classes": 10,
-        },
-    )
-    return default_auxiliary_params
-
-
-def _ag_params(self) -> set:
-    return {"max_classes"}
-
-
-def _more_tags(self) -> dict:
-    return {"can_refit_full": True}
+    def _more_tags(self) -> dict:
+        return {"can_refit_full": True}
