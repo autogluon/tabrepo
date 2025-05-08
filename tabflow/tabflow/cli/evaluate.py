@@ -31,6 +31,7 @@ def load_tasks(
     logger.info(f"Downloaded Tasks to run are: {tasks}")
     for task in tasks:
         dataset = task["dataset"]
+        repeat = task["repeat"]
         fold = task["fold"]
         method_name = task["method_name"]
         method_kwargs = find_method_by_name(methods_config, method_name)
@@ -39,6 +40,7 @@ def load_tasks(
         task_dict = dict(
             method=method,
             dataset=dataset,
+            repeat=repeat,
             fold=fold,
         )
         tasks_lst.append(task_dict)
@@ -89,11 +91,13 @@ def evaluate(
 
     for task in tasks:
         dataset = task["dataset"]
+        repeat = task["repeat"]
         fold = task["fold"]
         method = task["method"]
         evaluate_single(
             experiment_batch_runner=experiment_batch_runner,
             dataset=dataset,
+            repeat=repeat,
             fold=fold,
             method=method,
             ignore_cache=ignore_cache,
@@ -104,6 +108,7 @@ def evaluate(
 def evaluate_single(
     experiment_batch_runner: ExperimentBatchRunner,
     dataset: str,
+    repeat: int,
     fold: int,
     method: Experiment,
     ignore_cache: bool = False,
@@ -111,9 +116,10 @@ def evaluate_single(
 ):
     tid = experiment_batch_runner._dataset_to_tid_dict[dataset]  # Solely for logging purposes
     # This print is needed for task-wise log parsing
-    print(f"Processing task: Dataset={dataset}, TID={tid}, Fold={fold}, Method={method.name}")
+    print(f"Processing task: Dataset={dataset}, TID={tid}, Repeat={repeat}, Fold={fold}, Method={method.name}")
     results_lst: list[dict] = experiment_batch_runner.run(
         datasets=[dataset],
+        repeats=[repeat],
         folds=[fold],
         methods=[method],
         ignore_cache=ignore_cache,

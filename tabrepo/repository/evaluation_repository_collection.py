@@ -136,6 +136,24 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 
         return predict_multi
 
+    def _subset_folds(self, folds: list[int]):
+        super()._subset_folds(folds=folds)
+        if self._ground_truth is not None:
+            self._ground_truth.restrict_folds(folds=folds)
+        for repo in self.repos:
+            repo_folds = [f for f in repo.folds if f in folds]
+            repo._subset_folds(folds=repo_folds)
+        self._mapping = self._compute_repo_mapping()
+
+    def _subset_datasets(self, datasets: list[str]):
+        super()._subset_datasets(datasets=datasets)
+        if self._ground_truth is not None:
+            self._ground_truth.restrict_datasets(datasets=datasets)
+        for repo in self.repos:
+            repo_datasets = [d for d in repo.datasets() if d in datasets]
+            repo._subset_datasets(datasets=repo_datasets)
+        self._mapping = self._compute_repo_mapping()
+
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
         """
         Method to force the repository to a dense representation inplace.

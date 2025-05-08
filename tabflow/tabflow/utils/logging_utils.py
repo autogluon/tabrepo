@@ -92,6 +92,7 @@ def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_
         current_task = None
         current_dataset = None
         current_tid = None
+        current_repeat = None
         current_fold = None
         current_method = None
         task_content = []
@@ -108,17 +109,18 @@ def save_training_job_logs(sagemaker_client, s3_client, job_name, bucket, cache_
                 parts = line.split(",")
                 current_dataset = parts[0].split("Dataset=")[1].strip()
                 current_tid = parts[1].split("TID=")[1].strip()  # Extract TID directly
-                current_fold = parts[2].split("Fold=")[1].strip()
-                current_method = parts[3].split("Method=")[1].strip()
+                current_repeat = parts[2].split("Repeat=")[1].strip()
+                current_fold = parts[3].split("Fold=")[1].strip()
+                current_method = parts[4].split("Method=")[1].strip()
 
-                current_task = f"{current_tid}_{current_fold}_{current_method}"
+                current_task = f"{current_tid}_{current_repeat}_{current_fold}_{current_method}"
                     
             if current_task:
                 task_content.append(line)
         
         if current_task and task_content:
             task_logs[current_task] = '\n'.join(task_content)
-            task_paths[current_task] = f"{current_method}/{current_tid}/{current_fold}"
+            task_paths[current_task] = f"{current_method}/{current_tid}/{current_repeat}_{current_fold}"
         
         # Extract experiment name from cache_path
         # Assuming cache_path format: "{experiment_name}/data/{method_name}/{tid}/{fold}"
