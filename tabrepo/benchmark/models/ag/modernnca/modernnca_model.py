@@ -80,7 +80,8 @@ class ModernNCAImplementation:
         dim = self.config.get("dim", 128)
         sample_rate = self.config.get("sample_rate", 0.5)
         n_epochs = self.config.get("n_epochs", 200)
-        batch_size = self.config.get("batch_size", 1024)
+        # Dynamic batch size for smaller data as recommended by the authopr
+        batch_size = self.config.get("batch_size", 1024 if len(X_train) >= 2_000 else 256)
         lr = self.config.get("lr", 2e-3)
         d_block = self.config.get("d_block", 512)
         dropout = self.config.get("dropout", 0.1)
