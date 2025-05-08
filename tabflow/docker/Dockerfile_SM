@@ -27,7 +27,7 @@ RUN pip install -e workspace/tabrepo/ \
 RUN pip install pytabkit seaborn
 RUN pip install "interpret-core>=0.6.1" \
     && pip install "tabpfn>=2" \
-    && pip install tabicl
+    && pip install "tabicl>=0.1.1"  # V2 checkpoint added in v0.1.1
 
 
 # Generate tabrepo configs and give permissions

@@ -76,18 +76,25 @@ class AbstractRepository(ABC, SaveLoadMixin):
                 verbose=verbose,
             )
         if folds is not None:
-            self._zeroshot_context.subset_folds(folds=folds)
+            self._subset_folds(folds=folds)
         if configs is not None:
             self._zeroshot_context.subset_configs(configs=configs)
         if baselines is not None:
             self._zeroshot_context.subset_baselines(baselines=baselines)
         if datasets is not None:
-            self._zeroshot_context.subset_datasets(datasets=datasets)
+            self._subset_datasets(datasets=datasets)
         if problem_types is not None:
-            self._zeroshot_context.subset_problem_types(problem_types=problem_types)
+            datasets_problem_type = self.datasets(problem_type=problem_types)
+            self._subset_datasets(datasets=datasets_problem_type)
         if force_to_dense:
             self.force_to_dense(inplace=True, verbose=verbose)
         return self
+
+    def _subset_folds(self, folds: list[int]):
+        self._zeroshot_context.subset_folds(folds=folds)
+
+    def _subset_datasets(self, datasets: list[str]):
+        self._zeroshot_context.subset_datasets(datasets=datasets)
 
     @abstractmethod
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
@@ -133,14 +140,14 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
+    def datasets(self, problem_type: str | list[str] = None, union: bool = True) -> List[str]:
         """repo_subset2.datasets()
         Return all valid datasets.
         By default, will return all datasets that appear in any config at least once.
 
         Parameters
         ----------
-        problem_type : str, default = None
+        problem_type : str | list[str], default = None
             If specified, will only consider datasets with the given problem type
         union: bool, default = True
             If True, will return the union of datasets present in each config.

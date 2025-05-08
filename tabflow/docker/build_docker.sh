@@ -18,7 +18,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BASE_DIR="$( cd "${SCRIPT_DIR}/../../.." && pwd )"
 
 # Check if all required directories exist, this is specific for TabRepo
-REQUIRED_DIRS=("autogluon" "autogluon-benchmark" "tabrepo")
+REQUIRED_DIRS=("autogluon" "tabrepo")
 
 for dir in "${REQUIRED_DIRS[@]}"; do
     if [ ! -d "${BASE_DIR}/${dir}" ]; then

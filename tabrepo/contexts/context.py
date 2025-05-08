@@ -565,6 +565,8 @@ def construct_context(
     configs_hyperparameters: list[str] = None,
     is_relative: bool = False,
     config_fallback: str = None,
+    dataset_fold_lst_pp: list[tuple[str, int]] = None,
+    dataset_fold_lst_gt: list[tuple[str, int]] = None,
 ) -> BenchmarkContext:
     """
 
@@ -599,10 +601,16 @@ def construct_context(
 
     split_key = str(Path(path_context) / "model_predictions") + os.sep
 
+    if dataset_fold_lst_pp is None:
+        dataset_fold_lst_pp = [(dataset, fold) for dataset in datasets for fold in folds]
+    if dataset_fold_lst_gt is None:
+        dataset_fold_lst_gt = [(dataset, fold) for dataset in datasets for fold in folds]
+
     files_pred = ["metadata.json", "pred-test.dat", "pred-val.dat"]
-    _files_pp = [f"{dataset}/{fold}/{f}" for dataset in datasets for fold in folds for f in files_pred]
+    _files_pp = [f"{dataset}/{fold}/{f}" for dataset, fold in dataset_fold_lst_pp for f in files_pred]
+
     files_label = ["label-test.csv.zip", "label-val.csv.zip"]
-    _files_gt = [f"{dataset}/{fold}/{f}" for dataset in datasets for fold in folds for f in files_label]
+    _files_gt = [f"{dataset}/{fold}/{f}" for dataset, fold in dataset_fold_lst_gt for f in files_label]
 
     if s3_prefix is not None:
         _s3_download_map = construct_s3_download_map(
