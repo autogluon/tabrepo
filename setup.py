@@ -37,7 +37,7 @@ extras_require = {
     "tabm": [
         "pytabkit>=1.3.0",
     ],
-    "mondernnca": [
+    "modernnca": [
         "category_encoders",
     ],
 }
@@ -52,7 +52,7 @@ for extra_package in [
     "realmlp",
     "tabdpt",
     "tabm",
-    "mondernnca",
+    "modernnca",
 ]:
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
