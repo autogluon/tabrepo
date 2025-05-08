@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import copy
 
-from autogluon.tabular.registry import ag_model_registry, ModelRegistry
+from autogluon.tabular.registry import ModelRegistry, ag_model_registry
 
-from tabrepo.benchmark.models.ag import ExplainableBoostingMachineModel, RealMLPModel, TabPFNV2Model, TabPFNV2ClientModel, TabDPTModel, TabICLModel
+from tabrepo.benchmark.models.ag import (
+    ExplainableBoostingMachineModel,
+    ModernNCAModel,
+    RealMLPModel,
+    TabDPTModel,
+    TabICLModel,
+    TabMModel,
+    TabPFNV2ClientModel,
+    TabPFNV2Model,
+)
 
 tabrepo_model_register: ModelRegistry = copy.deepcopy(ag_model_registry)
 
@@ -15,6 +24,8 @@ _models_to_add = [
     TabPFNV2ClientModel,
     TabICLModel,
     TabDPTModel,
+    TabMModel,
+    ModernNCAModel,
 ]
 
 for _model_cls in _models_to_add:

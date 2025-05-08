@@ -265,7 +265,7 @@ def run_experiments(
     tids: list[int],
     folds: list[int],
     methods: list[Experiment],
-    task_metadata: pd.DataFrame,
+    task_metadata: pd.DataFrame | dict,
     ignore_cache: bool,
     repeats: list[int] | None = None,
     cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
@@ -287,7 +287,8 @@ def run_experiments(
     folds: list[int], Number of folds present for the given task
     repeats: list[int] | None, Number of repeats present for the given task. If None, defaults to [0]
     methods: list[Experiment], Models used for fit() and predict() in this experiment
-    task_metadata: pd.DataFrame, OpenML task metadata
+    task_metadata: pd.DataFrame or None, OpenML task metadata
+         If dict, it is a map from TID to task name. As only task name is used here.
     ignore_cache: bool, whether to use cached results (if present)
     cache_cls: WIP
     cache_cls_kwargs: WIP
@@ -339,7 +340,10 @@ def run_experiments(
     #  This is probably because `.` isn't a valid name in a file in s3.
     #  TODO: What if `dataset` doesn't exist as a column? Maybe fallback to `name`? Or do the `name` -> `dataset` conversion, or use tid.
     dataset_name_column = "dataset"
-    dataset_names = [task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0] for tid in tids]
+    if isinstance(task_metadata, dict):
+        dataset_names = [task_metadata[tid] for tid in tids]
+    else:
+        dataset_names = [task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0] for tid in tids]
     print(
         f"Running Experiments for expname: '{expname}'..."
         f"\n\tFitting {len(tids)} datasets and {len(folds)} folds for a total of {len(tids) * len(folds)} tasks"
@@ -367,7 +371,10 @@ def run_experiments(
         repeat_fold_pairs = [(None, f) for f in folds]
     for i, tid in enumerate(tids):
         task = None  # lazy task loading
-        task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
+        if isinstance(task_metadata, dict):
+            task_name = task_metadata[tid]
+        else:
+            task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
         print(f"Starting Dataset {i+1}/{num_datasets}...")
         for repeat, fold in repeat_fold_pairs:
             subtask_cache_name = ExperimentBatchRunner._subtask_name(fold=fold, repeat=repeat)

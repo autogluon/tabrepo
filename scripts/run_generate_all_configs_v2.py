@@ -4,6 +4,7 @@ from tabrepo.benchmark.experiment import AGModelBagExperiment, YamlExperimentSer
 from tabrepo.utils.config_utils import ConfigGenerator
 from tabrepo.models.lightgbm.generate import gen_lightgbm
 from tabrepo.models.tabicl.generate import gen_tabicl
+from tabrepo.models.tabdpt.generate import gen_tabdpt
 from tabrepo.models.lightgbm.generate_alt import gen_lightgbm_alt
 from tabrepo.models.knn.generate import gen_knn
 from tabrepo.models.fastai.generate import gen_fastai
@@ -22,6 +23,8 @@ from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
 from tabrepo.models.realmlp.generate import gen_realmlp
 from tabrepo.models.realmlp.generate_alt import gen_realmlp_alt
 from tabrepo.models.ebm.generate import gen_ebm
+from tabrepo.models.tabm.generate import gen_tabm
+from tabrepo.models.modernnca.generate import gen_modernnca
 
 
 if __name__ == '__main__':
@@ -51,9 +54,13 @@ if __name__ == '__main__':
     experiments_ebm = gen_ebm.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_realmlp = gen_realmlp.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_realmlp_alt = gen_realmlp_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
-    experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=0)  # No search space defined
-    # TODO: TabDPT
+    experiments_tabm = gen_tabm.generate_all_bag_experiments(num_random_configs=n_random_configs)
+
+    experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=0)
+    experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_tabdpt= gen_tabdpt.generate_all_bag_experiments(num_random_configs=0)
+    experiments_modernnca = gen_modernnca.generate_all_bag_experiments(num_random_configs=n_random_configs)
+
     # TODO: TabPFNMix
     # TODO: TuneTables?
 
@@ -83,6 +90,9 @@ if __name__ == '__main__':
         experiments_realmlp_alt,
         experiments_tabicl,
         experiments_tabpfnv2,
+        experiments_tabdpt,
+        experiments_tabm,
+        experiments_modernnca,
 
         experiments_dummy,
     ]
