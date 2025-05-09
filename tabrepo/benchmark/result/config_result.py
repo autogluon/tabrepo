@@ -163,7 +163,6 @@ class ConfigResult(BaselineResult):
 
     @property
     def hyperparameters(self) -> dict:
-        config_hyperparameters = None
         if "method_metadata" in self.result and "model_hyperparameters" in self.result["method_metadata"]:
             method_metadata = self.result["method_metadata"]
             model_hyperparameters = method_metadata["model_hyperparameters"]
@@ -176,5 +175,12 @@ class ConfigResult(BaselineResult):
                 model_type=model_type,
                 name_prefix=name_prefix,
                 hyperparameters=model_hyperparameters,
+            )
+        else:
+            config_hyperparameters = dict(
+                model_cls=None,
+                model_type=None,
+                name_prefix=None,
+                hyperparameters={},
             )
         return config_hyperparameters
