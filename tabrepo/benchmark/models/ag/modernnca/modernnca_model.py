@@ -14,8 +14,11 @@ from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 
 from tabrepo.benchmark.models.ag.modernnca.modernnca_method import ModernNCAMethod
+from tabrepo.benchmark.models.ag.tabm.tabm_model import RTDLQuantileTransformer, get_tabm_auto_batch_size
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -81,13 +84,18 @@ class ModernNCAImplementation:
         sample_rate = self.config.get("sample_rate", 0.5)
         n_epochs = self.config.get("n_epochs", 200)
         # Dynamic batch size for smaller data as recommended by the authopr
-        batch_size = self.config.get("batch_size", 1024 if len(X_train) >= 2_000 else 256)
+        batch_size = self.config.get("batch_size", "auto")
         lr = self.config.get("lr", 2e-3)
         d_block = self.config.get("d_block", 512)
         dropout = self.config.get("dropout", 0.1)
         n_blocks = self.config.get("n_blocks", 0)
         weight_decay = self.config.get("weight_decay", 2e-4)
         temperature = self.config.get("temperature", 1.0)
+
+        if batch_size == "auto":
+            batch_size = get_tabm_auto_batch_size(n_train=len(X_train))
+
+        self.num_prep_ = Pipeline(steps=[("qt", RTDLQuantileTransformer()), ("imp", SimpleImputer(add_indicator=True))])
 
         ds_parts = dict()
         for part, X, y in [("train", X_train, y_train), ("val", X_val, y_val)]:
@@ -96,7 +104,10 @@ class ModernNCAImplementation:
             tensors["x_cat"] = X[self.cat_col_names_].to_numpy()
             x_cont_np = X.drop(columns=self.cat_col_names_).to_numpy(dtype=np.float32)
 
-            tensors["x_cont"] = x_cont_np
+            if part == "train":
+                self.num_prep_.fit(x_cont_np)
+
+            tensors["x_cont"] = self.num_prep_.transform(x_cont_np)
             if task_type == "regression":
                 tensors["y"] = y.to_numpy(np.float32)
                 if part == "train":
@@ -180,7 +191,7 @@ class ModernNCAImplementation:
     def predict_raw(self, X: pd.DataFrame) -> torch.Tensor:
         tensors = dict()
         tensors["x_cat"] = X[self.cat_col_names_].to_numpy()
-        tensors["x_cont"] = X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32)
+        tensors["x_cont"] = self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))
 
         # for tens_name in ['x_cat', 'x_cont']:
         #     if tensors[tens_name].size == 0:

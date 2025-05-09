@@ -13,7 +13,7 @@ def generate_single_config_modernnca(rng):
     params = {
         "dropout": rng.uniform(0.0, 0.5),
         "d_block": rng.integers(64, 1024, endpoint=True),
-        "n_blocks": rng.choice([0, rng.integers(0, 2, endpoint=True)]),  # todo: is that correct?
+        "n_blocks": rng.choice([0, rng.integers(0, 2, endpoint=True)]),
         "dim": rng.integers(64, 1024, endpoint=True),
         "num_emb_n_frequencies": rng.integers(16, 96, endpoint=True),
         "num_emb_frequency_scale": np.exp(rng.uniform(np.log(0.005), np.log(10.0))),
@@ -23,7 +23,8 @@ def generate_single_config_modernnca(rng):
         "weight_decay": rng.choice([0.0, np.exp(rng.uniform(np.log(1e-6), np.log(1e-3)))]),
         "temperature": 1.0,
         "num_emb_type": "plr",
-        "num_emb_lite": True,  # todo
+        "num_emb_lite": True,
+        "batch_size": "auto",
     }
 
     return convert_numpy_dtypes(params)
