@@ -319,7 +319,7 @@ def run_experiments(
         cache_cls_kwargs = {}
 
     if folds is None:
-        assert repeat_fold_pairs is None, "If folds is None, repeat_fold_pairs must be provided"
+        assert repeat_fold_pairs is not None, "If folds is None, repeat_fold_pairs must be provided"
 
     # Modify cache path based on mode
     if mode == "local":
