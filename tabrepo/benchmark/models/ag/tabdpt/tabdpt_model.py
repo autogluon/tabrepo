@@ -53,10 +53,23 @@ class TabDPTModel(AbstractModel):
         self.model = model_cls(
             path=self._download_and_get_model_path(),
             device=device,
-            use_flash=False,  # Does not work for our GPUs, and it is unclear when/which GPUs it works for.
+            use_flash=self._use_flash(),
             **hps,
         )
         self.model.fit(X=X, y=y)
+
+    @staticmethod
+    def _use_flash() -> bool:
+        """Detect if torch's native flash attention is available on the current machine."""
+        import torch
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+            capability = torch.cuda.get_device_capability(device)
+
+            if capability == (7, 5):
+                return False
+        else:
+            return True
 
     @staticmethod
     def _download_and_get_model_path() -> str:
