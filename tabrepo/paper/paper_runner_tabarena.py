@@ -12,7 +12,9 @@ class PaperRunTabArena(PaperRun):
     def run(self) -> pd.DataFrame:
         df_results_baselines = self.run_baselines()
         df_results_configs = self.run_configs()
-        df_results_hpo_all = self.run_hpo_by_family()
+        df_results_hpo_all = self.run_hpo_by_family(include_uncapped=True)
+        df_results_single_best_families = self.run_zs_family()
+
         n_portfolios = [200]
         df_results_n_portfolio = []
         for n_portfolio in n_portfolios:
@@ -38,7 +40,7 @@ class PaperRunTabArena(PaperRun):
         # df_results_extra.append(self.run_zs(n_portfolios=3, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
         # df_results_extra.append(self.run_zs(n_portfolios=2, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
 
-        df_results_n_portfolio = pd.concat(df_results_n_portfolio + df_results_extra)
+        df_results_n_portfolio = pd.concat(df_results_n_portfolio + df_results_extra + [df_results_single_best_families])
 
         df_results_all = self.evaluator.compare_metrics(results_df=df_results_n_portfolio, configs=[], baselines=[], keep_extra_columns=True)
 
@@ -56,17 +58,46 @@ class PaperRunTabArena(PaperRun):
         # TODO: Verify df_results_all format (index names, etc.)
         return df_results_all
 
-    def compute_normalized_error(self, df_results: pd.DataFrame) -> pd.DataFrame:
+    def run_zs_family(self) -> pd.DataFrame:
+        config_type_groups = self.get_config_type_groups(ban_families=True)
+
+        df_single_best_portfolio_family_lst = []
+        for family, family_configs in config_type_groups.items():
+            df_single_best_portfolio_family = self.run_zs(
+                n_portfolios=1,
+                n_ensemble=1,
+                fix_fillna=True,
+                configs=family_configs,
+            )
+            df_single_best_portfolio_family["framework"] = f"{family} (best)"
+            df_single_best_portfolio_family_lst.append(df_single_best_portfolio_family)
+
+        df_single_best_portfolio_families = pd.concat(df_single_best_portfolio_family_lst, ignore_index=True)
+        return df_single_best_portfolio_families
+
+    def compute_normalized_error(self, df_results: pd.DataFrame, static: bool = True) -> pd.DataFrame:
         """
         Adds normalized-error-task and normalized-error-dataset columns to df_results.
 
         Parameters
         ----------
         df_results
+        static: bool, default True
+            If True, calculates normalized error based on the methods in `self.repo`.
+                This is less fair and penalizes new methods in `df_results` that frequently beat the best method in `self.repo`.
+                For example, portfolios.
+                However, it provides a static meaning to any given normalized error value that is tied to `self.repo`
+                and doesn't change when adding new experiments to `df_results`.
+            If False, calculates normalized error based on the methods in `df_results`.
+                This is the fairest and accurately reflects the performance of methods,
+                but all methods will have their values change when a new method is added.
 
         Returns
         -------
         df_results
+            With two additional columns:
+                "normalized-error-task"
+                "normalized-error-dataset"
 
         """
         df_results_og = df_results.copy(deep=True)
@@ -75,31 +106,51 @@ class PaperRunTabArena(PaperRun):
             "framework": "method",
         })
 
-        from tabrepo.paper.paper_utils import make_scorers
-        rank_scorer, normalized_scorer = make_scorers(self.repo)
-        df_results["normalized-error-task"] = [normalized_scorer.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
-
-        df_results_baselines = pd.concat([
-            self.repo._zeroshot_context.df_configs_ranked,
-            self.repo._zeroshot_context.df_baselines,
-        ], ignore_index=True)
-
-        df_comparison_per_dataset = df_results_baselines.groupby(["framework", "dataset"])["metric_error"].mean()
-        df_comparison_per_dataset = df_comparison_per_dataset.reset_index(drop=False)
-        df_comparison_per_dataset = df_comparison_per_dataset.rename(columns={
-            "framework": "method",
-        })
         df_results_per_dataset = df_results.groupby(["method", "dataset"])["metric_error"].mean().reset_index(drop=False)
+
         from tabrepo.utils.normalized_scorer import NormalizedScorer
 
-        # Standard normalized-error, only computed off of real experiments, not impacted by simulation runs.
-        # This is biased against very strong simulation results because they can't get better than `0.0` on a dataset.
-        normalized_scorer_dataset = NormalizedScorer(df_comparison_per_dataset, tasks=list(df_results_baselines["dataset"].unique()), baseline=None, task_col="dataset", framework_col="method")
+        if static:
+            from tabrepo.paper.paper_utils import make_scorers
+            rank_scorer, normalized_scorer_task = make_scorers(self.repo)
 
-        # Alternative, this also incorporates Portfolios and HPO into the normalized scoring. This makes normalized-error dependent on what simulations we run.
-        # This is unbiased against very strong simulation results because the best method defines what is `0.0` on a dataset.
-        # normalized_scorer_dataset = NormalizedScorer(df_results_per_dataset, tasks=list(df_results_per_dataset["dataset"].unique()), baseline=None,
-        #                                              task_col="dataset", framework_col="method")
+            df_results_baselines = pd.concat([
+                self.repo._zeroshot_context.df_configs_ranked,
+                self.repo._zeroshot_context.df_baselines,
+            ], ignore_index=True)
+
+            df_comparison_per_dataset = df_results_baselines.groupby(["framework", "dataset"])["metric_error"].mean()
+            df_comparison_per_dataset = df_comparison_per_dataset.reset_index(drop=False)
+            df_comparison_per_dataset = df_comparison_per_dataset.rename(columns={
+                "framework": "method",
+            })
+            # Standard normalized-error, only computed off of real experiments, not impacted by simulation runs.
+            # This is biased against very strong simulation results because they can't get better than `0.0` on a dataset.
+            normalized_scorer_dataset = NormalizedScorer(df_comparison_per_dataset, tasks=list(df_results_baselines["dataset"].unique()), baseline=None, task_col="dataset", framework_col="method")
+        else:
+            # Alternative, this also incorporates Portfolios and HPO into the normalized scoring. This makes normalized-error dependent on what simulations we run.
+            # This is unbiased against very strong simulation results because the best method defines what is `0.0` on a dataset.
+            normalized_scorer_dataset = NormalizedScorer(
+                df_results_per_dataset,
+                tasks=list(df_results_per_dataset["dataset"].unique()),
+                baseline=None,
+                task_col="dataset",
+                framework_col="method",
+            )
+
+            all_tasks = df_results[["dataset", "fold"]].drop_duplicates().values.tolist()
+            all_tasks = [tuple(task) for task in all_tasks]
+
+            normalized_scorer_task = NormalizedScorer(
+                df_results,
+                tasks=all_tasks,
+                baseline=None,
+                task_col=["dataset", "fold"],
+                framework_col="method",
+            )
+
+        df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in
+                                               zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
 
         df_results_per_dataset["normalized-error-dataset"] = [
             normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])

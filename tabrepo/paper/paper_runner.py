@@ -17,7 +17,7 @@ class PaperRun:
         self.evaluator = Evaluator(repo=self.repo)
         self.output_dir = output_dir
 
-    def run_hpo_by_family(self) -> pd.DataFrame:
+    def get_config_type_groups(self, ban_families=True) -> dict:
         config_type_groups = {}
         configs_type = self.repo.configs_type()
         all_configs = self.repo.configs()
@@ -26,17 +26,21 @@ class PaperRun:
                 config_type_groups[configs_type[c]] = []
             config_type_groups[configs_type[c]].append(c)
 
-        # FIXME: TMP HACK
-        banned_families = [
-            "DUMMY",
-            "TABICL",
-            "TABPFNV2",
-            "FT_TRANSFORMER",
-        ]
+        if ban_families:
+            # FIXME: TMP HACK
+            banned_families = [
+                "DUMMY",
+                "TABICL",
+                "TABPFNV2",
+                "FT_TRANSFORMER",
+            ]
+            for b in banned_families:
+                if b in config_type_groups:
+                    config_type_groups.pop(b)
+        return config_type_groups
 
-        for b in banned_families:
-            if b in config_type_groups:
-                config_type_groups.pop(b)
+    def run_hpo_by_family(self, include_uncapped: bool = False) -> pd.DataFrame:
+        config_type_groups = self.get_config_type_groups(ban_families=True)
 
         hpo_results_lst = []
         time_limit = 3600 * 4
@@ -52,6 +56,21 @@ class PaperRun:
             df_results_family_hpo["framework"] = f"{family} (tuned) (4h)"
             hpo_results_lst.append(df_results_family_hpo.reset_index())
             hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
+
+        if include_uncapped:
+            for family in config_type_groups:
+                configs_family = config_type_groups[family]
+                df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
+                    configs=configs_family, fit_order="original", seed=0, ensemble_size=40, time_limit=None
+                )
+                df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble)"
+                df_results_family_hpo, _ = self.repo.evaluate_ensembles(
+                    configs=configs_family, fit_order="original", seed=0, ensemble_size=1, time_limit=None
+                )
+                df_results_family_hpo["framework"] = f"{family} (tuned)"
+                hpo_results_lst.append(df_results_family_hpo.reset_index())
+                hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
+
         df_results_hpo_all = pd.concat(hpo_results_lst, ignore_index=True)
         df_results_hpo_all = df_results_hpo_all.set_index(["dataset", "fold", "framework"])
         # df_results_hpo_all = self.evaluator.compare_metrics(results_df=df_results_hpo_all, configs=[], baselines=[])
@@ -91,7 +110,7 @@ class PaperRun:
         return df_results_baselines
 
     def run_configs(self) -> pd.DataFrame:
-        df_results_configs = self.evaluator.compare_metrics(baselines=[])
+        df_results_configs = self.evaluator.compare_metrics(baselines=[], include_metric_error_val=True)
         return df_results_configs
 
     def run(self) -> pd.DataFrame:
@@ -221,7 +240,13 @@ class PaperRun:
         metric = "normalized-error"
         lower_is_better = True
 
-        f_map, f_map_type, f_map_inverse = get_framework_type_method_names(framework_types=framework_types)
+        f_map, f_map_type, f_map_inverse = get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600*4, "_4h"),
+                (None, None),
+            ]
+        )
 
         df["framework_type"] = df["method"].map(f_map_type).fillna(df["method"])
         df["tune_method"] = df["method"].map(f_map_inverse).fillna("default")
@@ -283,21 +308,50 @@ class PaperRun:
             sns.barplot(
                 x="framework_type", y=metric,
                 # hue="tune_method",  # palette=["m", "g", "r],
-                label="Tuned",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
+                label="Best",
+                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "best"], ax=ax,
+                order=framework_type_order, color=colors[3],
+                width=0.55,
+                err_kws={"color": errcolors[3]},
+                alpha=1.0,
+            )
+            sns.barplot(
+                x="framework_type", y=metric,
+                # hue="tune_method",  # palette=["m", "g", "r],
+                label="Tuned (4h)",
+                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_4h"], ax=ax,
                 order=framework_type_order,
                 color=colors[1],
                 width=0.5,
                 err_kws={"color": errcolors[1]},
+            )
+            sns.barplot(
+                x="framework_type", y=metric,
+                # hue="tune_method",  # palette=["m", "g", "r],
+                label="Tuned",
+                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
+                order=framework_type_order,
+                color=colors[4],
+                width=0.45,
+                err_kws={"color": errcolors[4]},
+            )
+            sns.barplot(
+                x="framework_type", y=metric,
+                # hue="tune_method",  # palette=["m", "g", "r],
+                label="Tuned + Ensembled (4h)",
+                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled_4h"], ax=ax,
+                order=framework_type_order, color=colors[2],
+                width=0.4,
+                err_kws={"color": errcolors[2]},
             )
             boxplot = sns.barplot(
                 x="framework_type", y=metric,
                 # hue="tune_method",  # palette=["m", "g", "r],
                 label="Tuned + Ensembled",
                 data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"], ax=ax,
-                order=framework_type_order, color=colors[2],
-                width=0.4,
-                err_kws={"color": errcolors[2]},
+                order=framework_type_order, color=colors[5],
+                width=0.35,
+                err_kws={"color": errcolors[5]},
             )
             boxplot.set(xlabel=None)  # remove "Method" in the x-axis
             #boxplot.set_title("Effect of tuning and ensembling")

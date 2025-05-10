@@ -64,6 +64,19 @@ def load_repo(toy_mode: bool):
 
     if toy_mode:
         repo = repo.subset(folds=[0])
+        configs = repo.configs()
+        configs_type_inverse = dict()
+        configs_type = repo.configs_type(configs=configs)
+        for c in configs:
+            c_type = configs_type[c]
+            if c_type not in configs_type_inverse:
+                configs_type_inverse[c_type] = []
+            configs_type_inverse[c_type].append(c)
+        configs_toy = []
+        configs_per_type = 10
+        for c_type in configs_type_inverse:
+            configs_toy += configs_type_inverse[c_type][:configs_per_type]
+        repo = repo.subset(configs=configs_toy)
     return repo
 
 
@@ -71,14 +84,21 @@ if __name__ == '__main__':
     toy_mode = False
     load_cache = True
     load_sim_cache = True
+    norm_error_static = True
 
-    context_name = "tabarena_paper"
+    context_name = "tabarena_paper_w_best"
     if toy_mode:
         context_name += "_toy"
     cache_path = f"./{context_name}/repo_cache/tabarena_all.pkl"
     df_result_save_path = f"./{context_name}/data/df_results.parquet"
-    df_result_save_path_w_norm_err = f"./{context_name}/data/df_results_w_norm_err.parquet"
-    eval_save_path = f"{context_name}/output"
+
+    norm_err_suffix = ""
+    if not norm_error_static:
+        norm_err_suffix = "_dynamic"
+
+    df_result_save_path_w_norm_err = f"./{context_name}/data/df_results_w_norm_err{norm_err_suffix}.parquet"
+    s3_path_df_result_save_path_w_norm_err = f"s3://tabarena/evaluation/{context_name}/data/df_results_w_norm_err{norm_err_suffix}.parquet"
+    eval_save_path = f"{context_name}/output{norm_err_suffix}"
 
     if load_cache:
         repo = EvaluationRepositoryCollection.load(path=cache_path)
@@ -92,7 +112,7 @@ if __name__ == '__main__':
     if not load_sim_cache:
         df_results = paper_run.run()
         save_pd.save(df=df_results, path=df_result_save_path)
-        df_results = paper_run.compute_normalized_error(df_results=df_results)
+        df_results = paper_run.compute_normalized_error(df_results=df_results, static=norm_error_static)
         save_pd.save(df=df_results, path=df_result_save_path_w_norm_err)
     else:
         df_results = load_pd.load(path=df_result_save_path_w_norm_err)
