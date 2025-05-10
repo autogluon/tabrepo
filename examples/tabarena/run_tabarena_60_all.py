@@ -97,6 +97,7 @@ if __name__ == '__main__':
     else:
         df_results = load_pd.load(path=df_result_save_path)
 
+    df_results = paper_run.compute_normalized_error(df_results=df_results)
     paper_run.eval(df_results=df_results)
 
     # sanity_check(repo=repo, fillna=True, filter_to_all_valid=False, results_df=results_df, results_df_extra=results_hpo)
