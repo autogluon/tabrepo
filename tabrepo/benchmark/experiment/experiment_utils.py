@@ -259,6 +259,39 @@ class ExperimentBatchRunner:
         if len(repeats) != len(set(repeats)):
             raise AssertionError(f"Duplicate repeats present! Ensure all repeats are unique.")
 
+def check_cache_hit(
+    *,
+    result_dir: str,
+    method_name: str,
+    task_id: int,
+    fold: int,
+    repeat: int | None,
+    cache_path_format: Literal["name_first", "task_first"],
+    cache_cls: Type[AbstractCacheFunction] | None,
+    cache_cls_kwargs: dict | None = None,
+    mode: Literal["local", "s3"],
+    s3_bucket: str | None = None,
+) -> bool:
+    """Returns true if cache exists for the given experiment."""
+    base_cache_path = result_dir if mode == "local" else f"s3://{s3_bucket}/{result_dir}"
+
+    subtask_cache_name = ExperimentBatchRunner._subtask_name(fold=fold, repeat=repeat)
+
+    if cache_path_format == "name_first":
+        cache_prefix = f"data/{method_name}/{task_id}/{subtask_cache_name}"
+        cache_name = "results"
+    elif cache_path_format == "task_first":
+        # Legacy format from early prototyping
+        cache_prefix = f"data/tasks/{task_id}/{subtask_cache_name}/{method_name}"
+        cache_name = "results"
+    else:
+        raise ValueError(f"Invalid cache_path_format: {cache_path_format}")
+
+    cache_path = f"{base_cache_path}/{cache_prefix}"
+
+    cacher = cache_cls(cache_name=cache_name, cache_path=cache_path, **cache_cls_kwargs)
+    return cacher.exists
+
 
 def run_experiments(
     expname: str,
