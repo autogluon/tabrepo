@@ -72,15 +72,13 @@ if __name__ == '__main__':
     load_cache = True
     load_sim_cache = True
 
-    context_name = "tabarena_all"
+    context_name = "tabarena_paper"
     if toy_mode:
         context_name += "_toy"
-    cache_path = f"./repo_cache/{context_name}"
-    df_result_save_path = f"./tmp/{context_name}/df_results.parquet"
-    eval_save_path = "tabarena_paper"
-    if toy_mode:
-        cache_path += "_toy"
-    cache_path += ".pkl"
+    cache_path = f"./{context_name}/repo_cache/tabarena_all.pkl"
+    df_result_save_path = f"./{context_name}/data/df_results.parquet"
+    df_result_save_path_w_norm_err = f"./{context_name}/data/df_results_w_norm_err.parquet"
+    eval_save_path = f"{context_name}/output"
 
     if load_cache:
         repo = EvaluationRepositoryCollection.load(path=cache_path)
@@ -94,10 +92,12 @@ if __name__ == '__main__':
     if not load_sim_cache:
         df_results = paper_run.run()
         save_pd.save(df=df_results, path=df_result_save_path)
+        df_results = paper_run.compute_normalized_error(df_results=df_results)
+        save_pd.save(df=df_results, path=df_result_save_path_w_norm_err)
     else:
-        df_results = load_pd.load(path=df_result_save_path)
+        df_results = load_pd.load(path=df_result_save_path_w_norm_err)
 
-    df_results = paper_run.compute_normalized_error(df_results=df_results)
+    paper_run = PaperRunTabArena(repo=None, output_dir=eval_save_path)
     paper_run.eval(df_results=df_results)
 
     # sanity_check(repo=repo, fillna=True, filter_to_all_valid=False, results_df=results_df, results_df_extra=results_hpo)

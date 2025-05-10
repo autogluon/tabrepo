@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from ast import literal_eval
+from pathlib import Path
 from typing import List, Callable, Dict
 
 import matplotlib
@@ -516,7 +519,10 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     df_family = df[df["method"] == method].copy()
     df_family = df_family[df_family["fold"] == 0]
     portfolios = list(df_family["config_selected"].values)
-    portfolios_lst = [literal_eval(portfolio) for portfolio in portfolios]
+    if len(portfolios) > 0 and not isinstance(portfolios[0], list):
+        portfolios_lst = [literal_eval(portfolio) for portfolio in portfolios]
+    else:
+        portfolios_lst = portfolios
 
     from collections import defaultdict
     type_count = defaultdict(int)
@@ -533,9 +539,6 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
                 continue
             name = portfolio[i]
             family = name.split('_', 1)[0]
-            # To keep naming consistency in the paper
-            if family == "NeuralNetTorch":
-                family = "MLP"
             type_count[name] += 1
             type_count_family[family] += 1
             type_count_per_iter[i][name] += 1
@@ -619,8 +622,9 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     fig.suptitle(f"Model Family Presence in Portfolio by Training Order")
 
     if save_prefix:
-        fig_path = figure_path(prefix=save_prefix)
-        fig_save_path = fig_path / f"portfolio-model-presence.pdf"
+        fig_path = Path(save_prefix)
+        fig_path.mkdir(parents=True, exist_ok=True)
+        fig_save_path = fig_path / f"portfolio-model-presence.png"
         plt.savefig(fig_save_path)
     if show:
         plt.show()
