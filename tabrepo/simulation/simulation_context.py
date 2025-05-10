@@ -470,24 +470,38 @@ class ZeroshotSimulatorContext:
         out += '=============================================\n'
         print(out)
 
-    def get_datasets(self, problem_type: str | list[str] = None, union: bool = True) -> list[str]:
+    def get_datasets(
+        self,
+        *,
+        configs: list[str] = None,
+        problem_type: str | list[str] = None,
+        union: bool = True,
+    ) -> list[str]:
         datasets = self.unique_datasets
         if problem_type is not None:
             if isinstance(problem_type, list):
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] in problem_type]
             else:
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
+        df_configs = self.df_configs
+        if configs is not None:
+            configs_set = set(configs)
+            df_configs = df_configs[df_configs["dataset"].isin(datasets) & df_configs["framework"].isin(configs_set)]
+            datasets_remain = df_configs["dataset"].unique()
+            datasets = [d for d in datasets if d in datasets_remain]
         if not union:
-            configs = self.get_configs(union=True)
+            if configs is None:
+                configs = self.get_configs(union=True)
+                configs_set = set(configs)
             n_configs = len(configs)
-            df_configs_filtered = self.df_configs[self.df_configs["framework"].isin(configs)]
+            df_configs_filtered = df_configs[df_configs["framework"].isin(configs_set)]
             value_counts = df_configs_filtered.value_counts(["dataset", "fold"])
             value_counts_valid = value_counts[value_counts == n_configs]
             dataset_value_counts = value_counts_valid.reset_index(drop=False)[["dataset", "count"]].groupby("dataset")["count"].sum().to_dict()
-            dataset_task_counts = {d: len(tasks) for d, tasks in self.dataset_to_tasks_dict.items()}
+            dataset_fold_counts = {d: len(folds) for d, folds in self.dataset_to_folds_dict.items()}
 
             # filter to only datasets that contain all configs
-            datasets = [d for d in datasets if dataset_value_counts.get(d, 0) == (dataset_task_counts[d] * n_configs)]
+            datasets = [d for d in datasets if dataset_value_counts.get(d, 0) == (dataset_fold_counts[d] * n_configs)]
         return datasets
 
     def task_to_fold(self, task) -> int:

@@ -140,7 +140,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    def datasets(self, problem_type: str | list[str] = None, union: bool = True) -> List[str]:
+    def datasets(self, *, configs: list[str] = None, problem_type: str | list[str] = None, union: bool = True) -> list[str]:
         """repo_subset2.datasets()
         Return all valid datasets.
         By default, will return all datasets that appear in any config at least once.
@@ -157,7 +157,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         -------
         A list of dataset names satisfying the above conditions.
         """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
+        return self._zeroshot_context.get_datasets(configs=configs, problem_type=problem_type, union=union)
 
     def tasks(self) -> list[tuple[str, int]]:
         dataset_folds = self._zeroshot_context.get_tasks(as_dataset_fold=True)
