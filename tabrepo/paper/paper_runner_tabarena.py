@@ -4,8 +4,6 @@ import copy
 
 import pandas as pd
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
-from tabrepo.paper.paper_utils import make_scorers, generate_sensitivity_plots
-from scripts.dataset_analysis import generate_dataset_analysis
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
 
@@ -77,6 +75,7 @@ class PaperRunTabArena(PaperRun):
             "framework": "method",
         })
 
+        from tabrepo.paper.paper_utils import make_scorers
         rank_scorer, normalized_scorer = make_scorers(self.repo)
         df_results["normalized-error-task"] = [normalized_scorer.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
 
@@ -109,8 +108,10 @@ class PaperRunTabArena(PaperRun):
         df_results_per_dataset = df_results_per_dataset.set_index(["dataset", "method"], drop=True)["normalized-error-dataset"]
         df_results = df_results.merge(df_results_per_dataset, left_on=["dataset", "method"], right_index=True)
         df_results["framework"] = df_results["method"]
+        df_results = df_results.set_index(["dataset", "fold", "framework", "seed"])
 
-        df_results_og = df_results_og.merge(df_results[["dataset", "framework", "fold", "seed", "normalized-error-dataset", "normalized-error-task"]], left_index=True, right_on=["dataset", "fold", "framework", "seed"])
+        df_results_og["normalized-error-dataset"] = df_results["normalized-error-dataset"]
+        df_results_og["normalized-error-task"] = df_results["normalized-error-task"]
 
         return df_results_og
 
@@ -140,11 +141,6 @@ class PaperRunTabArena(PaperRun):
             "EBM",
             "FT_TRANSFORMER",
         ]
-
-        # for model_key, model_name in [("XGB", "XGBoost"), ("CAT", "CatBoost"), ("GBM", "LightGBM"), ("RF", "RandomForest"),
-        #                               ("XT", "ExtraTrees")]:
-        #     extra = [f"{model_key}_OG", f"{model_key}_ALT"]
-        #     framework_types += extra
 
         df_results = df_results.copy()
         df_results = df_results.reset_index()
@@ -247,8 +243,6 @@ class PaperRunTabArena(PaperRun):
             print(leaderboard)
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)
-        tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.png")
-        tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.pdf")
 
         results_per_task_rename = results_per_task.rename(columns={
             tabarena.method_col: "framework",
@@ -270,6 +264,9 @@ class PaperRunTabArena(PaperRun):
 
         # self.evaluator.plot_overall_rank_comparison(results_df=df_results_rank_compare2, save_dir=f"{self.output_dir}/paper_v2")
 
+        tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.png")
+        tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.pdf")
+
         hue_order_family_proportion = [
             "RealMLP",
             "CatBoost",
@@ -288,5 +285,5 @@ class PaperRunTabArena(PaperRun):
             "FTTransformer",
         ]
 
-        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
-        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop2", method="Portfolio-fix_fillna-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
+        # plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop_incorrect", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
+        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop", method="Portfolio-fix_fillna-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)

@@ -6,9 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tabrepo import EvaluationRepository, Evaluator
-from scripts.baseline_comparison.plot_utils import (
-    figure_path,
-)
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from tabrepo.paper.paper_utils import make_scorers, generate_sensitivity_plots, get_framework_type_method_names
 from scripts.dataset_analysis import generate_dataset_analysis
