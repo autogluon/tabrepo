@@ -17,21 +17,6 @@ def check_s3_file_exists(s3_client, bucket: str, cache_name: str) -> bool:
             raise
 
 
-def parse_s3_uri(s3_uri: str = None):
-    """Helper function to parse an S3 URI into bucket and key parts"""
-    if s3_uri is None:
-        raise ValueError("s3_uri cannot be None")
-    
-    if s3_uri.startswith('s3://'):
-        s3_uri = s3_uri[5:]
-    parts = s3_uri.split('/', 1)
-    bucket = parts[0]
-    prefix = parts[1] if len(parts) > 1 else ''
-    if prefix and prefix.endswith('/'):
-        prefix = prefix[:-1]
-    return bucket, prefix
-
-
 def upload_methods_config(s3_client, methods_file, bucket, key):
     """Upload methods config to S3, overwriting if it exists."""
     s3_client.upload_file(methods_file, bucket, key)

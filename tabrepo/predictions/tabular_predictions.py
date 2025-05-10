@@ -153,6 +153,16 @@ class TabularModelPredictions:
             all_folds.append(fold_dict.keys())
         return list(set.intersection(*map(set, all_folds))) if all_folds else []
 
+    def dataset_fold_lst(self) -> list[tuple[str, int]]:
+        datasets = self.datasets
+        models_available_dict = self.model_available_dict()
+        dataset_fold_lst = []
+        for dataset in datasets:
+            dataset_folds = list(models_available_dict[dataset].keys())
+            for fold in dataset_folds:
+                dataset_fold_lst.append((dataset, fold))
+        return dataset_fold_lst
+
     def restrict_folds(self, folds: List[int]):
         raise NotImplementedError()
 

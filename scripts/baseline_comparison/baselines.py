@@ -373,7 +373,10 @@ def zeroshot_results(
 
         # restrict number of evaluation fold
         if n_training_fold is None:
-            n_training_fold = n_eval_folds
+            if n_eval_folds is None:
+                n_training_fold = len(repo.folds)
+            else:
+                n_training_fold = n_eval_folds
 
         # gets all tids that are possible available
         test_tid = repo.dataset_to_tid(test_dataset)
@@ -402,15 +405,21 @@ def zeroshot_results(
 
         df_rank = df_rank.copy().loc[configs]
 
+        train_task_weight = {}
+
         # collects all tasks that are available
         train_tasks = []
         for task in df_rank.columns:
             tid, fold = task.split("_")
-            if int(tid) in selected_tids and int(fold) < n_training_fold:
+            tid = int(tid)
+            fold = int(fold)
+            if tid in selected_tids and fold < n_training_fold:
                 train_tasks.append(task)
+                n_folds_in_dataset = min(n_training_fold, len(repo.dataset_to_folds(repo.tid_to_dataset(tid))))
+                train_task_weight[task] = 1/n_folds_in_dataset
 
         # fit zeroshot portfolio on all available tasks
-        indices = zeroshot_configs(-df_rank[train_tasks].values.T, n_portfolio)
+        indices = zeroshot_configs(-df_rank[train_tasks].values.T, n_portfolio, weights=[train_task_weight[task] for task in train_tasks])
         portfolio_configs = [df_rank.index[i] for i in indices]
         # TODO: Technically we should exclude data from the fold when computing the average runtime and also pass the
         #  current fold when filtering by runtime.
@@ -424,6 +433,10 @@ def zeroshot_results(
             "max_models_per_type": max_models_per_type,
         }
 
+        test_folds = repo.dataset_to_folds(dataset=test_dataset)
+        if n_eval_folds is not None:
+            test_folds = test_folds[:n_eval_folds]
+
         results_row_lst: list[ResultRow] = evaluate_configs(
             repo=repo,
             rank_scorer=rank_scorer,
@@ -434,7 +447,7 @@ def zeroshot_results(
             tid=test_tid,
             time_limit=max_runtime,
             method=method_name,
-            folds=range(n_eval_folds),
+            folds=test_folds,
             seed=seed,
         )
 
@@ -453,9 +466,12 @@ def zeroshot_results(
     if configs is None:
         configs = repo.configs()
     if framework_types is None:
-        model_frameworks = {
-            "all": sorted(configs)
-        }
+        configs_type = repo.configs_type(configs=configs)
+        model_frameworks = {}
+        for config, config_type in configs_type.items():
+            if config_type not in model_frameworks:
+                model_frameworks[config_type] = []
+            model_frameworks[config_type].append(config)
     else:
         model_frameworks = {
             framework: sorted([x for x in configs if framework in x])

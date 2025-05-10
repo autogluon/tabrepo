@@ -84,7 +84,7 @@ def filter_configs_by_runtime(
         return config_names
     else:
         assert dataset in repo.datasets()
-        assert fold in repo.folds
+        assert fold in repo.dataset_to_folds(dataset=dataset)
         runtime_configs = get_runtime(repo=repo, dataset=dataset, fold=fold, config_names=config_names, fail_if_missing=False)
         cumruntime = np.cumsum([runtime_configs[config] for config in config_names])
         # str_runtimes = ", ".join([f"{name}: {time}" for name, time in zip(runtime_configs.keys(), cumruntime)])

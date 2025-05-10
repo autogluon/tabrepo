@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from autogluon.common.savers import save_pd
@@ -36,13 +37,20 @@ class Evaluator:
         configs: list[str] = None,
         baselines: list[str] = None,
         convert_from_sample_to_batch: bool = False,
+        keep_extra_columns: bool = False,
+        fillna: bool = True,
     ) -> pd.DataFrame:
         if datasets is None:
             datasets = self.repo.datasets()
         columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type"]
 
         if results_df is not None:
-            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])[columns]
+            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])
+            if not keep_extra_columns:
+                df_exp = df_exp[columns]
+            else:
+                extra_columns = [c for c in df_exp.columns if c not in columns]
+                df_exp = df_exp[columns + extra_columns]
         else:
             df_exp = None
 
@@ -79,7 +87,59 @@ class Evaluator:
         df = pd.concat([df_exp, df_tr, df_baselines], axis=0)
         df = df.sort_index()
 
+        if fillna:
+            assert self.repo._config_fallback is not None
+            df_fillna = self.compare_metrics(
+                configs=[self.repo._config_fallback],
+                baselines=[],
+                datasets=datasets,
+                folds=folds,
+                fillna=False,
+            )
+            df_fillna = df_fillna.droplevel("framework")
+            df = self._fillna_metrics(df_metrics=df, df_fillna=df_fillna)
+
         return df
+
+    @classmethod
+    def _fillna_metrics(cls, df_metrics: pd.DataFrame, df_fillna: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fills missing (dataset, fold, framework) rows in df_metrics with the (dataset, fold) row in df_fillna.
+
+        Parameters
+        ----------
+        df_metrics
+        df_fillna
+
+        Returns
+        -------
+
+        """
+        # FIXME: Include frameworks that have 0 presence?
+        #  baselines + configs
+        unique_frameworks = list(df_metrics.index.unique(level="framework"))
+
+        df_filled = df_fillna.index.to_frame().merge(
+            pd.Series(data=unique_frameworks, name="framework"),
+            how="cross",
+        )
+        df_filled = df_filled.set_index(keys=list(df_filled.columns))
+
+        # missing results
+        nan_vals = df_filled.index.difference(df_metrics.index)
+
+        # fill valid values
+        fill_cols = list(df_metrics.columns)
+        df_filled[fill_cols] = np.nan
+        df_filled[fill_cols] = df_filled[fill_cols].astype(df_metrics.dtypes)
+        df_filled.loc[df_metrics.index] = df_metrics
+
+        a = df_fillna.loc[nan_vals.droplevel(level="framework")]
+        a.index = nan_vals
+        df_filled.loc[nan_vals] = a
+        df_metrics = df_filled
+
+        return df_metrics
 
     # TODO: Prototype, find a better way to do this
     # TODO: Docstring
@@ -296,8 +356,12 @@ class Evaluator:
         self,
         configs: list[str] | None = None,
         n_portfolios: int = 200,  # FIXME
+        n_ensemble: int | None = None,
         engine: str = "ray",
         rename_columns: bool = True,  # TODO: Align them automatically so this isn't needed
+        n_ensemble_in_name: bool = True,
+        n_max_models_per_type: int | str | None = None,
+        fix_fillna: bool = False,
     ) -> pd.DataFrame:
         repo = self.repo
 
@@ -313,9 +377,13 @@ class Evaluator:
             repo=repo,
             dataset_names=repo.datasets(),
             n_portfolios=[n_portfolios],
+            n_ensembles=[n_ensemble],
+            n_ensemble_in_name=n_ensemble_in_name,
+            n_max_models_per_type=[n_max_models_per_type],
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
             n_eval_folds=repo.n_folds(),
+            fix_fillna=fix_fillna,
             configs=configs,
             engine=engine,
         )

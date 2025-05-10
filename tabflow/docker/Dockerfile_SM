@@ -10,8 +10,8 @@ RUN mkdir workspace
 RUN cd workspace && git clone https://github.com/autogluon/autogluon
 RUN ./workspace/autogluon/full_install.sh
 
-# COPY ../../../autogluon-bench /autogluon-bench - bench is not required at the moment
-COPY autogluon-benchmark /workspace/autogluon-benchmark
+# COPY ../../../autogluon-bench /autogluon-bench  # - bench is not required at the moment
+# COPY autogluon-benchmark /workspace/autogluon-benchmark  # - autogluon-benchmark is not required at the moment
 # Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
 COPY tabrepo /workspace/tabrepo
 COPY ./tabrepo/tabflow/tabflow/cli/evaluate.py .
@@ -19,7 +19,7 @@ COPY ./tabrepo/tabflow/tabflow/cli/evaluate.py .
 # Install the required packages
 RUN pip install -e workspace/tabrepo/ \
     # && pip install -e autogluon-bench \
-    && pip install -e workspace/autogluon-benchmark/ \
+    # && pip install -e workspace/autogluon-benchmark/ \
     && pip install -e workspace/tabrepo/tabflow/
 
 # Install pytabkit and seaborn for RealMLP models
@@ -27,7 +27,7 @@ RUN pip install -e workspace/tabrepo/ \
 RUN pip install pytabkit seaborn
 RUN pip install "interpret-core>=0.6.1" \
     && pip install "tabpfn>=2" \
-    && pip install tabicl
+    && pip install "tabicl>=0.1.1"  # V2 checkpoint added in v0.1.1
 
 
 # Generate tabrepo configs and give permissions

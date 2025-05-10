@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-import boto3
-import os
 import io
 import logging
+import math
 import numpy as np
 import pandas as pd
-from pathlib import Path
+
 from openml.tasks.task import OpenMLSupervisedTask
 from typing_extensions import Self
 
 from autogluon.common.savers import save_pd, save_json
 from autogluon.core.utils import generate_train_test_split
-from tabflow.utils.s3_utils import parse_s3_uri
 
 from .task_utils import get_task_data, get_ag_problem_type, get_task_with_retry
+from ....utils.s3_utils import download_task_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +72,27 @@ class OpenMLTaskWrapper:
     def get_split_indices(self, fold: int = 0, repeat: int = 0, sample: int = 0) -> tuple[np.ndarray, np.ndarray]:
         train_indices, test_indices = self.task.get_train_test_split_indices(fold=fold, repeat=repeat, sample=sample)
         return train_indices, test_indices
+
+    def get_split_idx(self, fold: int = 0, repeat: int = 0, sample: int = 0) -> int:
+        n_repeats, n_folds, n_samples = self.get_split_dimensions()
+        assert fold < n_folds
+        assert repeat < n_repeats
+        assert sample < n_samples
+        split_idx = n_folds * n_samples * repeat + n_samples * fold + sample
+        return split_idx
+
+    def split_vals_from_split_idx(self, split_idx: int) -> tuple[int, int, int]:
+        n_repeats, n_folds, n_samples = self.get_split_dimensions()
+
+        repeat = math.floor(split_idx / (n_folds * n_samples))
+        remainder = split_idx % (n_folds * n_samples)
+        fold = math.floor(remainder / n_samples)
+        sample = remainder % n_samples
+
+        assert fold < n_folds
+        assert repeat < n_repeats
+        assert sample < n_samples
+        return repeat, fold, sample
 
     def get_train_test_split(
         self,
@@ -168,7 +188,8 @@ class OpenMLS3TaskWrapper(OpenMLTaskWrapper):
     Class which uses S3 cache to download task splits.
     """
     @classmethod
-    def from_task_id(cls, task_id: int, s3_dataset_cache: str = None) -> Self:
-        task = get_task_with_retry(task_id=task_id, s3_dataset_cache=s3_dataset_cache)
+    def from_task_id(cls, task_id: int, s3_dataset_cache: str) -> Self:
+        assert s3_dataset_cache is not None
+        download_task_from_s3(task_id, s3_dataset_cache=s3_dataset_cache)
+        task = get_task_with_retry(task_id=task_id)
         return cls(task)
-    

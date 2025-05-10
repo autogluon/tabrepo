@@ -3,7 +3,6 @@ import pytest
 
 
 def test_tabdpt():
-    pytest.skip("Skipping TabDPT unit test. TabDPT model weights must be manually downloaded.")
     model_hyperparameters = {}
 
     try:
