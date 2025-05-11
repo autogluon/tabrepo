@@ -24,7 +24,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 # Constants
 DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
-DEFAULT_EPOCH = 50
+DEFAULT_EPOCH = 10000
+DEFAULT_BUDGET = 300
 DEFAULT_ENSEMBLE = 1
 DEFAULT_DIM = 512
 DEFAULT_LAYERS = 12
@@ -36,7 +37,7 @@ class MitraBase(BaseEstimator):
     """Base class for Mitra models with common functionality."""
     
     def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, state_dict=None):
+                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, budget=DEFAULT_BUDGET, state_dict=None):
         """
         Initialize the base Mitra model.
         
@@ -57,6 +58,7 @@ class MitraBase(BaseEstimator):
         self.n_estimators = n_estimators
         self.device = device
         self.epoch = epoch
+        self.budget = budget
         self.state_dict = state_dict
         self.trainers = []
         self.models = []
@@ -96,6 +98,7 @@ class MitraBase(BaseEstimator):
                 'use_feature_count_scaling': False,
                 'use_pretrained_weights': False,
                 'use_quantile_transformer': False,
+                'budget': self.budget,
             },
         )
 

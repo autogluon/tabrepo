@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import time
 import numpy as np
 import torch
 from loguru import logger
@@ -88,6 +88,8 @@ class TrainerFinetune(BaseEstimator):
         self.log_start_metrics(metrics_valid)
         self.checkpoint(self.model, metrics_valid.loss)
 
+        start_time = time.time()
+
         for epoch in range(1, self.cfg.hyperparams['max_epochs']+1):
 
             dataset_train = next(dataset_train_generator)            
@@ -155,6 +157,10 @@ class TrainerFinetune(BaseEstimator):
             self.early_stopping(metrics_valid.loss)
             if self.early_stopping.we_should_stop():
                 logger.info("Early stopping")
+                break
+
+            if self.cfg.budget > 0 and time.time() - start_time > self.cfg.budget:
+                logger.info("Time limit reached")
                 break
 
             if epoch < self.cfg.hyperparams['warmup_steps']:
