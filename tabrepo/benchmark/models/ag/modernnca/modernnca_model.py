@@ -199,7 +199,7 @@ class ModernNCAImplementation:
         tensors["x_cont"] = (
             self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))
             if self.has_num_cols
-            else np.empty((len(X), 0), dtype=np.float32),
+            else np.empty((len(X), 0), dtype=np.float32)
         )
 
         # for tens_name in ['x_cat', 'x_cont']:

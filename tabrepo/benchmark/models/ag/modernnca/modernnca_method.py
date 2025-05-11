@@ -206,6 +206,9 @@ class ModernNCAMethod(Method):
                     is_train=False,
                 ).squeeze(-1)
 
+                if not pred.shape:
+                    pred = pred.unsqueeze(0)
+
                 test_logit.append(pred)
                 # test_label.append(y)
 
