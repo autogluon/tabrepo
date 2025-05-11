@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
-import math
 
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
@@ -63,14 +63,15 @@ class TabDPTModel(AbstractModel):
     def _use_flash() -> bool:
         """Detect if torch's native flash attention is available on the current machine."""
         import torch
+
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
             capability = torch.cuda.get_device_capability(device)
 
             if capability == (7, 5):
                 return False
-        else:
-            return True
+            return None
+        return True
 
     @staticmethod
     def _download_and_get_model_path() -> str:
@@ -94,7 +95,7 @@ class TabDPTModel(AbstractModel):
 
         # Fix bug in TabDPt where batches of length 1 crash the prediction.
         # - We set the inference size such that there are no batches of length 1.
-        n_batches = math.ceil(len(X) / self.model.inf_batch_size)
+        math.ceil(len(X) / self.model.inf_batch_size)
         last_batch_size = len(X) % self.model.inf_batch_size
         if last_batch_size == 1:
             self.model.inf_batch_size += 1
