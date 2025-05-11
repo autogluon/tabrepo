@@ -114,20 +114,20 @@ class TabPFNV2Model(AbstractModel):
                 del hps[k]
 
         # Power transform can fail. To avoid this, make all power be safepower instead.
-
-        safe_config = []
-        for preprocessing_dict in inference_config["PREPROCESS_TRANSFORMS"]:
-            if preprocessing_dict["name"] == "power":
-                preprocessing_dict["name"] = "safepower"
-            safe_config.append(preprocessing_dict)
-        inference_config["PREPROCESS_TRANSFORMS"] = safe_config
-
-        safe_config = []
-        for preprocessing_name in inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"]:
-            if preprocessing_name == "power":
-                preprocessing_name = "safepower"
-            safe_config.append(preprocessing_name)
-        inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"] = safe_config
+        if "PREPROCESS_TRANSFORMS" in inference_config:
+            safe_config = []
+            for preprocessing_dict in inference_config["PREPROCESS_TRANSFORMS"]:
+                if preprocessing_dict["name"] == "power":
+                    preprocessing_dict["name"] = "safepower"
+                safe_config.append(preprocessing_dict)
+            inference_config["PREPROCESS_TRANSFORMS"] = safe_config
+        if "REGRESSION_Y_PREPROCESS_TRANSFORMS" in inference_config:
+            safe_config = []
+            for preprocessing_name in inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"]:
+                if preprocessing_name == "power":
+                    preprocessing_name = "safepower"
+                safe_config.append(preprocessing_name)
+            inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"] = safe_config
 
         # Resolve model_type
         n_ensemble_repeats = hps.pop("n_ensemble_repeats", None)
