@@ -26,8 +26,10 @@ class TabICLModel(AbstractModel):
     def _get_batch_size(n_cells: int):
         if n_cells <= 4_000_000:
             return 8
-        else:
+        elif n_cells <= 6_000_000:
             return 4
+        else:
+            return 2
 
     def _fit(
         self,

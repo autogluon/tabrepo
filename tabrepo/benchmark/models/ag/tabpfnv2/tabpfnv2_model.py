@@ -1,31 +1,32 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any
 
-import warnings
+import numpy as np
 import scipy
-
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
 from sklearn.preprocessing import PowerTransformer
-import numpy as np
+from sklearn.utils.validation import FLOAT_DTYPES
 
 if TYPE_CHECKING:
     import pandas as pd
 
 
+# TODO: merge into TabPFnv2 codebase
 class FixedSafePowerTransformer(PowerTransformer):
     """Fixed version of safe power THAT FOLLOWS BASIC SKLEARN STANDARD ANS THUS DOES NOT HAVE A BUG WHEN CLONING
     WHY IS THIS SO HARD?
     """
 
     def __init__(
-            self,
-            variance_threshold: float = 1e-3,
-            large_value_threshold: float = 100,
-            method="yeo-johnson",
-            standardize=True,
-            copy=True
+        self,
+        variance_threshold: float = 1e-3,
+        large_value_threshold: float = 100,
+        method="yeo-johnson",
+        standardize=True,
+        copy=True,
     ):
         super().__init__(method=method, standardize=standardize, copy=copy)
         self.variance_threshold = variance_threshold
@@ -34,8 +35,8 @@ class FixedSafePowerTransformer(PowerTransformer):
         self.revert_indices_ = None
 
     def _find_features_to_revert_because_of_failure(
-            self,
-            transformed_X: np.ndarray,
+        self,
+        transformed_X: np.ndarray,
     ) -> None:
         # Calculate the variance for each feature in the transformed data
         variances = np.nanvar(transformed_X, axis=0)
@@ -72,9 +73,9 @@ class FixedSafePowerTransformer(PowerTransformer):
         return super()._yeo_johnson_transform(x, lmbda)  # type: ignore
 
     def _revert_failed_features(
-            self,
-            transformed_X: np.ndarray,
-            original_X: np.ndarray,
+        self,
+        transformed_X: np.ndarray,
+        original_X: np.ndarray,
     ) -> np.ndarray:
         # Replace these features with the original features
         if self.revert_indices_ and (self.revert_indices_) > 0:
@@ -94,7 +95,19 @@ class FixedSafePowerTransformer(PowerTransformer):
         return self._revert_failed_features(transformed_X, X)  # type: ignore
 
 
-# FIXME: why so slow?
+# TODO: merge into codebase or remove KDITransformer from search space
+def _check_inputs(self, X, in_fit, accept_sparse_negative=False, copy=False):
+    """Check inputs before fit and transform."""
+    return self._validate_data(
+        X,
+        reset=in_fit,
+        accept_sparse=False,
+        copy=copy,
+        dtype=FLOAT_DTYPES,
+        force_all_finite="allow-nan",
+    )
+
+
 class TabPFNV2Model(AbstractModel):
     ag_key = "TABPFNV2"
     ag_name = "TabPFNv2"
@@ -131,16 +144,17 @@ class TabPFNV2Model(AbstractModel):
     #  Consider adopting same download logic as TabPFNMix which doesn't crash during model download.
     # FIXME: Maybe support child_oof somehow with using only one model and being smart about inference time?
     def _fit(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            num_cpus: int = 1,
-            num_gpus: int = 0,
-            **kwargs,
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        num_cpus: int = 1,
+        num_gpus: int = 0,
+        **kwargs,
     ):
-
         from tabpfn.model import preprocessing
+
         preprocessing.SafePowerTransformer = FixedSafePowerTransformer
+        preprocessing.KDITransformerWithNaN._check_inputs = _check_inputs
 
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
@@ -202,6 +216,7 @@ class TabPFNV2Model(AbstractModel):
             if k.startswith("inference_config/"):
                 del hps[k]
 
+        # TODO: remove power from search space and TabPFNv2 codebase
         # Power transform can fail. To avoid this, make all power be safepower instead.
         if "PREPROCESS_TRANSFORMS" in inference_config:
             safe_config = []
