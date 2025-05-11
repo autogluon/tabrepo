@@ -6,6 +6,7 @@ import sys
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
+import math
 
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
@@ -90,6 +91,13 @@ class TabDPTModel(AbstractModel):
 
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
         X = self.preprocess(X, **kwargs)
+
+        # Fix bug in TabDPt where batches of length 1 crash the prediction.
+        # - We set the inference size such that there are no batches of length 1.
+        n_batches = math.ceil(len(X) / self.model.inf_batch_size)
+        last_batch_size = len(X) % self.model.inf_batch_size
+        if last_batch_size == 1:
+            self.model.inf_batch_size += 1
 
         if self.problem_type in [REGRESSION]:
             return self.model.predict(X, **self._predict_hps)
