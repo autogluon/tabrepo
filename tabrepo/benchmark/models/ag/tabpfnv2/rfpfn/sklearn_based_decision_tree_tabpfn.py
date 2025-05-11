@@ -1159,9 +1159,6 @@ class DecisionTreeTabPFNClassifier(DecisionTreeTabPFNBase, ClassifierMixin):
         # Otherwise, fit TabPFN
         leaf_seed = leaf_id + self.tree_seed
         try:
-            self.tabpfn.random_state = leaf_seed
-            self.tabpfn.fit(X_train_leaf, y_train_leaf)
-
             # Handle pandas DataFrame or numpy array
             if hasattr(X_full, "iloc"):
                 # Use .iloc for pandas
@@ -1170,46 +1167,44 @@ class DecisionTreeTabPFNClassifier(DecisionTreeTabPFNBase, ClassifierMixin):
                 # Use direct indexing for numpy
                 X_subset = X_full[indices]
 
-            proba = self.tabpfn.predict_proba(X_subset)
-            for i, c in enumerate(classes_in_leaf):
-                y_eval_prob[indices, c] = proba[:, i]
-        except Exception as e:
-            if (
-                isinstance(e, ValueError) and e.args and (e.args[0] != "All features are constant and would have been removed! Unable to predict using TabPFN.")
-            ):
-                warnings.warn(
-                    "One node has constant features for TabPFN. Using class-ratio fallback.",
-                    stacklevel=2,
-                )
-                _, counts = np.unique(y_train_leaf, return_counts=True)
-                ratio = counts / counts.sum()
-                for i, c in enumerate(classes_in_leaf):
-                    y_eval_prob[indices, c] = ratio[i]
-            else:
-                from tabpfn.preprocessing import default_classifier_preprocessor_configs, default_regressor_preprocessor_configs
+            try:
+                self.tabpfn.random_state = leaf_seed
+                self.tabpfn.fit(X_train_leaf, y_train_leaf)
+                proba = self.tabpfn.predict_proba(X_subset)
+            except Exception as e:
+                from tabpfn.preprocessing import default_classifier_preprocessor_configs, \
+                    default_regressor_preprocessor_configs
                 backup_inf_conf = deepcopy(self.tabpfn.inference_config)
                 default_pre = default_classifier_preprocessor_configs if self.task_type == "multiclass" else default_regressor_preprocessor_configs
 
                 # Try to run again without preprocessing which might crash
                 self.tabpfn.random_state = leaf_seed
-                self.tabpfn.inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"] = default_pre()
+                self.tabpfn.inference_config["PREPROCESS_TRANSFORMS"] = default_pre()
                 self.tabpfn.inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"] = (None, "safepower")
+                print(self.tabpfn.inference_config)
                 self.tabpfn.fit(X_train_leaf, y_train_leaf)
-
-                # Handle pandas DataFrame or numpy array
-                if hasattr(X_full, "iloc"):
-                    # Use .iloc for pandas
-                    X_subset = X_full.iloc[indices]
-                else:
-                    # Use direct indexing for numpy
-                    X_subset = X_full[indices]
-
                 proba = self.tabpfn.predict_proba(X_subset)
-                for i, c in enumerate(classes_in_leaf):
-                    y_eval_prob[indices, c] = proba[:, i]
-
                 # reset preprocessing
                 self.tabpfn.inference_config = backup_inf_conf
+
+            for i, c in enumerate(classes_in_leaf):
+                y_eval_prob[indices, c] = proba[:, i]
+
+        except ValueError as e:
+            if (
+                    not e.args
+                    or e.args[0]
+                    != "All features are constant and would have been removed! Unable to predict using TabPFN."
+            ):
+                raise e
+            warnings.warn(
+                "One node has constant features for TabPFN. Using class-ratio fallback.",
+                stacklevel=2,
+            )
+            _, counts = np.unique(y_train_leaf, return_counts=True)
+            ratio = counts / counts.sum()
+            for i, c in enumerate(classes_in_leaf):
+                y_eval_prob[indices, c] = ratio[i]
 
         return y_eval_prob
 
