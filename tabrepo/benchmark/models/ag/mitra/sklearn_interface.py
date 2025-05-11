@@ -159,9 +159,9 @@ class MitraClassifier(MitraBase, ClassifierMixin):
     """Classifier implementation of Mitra model."""
 
     def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, state_dict='/fsx/xiyuanz/mix5_multi_cat.pt'):
+                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, budget=DEFAULT_BUDGET, state_dict='/fsx/xiyuanz/mix5_multi_cat.pt'):
         """Initialize the classifier."""
-        super().__init__(model_type, n_estimators, device, epoch, state_dict)
+        super().__init__(model_type, n_estimators, device, epoch, budget, state_dict)
         self.task = 'classification'
     
     def fit(self, X, y, X_val = None, y_val = None):
@@ -248,9 +248,9 @@ class MitraRegressor(MitraBase, RegressorMixin):
     """Regressor implementation of Mitra model."""
 
     def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, state_dict='/fsx/xiyuanz/atticmix4reg.pt'):
+                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, budget=DEFAULT_BUDGET, state_dict='/fsx/xiyuanz/atticmix4reg.pt'):
         """Initialize the regressor."""
-        super().__init__(model_type, n_estimators, device, epoch, state_dict)
+        super().__init__(model_type, n_estimators, device, epoch, budget, state_dict)
         self.task = 'regression'
 
     def fit(self, X, y, X_val = None, y_val = None):
