@@ -100,8 +100,11 @@ class PaperRunTabArena(PaperRun):
                 "normalized-error-dataset"
 
         """
+        if not static:
+            return self.compute_normalized_error_dynamic(df_results=df_results)
+
         df_results_og = df_results.copy(deep=True)
-        df_results = df_results.copy(deep=True).reset_index(drop=False)
+        df_results = df_results.reset_index(drop=False)
         df_results = df_results.rename(columns={
             "framework": "method",
         })
@@ -109,45 +112,22 @@ class PaperRunTabArena(PaperRun):
         df_results_per_dataset = df_results.groupby(["method", "dataset"])["metric_error"].mean().reset_index(drop=False)
 
         from tabrepo.utils.normalized_scorer import NormalizedScorer
+        from tabrepo.paper.paper_utils import make_scorers
+        rank_scorer, normalized_scorer_task = make_scorers(self.repo)
 
-        if static:
-            from tabrepo.paper.paper_utils import make_scorers
-            rank_scorer, normalized_scorer_task = make_scorers(self.repo)
+        df_results_baselines = pd.concat([
+            self.repo._zeroshot_context.df_configs_ranked,
+            self.repo._zeroshot_context.df_baselines,
+        ], ignore_index=True)
 
-            df_results_baselines = pd.concat([
-                self.repo._zeroshot_context.df_configs_ranked,
-                self.repo._zeroshot_context.df_baselines,
-            ], ignore_index=True)
-
-            df_comparison_per_dataset = df_results_baselines.groupby(["framework", "dataset"])["metric_error"].mean()
-            df_comparison_per_dataset = df_comparison_per_dataset.reset_index(drop=False)
-            df_comparison_per_dataset = df_comparison_per_dataset.rename(columns={
-                "framework": "method",
-            })
-            # Standard normalized-error, only computed off of real experiments, not impacted by simulation runs.
-            # This is biased against very strong simulation results because they can't get better than `0.0` on a dataset.
-            normalized_scorer_dataset = NormalizedScorer(df_comparison_per_dataset, tasks=list(df_results_baselines["dataset"].unique()), baseline=None, task_col="dataset", framework_col="method")
-        else:
-            # Alternative, this also incorporates Portfolios and HPO into the normalized scoring. This makes normalized-error dependent on what simulations we run.
-            # This is unbiased against very strong simulation results because the best method defines what is `0.0` on a dataset.
-            normalized_scorer_dataset = NormalizedScorer(
-                df_results_per_dataset,
-                tasks=list(df_results_per_dataset["dataset"].unique()),
-                baseline=None,
-                task_col="dataset",
-                framework_col="method",
-            )
-
-            all_tasks = df_results[["dataset", "fold"]].drop_duplicates().values.tolist()
-            all_tasks = [tuple(task) for task in all_tasks]
-
-            normalized_scorer_task = NormalizedScorer(
-                df_results,
-                tasks=all_tasks,
-                baseline=None,
-                task_col=["dataset", "fold"],
-                framework_col="method",
-            )
+        df_comparison_per_dataset = df_results_baselines.groupby(["framework", "dataset"])["metric_error"].mean()
+        df_comparison_per_dataset = df_comparison_per_dataset.reset_index(drop=False)
+        df_comparison_per_dataset = df_comparison_per_dataset.rename(columns={
+            "framework": "method",
+        })
+        # Standard normalized-error, only computed off of real experiments, not impacted by simulation runs.
+        # This is biased against very strong simulation results because they can't get better than `0.0` on a dataset.
+        normalized_scorer_dataset = NormalizedScorer(df_comparison_per_dataset, tasks=list(df_results_baselines["dataset"].unique()), baseline=None, task_col="dataset", framework_col="method")
 
         df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in
                                                zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
@@ -166,12 +146,74 @@ class PaperRunTabArena(PaperRun):
 
         return df_results_og
 
+    def compute_normalized_error_dynamic(self, df_results: pd.DataFrame) -> pd.DataFrame:
+        df_results_og = df_results.copy(deep=True)
+        df_results = df_results.reset_index(drop=False)
+        df_results = df_results.rename(columns={
+            "framework": "method",
+        })
+
+        df_results_per_dataset = df_results.groupby(["method", "dataset"])["metric_error"].mean().reset_index(drop=False)
+
+        from tabrepo.utils.normalized_scorer import NormalizedScorer
+
+        # Alternative, this also incorporates Portfolios and HPO into the normalized scoring. This makes normalized-error dependent on what simulations we run.
+        # This is unbiased against very strong simulation results because the best method defines what is `0.0` on a dataset.
+        normalized_scorer_dataset = NormalizedScorer(
+            df_results_per_dataset,
+            tasks=list(df_results_per_dataset["dataset"].unique()),
+            baseline=None,
+            task_col="dataset",
+            framework_col="method",
+        )
+
+        all_tasks = df_results[["dataset", "fold"]].drop_duplicates().values.tolist()
+        all_tasks = [tuple(task) for task in all_tasks]
+
+        normalized_scorer_task = NormalizedScorer(
+            df_results,
+            tasks=all_tasks,
+            baseline=None,
+            task_col=["dataset", "fold"],
+            framework_col="method",
+        )
+
+        df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in
+                                               zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
+
+        df_results_per_dataset["normalized-error-dataset"] = [
+            normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in
+            zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])
+        ]
+
+        df_results_per_dataset = df_results_per_dataset.set_index(["dataset", "method"], drop=True)["normalized-error-dataset"]
+        df_results = df_results.merge(df_results_per_dataset, left_on=["dataset", "method"], right_index=True)
+        df_results["framework"] = df_results["method"]
+        df_results = df_results.set_index(["dataset", "fold", "framework", "seed"])
+
+        df_results_og["normalized-error-dataset"] = df_results["normalized-error-dataset"]
+        df_results_og["normalized-error-task"] = df_results["normalized-error-task"]
+        return df_results_og
+
     def eval(self, df_results: pd.DataFrame, use_gmean: bool = False):
+        df_results = df_results.copy()
+        if "seed" not in df_results:
+            df_results["seed"] = 0
+        df_results["seed"] = df_results["seed"].fillna(0)
+        df_results = df_results.set_index("seed", append=True)
+        df_results = df_results[~df_results.index.duplicated(keep='first')]
+
         # FIXME: Clean bad columns, in future ensure these don't exist
         df_results = df_results.drop(columns=[
             "normalized_error",
             "index",
         ])
+
+        df_results = df_results.reset_index()
+        df_results = df_results.rename(columns={
+            "framework": "method",
+        })
+        df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error(df_results)` first to get normalized-error."
 
@@ -188,18 +230,11 @@ class PaperRunTabArena(PaperRun):
             "LR",
             "TABPFNV2",
             "TABICL",
+            "TABDPT",
             "REALMLP",
             "EBM",
             "FT_TRANSFORMER",
         ]
-
-        df_results = df_results.copy()
-        df_results = df_results.reset_index()
-        df_results = df_results.rename(columns={
-            "framework": "method",
-        })
-        df_results["seed"] = 0
-        df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         df_results["method"] = df_results["method"].map({
             "AutoGluon_bq_4h8c": "AutoGluon 1.3 (4h)",
@@ -220,6 +255,7 @@ class PaperRunTabArena(PaperRun):
             "FTTransformer_c1_BAG_L1": "FT_TRANSFORMER (default)",
             "TabPFNv2_c1_BAG_L1": "TABPFNV2 (default)",
             "TabICL_c1_BAG_L1": "TABICL (default)",
+            "TabDPT_c1_BAG_L1": "TABDPT (default)",
         }).fillna(df_results["method"])
         print(df_results)
 

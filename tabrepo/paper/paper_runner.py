@@ -31,7 +31,8 @@ class PaperRun:
             banned_families = [
                 "DUMMY",
                 "TABICL",
-                "TABPFNV2",
+                "TABDPT",
+                # "TABPFNV2",
                 "FT_TRANSFORMER",
             ]
             for b in banned_families:
