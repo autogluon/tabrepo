@@ -22,6 +22,15 @@ class TabICLModel(AbstractModel):
             raise AssertionError(f"Unsupported problem_type: {self.problem_type}")
         return model_cls
 
+    @staticmethod
+    def _get_batch_size(n_cells: int):
+        if n_cells <= 4_000_000:
+            return 8
+        elif n_cells <= 6_000_000:
+            return 4
+        else:
+            return 2
+
     def _fit(
         self,
         X: pd.DataFrame,
@@ -42,6 +51,7 @@ class TabICLModel(AbstractModel):
 
         model_cls = self.get_model_cls()
         hyp = self._get_model_params()
+        hyp["batch_size"] = hyp.get("batch_size", self._get_batch_size(X.shape[0] * X.shape[1]))
         self.model = model_cls(
             **hyp,
             device=device,

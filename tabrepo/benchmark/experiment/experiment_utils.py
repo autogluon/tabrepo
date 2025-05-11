@@ -259,11 +259,44 @@ class ExperimentBatchRunner:
         if len(repeats) != len(set(repeats)):
             raise AssertionError(f"Duplicate repeats present! Ensure all repeats are unique.")
 
+def check_cache_hit(
+    *,
+    result_dir: str,
+    method_name: str,
+    task_id: int,
+    fold: int,
+    repeat: int | None,
+    cache_path_format: Literal["name_first", "task_first"],
+    cache_cls: Type[AbstractCacheFunction] | None,
+    cache_cls_kwargs: dict | None = None,
+    mode: Literal["local", "s3"],
+    s3_bucket: str | None = None,
+) -> bool:
+    """Returns true if cache exists for the given experiment."""
+    base_cache_path = result_dir if mode == "local" else f"s3://{s3_bucket}/{result_dir}"
+
+    subtask_cache_name = ExperimentBatchRunner._subtask_name(fold=fold, repeat=repeat)
+
+    if cache_path_format == "name_first":
+        cache_prefix = f"data/{method_name}/{task_id}/{subtask_cache_name}"
+        cache_name = "results"
+    elif cache_path_format == "task_first":
+        # Legacy format from early prototyping
+        cache_prefix = f"data/tasks/{task_id}/{subtask_cache_name}/{method_name}"
+        cache_name = "results"
+    else:
+        raise ValueError(f"Invalid cache_path_format: {cache_path_format}")
+
+    cache_path = f"{base_cache_path}/{cache_prefix}"
+
+    cacher = cache_cls(cache_name=cache_name, cache_path=cache_path, **cache_cls_kwargs)
+    return cacher.exists
+
 
 def run_experiments(
     expname: str,
     tids: list[int],
-    folds: list[int],
+    folds: list[int] | None,
     methods: list[Experiment],
     task_metadata: pd.DataFrame | dict,
     ignore_cache: bool,
@@ -277,6 +310,7 @@ def run_experiments(
     raise_on_failure: bool = True,
     debug_mode: bool = True,
     s3_dataset_cache: str | None = None,
+    repeat_fold_pairs: list[tuple[int | None, int]] | None = None,
 ) -> list[dict]:
     """
 
@@ -302,6 +336,8 @@ def run_experiments(
     s3_dataset_cache: str, default None
         Full S3 URI to the openml dataset cache (format: s3://bucket/prefix)
         If None, skip S3 download attempt
+    repeat_fold_pairs: list[tuple[int | None, int]] | None, default None
+        alternative to `repeats` and `folds` parameters to specify the repeat and fold pairs to run.
 
     Returns
     -------
@@ -314,6 +350,9 @@ def run_experiments(
         cache_cls = CacheFunctionDummy
     if cache_cls_kwargs is None:
         cache_cls_kwargs = {}
+
+    if folds is None:
+        assert repeat_fold_pairs is not None, "If folds is None, repeat_fold_pairs must be provided"
 
     # Modify cache path based on mode
     if mode == "local":
@@ -344,14 +383,27 @@ def run_experiments(
         dataset_names = [task_metadata[tid] for tid in tids]
     else:
         dataset_names = [task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0] for tid in tids]
+
+    if repeat_fold_pairs is None:
+        n_splits = len(folds)
+        if repeats is not None:
+            n_splits *= len(repeats)
+    else:
+        n_splits = len(repeat_fold_pairs)
+    if repeat_fold_pairs is None:
+        if repeats is not None:
+            repeat_fold_pairs = [(r, f) for r in repeats for f in folds]
+        else:
+            repeat_fold_pairs = [(None, f) for f in folds]
     print(
         f"Running Experiments for expname: '{expname}'..."
-        f"\n\tFitting {len(tids)} datasets and {len(folds)} folds for a total of {len(tids) * len(folds)} tasks"
-        f"\n\tFitting {len(methods)} methods on {len(tids) * len(folds)} tasks for a total of {len(tids) * len(folds) * len(methods)} jobs..."
+        f"\n\tFitting {len(tids)} datasets and {n_splits} repeat-fold splits for a total of {len(tids) * n_splits} tasks"
+        f"\n\tFitting {len(methods)} methods on {len(tids) *n_splits} tasks for a total of {len(tids) * n_splits * len(methods)} jobs..."
         f"\n\tTIDs    : {tids}"
         f"\n\tDatasets: {dataset_names}"
         f"\n\tFolds   : {folds}"
         f"\n\tRepeats : {repeats}"
+        f"\n\tRepeat-Fold-Pairs: {repeat_fold_pairs}"
         f"\n\tMethods : {[method.name for method in methods]}"
     )
     result_lst = []
@@ -362,13 +414,7 @@ def run_experiments(
     experiment_fail_count = 0
     experiment_missing_count = 0
     experiment_cache_exists_count = 0
-    experiment_count_total = len(tids) * len(folds) * len(methods)
-    if repeats is not None:
-        experiment_count_total *= len(repeats)
-    if repeats is not None:
-        repeat_fold_pairs = [(r, f) for r in repeats for f in folds]
-    else:
-        repeat_fold_pairs = [(None, f) for f in folds]
+    experiment_count_total = len(tids) * len(methods) * n_splits
     for i, tid in enumerate(tids):
         task = None  # lazy task loading
         if isinstance(task_metadata, dict):

@@ -145,6 +145,7 @@ class TabMImplementation:
         self.n_classes_ = None
         self.task_type_ = None
         self.device_ = None
+        self.has_num_cols = None
 
     def fit(
         self,
@@ -212,17 +213,22 @@ class TabMImplementation:
             TabMOrdinalEncoder()
         )  # Unique ordinal encoder -> replaces nan and missing values with the cardinality
         self.ord_enc_.fit(X_train[self.cat_col_names_])
+        # TODO: fix transformer to be able to work with empty input data like the sklearn default
         self.num_prep_ = Pipeline(steps=[("qt", RTDLQuantileTransformer()), ("imp", SimpleImputer(add_indicator=True))])
+        self.has_num_cols = bool(set(X_train.columns) - set(cat_col_names))
         for part, X, y in [("train", X_train, y_train), ("val", X_val, y_val)]:
             tensors = dict()
 
             tensors["x_cat"] = torch.as_tensor(self.ord_enc_.transform(X[cat_col_names]), dtype=torch.long)
-            x_cont_np = X.drop(columns=cat_col_names).to_numpy(dtype=np.float32)
 
-            if part == "train":
-                self.num_prep_.fit(x_cont_np)
+            if self.has_num_cols:
+                x_cont_np = X.drop(columns=cat_col_names).to_numpy(dtype=np.float32)
+                if part == "train":
+                    self.num_prep_.fit(x_cont_np)
+                tensors["x_cont"] = torch.as_tensor(self.num_prep_.transform(x_cont_np))
+            else:
+                tensors["x_cont"] = torch.empty((len(X), 0), dtype=torch.float32)
 
-            tensors["x_cont"] = torch.as_tensor(self.num_prep_.transform(x_cont_np))
             if task_type == "regression":
                 tensors["y"] = torch.as_tensor(y.to_numpy(np.float32))
                 if part == "train":
@@ -490,7 +496,9 @@ class TabMImplementation:
             self.device_,
         )
         tensors["x_cont"] = torch.as_tensor(
-            self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32)),
+            self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))
+            if self.has_num_cols
+            else np.empty((len(X), 0), dtype=np.float32),
         ).to(self.device_)
 
         tensors["x_cont"] = tensors["x_cont"][:, self.num_col_mask_]

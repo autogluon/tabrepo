@@ -8,6 +8,7 @@ import warnings
 
 # For type checking only
 from typing import TYPE_CHECKING, Any
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -1148,7 +1149,7 @@ class DecisionTreeTabPFNClassifier(DecisionTreeTabPFNBase, ClassifierMixin):
             A (n_samples, n_classes) array of probabilities, with only `indices` updated for this leaf.
         """
         y_eval_prob = self._init_eval_probability_array(X_full.shape[0], to_zero=True)
-        classes_in_leaf = np.unique(y_train_leaf).astype(int)
+        classes_in_leaf = [i for i in range(len(np.unique(y_train_leaf)))]
 
         # If only one class, fill probability 1.0 for that class
         if len(classes_in_leaf) == 1:
@@ -1158,9 +1159,6 @@ class DecisionTreeTabPFNClassifier(DecisionTreeTabPFNBase, ClassifierMixin):
         # Otherwise, fit TabPFN
         leaf_seed = leaf_id + self.tree_seed
         try:
-            self.tabpfn.random_state = leaf_seed
-            self.tabpfn.fit(X_train_leaf, y_train_leaf)
-
             # Handle pandas DataFrame or numpy array
             if hasattr(X_full, "iloc"):
                 # Use .iloc for pandas
@@ -1169,14 +1167,34 @@ class DecisionTreeTabPFNClassifier(DecisionTreeTabPFNBase, ClassifierMixin):
                 # Use direct indexing for numpy
                 X_subset = X_full[indices]
 
-            proba = self.tabpfn.predict_proba(X_subset)
+            try:
+                self.tabpfn.random_state = leaf_seed
+                self.tabpfn.fit(X_train_leaf, y_train_leaf)
+                proba = self.tabpfn.predict_proba(X_subset)
+            except Exception as e:
+                from tabpfn.preprocessing import default_classifier_preprocessor_configs, \
+                    default_regressor_preprocessor_configs
+                backup_inf_conf = deepcopy(self.tabpfn.inference_config)
+                default_pre = default_classifier_preprocessor_configs if self.task_type == "multiclass" else default_regressor_preprocessor_configs
+
+                # Try to run again without preprocessing which might crash
+                self.tabpfn.random_state = leaf_seed
+                self.tabpfn.inference_config["PREPROCESS_TRANSFORMS"] = default_pre()
+                self.tabpfn.inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"] = (None, "safepower")
+                print(self.tabpfn.inference_config)
+                self.tabpfn.fit(X_train_leaf, y_train_leaf)
+                proba = self.tabpfn.predict_proba(X_subset)
+                # reset preprocessing
+                self.tabpfn.inference_config = backup_inf_conf
+
             for i, c in enumerate(classes_in_leaf):
                 y_eval_prob[indices, c] = proba[:, i]
+
         except ValueError as e:
             if (
-                not e.args
-                or e.args[0]
-                != "All features are constant and would have been removed! Unable to predict using TabPFN."
+                    not e.args
+                    or e.args[0]
+                    != "All features are constant and would have been removed! Unable to predict using TabPFN."
             ):
                 raise e
             warnings.warn(

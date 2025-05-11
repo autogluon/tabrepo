@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import math
+import os
+import shutil
+import sys
+import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
@@ -46,13 +52,53 @@ class TabDPTModel(AbstractModel):
         X = self.preprocess(X)
         y = y.to_numpy()
         self.model = model_cls(
+            path=self._download_and_get_model_path(),
             device=device,
-            use_flash=False, # Does not work for our GPUs, and it is unclear when/which GPUs it works for.
-            **hps)
+            use_flash=self._use_flash(),
+            **hps,
+        )
         self.model.fit(X=X, y=y)
+
+    @staticmethod
+    def _use_flash() -> bool:
+        """Detect if torch's native flash attention is available on the current machine."""
+        import torch
+
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+            capability = torch.cuda.get_device_capability(device)
+
+            if capability == (7, 5):
+                return False
+            return None
+        return True
+
+    @staticmethod
+    def _download_and_get_model_path() -> str:
+        # We follow TabPFN-logic for model caching as /tmp is not a persistent cache location.
+        from tabdpt.estimator import TabDPTEstimator
+        from tabdpt.utils import download_model
+
+        model_dir = _user_cache_dir(platform=sys.platform, appname="tabdpt")
+        model_dir.mkdir(exist_ok=True, parents=True)
+
+        final_model_path = model_dir / Path(TabDPTEstimator._DEFAULT_CHECKPOINT_PATH).name
+
+        if not final_model_path.exists():
+            model_path = Path(download_model())  # downloads to /tmp
+            shutil.copy(model_path, final_model_path)  # copy to user cache dir
+
+        return str(final_model_path)
 
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
         X = self.preprocess(X, **kwargs)
+
+        # Fix bug in TabDPt where batches of length 1 crash the prediction.
+        # - We set the inference size such that there are no batches of length 1.
+        math.ceil(len(X) / self.model.inf_batch_size)
+        last_batch_size = len(X) % self.model.inf_batch_size
+        if last_batch_size == 1:
+            self.model.inf_batch_size += 1
 
         if self.problem_type in [REGRESSION]:
             return self.model.predict(X, **self._predict_hps)
@@ -77,3 +123,52 @@ class TabDPTModel(AbstractModel):
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
+
+
+# Vendored from TabPFNv2 Code
+def _user_cache_dir(platform: str, appname: str = "tabpfn") -> Path:
+    use_instead_path = (Path.cwd() / ".tabpfn_models").resolve()
+
+    # https://docs.python.org/3/library/sys.html#sys.platform
+    if platform == "win32":
+        # Honestly, I don't want to do what `platformdirs` does:
+        # https://github.com/tox-dev/platformdirs/blob/b769439b2a3b70769a93905944a71b3e63ef4823/src/platformdirs/windows.py#L252-L265
+        APPDATA_PATH = os.environ.get("APPDATA", "")
+        if APPDATA_PATH.strip() != "":
+            return Path(APPDATA_PATH) / appname
+
+        warnings.warn(
+            "Could not find APPDATA environment variable to get user cache dir,"
+            " but detected platform 'win32'."
+            f" Defaulting to a path '{use_instead_path}'."
+            " If you would prefer, please specify a directory when creating"
+            " the model.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return use_instead_path
+
+    if platform == "darwin":
+        return Path.home() / "Library" / "Caches" / appname
+
+    # TODO: Not entirely sure here, Python doesn't explicitly list
+    # all of these and defaults to the underlying operating system
+    # if not sure.
+    linux_likes = ("freebsd", "linux", "netbsd", "openbsd")
+    if any(platform.startswith(linux) for linux in linux_likes):
+        # The reason to use "" as default is that the env var could exist but be empty.
+        # We catch all this with the `.strip() != ""` below
+        XDG_CACHE_HOME = os.environ.get("XDG_CACHE_HOME", "")
+        if XDG_CACHE_HOME.strip() != "":
+            return Path(XDG_CACHE_HOME) / appname
+        return Path.home() / ".cache" / appname
+
+    warnings.warn(
+        f"Unknown platform '{platform}' to get user cache dir."
+        f" Defaulting to a path at the execution site '{use_instead_path}'."
+        " If you would prefer, please specify a directory when creating"
+        " the model.",
+        UserWarning,
+        stacklevel=2,
+    )
+    return use_instead_path
