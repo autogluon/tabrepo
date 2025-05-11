@@ -38,6 +38,8 @@ class ModernNCAImplementation:
         self.task_type_ = None
         self.device_ = None
         self.n_train_ = None
+        self.has_num_cols = None
+        self.num_prep_ = None
 
     def fit(
         self,
@@ -96,18 +98,21 @@ class ModernNCAImplementation:
             batch_size = get_tabm_auto_batch_size(n_train=len(X_train))
 
         self.num_prep_ = Pipeline(steps=[("qt", RTDLQuantileTransformer()), ("imp", SimpleImputer(add_indicator=True))])
+        self.has_num_cols = bool(set(X_train.columns) - set(cat_col_names))
 
         ds_parts = dict()
         for part, X, y in [("train", X_train, y_train), ("val", X_val, y_val)]:
             tensors = dict()
 
             tensors["x_cat"] = X[self.cat_col_names_].to_numpy()
-            x_cont_np = X.drop(columns=self.cat_col_names_).to_numpy(dtype=np.float32)
+            if self.has_num_cols:
+                x_cont_np = X.drop(columns=cat_col_names).to_numpy(dtype=np.float32)
+                if part == "train":
+                    self.num_prep_.fit(x_cont_np)
+                tensors["x_cont"] = torch.as_tensor(self.num_prep_.transform(x_cont_np))
+            else:
+                tensors["x_cont"] = torch.empty((len(X), 0), dtype=torch.float32)
 
-            if part == "train":
-                self.num_prep_.fit(x_cont_np)
-
-            tensors["x_cont"] = self.num_prep_.transform(x_cont_np)
             if task_type == "regression":
                 tensors["y"] = y.to_numpy(np.float32)
                 if part == "train":
@@ -191,7 +196,11 @@ class ModernNCAImplementation:
     def predict_raw(self, X: pd.DataFrame) -> torch.Tensor:
         tensors = dict()
         tensors["x_cat"] = X[self.cat_col_names_].to_numpy()
-        tensors["x_cont"] = self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))
+        tensors["x_cont"] = (
+            self.num_prep_.transform(X.drop(columns=X[self.cat_col_names_]).to_numpy(dtype=np.float32))
+            if self.has_num_cols
+            else np.empty((len(X), 0), dtype=np.float32),
+        )
 
         # for tens_name in ['x_cat', 'x_cont']:
         #     if tensors[tens_name].size == 0:
@@ -218,24 +227,27 @@ class ModernNCAImplementation:
 
         return y_pred.cpu()
 
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
-        y_pred = self.predict_raw(X)
-        if self.task_type_ == "regression":
-            return y_pred.numpy()
-        return y_pred.argmax(dim=-1).numpy()
 
-    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
-        probas = torch.softmax(self.predict_raw(X), dim=-1).numpy()
-        if probas.shape[1] == 2:
-            probas = probas[:, 1]
-        return probas
+def predict(self, X: pd.DataFrame) -> np.ndarray:
+    y_pred = self.predict_raw(X)
+    if self.task_type_ == "regression":
+        return y_pred.numpy()
+    return y_pred.argmax(dim=-1).numpy()
 
-    def __del__(self):
-        # todo: save this in AG path or try to avoid saving.
-        # need the check perhaps because the delete can be called multiple times
-        # if the object is serialized, deleted, loaded again, deleted again
-        if os.path.exists(self.save_path_):
-            shutil.rmtree(self.save_path_)
+
+def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+    probas = torch.softmax(self.predict_raw(X), dim=-1).numpy()
+    if probas.shape[1] == 2:
+        probas = probas[:, 1]
+    return probas
+
+
+def __del__(self):
+    # todo: save this in AG path or try to avoid saving.
+    # need the check perhaps because the delete can be called multiple times
+    # if the object is serialized, deleted, loaded again, deleted again
+    if os.path.exists(self.save_path_):
+        shutil.rmtree(self.save_path_)
 
 
 class ModernNCAModel(AbstractModel):
