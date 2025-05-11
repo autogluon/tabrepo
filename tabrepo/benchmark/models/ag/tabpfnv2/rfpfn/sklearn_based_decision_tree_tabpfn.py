@@ -1148,7 +1148,7 @@ class DecisionTreeTabPFNClassifier(DecisionTreeTabPFNBase, ClassifierMixin):
             A (n_samples, n_classes) array of probabilities, with only `indices` updated for this leaf.
         """
         y_eval_prob = self._init_eval_probability_array(X_full.shape[0], to_zero=True)
-        classes_in_leaf = np.unique(y_train_leaf).astype(int)
+        classes_in_leaf = [i for i in range(len(np.unique(y_train_leaf)))]
 
         # If only one class, fill probability 1.0 for that class
         if len(classes_in_leaf) == 1:
