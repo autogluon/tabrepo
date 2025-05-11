@@ -109,9 +109,9 @@ class ModernNCAImplementation:
                 x_cont_np = X.drop(columns=cat_col_names).to_numpy(dtype=np.float32)
                 if part == "train":
                     self.num_prep_.fit(x_cont_np)
-                tensors["x_cont"] = torch.as_tensor(self.num_prep_.transform(x_cont_np))
+                tensors["x_cont"] = self.num_prep_.transform(x_cont_np)
             else:
-                tensors["x_cont"] = torch.empty((len(X), 0), dtype=torch.float32)
+                tensors["x_cont"] = np.empty((len(X), 0), dtype=torch.float32)
 
             if task_type == "regression":
                 tensors["y"] = y.to_numpy(np.float32)
