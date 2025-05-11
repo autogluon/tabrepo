@@ -228,26 +228,26 @@ class ModernNCAImplementation:
         return y_pred.cpu()
 
 
-def predict(self, X: pd.DataFrame) -> np.ndarray:
-    y_pred = self.predict_raw(X)
-    if self.task_type_ == "regression":
-        return y_pred.numpy()
-    return y_pred.argmax(dim=-1).numpy()
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        y_pred = self.predict_raw(X)
+        if self.task_type_ == "regression":
+            return y_pred.numpy()
+        return y_pred.argmax(dim=-1).numpy()
 
 
-def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
-    probas = torch.softmax(self.predict_raw(X), dim=-1).numpy()
-    if probas.shape[1] == 2:
-        probas = probas[:, 1]
-    return probas
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        probas = torch.softmax(self.predict_raw(X), dim=-1).numpy()
+        if probas.shape[1] == 2:
+            probas = probas[:, 1]
+        return probas
 
 
-def __del__(self):
-    # todo: save this in AG path or try to avoid saving.
-    # need the check perhaps because the delete can be called multiple times
-    # if the object is serialized, deleted, loaded again, deleted again
-    if os.path.exists(self.save_path_):
-        shutil.rmtree(self.save_path_)
+    def __del__(self):
+        # todo: save this in AG path or try to avoid saving.
+        # need the check perhaps because the delete can be called multiple times
+        # if the object is serialized, deleted, loaded again, deleted again
+        if os.path.exists(self.save_path_):
+            shutil.rmtree(self.save_path_)
 
 
 class ModernNCAModel(AbstractModel):
