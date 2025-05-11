@@ -260,39 +260,39 @@ class TabPFNV2Model(AbstractModel):
         )
 
 
-def _get_default_resources(self) -> tuple[int, int]:
-    from autogluon.common.utils.resource_utils import ResourceManager
-    from torch.cuda import is_available
+    def _get_default_resources(self) -> tuple[int, int]:
+        from autogluon.common.utils.resource_utils import ResourceManager
+        from torch.cuda import is_available
 
-    num_cpus = ResourceManager.get_cpu_count_psutil()
-    num_gpus = 1 if is_available() else 0
-    return num_cpus, num_gpus
-
-
-def _set_default_params(self):
-    default_params = {}
-    for param, val in default_params.items():
-        self._set_default_param_value(param, val)
+        num_cpus = ResourceManager.get_cpu_count_psutil()
+        num_gpus = 1 if is_available() else 0
+        return num_cpus, num_gpus
 
 
-@classmethod
-def supported_problem_types(cls) -> list[str] | None:
-    return ["binary", "multiclass", "regression"]
+    def _set_default_params(self):
+        default_params = {}
+        for param, val in default_params.items():
+            self._set_default_param_value(param, val)
 
 
-def _get_default_auxiliary_params(self) -> dict:
-    default_auxiliary_params = super()._get_default_auxiliary_params()
-    default_auxiliary_params.update(
-        {
-            "max_classes": 10,
-        },
-    )
-    return default_auxiliary_params
+    @classmethod
+    def supported_problem_types(cls) -> list[str] | None:
+        return ["binary", "multiclass", "regression"]
 
 
-def _ag_params(self) -> set:
-    return {"max_classes"}
+    def _get_default_auxiliary_params(self) -> dict:
+        default_auxiliary_params = super()._get_default_auxiliary_params()
+        default_auxiliary_params.update(
+            {
+                "max_classes": 10,
+            },
+        )
+        return default_auxiliary_params
 
 
-def _more_tags(self) -> dict:
-    return {"can_refit_full": True}
+    def _ag_params(self) -> set:
+        return {"max_classes"}
+
+
+    def _more_tags(self) -> dict:
+        return {"can_refit_full": True}
