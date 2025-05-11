@@ -83,7 +83,7 @@ def run_bagging(task_id, fold, bagging=True):
     print(f"accuracy: {accuracy}, ce: {ce}, roc: {roc}")
 
     if bagging:
-        file_path = '/fsx/results/tabrepo10fold/mitra_bagging_ft.csv'
+        file_path = '/fsx/results/tabrepo10fold/mitra_bagging_ft_300.csv'
     else:
         file_path = '/fsx/results/tabrepo10fold/mitra_no_bagging.csv'
 
