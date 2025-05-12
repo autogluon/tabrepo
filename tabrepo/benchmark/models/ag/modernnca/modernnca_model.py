@@ -111,7 +111,7 @@ class ModernNCAImplementation:
                     self.num_prep_.fit(x_cont_np)
                 tensors["x_cont"] = self.num_prep_.transform(x_cont_np)
             else:
-                tensors["x_cont"] = np.empty((len(X), 0), dtype=torch.float32)
+                tensors["x_cont"] = np.empty((len(X), 0), dtype=np.float32)
 
             if task_type == "regression":
                 tensors["y"] = y.to_numpy(np.float32)
