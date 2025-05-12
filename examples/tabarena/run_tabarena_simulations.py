@@ -32,12 +32,24 @@ aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 
 """
 
-def load_repo(toy_mode: bool):
+
+def load_repo(toy_mode: bool, gpu: bool = True):
     repo_names = [
         "repos/tabarena60_autogluon",
-        "repos/tabarena60_tabicl",
-        "repos/tabarena60_tabpfnv2",
     ]
+
+    if gpu:
+        repo_names += [
+            "repos/tabarena_tabicl_gpu",
+            "repos/tabarena_tabpfnv2_gpu",
+            "repos/tabarena_tabdpt_gpu",
+        ]
+    else:
+        repo_names += [
+            "repos/tabarena60_tabicl",
+            "repos/tabarena60_tabpfnv2",
+        ]
+
     repos_extra = [
         "Dummy",
         "FTTransformer",
@@ -63,30 +75,85 @@ def load_repo(toy_mode: bool):
     repo = EvaluationRepositoryCollection(repos=repos)
 
     if toy_mode:
-        repo = repo.subset(folds=[0])
-        configs = repo.configs()
-        configs_type_inverse = dict()
-        configs_type = repo.configs_type(configs=configs)
-        for c in configs:
-            c_type = configs_type[c]
-            if c_type not in configs_type_inverse:
-                configs_type_inverse[c_type] = []
-            configs_type_inverse[c_type].append(c)
-        configs_toy = []
-        configs_per_type = 10
-        for c_type in configs_type_inverse:
-            configs_toy += configs_type_inverse[c_type][:configs_per_type]
-        repo = repo.subset(configs=configs_toy)
+        repo = convert_repo_to_toy(repo=repo, configs_per_type=10)
     return repo
+
+
+def convert_repo_to_toy(repo: EvaluationRepository, configs_per_type: int = 10) -> EvaluationRepository:
+    repo = repo.subset(folds=[0])
+    configs = repo.configs()
+    configs_type_inverse = dict()
+    configs_type = repo.configs_type(configs=configs)
+    for c in configs:
+        c_type = configs_type[c]
+        if c_type not in configs_type_inverse:
+            configs_type_inverse[c_type] = []
+        configs_type_inverse[c_type].append(c)
+    configs_toy = []
+    for c_type in configs_type_inverse:
+        configs_toy += configs_type_inverse[c_type][:configs_per_type]
+    repo = repo.subset(configs=configs_toy)
+    return repo
+
+
+def find_missing(repo: EvaluationRepository):
+    tasks = repo.tasks()
+
+    n_tasks = len(tasks)
+
+    metrics = repo.metrics()
+    metrics = metrics.reset_index(drop=False)
+
+    configs = repo.configs()
+
+    n_configs = len(configs)
+
+    runs_missing_lst = []
+
+    fail_dict = {}
+    for i, config in enumerate(configs):
+        metrics_config = metrics[metrics["framework"] == config]
+        n_tasks_config = len(metrics_config)
+
+        tasks_config = list(metrics_config[["dataset", "fold"]].values)
+        tasks_config = set([tuple(t) for t in tasks_config])
+
+
+        n_tasks_missing = n_tasks - n_tasks_config
+        if n_tasks_missing != 0:
+            tasks_missing = [t for t in tasks if t not in tasks_config]
+        else:
+            tasks_missing = []
+
+        for dataset, fold in tasks_missing:
+            runs_missing_lst.append(
+                (dataset, fold, config)
+            )
+
+        print(f"{n_tasks_missing}\t{config}\t{i+1}/{n_configs}")
+        fail_dict[config] = n_tasks_missing
+
+    import pandas as pd
+    # fail_series = pd.Series(fail_dict).sort_values()
+
+    df_missing = pd.DataFrame(data=runs_missing_lst, columns=["dataset", "fold", "framework"])
+    print(df_missing)
+
+    # save_pd.save(path="missing_runs.csv", df=df_missing)
+
+    return df_missing
 
 
 if __name__ == '__main__':
     toy_mode = False
+    with_gpu = True
     load_cache = True
     load_sim_cache = True
     norm_error_static = True
 
     context_name = "tabarena_paper_w_best"
+    if with_gpu:
+        context_name += "_gpu"
     if toy_mode:
         context_name += "_toy"
     cache_path = f"./{context_name}/repo_cache/tabarena_all.pkl"
@@ -103,7 +170,7 @@ if __name__ == '__main__':
     if load_cache:
         repo = EvaluationRepositoryCollection.load(path=cache_path)
     else:
-        repo = load_repo(toy_mode=toy_mode)
+        repo = load_repo(toy_mode=toy_mode, gpu=with_gpu)
         repo.save(path=cache_path)
     # repo = repo.subset(folds=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     repo.set_config_fallback(config_fallback="RandomForest_c1_BAG_L1")
