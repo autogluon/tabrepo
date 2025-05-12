@@ -12,7 +12,10 @@ class PaperRunTabArena(PaperRun):
     def run(self) -> pd.DataFrame:
         df_results_baselines = self.run_baselines()
         df_results_configs = self.run_configs()
-        df_results_hpo_all = self.run_hpo_by_family(include_uncapped=True)
+        df_results_hpo_all = self.run_hpo_by_family(
+            include_uncapped=True,
+            include_4h=False,
+        )
         df_results_single_best_families = self.run_zs_family()
 
         n_portfolios = [200]
@@ -40,23 +43,16 @@ class PaperRunTabArena(PaperRun):
         # df_results_extra.append(self.run_zs(n_portfolios=3, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
         # df_results_extra.append(self.run_zs(n_portfolios=2, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
 
-        df_results_n_portfolio = pd.concat(df_results_n_portfolio + df_results_extra + [df_results_single_best_families])
-
-        df_results_all = self.evaluator.compare_metrics(results_df=df_results_n_portfolio, configs=[], baselines=[], keep_extra_columns=True)
+        df_results_all = pd.concat(df_results_n_portfolio + df_results_extra + [df_results_single_best_families])
 
         df_results_all = pd.concat([
             df_results_all,
             df_results_hpo_all,
             df_results_baselines,
             df_results_configs,
-        ])
+        ], ignore_index=True)
 
-        df_results_all = df_results_all.reset_index(drop=False)
-        df_results_all = df_results_all.drop(columns=[
-            "index", "rank", "normalized_error",
-        ])
         print(df_results_all)
-        # TODO: Verify df_results_all format (index names, etc.)
         return df_results_all
 
     def run_zs_family(self) -> pd.DataFrame:
@@ -192,7 +188,6 @@ class PaperRunTabArena(PaperRun):
         if "seed" not in df_results:
             df_results["seed"] = 0
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
-        df_results = df_results[~df_results.index.duplicated(keep='first')]
         df_results = df_results.drop_duplicates(subset=[
             "dataset", "fold", "framework", "seed"
         ], keep="first")

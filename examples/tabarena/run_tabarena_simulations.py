@@ -79,8 +79,10 @@ def load_repo(toy_mode: bool, gpu: bool = True):
     return repo
 
 
-def convert_repo_to_toy(repo: EvaluationRepository, configs_per_type: int = 10) -> EvaluationRepository:
-    repo = repo.subset(folds=[0])
+def convert_repo_to_toy(repo: EvaluationRepository, configs_per_type: int = 10, folds: list[int] = None) -> EvaluationRepository:
+    if folds is None:
+        folds = [0]
+    repo = repo.subset(folds=folds)
     configs = repo.configs()
     configs_type_inverse = dict()
     configs_type = repo.configs_type(configs=configs)
