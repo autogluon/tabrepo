@@ -183,10 +183,9 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
             return copy.deepcopy(self).force_to_dense(inplace=True, verbose=verbose)
 
         datasets = self.datasets(union=True)
-        df_dataset_folds = self._zeroshot_context.df_dataset_folds()
+        n_folds_per_dataset = pd.Series({dataset: len(dataset_folds) for dataset, dataset_folds in self._zeroshot_context.dataset_to_folds_dict.items()})
 
         n_folds = self.n_folds()
-        n_folds_per_dataset = df_dataset_folds["dataset"].value_counts()
         datasets_dense = list(n_folds_per_dataset[n_folds_per_dataset == n_folds].index)
 
         # subset to only datasets that contain at least one result for all folds

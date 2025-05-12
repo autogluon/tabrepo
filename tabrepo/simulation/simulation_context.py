@@ -63,6 +63,7 @@ class ZeroshotSimulatorContext:
         self.df_metrics, \
         self.df_metadata, \
         self.task_to_dataset_dict, \
+        self.dataset_to_folds_dict, \
         self.dataset_to_tid_dict, \
         self.dataset_to_problem_type_dict, \
         self.task_to_fold_dict, \
@@ -111,6 +112,7 @@ class ZeroshotSimulatorContext:
         self.df_metrics, \
         self.df_metadata, \
         self.task_to_dataset_dict, \
+        self.dataset_to_folds_dict, \
         self.dataset_to_tid_dict, \
         self.dataset_to_problem_type_dict, \
         self.task_to_fold_dict, \
@@ -147,6 +149,7 @@ class ZeroshotSimulatorContext:
         pd.DataFrame,
         pd.DataFrame,
         dict[str, str],
+        dict[str, list[int]],
         dict[str, int],
         dict[str, str],
         dict[str, int],
@@ -267,6 +270,12 @@ class ZeroshotSimulatorContext:
             if k not in task_to_fold_dict:
                 task_to_fold_dict[k] = v
 
+        dataset_to_folds_configs = df_configs[["dataset", "fold"]].drop_duplicates()
+        dataset_to_folds_baselines = df_baselines[["dataset", "fold"]].drop_duplicates()
+
+        dataset_to_folds_df = pd.concat([dataset_to_folds_configs, dataset_to_folds_baselines], ignore_index=True).drop_duplicates()
+        dataset_to_folds_dict = dataset_to_folds_df.groupby("dataset")["fold"].apply(list).apply(sorted).to_dict()
+
         return (
             df_configs,
             df_baselines,
@@ -274,6 +283,7 @@ class ZeroshotSimulatorContext:
             df_metrics,
             df_metadata,
             task_to_dataset_dict,
+            dataset_to_folds_dict,
             dataset_to_tid_dict,
             dataset_to_problem_type_dict,
             task_to_fold_dict,
@@ -399,6 +409,9 @@ class ZeroshotSimulatorContext:
         dataset_folds = [tuple(dataset_fold) for dataset_fold in dataset_folds]
         return dataset_folds
 
+    def dataset_to_folds(self, dataset: str) -> list[int]:
+        return self.dataset_to_folds_dict[dataset]
+
     @staticmethod
     def _validate_df(df: pd.DataFrame, name: str, required_columns: List[str]):
         df_columns = list(df.columns)
@@ -457,24 +470,38 @@ class ZeroshotSimulatorContext:
         out += '=============================================\n'
         print(out)
 
-    def get_datasets(self, problem_type: str | list[str] = None, union: bool = True) -> list[str]:
+    def get_datasets(
+        self,
+        *,
+        configs: list[str] = None,
+        problem_type: str | list[str] = None,
+        union: bool = True,
+    ) -> list[str]:
         datasets = self.unique_datasets
         if problem_type is not None:
             if isinstance(problem_type, list):
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] in problem_type]
             else:
                 datasets = [dataset for dataset in datasets if self.dataset_to_problem_type_dict[dataset] == problem_type]
+        df_configs = self.df_configs
+        if configs is not None:
+            configs_set = set(configs)
+            df_configs = df_configs[df_configs["dataset"].isin(datasets) & df_configs["framework"].isin(configs_set)]
+            datasets_remain = df_configs["dataset"].unique()
+            datasets = [d for d in datasets if d in datasets_remain]
         if not union:
-            configs = self.get_configs(union=True)
+            if configs is None:
+                configs = self.get_configs(union=True)
+                configs_set = set(configs)
             n_configs = len(configs)
-            df_configs_filtered = self.df_configs[self.df_configs["framework"].isin(configs)]
+            df_configs_filtered = df_configs[df_configs["framework"].isin(configs_set)]
             value_counts = df_configs_filtered.value_counts(["dataset", "fold"])
             value_counts_valid = value_counts[value_counts == n_configs]
             dataset_value_counts = value_counts_valid.reset_index(drop=False)[["dataset", "count"]].groupby("dataset")["count"].sum().to_dict()
-            dataset_task_counts = {d: len(tasks) for d, tasks in self.dataset_to_tasks_dict.items()}
+            dataset_fold_counts = {d: len(folds) for d, folds in self.dataset_to_folds_dict.items()}
 
             # filter to only datasets that contain all configs
-            datasets = [d for d in datasets if dataset_value_counts.get(d, 0) == (dataset_task_counts[d] * n_configs)]
+            datasets = [d for d in datasets if dataset_value_counts.get(d, 0) == (dataset_fold_counts[d] * n_configs)]
         return datasets
 
     def task_to_fold(self, task) -> int:
@@ -617,6 +644,7 @@ class ZeroshotSimulatorContext:
             self.df_metadata = self.df_metadata[self.df_metadata["dataset"].isin(self.unique_datasets)]
         self.folds = self._compute_folds_from_data(df_configs=self.df_configs, df_baselines=self.df_baselines)
         self.dataset_to_tid_dict = {d: t for d, t in self.dataset_to_tid_dict.items() if d in self.unique_datasets}
+        self.dataset_to_folds_dict = {d: t for d, t in self.dataset_to_folds_dict.items() if d in self.unique_datasets}
 
     @classmethod
     def _compute_folds_from_data(cls, df_configs: pd.DataFrame, df_baselines: pd.DataFrame) -> list[int]:

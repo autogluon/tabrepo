@@ -253,8 +253,6 @@ class EnsembleMixin:
         """
         if backend == "native":
             backend = "sequential"
-        if folds is None:
-            folds = self.folds
         if datasets is None:
             datasets = self.datasets()
 
@@ -270,7 +268,14 @@ class EnsembleMixin:
             rank=rank,
         )
 
-        inputs = list(itertools.product(datasets, folds))
+        if folds is None:
+            inputs = []
+            for dataset in datasets:
+                folds_in_dataset = self.dataset_to_folds(dataset=dataset)
+                for fold in folds_in_dataset:
+                    inputs.append((dataset, fold))
+        else:
+            inputs = list(itertools.product(datasets, folds))
         inputs = [{"dataset": dataset, "fold": fold} for dataset, fold in inputs]
 
         list_rows = parallel_for(

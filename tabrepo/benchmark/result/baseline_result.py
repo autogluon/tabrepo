@@ -27,15 +27,19 @@ class BaselineResult(AbstractResult):
             assert key in self.result, f"Missing {key} in result dict!"
 
     @property
-    def framework(self):
+    def framework(self) -> str:
         return self.result["framework"]
 
     @property
-    def dataset(self):
+    def dataset(self) -> str:
         return self.result["task_metadata"]["name"]
 
     @property
-    def split_idx(self):
+    def problem_type(self) -> str:
+        return self.result["problem_type"]
+
+    @property
+    def split_idx(self) -> int:
         return self.result["task_metadata"]["split_idx"]
 
     def _align_result_input_format(self) -> dict:
