@@ -58,6 +58,13 @@ for extra_package in [
 benchmark_requires = list(set(benchmark_requires))
 extras_require["benchmark"] = benchmark_requires
 
+# FIXME: For 2025 paper, cleanup after
+extras_require += [
+    "seaborn==0.13.2",
+    "matplotlib==3.9.2",
+    "autorank==1.2.1",
+]
+
 setup(
     name="tabrepo",
     version="0.0.1",
