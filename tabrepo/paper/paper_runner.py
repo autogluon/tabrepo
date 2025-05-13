@@ -40,23 +40,32 @@ class PaperRun:
                     config_type_groups.pop(b)
         return config_type_groups
 
-    def run_hpo_by_family(self, include_uncapped: bool = False) -> pd.DataFrame:
+    def run_hpo_by_family(self, include_uncapped: bool = False, include_4h: bool = True) -> pd.DataFrame:
         config_type_groups = self.get_config_type_groups(ban_families=True)
 
         hpo_results_lst = []
-        time_limit = 3600 * 4
-        for family in config_type_groups:
-            configs_family = config_type_groups[family]
-            df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
-                configs=configs_family, fit_order="random", seed=0, ensemble_size=40, time_limit=time_limit
-            )
-            df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble) (4h)"
-            df_results_family_hpo, _ = self.repo.evaluate_ensembles(
-                configs=configs_family, fit_order="random", seed=0, ensemble_size=1, time_limit=time_limit
-            )
-            df_results_family_hpo["framework"] = f"{family} (tuned) (4h)"
-            hpo_results_lst.append(df_results_family_hpo.reset_index())
-            hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
+
+        # for model_key, model_name in [("REALMLP", "RealMLP"), ("XGB", "XGBoost"), ("CAT", "CatBoost"), ("GBM", "LightGBM"), ("RF", "RandomForest"), ("XT", "ExtraTrees")]:
+        #     realmlp_og = [c for c in config_type_groups[model_key] if c == f"{model_name}_c1_BAG_L1" or "_alt_" not in c]
+        #     realmlp_alt = [c for c in config_type_groups[model_key] if c == f"{model_name}_c1_BAG_L1" or "_alt_" in c]
+        #     config_type_groups[f"{model_key}_OG"] = realmlp_og
+        #     config_type_groups[f"{model_key}_ALT"] = realmlp_alt
+
+        if include_4h:
+            time_limit = 3600 * 4
+            # FIXME: do multiple random seeds and average
+            for family in config_type_groups:
+                configs_family = config_type_groups[family]
+                df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
+                    configs=configs_family, fit_order="random", seed=0, ensemble_size=40, time_limit=time_limit
+                )
+                df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble) (4h)"
+                df_results_family_hpo, _ = self.repo.evaluate_ensembles(
+                    configs=configs_family, fit_order="random", seed=0, ensemble_size=1, time_limit=time_limit
+                )
+                df_results_family_hpo["framework"] = f"{family} (tuned) (4h)"
+                hpo_results_lst.append(df_results_family_hpo.reset_index())
+                hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
 
         if include_uncapped:
             for family in config_type_groups:
@@ -73,8 +82,6 @@ class PaperRun:
                 hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
 
         df_results_hpo_all = pd.concat(hpo_results_lst, ignore_index=True)
-        df_results_hpo_all = df_results_hpo_all.set_index(["dataset", "fold", "framework"])
-        # df_results_hpo_all = self.evaluator.compare_metrics(results_df=df_results_hpo_all, configs=[], baselines=[])
         return df_results_hpo_all
 
     def run_zs(
@@ -83,7 +90,7 @@ class PaperRun:
         n_ensemble: int = None,
         n_ensemble_in_name: bool = True,
         n_max_models_per_type: int | str | None = None,
-        fix_fillna: bool = False,
+        fix_fillna: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         df_zeroshot_portfolio = self.evaluator.zeroshot_portfolio(
@@ -107,11 +114,11 @@ class PaperRun:
         return df_zeroshot_portfolio
 
     def run_baselines(self) -> pd.DataFrame:
-        df_results_baselines = self.evaluator.compare_metrics(configs=[])
+        df_results_baselines = self.evaluator.compare_metrics(configs=[]).reset_index()
         return df_results_baselines
 
     def run_configs(self) -> pd.DataFrame:
-        df_results_configs = self.evaluator.compare_metrics(baselines=[], include_metric_error_val=True)
+        df_results_configs = self.evaluator.compare_metrics(baselines=[], include_metric_error_val=True).reset_index()
         return df_results_configs
 
     def run(self) -> pd.DataFrame:
@@ -234,12 +241,41 @@ class PaperRun:
         baseline_colors: list[str] = None,
         show: bool = True,
         use_gmean=False,
+        use_score: bool = True,
+        df_elo: pd.DataFrame = None,
+        name_suffix: str | None = None,
     ):
-        df = df.copy()
-
-        ylim = [0, 1]
-        metric = "normalized-error"
+        same_width = False
+        use_y = False
+        use_lim = True
+        use_elo = df_elo is not None
         lower_is_better = True
+        lim = None
+        xlim = None
+        ylim = None
+
+        df = df.copy(deep=True)
+
+        metric = "normalized-error"
+        framework_col = "framework_type"
+
+        groupby_columns_extra = ["dataset"]
+
+        if use_elo:
+            metric = "elo"
+            use_lim = True
+            lim = [500, None]
+            lower_is_better = False
+            df = df_elo.copy(deep=True)
+            df = df[["method", "elo"]]
+            groupby_columns_extra = []
+        elif use_score:
+            lower_is_better = False
+            df["normalized-score"] = 1 - df["normalized-error"]
+            # df_plot_w_mean_per_dataset["normalized-score"] = 1 - df_plot_w_mean_per_dataset["normalized-error"]
+            metric = "normalized-score"
+        else:
+            metric = metric
 
         f_map, f_map_type, f_map_inverse = get_framework_type_method_names(
             framework_types=framework_types,
@@ -263,24 +299,24 @@ class PaperRun:
 
         # df_plot_w_mean_2 = df_plot.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
 
-        df_plot_w_mean_per_dataset = df_plot.groupby(["framework_type", "tune_method", "dataset"])[metric].mean().reset_index()
+        df_plot_w_mean_per_dataset = df_plot.groupby(["framework_type", "tune_method", *groupby_columns_extra])[metric].mean().reset_index()
 
         if use_gmean:
             # FIXME: Doesn't plot correctly, need to figure out error bars for geometric mean
             df_plot_eps = df_plot.copy(deep=True)
             df_plot_eps[metric] += 0.01
             from scipy.stats import gmean
-            df_plot_w_gmean_per_dataset = df_plot.groupby(["framework_type", "tune_method", "dataset"])[metric].apply(gmean).reset_index()
+            df_plot_w_gmean_per_dataset = df_plot.groupby(["framework_type", "tune_method", *groupby_columns_extra])[metric].apply(gmean).reset_index()
             df_plot_w_mean_per_dataset = df_plot_w_gmean_per_dataset
 
         df_plot_w_mean_2 = df_plot_w_mean_per_dataset.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
 
+        df_plot_w_mean_2 = df_plot_w_mean_2.sort_values(by=metric, ascending=lower_is_better)
         baseline_means = {}
         for baseline in baselines:
             baseline_means[baseline] = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] == baseline][metric].iloc[0]
 
         df_plot_w_mean_2 = df_plot_w_mean_2[~df_plot_w_mean_2["framework_type"].isin(baselines)]
-        df_plot_w_mean_2 = df_plot_w_mean_2.sort_values(by=metric, ascending=True)
 
         df_plot_mean_dedupe = df_plot_w_mean_2.drop_duplicates(subset=["framework_type"], keep="first")
 
@@ -291,74 +327,118 @@ class PaperRun:
         with sns.axes_style("whitegrid"):
             colors = sns.color_palette("pastel").as_hex()
             errcolors = sns.color_palette("deep").as_hex()
-            fig, ax = plt.subplots(1, 1, figsize=(24, 6))
+
+            if use_lim and not lim:
+                lim = [0, 1]
+            if use_y:
+                x = metric
+                y = framework_col
+                figsize = (24, 12)
+                xlim = lim
+                # framework_type_order.reverse()
+
+            else:
+                x = framework_col
+                y = metric
+                ylim = lim
+                figsize = (24, 6)
+
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
+
+            if use_y:
+                baseline_func = ax.axvline
+            else:
+                baseline_func = ax.axhline
+
+
             for baseline, color in zip(baselines, baseline_colors):
                 baseline_mean = baseline_means[baseline]
-                ax.axhline(y=baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
+                baseline_func(baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
 
-            sns.barplot(
-                x="framework_type", y=metric,
-                # hue="tune_method",  # palette=["m", "g", "r],
-                label="Default",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
-                order=framework_type_order, color=colors[0],
-                width=0.6,
-                err_kws={"color": errcolors[0]},
-                alpha=1.0,
-            )
-            sns.barplot(
-                x="framework_type", y=metric,
-                # hue="tune_method",  # palette=["m", "g", "r],
-                label="Best",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "best"], ax=ax,
-                order=framework_type_order, color=colors[3],
-                width=0.55,
-                err_kws={"color": errcolors[3]},
-                alpha=1.0,
-            )
-            sns.barplot(
-                x="framework_type", y=metric,
-                # hue="tune_method",  # palette=["m", "g", "r],
-                label="Tuned (4h)",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_4h"], ax=ax,
-                order=framework_type_order,
-                color=colors[1],
-                width=0.5,
-                err_kws={"color": errcolors[1]},
-            )
-            sns.barplot(
-                x="framework_type", y=metric,
-                # hue="tune_method",  # palette=["m", "g", "r],
-                label="Tuned",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
-                order=framework_type_order,
-                color=colors[4],
-                width=0.45,
-                err_kws={"color": errcolors[4]},
-            )
-            sns.barplot(
-                x="framework_type", y=metric,
-                # hue="tune_method",  # palette=["m", "g", "r],
-                label="Tuned + Ensembled (4h)",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled_4h"], ax=ax,
-                order=framework_type_order, color=colors[2],
-                width=0.4,
-                err_kws={"color": errcolors[2]},
-            )
-            boxplot = sns.barplot(
-                x="framework_type", y=metric,
-                # hue="tune_method",  # palette=["m", "g", "r],
-                label="Tuned + Ensembled",
-                data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"], ax=ax,
-                order=framework_type_order, color=colors[5],
-                width=0.35,
-                err_kws={"color": errcolors[5]},
-            )
+            to_plot = [
+                dict(
+                    x=x, y=y,
+                    # hue="tune_method",  # palette=["m", "g", "r],
+                    label="Default",
+                    data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
+                    order=framework_type_order, color=colors[0],
+                    width=0.6,
+                    err_kws={"color": errcolors[0]},
+                    alpha=1.0,
+                ),
+                dict(
+                    x=x, y=y,
+                    # hue="tune_method",  # palette=["m", "g", "r],
+                    label="Best",
+                    data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "best"], ax=ax,
+                    order=framework_type_order, color=colors[3],
+                    width=0.55,
+                    err_kws={"color": errcolors[3]},
+                    alpha=1.0,
+                ),
+                # dict(
+                #     x=x, y=y,
+                #     # hue="tune_method",  # palette=["m", "g", "r],
+                #     label="Tuned (4h)",
+                #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_4h"], ax=ax,
+                #     order=framework_type_order,
+                #     color=colors[4],
+                #     width=0.5,
+                #     err_kws={"color": errcolors[4]},
+                # ),
+                dict(
+                    x=x, y=y,
+                    # hue="tune_method",  # palette=["m", "g", "r],
+                    label="Tuned",
+                    data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
+                    order=framework_type_order,
+                    color=colors[1],
+                    width=0.5,
+                    err_kws={"color": errcolors[1]},
+                ),
+                # dict(
+                #     x=x, y=y,
+                #     # hue="tune_method",  # palette=["m", "g", "r],
+                #     label="Tuned + Ensembled (4h)",
+                #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled_4h"], ax=ax,
+                #     order=framework_type_order, color=colors[5],
+                #     width=0.4,
+                #     err_kws={"color": errcolors[5]},
+                # ),
+                dict(
+                    x=x, y=y,
+                    # hue="tune_method",  # palette=["m", "g", "r],
+                    label="Tuned + Ensembled",
+                    data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"], ax=ax,
+                    order=framework_type_order, color=colors[2],
+                    width=0.45,
+                    err_kws={"color": errcolors[2]},
+                ),
+            ]
+
+            if use_score:
+                widths = [plot_line["width"] for plot_line in to_plot]
+                colors = [plot_line["color"] for plot_line in to_plot]
+                err_kws_lst = [plot_line["err_kws"] for plot_line in to_plot]
+
+                to_plot.reverse()
+                for plot_line, width, color, err_kws in zip(to_plot, widths, colors, err_kws_lst):
+                    if same_width:
+                        plot_line["width"] = 0.6 * 1.3
+                    else:
+                        plot_line["width"] = width * 1.3
+                    # plot_line["color"] = color
+                    # plot_line["err_kws"] = err_kws
+
+            for plot_line in to_plot:
+                boxplot = sns.barplot(**plot_line)
+
             boxplot.set(xlabel=None)  # remove "Method" in the x-axis
             #boxplot.set_title("Effect of tuning and ensembling")
             if ylim is not None:
                 ax.set_ylim(ylim)
-
+            if xlim is not None:
+                ax.set_xlim(xlim)
 
             #ax.legend(loc="upper center", ncol=5)
             ax.legend(loc="upper center", ncol=5, bbox_to_anchor=[0.5, 1.2])
@@ -379,12 +459,14 @@ class PaperRun:
             plt.tight_layout()
 
             if save_prefix:
+                if name_suffix is None:
+                    name_suffix = ""
                 fig_path = Path(save_prefix)
                 fig_path.mkdir(parents=True, exist_ok=True)
                 if use_gmean:
-                    fig_name = "tuning-impact-gmean.png"
+                    fig_name = f"tuning-impact-gmean{name_suffix}.png"
                 else:
-                    fig_name = "tuning-impact.png"
+                    fig_name = f"tuning-impact{name_suffix}.png"
                 fig_save_path = fig_path / fig_name
                 plt.savefig(fig_save_path)
             if show:

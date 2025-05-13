@@ -269,6 +269,9 @@ class ModernNCAMethod(Method):
                 is_train=True,
             ).squeeze(-1)
 
+            if self.is_regression and (self.y_info["policy"] == "mean_std"):
+                pred = (pred * self.y_info["std"]) + self.y_info["mean"]
+
             loss = self.criterion(pred, y)
 
             tl.add(loss.item())

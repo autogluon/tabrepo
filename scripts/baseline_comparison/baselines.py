@@ -273,7 +273,7 @@ def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
         max_runtime: float = default_runtime, prefix: str = None, n_ensemble_in_name: bool = False,
-        max_models: int = None, max_models_per_type: int = None,
+        max_models: int = None, max_models_per_type: int = None, fix_fillna: bool = False,
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
@@ -296,6 +296,8 @@ def zeroshot_name(
         suffix += f"-E{n_ensemble}"
     if n_ensemble is None or n_ensemble > 1:
         suffix += " (ensemble)"
+    if not fix_fillna:
+        prefix += f"-bugged_fillna"
     suffix += time_suffix(max_runtime)
     return f"Portfolio{prefix}{suffix}"
 
@@ -332,6 +334,7 @@ def zeroshot_results(
         n_max_models: List[int] = [None],
         n_max_models_per_type: List[int] = [None],
         max_runtimes: List[float] = [default_runtime],
+        fix_fillna: bool = False,
         engine: str = "ray",
         seeds: list = [0],
         method_prefix: str = None,
@@ -366,7 +369,8 @@ def zeroshot_results(
             prefix=method_prefix,
             n_ensemble_in_name=n_ensemble_in_name,
             max_models=max_models,
-            max_models_per_type=max_models_per_type
+            max_models_per_type=max_models_per_type,
+            fix_fillna=fix_fillna,
         )
 
         rng = np.random.default_rng(seed=seed)
@@ -460,7 +464,13 @@ def zeroshot_results(
     # df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()
     # TODO use normalized scores
     df_rank = dd.pivot_table(index="framework", columns="task", values="metric_error").rank(ascending=False)
-    df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
+    # FIXME: df_rank should instead be np.nanmin(df_rank.values)!!!!
+    # FIXME: MASSIVE BUG: NEED TO TEST portfolio build with this bug fixed! I think this bug existed in the paper!
+    # FIXME: THIS MEANS EVERY DATASET WHERE KNN IS MISSING IS IGNORED ONCE KNN IS SELECTED IN PORTFOLIO!
+    if fix_fillna:
+        df_rank.fillna(value=np.nanmin(df_rank.values), inplace=True)
+    else:
+        df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
     assert not any(df_rank.isna().values.reshape(-1))
 
     if configs is None:
