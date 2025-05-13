@@ -246,7 +246,6 @@ class PaperRun:
         name_suffix: str | None = None,
     ):
         same_width = False
-        use_score = True
         use_y = False
         use_lim = True
         use_elo = df_elo is not None
