@@ -38,7 +38,7 @@ aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 """
 
 
-if __name__ == '__main__':
+def get_file_paths():
     experiment_name = "neerick-exp-tabarena60_big"
     experiment_name_v2 = "neerick-exp-tabarena60_big_v2"
     experiment_name_v3 = "neerick-exp-tabarena61_tabm_modernnca_cpu_seq"
@@ -51,11 +51,6 @@ if __name__ == '__main__':
 
     expname_reruns = f"{tabarena_data_root}/{experiment_name_reruns}"
 
-    repo_dir = "repos/tabarena60_big"  # location of local cache for fast script running
-    repo_dir_prefix = "repos/tabarena61"
-    load_repo = False  # ensure this is False for the first time running
-
-    task_metadata = load_task_metadata()
     # file_paths_v1 = fetch_all_pickles(dir_path=expname)
     # file_paths_v2 = fetch_all_pickles(dir_path=expname_v2)
     #
@@ -81,11 +76,49 @@ if __name__ == '__main__':
     file_paths = [f if f.endswith(".pkl") else f.rsplit(".pkl", 1)[0] + ".pkl" for f in file_paths]
     file_paths = sorted(list(set(file_paths)))
 
+    file_paths = remove_duplicate_paths(file_paths=file_paths)
+    save_pkl.save(path="./file_paths_full_fix.pkl", object=file_paths)
+    return file_paths
 
-    # for f in file_paths_invalid:
-    #     str_split = f.split("results.pkl")[0]
-    #     str_split = str_split.split(expname + "/")[1]
-    #     print()
+
+def remove_duplicate_paths(file_paths: list[str]) -> list[str]:
+    file_paths_set = set(file_paths)
+
+    file_paths_clean = []
+    for f in file_paths:
+        duplicate = False
+        if "_big/data/" not in f and "_big/" in f:
+            if "_big_v2/data/" in f:
+                duplicate = False
+            else:
+                try:
+                    left, right = f.rsplit("_big/", 1)
+                except Exception as err:
+                    print(f)
+                    raise err
+                alt_path = left + "_big/data/" + right
+                if alt_path in file_paths_set:
+                    duplicate = True
+                    print(f"DUPLICATE: {duplicate}\t{f}")
+                else:
+                    duplicate = False
+
+        if not duplicate:
+            file_paths_clean.append(f)
+    return file_paths_clean
+
+
+if __name__ == '__main__':
+    recompute_paths = False
+
+    if recompute_paths:
+        file_paths = get_file_paths()
+    else:
+        file_paths = load_pkl.load("./file_paths_full_fix.pkl")
+
+    repo_dir_prefix = "repos/tabarena61"
+
+    task_metadata = load_task_metadata()
 
     method_families = [
         # --- Completed ---
@@ -118,56 +151,6 @@ if __name__ == '__main__':
     for f in file_paths_per_method:
         print(f"{f}: {len(file_paths_per_method[f])}")
 
-    # invalid_files = {}
-    # missing_lst = []
-    # for method in method_families:
-    #     file_paths_method = file_paths_per_method[method]
-    #     # file_paths_method = file_paths_method[231300:]
-    #     print(f"Processing method {method} | {len(file_paths_method)} files...")
-    #     for file_path in file_paths_method:
-    #         is_valid = load_and_check_if_valid(file_path)
-    #         # print(is_valid)
-    #         if not is_valid:
-    #             print(file_path)
-    #             missing_lst.append(file_path)
-    #             # raise AssertionError
-    # print(len(missing_lst))
-
-    for method in method_families:
-        file_paths_method = file_paths_per_method[method]
-        file_paths_method_set = set(file_paths_method)
-
-        file_paths_method_clean = []
-        for f in file_paths_method:
-            duplicate = False
-            if "_big/data/" not in f and "_big/" in f:
-                if "_big_v2/data/" in f:
-                    duplicate = False
-                else:
-                    try:
-                        left, right = f.rsplit("_big/", 1)
-                    except Exception as err:
-                        print(f)
-                        raise err
-                    alt_path = left + "_big/data/" + right
-                    if alt_path in file_paths_method_set:
-                        duplicate = True
-                        print(f"DUPLICATE: {duplicate}\t{f}")
-                    else:
-                        duplicate = False
-
-            if not duplicate:
-                file_paths_method_clean.append(f)
-        file_paths_per_method[method] = file_paths_method_clean
-
-        print(len(file_paths_method_clean), method)
-
-    # dataset = "abalone"
-    # tid = task_metadata[task_metadata["name"] == dataset].iloc[0]["tid"]
-    # # tid = 363628
-    # name = "NeuralNetFastAI_c1_BAG_L1"
-    # combined = f"{name}/{tid}/1_0/"
-
     for method in method_families:
         repo_dir = f"{repo_dir_prefix}/{method}"
         file_paths_method = file_paths_per_method[method]
@@ -175,9 +158,6 @@ if __name__ == '__main__':
         print(f"Processing method {method} | {len(file_paths_method)} files...")
         repo: EvaluationRepository = generate_repo_from_paths(result_paths=file_paths_method, task_metadata=task_metadata)
         repo.to_dir(repo_dir)
-
-
-
 
     # if not load_repo:
     #     repo: EvaluationRepository = generate_repo(experiment_path=expname, task_metadata=task_metadata)

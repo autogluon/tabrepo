@@ -19,7 +19,12 @@ def generate_repo(experiment_path: str, task_metadata: pd.DataFrame, name_suffix
     return generate_repo_from_paths(result_paths=file_paths, task_metadata=task_metadata, name_suffix=name_suffix)
 
 
-def generate_repo_from_paths(result_paths: list[str], task_metadata: pd.DataFrame, engine: str = "ray", name_suffix: str | None = None) -> EvaluationRepository:
+def generate_repo_from_paths(
+    result_paths: list[str],
+    task_metadata: pd.DataFrame,
+    engine: str = "ray",
+    name_suffix: str | None = None,
+) -> EvaluationRepository:
     results_lst = load_all_artifacts(file_paths=result_paths, engine=engine)
 
     tids = set(list(task_metadata["tid"].unique()))
