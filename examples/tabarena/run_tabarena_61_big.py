@@ -25,16 +25,32 @@ USER_DIR=../data/${EXP_DATA_PATH}
 echo "${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}"
 aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 
+S3_BUCKET=prateek-ag
+EXP_NAME=neerick-exp-tabarena61_reruns
+EXCLUDE=(--exclude "*.log" --exclude "*.json")
+
+EXP_DATA_PATH=${EXP_NAME}/data/
+S3_DIR=s3://${S3_BUCKET}/${EXP_DATA_PATH}
+USER_DIR=../data/${EXP_DATA_PATH}
+echo "${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}"
+aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
+
 """
 
 
 if __name__ == '__main__':
     experiment_name = "neerick-exp-tabarena60_big"
     experiment_name_v2 = "neerick-exp-tabarena60_big_v2"
+    experiment_name_v3 = "neerick-exp-tabarena61_tabm_modernnca_cpu_seq"
+    experiment_name_reruns = "neerick-exp-tabarena61_reruns"
 
     # Load Context
     expname = f"{tabarena_data_root}/{experiment_name}"  # folder location of results, need to point this to the correct folder
     expname_v2 = f"{tabarena_data_root}/{experiment_name_v2}"
+    expname_tabm_modernnca = f"{tabarena_data_root}/{experiment_name_v3}"
+
+    expname_reruns = f"{tabarena_data_root}/{experiment_name_reruns}"
+
     repo_dir = "repos/tabarena60_big"  # location of local cache for fast script running
     repo_dir_prefix = "repos/tabarena61"
     load_repo = False  # ensure this is False for the first time running
@@ -46,8 +62,16 @@ if __name__ == '__main__':
     # file_paths = file_paths_v1 + file_paths_v2
     # file_paths = sorted([str(f) for f in file_paths])
     #
-    # save_pkl.save(path="./file_paths.pkl", object=file_paths)
-    file_paths = load_pkl.load(path="./file_paths.pkl")
+    # save_pkl.save(path="./file_paths_fix.pkl", object=file_paths)
+    file_paths = load_pkl.load(path="./file_paths_fix.pkl")
+
+    file_paths_tabm_modernnca = fetch_all_pickles(dir_path=expname_tabm_modernnca)
+    file_paths_tabm_modernnca = sorted([str(f) for f in file_paths_tabm_modernnca])
+
+    file_paths_reruns = fetch_all_pickles(dir_path=expname_reruns)
+    file_paths_reruns = sorted([str(f) for f in file_paths_reruns])
+
+    file_paths = file_paths + file_paths_tabm_modernnca + file_paths_reruns
 
     print(len(file_paths))
 
@@ -65,19 +89,24 @@ if __name__ == '__main__':
 
     method_families = [
         # --- Completed ---
-        # "Dummy",
-        # "FTTransformer",
-        # "KNeighbors",
-        # "RealMLP",
-        # "CatBoost",
-        # "XGBoost",
-        # "NeuralNetTorch",
-        # "RandomForest",
-        # "ExtraTrees",
-        # "ExplainableBM",
-        # "LightGBM",
-        # "LinearModel",
-        # "NeuralNetFastAI",  # FIXME: Extra files?
+        "Dummy",
+        "KNeighbors",
+        "RealMLP",
+        "CatBoost",
+        "XGBoost",
+        "NeuralNetTorch",
+        "RandomForest",
+        "ExtraTrees",
+
+        "ExplainableBM",
+        "LightGBM",
+        "LinearModel",
+        "NeuralNetFastAI",  # FIXME: Extra files?
+
+        "TabM",
+        "ModernNCA",
+
+        # # "FTTransformer",  # Excluded
     ]
 
     file_paths_per_method = {}
@@ -111,24 +140,27 @@ if __name__ == '__main__':
         file_paths_method_clean = []
         for f in file_paths_method:
             duplicate = False
-            if "_big/data/" not in f:
+            if "_big/data/" not in f and "_big/" in f:
                 if "_big_v2/data/" in f:
-                    continue
-                try:
-                    left, right = f.rsplit("_big/", 1)
-                except Exception as err:
-                    print(f)
-                    raise err
-                alt_path = left + "_big/data/" + right
-                if alt_path in file_paths_method_set:
-                    duplicate = True
-                    print(f"DUPLICATE: {duplicate}\t{f}")
-                else:
                     duplicate = False
+                else:
+                    try:
+                        left, right = f.rsplit("_big/", 1)
+                    except Exception as err:
+                        print(f)
+                        raise err
+                    alt_path = left + "_big/data/" + right
+                    if alt_path in file_paths_method_set:
+                        duplicate = True
+                        print(f"DUPLICATE: {duplicate}\t{f}")
+                    else:
+                        duplicate = False
 
             if not duplicate:
                 file_paths_method_clean.append(f)
         file_paths_per_method[method] = file_paths_method_clean
+
+        print(len(file_paths_method_clean), method)
 
     # dataset = "abalone"
     # tid = task_metadata[task_metadata["name"] == dataset].iloc[0]["tid"]
