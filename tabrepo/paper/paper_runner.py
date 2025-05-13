@@ -316,7 +316,6 @@ class PaperRun:
             baseline_means[baseline] = df_plot_w_mean_2[df_plot_w_mean_2["framework_type"] == baseline][metric].iloc[0]
 
         df_plot_w_mean_2 = df_plot_w_mean_2[~df_plot_w_mean_2["framework_type"].isin(baselines)]
-        df_plot_w_mean_2 = df_plot_w_mean_2.sort_values(by=metric, ascending=True)
 
         df_plot_mean_dedupe = df_plot_w_mean_2.drop_duplicates(subset=["framework_type"], keep="first")
 
