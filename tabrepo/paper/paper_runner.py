@@ -241,7 +241,9 @@ class PaperRun:
         baseline_colors: list[str] = None,
         show: bool = True,
         use_gmean=False,
+        use_score: bool = True,
         df_elo: pd.DataFrame = None,
+        name_suffix: str | None = None,
     ):
         same_width = False
         use_score = True
@@ -458,12 +460,14 @@ class PaperRun:
             plt.tight_layout()
 
             if save_prefix:
+                if name_suffix is None:
+                    name_suffix = ""
                 fig_path = Path(save_prefix)
                 fig_path.mkdir(parents=True, exist_ok=True)
                 if use_gmean:
-                    fig_name = "tuning-impact-gmean.png"
+                    fig_name = f"tuning-impact-gmean{name_suffix}.png"
                 else:
-                    fig_name = "tuning-impact.png"
+                    fig_name = f"tuning-impact{name_suffix}.png"
                 fig_save_path = fig_path / fig_name
                 plt.savefig(fig_save_path)
             if show:

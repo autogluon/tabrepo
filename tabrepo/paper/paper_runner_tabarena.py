@@ -313,6 +313,8 @@ class PaperRunTabArena(PaperRun):
             use_gmean=use_gmean,
             baselines=baselines,
             baseline_colors=baseline_colors,
+            use_score=True,
+            name_suffix="-normscore-dataset",
         )
 
         df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[method_col].str.contains("_r")]
@@ -371,6 +373,7 @@ class PaperRunTabArena(PaperRun):
             use_gmean=use_gmean,
             baselines=baselines,
             baseline_colors=baseline_colors,
+            name_suffix="-elo"
         )
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)
