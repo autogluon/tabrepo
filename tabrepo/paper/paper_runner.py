@@ -82,8 +82,6 @@ class PaperRun:
                 hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
 
         df_results_hpo_all = pd.concat(hpo_results_lst, ignore_index=True)
-        df_results_hpo_all = df_results_hpo_all.set_index(["dataset", "fold", "framework"])
-        # df_results_hpo_all = self.evaluator.compare_metrics(results_df=df_results_hpo_all, configs=[], baselines=[])
         return df_results_hpo_all
 
     def run_zs(

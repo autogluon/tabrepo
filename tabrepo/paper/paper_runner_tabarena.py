@@ -390,11 +390,42 @@ class PaperRunTabArena(PaperRun):
             "KNeighbors",
             "TabPFNv2",
             "TabICL",
+            "TabDPT",
             # "TabForestPFN",
             "ExplainableBM",
             "NeuralNetFastAI",
-            "FTTransformer",
+            # "FTTransformer",
+            "TabM",
+            "ModernNCA",
         ]
 
         # plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop_incorrect", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
-        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop", method="Portfolio-fix_fillna-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
+        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop", method="Portfolio-N50 (ensemble) (4h)", hue_order=hue_order_family_proportion)
+
+        results_per_task_rename = results_per_task.rename(columns={
+            tabarena.method_col: "framework",
+            tabarena.task_col: "dataset",
+            tabarena.error_col: "metric_error",
+        })
+
+        results_per_task_rename["elo"] = results_per_task_rename["framework"].map(elo_map)
+
+        # Nick: Comment out this code if you don't have autogluon_benchmark
+        from autogluon_benchmark.plotting.plotter import Plotter
+        plotter = Plotter(
+            results_ranked_df=results_per_task_rename,
+            results_ranked_fillna_df=results_per_task_rename,
+            save_dir=f"{self.output_dir}/figures/plotter"
+        )
+
+        # FIXME: Nick: This isn't yet merged, as I haven't made it nice yet
+        # plotter.plot_pareto_time_infer_elo(data=results_per_task_rename)
+        # plotter.plot_pareto_time_train_elo(data=results_per_task_rename)
+
+        plotter.plot_all(
+            calibration_framework=calibration_framework,
+            calibration_elo=1000,
+            BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
+        )
+
+        # self.evaluator.plot_overall_rank_comparison(results_df=df_results_rank_compare2, save_dir=f"{self.output_dir}/paper_v2")
