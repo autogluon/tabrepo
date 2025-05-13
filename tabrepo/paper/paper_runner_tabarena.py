@@ -9,6 +9,40 @@ from tabrepo.tabarena.tabarena import TabArena
 
 
 class PaperRunTabArena(PaperRun):
+    def __init__(
+        self,
+        *,
+        methods: list[str] | None = None,
+        folds: list[int] | None = None,
+        datasets: list[str] | None = None,
+        problem_types: list[str] | None = None,
+        elo_bootstrap_rounds: int = 10,
+        **kwargs,
+    ):
+        """
+
+        Parameters
+        ----------
+        methods
+            filter methods
+        folds
+            filter folds
+        datasets
+            filter datasets
+        problem_types
+            filter problem_types
+        elo_bootstrap_rounds
+            10 = toy
+            100 = paper
+        kwargs
+        """
+        super().__init__(**kwargs)
+        self.datasets = datasets
+        self.problem_types = problem_types
+        self.methods = methods
+        self.folds = folds
+        self.elo_bootstrap_rounds = elo_bootstrap_rounds
+
     def run(self) -> pd.DataFrame:
         df_results_baselines = self.run_baselines()
         df_results_configs = self.run_configs()
@@ -18,7 +52,7 @@ class PaperRunTabArena(PaperRun):
         )
         df_results_single_best_families = self.run_zs_family()
 
-        n_portfolios = [200]
+        n_portfolios = [50, 20, 10, 5]
         df_results_n_portfolio = []
         for n_portfolio in n_portfolios:
             df_results_n_portfolio.append(self.run_zs(n_portfolios=n_portfolio, n_ensemble=None, n_ensemble_in_name=False))
@@ -28,10 +62,11 @@ class PaperRunTabArena(PaperRun):
         # FIXME: Why does n_max_models_per_type="auto" make things so slow? -> 7 seconds to 107 seconds
         # FIXME: n_max_models_per_type doesn't work correctly atm, need to actually separate the types!
         # df_results_extra.append(self.run_zs(n_portfolios=200, n_ensemble=None, n_ensemble_in_name=False, n_max_models_per_type="auto"))
-        df_results_extra.append(self.run_zs(n_portfolios=200, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
-        # df_results_extra.append(self.run_zs(n_portfolios=200, n_ensemble=None, n_ensemble_in_name=False, n_max_models_per_type="auto", fix_fillna=True))
-        df_results_extra.append(self.run_zs(n_portfolios=50, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
-        df_results_extra.append(self.run_zs(n_portfolios=20, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
+        # df_results_extra.append(self.run_zs(n_portfolios=200, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
+        # # df_results_extra.append(self.run_zs(n_portfolios=200, n_ensemble=None, n_ensemble_in_name=False, n_max_models_per_type="auto", fix_fillna=True))
+        # df_results_extra.append(self.run_zs(n_portfolios=50, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
+        # df_results_extra.append(self.run_zs(n_portfolios=50, n_ensemble=None, max_runtime=None, n_ensemble_in_name=False, fix_fillna=True))
+        # df_results_extra.append(self.run_zs(n_portfolios=20, n_ensemble=None, n_ensemble_in_name=False, fix_fillna=True))
         # df_results_extra.append(self.run_zs(n_portfolios=10, n_ensemble=None, n_ensemble_in_name=False))
         # df_results_extra.append(self.run_zs(n_portfolios=5, n_ensemble=None, n_ensemble_in_name=False))
         # df_results_extra.append(self.run_zs(n_portfolios=4, n_ensemble=None, n_ensemble_in_name=False))
@@ -72,14 +107,14 @@ class PaperRunTabArena(PaperRun):
         df_single_best_portfolio_families = pd.concat(df_single_best_portfolio_family_lst, ignore_index=True)
         return df_single_best_portfolio_families
 
-    def compute_normalized_error(self, df_results: pd.DataFrame, static: bool = True) -> pd.DataFrame:
+    def compute_normalized_error(self, df_results: pd.DataFrame, static: bool = False) -> pd.DataFrame:
         """
         Adds normalized-error-task and normalized-error-dataset columns to df_results.
 
         Parameters
         ----------
         df_results
-        static: bool, default True
+        static: bool, default False
             If True, calculates normalized error based on the methods in `self.repo`.
                 This is less fair and penalizes new methods in `df_results` that frequently beat the best method in `self.repo`.
                 For example, portfolios.
@@ -184,6 +219,7 @@ class PaperRunTabArena(PaperRun):
         return df_results_og
 
     def eval(self, df_results: pd.DataFrame, use_gmean: bool = False):
+        method_col = "method"
         df_results = df_results.copy(deep=True)
         if "seed" not in df_results:
             df_results["seed"] = 0
@@ -195,8 +231,18 @@ class PaperRunTabArena(PaperRun):
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error(df_results)` first to get normalized-error."
 
         df_results = df_results.rename(columns={
-            "framework": "method",
+            "framework": method_col,
         })
+
+        if self.datasets is not None:
+            df_results = df_results[df_results["dataset"].isin(self.datasets)]
+        if self.folds is not None:
+            df_results = df_results[df_results["fold"].isin(self.folds)]
+        if self.methods is not None:
+            df_results = df_results[df_results["method"].isin(self.methods)]
+        if self.problem_types is not None:
+            df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
+
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         # df_results = self.evaluator.compare_metrics(results_df=df_results, configs=[], baselines=[], keep_extra_columns=True, fillna=True)
@@ -216,6 +262,8 @@ class PaperRunTabArena(PaperRun):
             "REALMLP",
             "EBM",
             "FT_TRANSFORMER",
+            "TABM",
+            "MNCA",
         ]
 
         df_results["method"] = df_results["method"].map({
@@ -238,17 +286,18 @@ class PaperRunTabArena(PaperRun):
             "TabPFNv2_c1_BAG_L1": "TABPFNV2 (default)",
             "TabICL_c1_BAG_L1": "TABICL (default)",
             "TabDPT_c1_BAG_L1": "TABDPT (default)",
+            "TabM_c1_BAG_L1": "TABM (default)",
+            "ModernNCA_c1_BAG_L1": "MNCA (default)",
         }).fillna(df_results["method"])
-        print(df_results)
+        # print(df_results)
 
         df_results_rank_compare = copy.deepcopy(df_results)
-        df_results_rank_compare = df_results_rank_compare.rename(columns={"method": "framework"})
 
         baselines = [
             "AutoGluon 1.3 (5m)",
             # "AutoGluon 1.3 (1h)",
             "AutoGluon 1.3 (4h)",
-            "Portfolio-fix_fillna-N50 (ensemble) (4h)",
+            "Portfolio-N50 (ensemble) (4h)",
         ]
         baseline_colors = [
             "darkgray",
@@ -266,10 +315,10 @@ class PaperRunTabArena(PaperRun):
             baseline_colors=baseline_colors,
         )
 
-        df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare["framework"].str.contains("_BAG_L1") & ~df_results_rank_compare["framework"].str.contains("_r")]
+        df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[method_col].str.contains("_r")]
 
         tabarena = TabArena(
-            method_col="framework",
+            method_col=method_col,
             task_col="dataset",
             seed_column="fold",
             error_col="metric_error",
@@ -301,37 +350,30 @@ class PaperRunTabArena(PaperRun):
             elo_kwargs=dict(
                 calibration_framework=calibration_framework,
                 calibration_elo=1000,
+                BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
             )
         )
+        elo_map = leaderboard["elo"]
+        leaderboard = leaderboard.reset_index(drop=False)
 
         from autogluon.common.savers import save_pd
         save_pd.save(path=f"{self.output_dir}/tabarena_leaderboard.csv", df=leaderboard)
 
-        print(f"Evaluating with {len(df_results_rank_compare2[tabarena.task_col].unique())} datasets...")
+        print(f"Evaluating with {len(df_results_rank_compare2[tabarena.task_col].unique())} datasets... | problem_types={self.problem_types}, folds={self.folds}")
         with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
             print(leaderboard)
 
+        self.plot_tuning_impact(
+            df=df_results,
+            df_elo=leaderboard,
+            framework_types=framework_types,
+            save_prefix=f"{self.output_dir}",
+            use_gmean=use_gmean,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+        )
+
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)
-
-        results_per_task_rename = results_per_task.rename(columns={
-            tabarena.method_col: "framework",
-            tabarena.task_col: "dataset",
-            tabarena.error_col: "metric_error",
-        })
-
-        from autogluon_benchmark.plotting.plotter import Plotter
-        plotter = Plotter(
-            results_ranked_df=results_per_task_rename,
-            results_ranked_fillna_df=results_per_task_rename,
-            save_dir=f"{self.output_dir}/figures/plotter"
-        )
-
-        plotter.plot_all(
-            calibration_framework=calibration_framework,
-            calibration_elo=1000,
-        )
-
-        # self.evaluator.plot_overall_rank_comparison(results_df=df_results_rank_compare2, save_dir=f"{self.output_dir}/paper_v2")
 
         tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.png")
         tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.pdf")

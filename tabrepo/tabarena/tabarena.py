@@ -126,6 +126,7 @@ class TabArena:
 
         if sort_by is not None:
             results = results.sort_values(by=sort_by)
+        results.index.name = self.method_col
 
         return results
 
