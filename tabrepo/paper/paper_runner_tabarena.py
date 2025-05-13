@@ -402,6 +402,33 @@ class PaperRunTabArena(PaperRun):
         # plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop_incorrect", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
         plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop", method="Portfolio-N50 (ensemble) (4h)", hue_order=hue_order_family_proportion)
 
+        try:
+            import autogluon_benchmark
+        except:
+            print(f"WARNING: autogluon_benchmark failed to import... skipping extra figure generation")
+        else:
+            self.run_autogluon_benchmark_logic(
+                results_per_task=results_per_task,
+                elo_map=elo_map,
+                tabarena=tabarena,
+                calibration_framework=calibration_framework,
+            )
+
+    def run_autogluon_benchmark_logic(self, results_per_task: pd.DataFrame, elo_map: dict, tabarena: TabArena, calibration_framework: str):
+        """
+        Requires autogluon_benchmark installed:
+
+        Parameters
+        ----------
+        results_per_task
+        elo_map
+        tabarena
+        calibration_framework
+
+        Returns
+        -------
+
+        """
         results_per_task_rename = results_per_task.rename(columns={
             tabarena.method_col: "framework",
             tabarena.task_col: "dataset",

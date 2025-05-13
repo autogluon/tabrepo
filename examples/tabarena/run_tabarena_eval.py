@@ -16,6 +16,7 @@ if __name__ == '__main__':
     load_from_s3 = True  # Do this for first run, then make false for speed
     generate_from_repo = False
 
+    print(f"Loading results... context_name={context_name}, load_from_s3={load_from_s3}")
     df_results, datasets_tabpfn, datasets_tabicl = load_paper_results(
         context_name=context_name,
         generate_from_repo=generate_from_repo,
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     paper_tabpfn_datasets = PaperRunTabArena(repo=None, output_dir=eval_save_path_tabpfn_datasets, datasets=datasets_tabpfn)
     paper_tabicl_datasets = PaperRunTabArena(repo=None, output_dir=eval_save_path_tabicl_datasets, datasets=datasets_tabicl)
 
+    print(f"Starting evaluations...")
     # Full run
     paper_full.eval(df_results=df_results)
 
