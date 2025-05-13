@@ -209,6 +209,9 @@ class ModernNCAMethod(Method):
                 if not pred.shape:
                     pred = pred.unsqueeze(0)
 
+                if self.is_regression and (self.y_info["policy"] == "mean_std"):
+                    pred = (pred * self.y_info["std"]) + self.y_info["mean"]
+
                 test_logit.append(pred)
                 # test_label.append(y)
 
@@ -265,6 +268,9 @@ class ModernNCAMethod(Method):
                 candidate_y=candidate_y,
                 is_train=True,
             ).squeeze(-1)
+
+            if self.is_regression and (self.y_info["policy"] == "mean_std"):
+                pred = (pred * self.y_info["std"]) + self.y_info["mean"]
 
             loss = self.criterion(pred, y)
 
