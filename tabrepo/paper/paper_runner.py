@@ -270,6 +270,8 @@ class PaperRun:
         xlim = None
         ylim = None
 
+        imputed_names = imputed_names or ['TabPFNv2', 'TabICL']
+
         df = df.copy(deep=True)
 
         metric = "normalized-error"
@@ -284,7 +286,7 @@ class PaperRun:
             lim = [500, None]
             lower_is_better = False
             df = df_elo.copy(deep=True)
-            df = df[["method", "elo"]]
+            df = df[["method", "elo", "elo+", "elo-"]]
             groupby_columns_extra = []
         elif use_score:
             lower_is_better = False
@@ -317,23 +319,32 @@ class PaperRun:
         framework_types = [f_map_type_name[ft] if ft in f_map_type_name else ft for ft in framework_types]
 
         df_plot = df[df["framework_type"].isin(framework_types)]
+        df_plot = df_plot[~df_plot["framework_type"].isin(imputed_names)]
+
+        pd.set_option('display.max_columns', None)  # todo
+        print(f'{df_plot.head()=}')
 
         # df_plot_w_mean_2 = df_plot.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
 
-        df_plot_w_mean_per_dataset = df_plot.groupby(["framework_type", "tune_method", *groupby_columns_extra])[
-            metric].mean().reset_index()
+        if use_elo:
+            # don't use groupby to preserve elo+ and elo- columns, it's only one-element groups anyway
+            df_plot_w_mean_per_dataset = df_plot.copy(deep=True)
+            df_plot_w_mean_2 = df_plot.copy(deep=True)
+        else:
+            df_plot_w_mean_per_dataset = df_plot.groupby(["framework_type", "tune_method", *groupby_columns_extra])[
+                metric].mean().reset_index()
 
-        if use_gmean:
-            # FIXME: Doesn't plot correctly, need to figure out error bars for geometric mean
-            df_plot_eps = df_plot.copy(deep=True)
-            df_plot_eps[metric] += 0.01
-            from scipy.stats import gmean
-            df_plot_w_gmean_per_dataset = df_plot.groupby(["framework_type", "tune_method", *groupby_columns_extra])[
-                metric].apply(gmean).reset_index()
-            df_plot_w_mean_per_dataset = df_plot_w_gmean_per_dataset
+            if use_gmean:
+                # FIXME: Doesn't plot correctly, need to figure out error bars for geometric mean
+                df_plot_eps = df_plot.copy(deep=True)
+                df_plot_eps[metric] += 0.01
+                from scipy.stats import gmean
+                df_plot_w_gmean_per_dataset = df_plot.groupby(["framework_type", "tune_method", *groupby_columns_extra])[
+                    metric].apply(gmean).reset_index()
+                df_plot_w_mean_per_dataset = df_plot_w_gmean_per_dataset
 
-        df_plot_w_mean_2 = df_plot_w_mean_per_dataset.groupby(["framework_type", "tune_method"])[
-            metric].mean().reset_index()
+            df_plot_w_mean_2 = df_plot_w_mean_per_dataset.groupby(["framework_type", "tune_method"])[
+                metric].mean().reset_index()
 
         df_plot_w_mean_2 = df_plot_w_mean_2.sort_values(by=metric, ascending=lower_is_better)
         baseline_means = {}
@@ -464,6 +475,8 @@ class PaperRun:
                     ),
                 ]
 
+                print(f'{df_plot_w_mean_per_dataset.head()=}')
+
                 if use_score:
                     widths = [plot_line["width"] for plot_line in to_plot]
                     colors = [plot_line["color"] for plot_line in to_plot]
@@ -488,8 +501,37 @@ class PaperRun:
                 if xlim is not None:
                     ax.set_xlim(xlim)
 
-                # highlight bars that contain imputed results
-                imputed_names = imputed_names or ['TabPFNv2', 'TabICL']
+
+                if use_elo:
+                    # ----- add elo error bars -----
+
+                    # Get the bar positions
+                    # x_coords = [p.get_x() + p.get_width() / 2 for p in boxplot.patches]
+                    xticks = boxplot.get_xticks()
+                    xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
+
+                    # Map x-tick positions to category labels
+                    # label_lookup = dict(zip(xticks, xticklabels))
+
+
+                    # Add asymmetric error bars manually
+                    for x, framework_type in zip(xticks, xticklabels):
+                        # x_category_index = round(x)  # x-ticks are usually 0, 1, 2, ...
+                        # framework_type = label_lookup.get(x_category_index)
+                        for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled"], errcolors):
+                            row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
+                            print(f'{row=}')
+                            if len(row) == 1:
+                                # not all methods have tuned or tuned_ensembled
+                                y = row['elo'].values
+                                yerr_low = row['elo-'].values
+                                yerr_high = row['elo+'].values
+                                plt.errorbar(x, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                    # for x, y, yerr_low, yerr_high in zip(x_coords, df_plot_w_mean_2['elo'], df_plot_w_mean_2['elo-'], df_plot_w_mean_2['elo+']):
+                    #     plt.errorbar(x, y, yerr=[[yerr_low], [yerr_high]], fmt='none', color='black', capsize=5)
+
+
+                # ----- highlight bars that contain imputed results -----
                 xticks = boxplot.get_xticks()
                 xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
 

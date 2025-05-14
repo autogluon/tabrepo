@@ -33,6 +33,7 @@ if __name__ == '__main__':
     print(f"Starting evaluations...")
     # Full run
     paper_full.eval(df_results=df_results, only_norm_scores=False, imputed_names=['TabPFNv2', 'TabICL'])
+    exit()
 
     problem_types = ["binary", "regression", "multiclass"]
     for problem_type in problem_types:
