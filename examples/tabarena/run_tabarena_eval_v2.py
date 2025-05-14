@@ -2,6 +2,15 @@ from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 from nips2025_utils.load_final_paper_results import load_paper_results
 from autogluon.common.loaders import load_pd
 import pandas as pd
+from autogluon.common.utils.s3_utils import upload_s3_folder
+
+
+def upload_results(folder_to_upload: str, s3_prefix: str):
+    upload_s3_folder(
+        bucket="tabarena",
+        prefix=f"tmp_neurips2025/{s3_prefix}",
+        folder_to_upload=folder_to_upload,
+    )
 
 
 """
@@ -10,6 +19,18 @@ otherwise the below code will fail.
 
 This script loads the complete results data and runs evaluation on it, creating plots and tables.
 """
+
+def rename_func(name):
+    if "(tuned)" in name:
+        name = name.rsplit("(tuned)", 1)[0]
+        name = f"{name}(tuned, holdout)"
+    elif "(tuned + ensemble)" in name:
+        name = name.rsplit("(tuned + ensemble)", 1)[0]
+        name = f"{name}(tuned + ensemble, holdout)"
+    elif "(ensemble) (4h)" in name:
+        name = name.rsplit("(ensemble) (4h)", 1)[0]
+        name = f"{name}(ensemble, holdout) (4h)"
+    return name
 
 
 if __name__ == '__main__':
@@ -37,16 +58,20 @@ if __name__ == '__main__':
     eval_save_path_full = f"{eval_save_path}/full"
     paper_full = PaperRunTabArena(repo=None, output_dir=eval_save_path_full)
 
-    if with_holdout:
-        from tabrepo import EvaluationRepositoryCollection, Evaluator
-        repo_holdout = EvaluationRepositoryCollection.load(path=f"./{context_name}/repo_cache/tabarena_holdout.pkl")
-        evaluator_holdout = Evaluator(repo_holdout)
 
-        repo_holdout.set_config_fallback("RandomForest_r1_BAG_L1_HOLDOUT")
+    # raise AssertionError
+
+    if with_holdout:
+        # from tabrepo import EvaluationRepositoryCollection, Evaluator
+        # repo_holdout = EvaluationRepositoryCollection.load(path=f"./{context_name}/repo_cache/tabarena_holdout.pkl")
+        # evaluator_holdout = Evaluator(repo_holdout)
+        #
+        # repo_holdout.set_config_fallback("RandomForest_r1_BAG_L1_HOLDOUT")
 
         # FIXME: Fillna
         # df_results_holdout = evaluator_holdout.compare_metrics(keep_extra_columns=True, include_metric_error_val=True, fillna=True).reset_index()
         df_results_holdout = load_pd.load(path=f"{context_name}/data/df_results_holdout.parquet")
+        df_results_holdout["framework"] = [rename_func(f) for f in df_results_holdout["framework"]]
 
         # FIXME
         df_results = pd.concat([df_results, df_results_holdout], ignore_index=True)
@@ -62,7 +87,7 @@ if __name__ == '__main__':
         df_results = paper_full.compute_normalized_error(df_results=df_results)
 
         # FIXME
-        raise AssertionError
+        # raise AssertionError
 
     banned_methods = [
         "Portfolio-N20 (ensemble) (4h)",
@@ -98,6 +123,8 @@ if __name__ == '__main__':
     print(f"Starting evaluations...")
     # Full run
     paper_full.eval(df_results=df_results)
+
+    upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)
 
     problem_types = ["binary", "regression", "multiclass"]
     for problem_type in problem_types:
