@@ -155,6 +155,8 @@ class MitraBase(BaseEstimator):
                     self.trainers.append(trainer)
                     self.models.append(model)
                     self.train_time += end_time - start_time
+                    
+                    success = True
 
             except torch.OutOfMemoryError:
                 if cfg.hyperparams["max_samples_support"] >= 2048:

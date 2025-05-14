@@ -111,19 +111,21 @@ if __name__ == "__main__":
             190410, 190411, 359954, 359955, 359956, 359958, 359959, 359960, 359961, 359962, 359963, \
             359964, 359965, 359968, 359969, 359970, 359972, 359974, 359975] 
 
+    # 9 * 5 + 10 * 3 = 75
+    # 0-9, 9-18, 18-27, 37-36, 36-45, 45-55, 55-65, 65-75
     tabzilla = [4, 9, 10, 11, 14, 15, 16, 18, 22, 23, 25, 27, 29, 31, 35, 37, 39, 40, 42, \
             47, 48, 50, 53, 54, 59, 2079, 2867, 3512, 3540, 3543, 3549, 3560, 3561, 3602, \
             3620, 3647, 3731, 3739, 3748, 3779, 3797, 3902, 3903, 3913, 3917, 3918, 9946, \
             9957, 9971, 9978, 9979, 9984, 10089, 10093, 10101, 14954, 14967, 125920, 125921, \
             145793, 145799, 145847, 145977, 145984, 146024, 146063, 146065, 146192, 146210, \
-            146800, 146817, 146818, 146819, 146821, 146822] # 9 * 5 + 10 * 3 = 75
+            146800, 146817, 146818, 146819, 146821, 146822] 
 
-    dataset_name, start, end = amlb, 9, 13
+    dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 0, 9
 
     for did in dataset_name[start:end]:
 
         for fold in range(10):
 
-            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset="nature10fold", file_name=f"mitra_bagging_ft_{start}_{end}")  
+            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}")  
 
             # shutil.rmtree("/home/ubuntu/tabular/tabrepo/AutogluonModels")
