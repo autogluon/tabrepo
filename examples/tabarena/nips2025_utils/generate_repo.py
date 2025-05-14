@@ -24,15 +24,20 @@ def generate_repo_from_paths(
     task_metadata: pd.DataFrame,
     engine: str = "ray",
     name_suffix: str | None = None,
+    as_holdout: bool = False,
 ) -> EvaluationRepository:
-    results_lst = load_all_artifacts(file_paths=result_paths, engine=engine)
-
+    results_lst = load_all_artifacts(file_paths=result_paths, engine=engine, convert_to_holdout=as_holdout)
+    results_lst = [r for r in results_lst if r is not None]
     tids = set(list(task_metadata["tid"].unique()))
-
     results_lst = [r for r in results_lst if r.result["task_metadata"]["tid"] in tids]
+
     if name_suffix is not None:
         for r in results_lst:
             r.result["framework"] += name_suffix
+
+    if len(results_lst) == 0:
+        print(f"EMPTY")
+        return None
 
     exp_results = ExperimentResults(task_metadata=task_metadata)
 
