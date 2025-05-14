@@ -13,7 +13,7 @@ This script loads the complete results data and runs evaluation on it, creating 
 if __name__ == '__main__':
     context_name = "tabarena_paper_full_gpu"
     eval_save_path = f"{context_name}/output"
-    load_from_s3 = True  # Do this for first run, then make false for speed
+    load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
 
     print(f"Loading results... context_name={context_name}, load_from_s3={load_from_s3}")
@@ -32,16 +32,16 @@ if __name__ == '__main__':
 
     print(f"Starting evaluations...")
     # Full run
-    paper_full.eval(df_results=df_results)
+    paper_full.eval(df_results=df_results, only_norm_scores=False, imputed_names=['TabPFNv2', 'TabICL'])
 
     problem_types = ["binary", "regression", "multiclass"]
     for problem_type in problem_types:
         eval_save_path_problem_type = f"{eval_save_path}/{problem_type}"
         paper_run_problem_type = PaperRunTabArena(repo=None, output_dir=eval_save_path_problem_type, problem_types=[problem_type])
-        paper_run_problem_type.eval(df_results=df_results)
+        paper_run_problem_type.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'])
 
     # Only TabPFN datasets
-    paper_tabpfn_datasets.eval(df_results=df_results)
+    paper_tabpfn_datasets.eval(df_results=df_results, imputed_names=['TabICL'])
 
     # Only TabICL datasets
-    paper_tabicl_datasets.eval(df_results=df_results)
+    paper_tabicl_datasets.eval(df_results=df_results, imputed_names=['TabPFNv2'])

@@ -218,7 +218,7 @@ class PaperRunTabArena(PaperRun):
         df_results_og["normalized-error-task"] = df_results["normalized-error-task"]
         return df_results_og
 
-    def eval(self, df_results: pd.DataFrame, use_gmean: bool = False):
+    def eval(self, df_results: pd.DataFrame, use_gmean: bool = False, only_norm_scores: bool = False, imputed_names: list[str] | None = None):
         method_col = "method"
         df_results = df_results.copy(deep=True)
         if "seed" not in df_results:
@@ -294,15 +294,15 @@ class PaperRunTabArena(PaperRun):
         df_results_rank_compare = copy.deepcopy(df_results)
 
         baselines = [
-            "AutoGluon 1.3 (5m)",
+            # "AutoGluon 1.3 (5m)",
             # "AutoGluon 1.3 (1h)",
             "AutoGluon 1.3 (4h)",
-            "Portfolio-N50 (ensemble) (4h)",
+            # "Portfolio-N50 (ensemble) (4h)",
         ]
         baseline_colors = [
-            "darkgray",
+            # "darkgray",
             "black",
-            "blue",
+            # "blue",
             # "red",
         ]
 
@@ -315,7 +315,11 @@ class PaperRunTabArena(PaperRun):
             baseline_colors=baseline_colors,
             use_score=True,
             name_suffix="-normscore-dataset",
+            imputed_names=imputed_names,
         )
+
+        if only_norm_scores:
+            return
 
         df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[method_col].str.contains("_r")]
 
@@ -373,7 +377,8 @@ class PaperRunTabArena(PaperRun):
             use_gmean=use_gmean,
             baselines=baselines,
             baseline_colors=baseline_colors,
-            name_suffix="-elo"
+            name_suffix="-elo",
+            imputed_names=imputed_names,
         )
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)
