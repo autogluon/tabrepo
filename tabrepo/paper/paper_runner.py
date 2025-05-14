@@ -294,7 +294,7 @@ class PaperRun:
             groupby_columns_extra = []
         elif use_score:
             lower_is_better = False
-            df["normalized-score"] = 1 - df["normalized-error"]
+            df["normalized-score"] = 1 - df[metric]
             # df_plot_w_mean_per_dataset["normalized-score"] = 1 - df_plot_w_mean_per_dataset["normalized-error"]
             metric = "normalized-score"
         else:
