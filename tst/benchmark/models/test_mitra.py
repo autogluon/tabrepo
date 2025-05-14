@@ -27,7 +27,7 @@ def test_mitra():
             f"{err}"
         )
 
-def run_bagging(task_id, fold, bagging=True):
+def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", file_name=None):
 
     print('Task id', task_id, 'Fold', fold)
 
@@ -54,7 +54,7 @@ def run_bagging(task_id, fold, bagging=True):
     time1 = time.time()
 
     if bagging:
-        bagged_custom_model.fit(X=x_train, y=y_train, k_fold=8) # Perform 8-fold bagging
+        bagged_custom_model.fit(X=x_train, y=y_train, k_fold=8, save_space=True) # Perform 8-fold bagging
     else:
         custom_model.fit(X=x_train, y=y_train)
     
@@ -82,11 +82,8 @@ def run_bagging(task_id, fold, bagging=True):
 
     print(f"accuracy: {accuracy}, ce: {ce}, roc: {roc}")
 
-    if bagging:
-        file_path = '/fsx/results/tabrepo10fold/mitra_bagging_ft_300.csv'
-    else:
-        file_path = '/fsx/results/tabrepo10fold/mitra_no_bagging.csv'
-
+    file_path = f'/fsx/results/{target_dataset}/{file_name}.csv'
+    
     file_exists = os.path.isfile(file_path)
     df = pd.DataFrame({
         "roc": roc,
@@ -101,27 +98,30 @@ if __name__ == "__main__":
 
     # test_mitra()
 
-    df = pd.read_csv("/home/ubuntu/tabular/mitra/tabpfnmix/evaluate/task_metadata_244.csv")
-    df = df[df['ttid']=='TaskType.SUPERVISED_CLASSIFICATION']
-    dids = df['tid'].values.tolist()
-    names_to_filter = df['name'].values.tolist()
-    filtered_data = list(zip(dids, names_to_filter))
-    print(len(dids))
+    tabrepo = [2, 11, 37, 2073, 2077, 3512, 3549, 3560, 3581, 3583, 3606, 3608, 3616, \
+                3623, 3664, 3667, 3690, 3702, 3704, 3747, 3749, 3766, 3783, 3793, 3799, \
+                3800, 3812, 3903, 3913, 3918, 9904, 9905, 9906, 9909, 9915, 9924, 9925, \
+                9926, 9970, 9971, 9979, 14954, 125920, 125921, 146800, 146818, 146819, \
+                168757, 168784, 190137, 190146, 359954, 359955, 359956, 359958, 359959, \
+                359960, 359962, 359963, 361333, 361335, 361336, 361339, 361340, 361341, 361345] # 8 * 6 + 9 * 2 = 66
 
-    # filter datasets with over 10 cls, over 100 features, over 3000 rows
-    remove = [6, 26, 28, 30, 32, 41, 43, 45, 58, 219, 223, 2074, 2076, 2076, 3011, 3481, 3481, 3481, 3483, 3573, 3573, 3591, 3593, 3600, 3601, 3618, 3627, 3668, 3672, 3681, 3684, 3688, 3698, 3712, 3735, 3764, 3786, 3844, 3892, 3892, 3897, 3899, 3904, 3907, 3919, 3945, 3945, 3954, 3962, 3964, 3968, 3976, 3980, 3995, 4000, 7307, 7593, 9920, 9923, 9927, 9928, 9931, 9932, 9943, 9945, 9945, 9954, 9959, 9960, 9964, 9966, 9972, 9972, 9974, 9974, 9976, 9983, 14963, 14970, 14970, 125922, 125922, 125968, 125968, 146802, 146820, 146823, 146823, 167120, 167121, 167121, 167121, 167124, 167124, 168300, 168300, 168350, 168868, 168868, 168909, 168909, 168910, 168910, 168911, 189354, 189355, 189355, 189356, 189773, 189922, 189922, 190392, 190392, 190410, 190410, 190411, 190412, 211978, 211978, 211978, 211979, 211980, 211980, 211980, 211986, 359953, 359953, 359957, 359961, 359964, 359964, 359966, 359966, 359967, 359967, 359968, 359969, 359970, 359971, 359972, 359973, 359973, 359974, 359975, 359976, 359976, 359977, 359979, 359980, 359980, 359981, 359982, 359983, 359984, 359984, 359985, 359985, 359986, 359986, 359987, 359988, 359988, 359989, 359989, 359990, 359991, 359992, 359993, 359994, 360112, 360112, 360113, 360114, 360859, 360859, 360975, 360975, 361324, 361324, 361324, 361325, 361325, 361325, 361326, 361326, 361326, 361327, 361327, 361330, 361331, 361342, 361343, 361344]
-    remove += [361332, 361334]
+    amlb = [2073, 146818, 146820, 168350, 168757, 168784, 168911, 190137, 190146, 190392, \
+            190410, 190411, 359954, 359955, 359956, 359958, 359959, 359960, 359961, 359962, 359963, \
+            359964, 359965, 359968, 359969, 359970, 359972, 359974, 359975] # 3 * 3 + 4 * 5 = 29
 
-    filtered_data = [data for data in filtered_data if data[0] not in remove]
-    dids, names_to_filter = zip(*filtered_data)
-    dids = list(dids)
-    names_to_filter = list(names_to_filter)
-    print(len(dids))
+    tabzilla = [4, 9, 10, 11, 14, 15, 16, 18, 22, 23, 25, 27, 29, 31, 35, 37, 39, 40, 42, \
+            47, 48, 50, 53, 54, 59, 2079, 2867, 3512, 3540, 3543, 3549, 3560, 3561, 3602, \
+            3620, 3647, 3731, 3739, 3748, 3779, 3797, 3902, 3903, 3913, 3917, 3918, 9946, \
+            9957, 9971, 9978, 9979, 9984, 10089, 10093, 10101, 14954, 14967, 125920, 125921, \
+            145793, 145799, 145847, 145977, 145984, 146024, 146063, 146065, 146192, 146210, \
+            146800, 146817, 146818, 146819, 146821, 146822] # 9 * 5 + 10 * 3 = 75
 
-    for did in dids:
+    start, end = 0, 3
+
+    for did in tabrepo[start:end]:
 
         for fold in range(10):
 
-            run_bagging(task_id=did, fold=fold, bagging=True)  
+            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset="nature10fold", file_name=f"mitra_bagging_ft_{start}_{end}")  
 
-            shutil.rmtree("/home/ubuntu/tabular/tabrepo/AutogluonModels")
+            # shutil.rmtree("/home/ubuntu/tabular/tabrepo/AutogluonModels")
