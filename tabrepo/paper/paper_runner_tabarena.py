@@ -10,14 +10,14 @@ from tabrepo.tabarena.tabarena import TabArena
 
 class PaperRunTabArena(PaperRun):
     def __init__(
-        self,
-        *,
-        methods: list[str] | None = None,
-        folds: list[int] | None = None,
-        datasets: list[str] | None = None,
-        problem_types: list[str] | None = None,
-        elo_bootstrap_rounds: int = 10,
-        **kwargs,
+            self,
+            *,
+            methods: list[str] | None = None,
+            folds: list[int] | None = None,
+            datasets: list[str] | None = None,
+            problem_types: list[str] | None = None,
+            elo_bootstrap_rounds: int = 10,
+            **kwargs,
     ):
         """
 
@@ -55,7 +55,8 @@ class PaperRunTabArena(PaperRun):
         n_portfolios = [50, 20, 10, 5]
         df_results_n_portfolio = []
         for n_portfolio in n_portfolios:
-            df_results_n_portfolio.append(self.run_zs(n_portfolios=n_portfolio, n_ensemble=None, n_ensemble_in_name=False))
+            df_results_n_portfolio.append(
+                self.run_zs(n_portfolios=n_portfolio, n_ensemble=None, n_ensemble_in_name=False))
             df_results_n_portfolio.append(self.run_zs(n_portfolios=n_portfolio, n_ensemble=1, n_ensemble_in_name=False))
 
         df_results_extra = []
@@ -140,7 +141,8 @@ class PaperRunTabArena(PaperRun):
         df_results = df_results.copy(deep=True)
         df_results_og = df_results.copy(deep=True)
 
-        df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(drop=False)
+        df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(
+            drop=False)
 
         from tabrepo.utils.normalized_scorer import NormalizedScorer
         from tabrepo.paper.paper_utils import make_scorers
@@ -155,16 +157,22 @@ class PaperRunTabArena(PaperRun):
         df_comparison_per_dataset = df_comparison_per_dataset.reset_index(drop=False)
         # Standard normalized-error, only computed off of real experiments, not impacted by simulation runs.
         # This is biased against very strong simulation results because they can't get better than `0.0` on a dataset.
-        normalized_scorer_dataset = NormalizedScorer(df_comparison_per_dataset, tasks=list(df_results_baselines["dataset"].unique()), baseline=None, task_col="dataset", framework_col=method_col)
+        normalized_scorer_dataset = NormalizedScorer(df_comparison_per_dataset,
+                                                     tasks=list(df_results_baselines["dataset"].unique()),
+                                                     baseline=None, task_col="dataset", framework_col=method_col)
 
-        df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in
-                                               zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
+        df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for
+                                               (dataset, fold, error) in
+                                               zip(df_results["dataset"], df_results["fold"],
+                                                   df_results["metric_error"])]
 
         df_results_per_dataset["normalized-error-dataset"] = [
-            normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])
+            normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in
+            zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])
         ]
 
-        df_results_per_dataset = df_results_per_dataset.set_index(["dataset", method_col], drop=True)["normalized-error-dataset"]
+        df_results_per_dataset = df_results_per_dataset.set_index(["dataset", method_col], drop=True)[
+            "normalized-error-dataset"]
         df_results = df_results.merge(df_results_per_dataset, left_on=["dataset", method_col], right_index=True)
 
         df_results_og["normalized-error-dataset"] = df_results["normalized-error-dataset"]
@@ -180,7 +188,8 @@ class PaperRunTabArena(PaperRun):
 
         method_col = "framework"
 
-        df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(drop=False)
+        df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(
+            drop=False)
 
         from tabrepo.utils.normalized_scorer import NormalizedScorer
 
@@ -205,22 +214,26 @@ class PaperRunTabArena(PaperRun):
             framework_col=method_col,
         )
 
-        df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for (dataset, fold, error) in
-                                               zip(df_results["dataset"], df_results["fold"], df_results["metric_error"])]
+        df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for
+                                               (dataset, fold, error) in
+                                               zip(df_results["dataset"], df_results["fold"],
+                                                   df_results["metric_error"])]
 
         df_results_per_dataset["normalized-error-dataset"] = [
             normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in
             zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])
         ]
 
-        df_results_per_dataset = df_results_per_dataset.set_index(["dataset", method_col], drop=True)["normalized-error-dataset"]
+        df_results_per_dataset = df_results_per_dataset.set_index(["dataset", method_col], drop=True)[
+            "normalized-error-dataset"]
         df_results = df_results.merge(df_results_per_dataset, left_on=["dataset", method_col], right_index=True)
 
         df_results_og["normalized-error-dataset"] = df_results["normalized-error-dataset"]
         df_results_og["normalized-error-task"] = df_results["normalized-error-task"]
         return df_results_og
 
-    def eval(self, df_results: pd.DataFrame, use_gmean: bool = False, only_norm_scores: bool = False, imputed_names: list[str] | None = None):
+    def eval(self, df_results: pd.DataFrame, use_gmean: bool = False, only_norm_scores: bool = False,
+             imputed_names: list[str] | None = None):
         method_col = "method"
         df_results = df_results.copy(deep=True)
         if "seed" not in df_results:
@@ -318,6 +331,7 @@ class PaperRunTabArena(PaperRun):
             use_score=True,
             name_suffix="-normscore-dataset",
             imputed_names=imputed_names,
+            show=False,
         )
 
         if only_norm_scores:
@@ -379,7 +393,8 @@ class PaperRunTabArena(PaperRun):
         from autogluon.common.savers import save_pd
         save_pd.save(path=f"{self.output_dir}/tabarena_leaderboard.csv", df=leaderboard)
 
-        print(f"Evaluating with {len(df_results_rank_compare2[tabarena.task_col].unique())} datasets... | problem_types={self.problem_types}, folds={self.folds}")
+        print(
+            f"Evaluating with {len(df_results_rank_compare2[tabarena.task_col].unique())} datasets... | problem_types={self.problem_types}, folds={self.folds}")
         with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
             print(leaderboard)
 
@@ -397,8 +412,10 @@ class PaperRunTabArena(PaperRun):
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)
 
-        tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.png")
-        tabarena.plot_critical_diagrams(results_per_task=results_per_task, save_path=f"{self.output_dir}/figures/critical-diagram.pdf")
+        tabarena.plot_critical_diagrams(results_per_task=results_per_task,
+                                        save_path=f"{self.output_dir}/figures/critical-diagram.png", show=False)
+        tabarena.plot_critical_diagrams(results_per_task=results_per_task,
+                                        save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
 
         hue_order_family_proportion = [
             "RealMLP",
@@ -422,7 +439,9 @@ class PaperRunTabArena(PaperRun):
         ]
 
         # plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop_incorrect", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
-        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop", method="Portfolio-N50 (ensemble) (4h)", hue_order=hue_order_family_proportion)
+        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop",
+                               method="Portfolio-N50 (ensemble) (4h)", hue_order=hue_order_family_proportion,
+                               show=False)
 
         try:
             import autogluon_benchmark
@@ -436,7 +455,8 @@ class PaperRunTabArena(PaperRun):
                 calibration_framework=calibration_framework,
             )
 
-    def run_autogluon_benchmark_logic(self, results_per_task: pd.DataFrame, elo_map: dict, tabarena: TabArena, calibration_framework: str):
+    def run_autogluon_benchmark_logic(self, results_per_task: pd.DataFrame, elo_map: dict, tabarena: TabArena,
+                                      calibration_framework: str):
         """
         Requires autogluon_benchmark installed:
 

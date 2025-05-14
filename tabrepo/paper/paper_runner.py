@@ -277,6 +277,8 @@ class PaperRun:
         ylim = None
         use_latex = True
 
+        imputed_names = imputed_names or ['TabPFNv2', 'TabICL']
+
         df = df.copy(deep=True)
 
         framework_col = "framework_type"
@@ -290,7 +292,7 @@ class PaperRun:
             lim = [500, None]
             lower_is_better = False
             df = df_elo.copy(deep=True)
-            df = df[["method", "elo"]]
+            df = df[["method", "elo", "elo+", "elo-"]]
             groupby_columns_extra = []
         elif use_score:
             lower_is_better = False
@@ -323,6 +325,10 @@ class PaperRun:
         framework_types = [f_map_type_name[ft] if ft in f_map_type_name else ft for ft in framework_types]
 
         df_plot = df[df["framework_type"].isin(framework_types)]
+        df_plot = df_plot[~df_plot["framework_type"].isin(imputed_names)]
+
+        pd.set_option('display.max_columns', None)  # todo
+        print(f'{df_plot.head()=}')
 
         # df_plot_w_mean_2 = df_plot.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
 
@@ -366,6 +372,7 @@ class PaperRun:
         #     # 'legend.framealpha': 0.5,
         #     'text.latex.preamble': r'\usepackage{times} \usepackage{amsmath} \usepackage{amsfonts} \usepackage{amssymb} \usepackage{xcolor}'
         # }):
+
         if use_latex:
             rc_context_params = {
                 'font.family': 'serif',
@@ -391,6 +398,7 @@ class PaperRun:
                     y = framework_col
                     figsize = (24, 12)
                     xlim = lim
+
                     framework_type_order.reverse()
 
                 else:
@@ -502,8 +510,36 @@ class PaperRun:
                 if xlim is not None:
                     ax.set_xlim(xlim)
 
-                # highlight bars that contain imputed results
-                imputed_names = imputed_names or ['TabPFNv2', 'TabICL']
+                if use_elo:
+                    # ----- add elo error bars -----
+
+                    # Get the bar positions
+                    # x_coords = [p.get_x() + p.get_width() / 2 for p in boxplot.patches]
+                    xticks = boxplot.get_xticks()
+                    xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
+
+                    # Map x-tick positions to category labels
+                    # label_lookup = dict(zip(xticks, xticklabels))
+
+
+                    # Add asymmetric error bars manually
+                    for x, framework_type in zip(xticks, xticklabels):
+                        # x_category_index = round(x)  # x-ticks are usually 0, 1, 2, ...
+                        # framework_type = label_lookup.get(x_category_index)
+                        for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled"], errcolors):
+                            row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
+                            print(f'{row=}')
+                            if len(row) == 1:
+                                # not all methods have tuned or tuned_ensembled
+                                y = row['elo'].values
+                                yerr_low = row['elo-'].values
+                                yerr_high = row['elo+'].values
+                                plt.errorbar(x, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                    # for x, y, yerr_low, yerr_high in zip(x_coords, df_plot_w_mean_2['elo'], df_plot_w_mean_2['elo-'], df_plot_w_mean_2['elo+']):
+                    #     plt.errorbar(x, y, yerr=[[yerr_low], [yerr_high]], fmt='none', color='black', capsize=5)
+
+
+                # ----- highlight bars that contain imputed results -----
                 xticks = boxplot.get_xticks()
                 xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
 

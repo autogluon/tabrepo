@@ -13,7 +13,7 @@ This script loads the complete results data and runs evaluation on it, creating 
 if __name__ == '__main__':
     context_name = "tabarena_paper_full_gpu"
     eval_save_path = f"{context_name}/output"
-    load_from_s3 = True  # Do this for first run, then make false for speed
+    load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
 
     print(f"Loading results... context_name={context_name}, load_from_s3={load_from_s3}")
