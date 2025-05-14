@@ -24,7 +24,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 # Constants
 DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
-DEFAULT_EPOCH = 10000
+DEFAULT_EPOCH = 50
 DEFAULT_BUDGET = 10000
 DEFAULT_ENSEMBLE = 1
 DEFAULT_DIM = 512
@@ -128,10 +128,11 @@ class MitraBase(BaseEstimator):
     def _train_ensemble(self, X_train, y_train, X_valid, y_valid, task, dim_output, n_classes=0):
         """Train the ensemble of models."""
 
+        cfg, Tab2D = self._create_config(task, dim_output)
+
         success = False
         while not success:
             try:
-                cfg, Tab2D = self._create_config(task, dim_output)
                 self.trainers.clear()
                 self.models.clear()
                 
