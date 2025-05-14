@@ -1,6 +1,6 @@
 import numpy as np
 import time
-import torch as th
+import torch
 import pandas as pd
 
 from pathlib import Path
@@ -127,30 +127,47 @@ class MitraBase(BaseEstimator):
     
     def _train_ensemble(self, X_train, y_train, X_valid, y_valid, task, dim_output, n_classes=0):
         """Train the ensemble of models."""
-        cfg, Tab2D = self._create_config(task, dim_output)
-        self.trainers.clear()
-        self.models.clear()
-        
-        self.train_time = 0
-        for _ in range(self.n_estimators):
-            model = Tab2D(
-                dim=cfg.hyperparams['dim'],
-                dim_output=dim_output,
-                n_layers=cfg.hyperparams['n_layers'],
-                n_heads=cfg.hyperparams['n_heads'],
-                task=task.upper(),
-                use_pretrained_weights=True,
-                path_to_weights=Path(self.state_dict),
-            )
-            trainer = TrainerFinetune(cfg, model, n_classes=n_classes, device=self.device)
 
-            start_time = time.time()
-            trainer.train(X_train, y_train, X_valid, y_valid)
-            end_time = time.time()
+        success = False
+        while not success:
+            try:
+                cfg, Tab2D = self._create_config(task, dim_output)
+                self.trainers.clear()
+                self.models.clear()
+                
+                self.train_time = 0
+                for _ in range(self.n_estimators):
+                    model = Tab2D(
+                        dim=cfg.hyperparams['dim'],
+                        dim_output=dim_output,
+                        n_layers=cfg.hyperparams['n_layers'],
+                        n_heads=cfg.hyperparams['n_heads'],
+                        task=task.upper(),
+                        use_pretrained_weights=True,
+                        path_to_weights=Path(self.state_dict),
+                    )
+                    trainer = TrainerFinetune(cfg, model, n_classes=n_classes, device=self.device)
 
-            self.trainers.append(trainer)
-            self.models.append(model)
-            self.train_time += end_time - start_time
+                    start_time = time.time()
+                    trainer.train(X_train, y_train, X_valid, y_valid)
+                    end_time = time.time()
+
+                    self.trainers.append(trainer)
+                    self.models.append(model)
+                    self.train_time += end_time - start_time
+
+            except torch.OutOfMemoryError:
+                if cfg.hyperparams["max_samples_support"] >= 2048:
+                    cfg.hyperparams["max_samples_support"] = int(
+                        cfg.hyperparams["max_samples_support"] // 2
+                    )
+                else:
+                    cfg.hyperparams["max_samples_support"] = int(
+                        cfg.hyperparams["max_samples_support"] // 2
+                    )
+                    cfg.hyperparams["max_samples_query"] = int(
+                        cfg.hyperparams["max_samples_query"] // 2
+                    )
 
         return self
 
