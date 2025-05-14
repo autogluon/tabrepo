@@ -49,7 +49,7 @@ class PaperRun:
                     config_type_groups.pop(b)
         return config_type_groups
 
-    def run_hpo_by_family(self, include_uncapped: bool = False, include_4h: bool = True) -> pd.DataFrame:
+    def run_hpo_by_family(self, include_uncapped: bool = False, include_4h: bool = True, model_types: list[str] | None = None) -> pd.DataFrame:
         config_type_groups = self.get_config_type_groups(ban_families=True)
 
         hpo_results_lst = []
@@ -60,10 +60,15 @@ class PaperRun:
         #     config_type_groups[f"{model_key}_OG"] = realmlp_og
         #     config_type_groups[f"{model_key}_ALT"] = realmlp_alt
 
+        if model_types is None:
+            model_types = list(config_type_groups.keys())
+        for family in model_types:
+            assert family in config_type_groups, f"Model family {family} missing from available families: {list(config_type_groups.keys())}"
+
         if include_4h:
             time_limit = 3600 * 4
             # FIXME: do multiple random seeds and average
-            for family in config_type_groups:
+            for family in model_types:
                 configs_family = config_type_groups[family]
                 df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
                     configs=configs_family, fit_order="random", seed=0, ensemble_size=40, time_limit=time_limit
@@ -77,7 +82,7 @@ class PaperRun:
                 hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
 
         if include_uncapped:
-            for family in config_type_groups:
+            for family in model_types:
                 configs_family = config_type_groups[family]
                 df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
                     configs=configs_family, fit_order="original", seed=0, ensemble_size=40, time_limit=None
@@ -248,31 +253,32 @@ class PaperRun:
 
     # FIXME: Avoid hardcoding
     def plot_tuning_impact(
-            self,
-            df: pd.DataFrame,
-            framework_types: list,
-            save_prefix: str,
-            baselines: list[str] = None,
-            baseline_colors: list[str] = None,
-            show: bool = True,
-            use_gmean=False,
-            use_score: bool = True,
-            df_elo: pd.DataFrame = None,
-            name_suffix: str | None = None,
-            imputed_names: list[str] | None = None
+        self,
+        df: pd.DataFrame,
+        framework_types: list,
+        save_prefix: str,
+        baselines: list[str] = None,
+        baseline_colors: list[str] = None,
+        show: bool = True,
+        use_gmean=False,
+        use_score: bool = True,
+        df_elo: pd.DataFrame = None,
+        name_suffix: str | None = None,
+        imputed_names: list[str] | None = None,
+        use_y: bool = False,
+        metric: str = "normalized-error",
     ):
         same_width = False
-        use_y = False
         use_lim = True
         use_elo = df_elo is not None
         lower_is_better = True
         lim = None
         xlim = None
         ylim = None
+        use_latex = True
 
         df = df.copy(deep=True)
 
-        metric = "normalized-error"
         framework_col = "framework_type"
         # framework_col = "framework_name"
 
@@ -360,9 +366,17 @@ class PaperRun:
         #     # 'legend.framealpha': 0.5,
         #     'text.latex.preamble': r'\usepackage{times} \usepackage{amsmath} \usepackage{amsfonts} \usepackage{amssymb} \usepackage{xcolor}'
         # }):
+        if use_latex:
+            rc_context_params = {
+                'font.family': 'serif',
+                "text.usetex": True,
+            } | fontsizes.neurips2024(default_smaller=0)
+        else:
+            rc_context_params = {}
+
         with sns.axes_style("whitegrid"):
             # with plt.rc_context({'font.family': 'serif', "text.usetex": True, 'font.size': 12, 'axes.labelsize': 12, 'xtick.labelsize': 12}):
-            with plt.rc_context({'font.family': 'serif', "text.usetex": True} | fontsizes.neurips2024(default_smaller=0)
+            with plt.rc_context(rc_context_params
                                 # | figsizes.neurips2024(height_to_width_ratio=0.8)
                                 ):
             # with plt.rc_context(fontsizes.neurips2024() | fonts.neurips2024()):
@@ -377,7 +391,7 @@ class PaperRun:
                     y = framework_col
                     figsize = (24, 12)
                     xlim = lim
-                    # framework_type_order.reverse()
+                    framework_type_order.reverse()
 
                 else:
                     x = framework_col
@@ -419,7 +433,7 @@ class PaperRun:
                     #     label="Best",
                     #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "best"], ax=ax,
                     #     order=framework_type_order, color=colors[3],
-                    #     width=0.55,
+                    #     width=0.55, linewidth=0.3,
                     #     err_kws={"color": errcolors[3]},
                     #     alpha=1.0,
                     # ),
@@ -567,8 +581,8 @@ class PaperRun:
                 if show:
                     plt.show()
 
-    def generate_data_analysis(self, expname_outdir: str):
-        generate_dataset_analysis(repo=self.repo, expname_outdir=expname_outdir)
+    def generate_data_analysis(self):
+        generate_dataset_analysis(repo=self.repo, expname_outdir=self.output_dir)
 
 
 class PaperRunMini(PaperRun):
