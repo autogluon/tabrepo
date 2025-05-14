@@ -147,6 +147,60 @@ class ConfigResult(BaselineResult):
 
         return result_calibrated
 
+    def compute_metric_test(self, metric, decision_threshold: float | str = 0.5, as_sklearn: bool = False, calibrate: bool = False):
+        from autogluon.core.metrics import get_metric
+        from autogluon.core.utils.utils import get_pred_from_proba
+        ag_metric = get_metric(metric=metric, problem_type=self.problem_type)
+        y_test = self.simulation_artifacts["y_test"]
+        y_val = self.simulation_artifacts["y_val"]
+        y_pred_proba_val = self.simulation_artifacts["pred_val"]
+        y_pred_proba_test = self.simulation_artifacts["pred_test"]
+
+        if ag_metric.needs_class:
+            # y_pred_val = get_pred_from_proba(y_pred_proba=y_pred_proba_val, problem_type=self.problem_type, decision_threshold=decision_threshold)
+            # y_pred_test = get_pred_from_proba(y_pred_proba=y_pred_proba_test, problem_type=self.problem_type, decision_threshold=decision_threshold)
+            # metric_error_val = ag_metric.error(y_val, y_pred_val)
+            # metric_error_test = ag_metric.error(y_test, y_pred_test)
+
+            if decision_threshold == "auto":
+                min_val_rows_for_calibration = 10000
+                if self.problem_type == "binary":
+                    from autogluon.core.calibrate import calibrate_decision_threshold
+                    decision_threshold = calibrate_decision_threshold(
+                        y=y_val,
+                        y_pred_proba=y_pred_proba_val,
+                        metric=ag_metric,
+                    )
+                else:
+                    decision_threshold = 0.5
+
+            y_pred_val = get_pred_from_proba(y_pred_proba=y_pred_proba_val, problem_type=self.problem_type, decision_threshold=decision_threshold)
+            y_pred_test = get_pred_from_proba(y_pred_proba=y_pred_proba_test, problem_type=self.problem_type, decision_threshold=decision_threshold)
+            metric_error_val = ag_metric.error(y_val, y_pred_val)
+            metric_error_test = ag_metric.error(y_test, y_pred_test)
+        else:
+            if calibrate:
+                from autogluon.core.data.label_cleaner import LabelCleanerMulticlassToBinary
+                if self.problem_type == "binary":
+                    y_pred_proba_val = LabelCleanerMulticlassToBinary.convert_binary_proba_to_multiclass_proba(y_pred_proba_val)
+                    y_pred_proba_test = LabelCleanerMulticlassToBinary.convert_binary_proba_to_multiclass_proba(y_pred_proba_test)
+                calibrator = self.temp_scale(y_val=y_val, y_pred_proba_val=y_pred_proba_val)
+                y_pred_proba_val = calibrator.predict_proba(y_pred_proba_val)
+                y_pred_proba_test = calibrator.predict_proba(y_pred_proba_test)
+                if self.problem_type == "binary":
+                    y_pred_proba_val = y_pred_proba_val[:, 1]
+                    y_pred_proba_test = y_pred_proba_test[:, 1]
+            metric_error_val = ag_metric.error(y_val, y_pred_proba_val)
+            metric_error_test = ag_metric.error(y_test, y_pred_proba_test)
+
+        # print(f"{ag_metric.name}\ttest: {metric_error_test:.4f}\tval: {metric_error_val:.4f}\t{self.problem_type}")
+        if as_sklearn:
+            metric_score_test = ag_metric.convert_score_to_original(score=ag_metric.convert_error_to_score(error=metric_error_test))
+            metric_score_val = ag_metric.convert_score_to_original(score=ag_metric.convert_error_to_score(error=metric_error_val))
+            return metric_score_test, metric_score_val
+        else:
+            return metric_error_test, metric_error_val
+
     def generate_old_sim_artifact(self) -> dict[str, dict[int, dict[str, Any]]]:
         sim_artifacts = copy.deepcopy(self.simulation_artifacts)
         framework = self.framework

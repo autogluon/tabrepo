@@ -82,43 +82,81 @@ class AGBagResult(ConfigResult):
         pred_test = pred_test.astype(np.float32)
         return pred_test
 
-    def bag_artifacts(self) -> list[BaselineResult]:
+    def bag_artifacts(self, as_baseline: bool = True) -> list[BaselineResult]:
         results_new = []
         sim_artifact = self.simulation_artifacts
         pred_proba_test_per_child = sim_artifact["bag_info"]["pred_test_per_child"]
         num_children = len(pred_proba_test_per_child)
-        metric = self.result["metric"]
+        # metric = self.result["metric"]
         framework = self.result["framework"]
 
-        problem_type = self.result["problem_type"]
-        ag_metric = get_metric(metric=metric, problem_type=problem_type)
-        y_test = sim_artifact["y_test"]
+        # problem_type = self.result["problem_type"]
+        # ag_metric = get_metric(metric=metric, problem_type=problem_type)
+        # y_test = sim_artifact["y_test"]
 
-        y_test_idx = sim_artifact["y_test_idx"]
-        y_test = pd.Series(data=y_test, index=y_test_idx)
+        # y_test_idx = sim_artifact["y_test_idx"]
+        # y_test = pd.Series(data=y_test, index=y_test_idx)
 
         if num_children > 1:
             for i, c in enumerate(pred_proba_test_per_child):
                 if i != 0:
                     break
-                if problem_type == "multiclass":
-                    y_pred_proba_test_child = pd.DataFrame(data=c, index=y_test_idx, columns=sim_artifact["ordered_class_labels_transformed"])
-                else:
-                    y_pred_proba_test_child = pd.Series(data=c, index=y_test_idx)
-
-                # FIXME: needs to work with predictions too, not just pred proba
-                metric_error = ag_metric.error(y_test, y_pred_proba_test_child)
+                # if problem_type == "multiclass":
+                #     y_pred_proba_test_child = pd.DataFrame(data=c, index=y_test_idx, columns=sim_artifact["ordered_class_labels_transformed"])
+                # else:
+                #     y_pred_proba_test_child = pd.Series(data=c, index=y_test_idx)
+                #
+                # # FIXME: needs to work with predictions too, not just pred proba
+                # metric_error = ag_metric.error(y_test, y_pred_proba_test_child)
 
                 result_baseline_new = copy.deepcopy(self.result)
 
                 holdout_name = framework + "_HOLDOUT"
                 result_baseline_new["framework"] = holdout_name
-                result_baseline_new["metric_error"] = metric_error
+                # result_baseline_new["metric_error"] = metric_error
                 result_baseline_new["time_train_s"] /= num_children
                 result_baseline_new["time_infer_s"] /= num_children
-                result_baseline_new = BaselineResult(result=result_baseline_new, convert_format=False, inplace=True)
-                results_new.append(result_baseline_new)
-                print(i, metric_error)
 
-            print("ens", self.result["metric_error"])
-            return results_new
+                if not as_baseline:
+                    sim_artifacts_holdout = result_baseline_new["simulation_artifacts"]
+
+                    y_val_idx_to_keep = sim_artifacts_holdout["bag_info"]["val_idx_per_child"][i]
+
+                    sim_artifacts_holdout["y_val_idx"] = sim_artifacts_holdout["y_val_idx"][y_val_idx_to_keep]
+                    sim_artifacts_holdout["y_val"] = sim_artifacts_holdout["y_val"][y_val_idx_to_keep]
+                    sim_artifacts_holdout["pred_val"] = sim_artifacts_holdout["pred_val"][y_val_idx_to_keep]
+
+                    # FIXME: Can be more elegant
+                    sim_artifacts_holdout["pred_val"] = sim_artifacts_holdout["bag_info"]["pred_val_per_child"][i]
+                    sim_artifacts_holdout["pred_test"] = sim_artifacts_holdout["bag_info"]["pred_test_per_child"][i]
+
+                    sim_artifacts_holdout["bag_info"]["val_idx_per_child"] = [val_idx_child for i_cur, val_idx_child in enumerate(sim_artifacts_holdout["bag_info"]["val_idx_per_child"]) if i_cur == i]
+                    sim_artifacts_holdout["bag_info"]["pred_val_per_child"] = [pred_val_child for i_cur, pred_val_child in
+                                                                              enumerate(sim_artifacts_holdout["bag_info"]["pred_val_per_child"]) if i_cur == i]
+                    sim_artifacts_holdout["bag_info"]["pred_test_per_child"] = [pred_test_child for i_cur, pred_test_child in
+                                                                              enumerate(sim_artifacts_holdout["bag_info"]["pred_test_per_child"]) if i_cur == i]
+
+                    # result_baseline_new["metric_error_val"] = ag_metric.error(y_test, y_pred_proba_test_child)
+
+                    ag_bag_result_holdout = AGBagResult(result_baseline_new, convert_format=False, inplace=True)
+
+                    metric_error_test_holdout, metric_error_val_holdout = ag_bag_result_holdout.compute_metric_test(
+                        metric=ag_bag_result_holdout.result["metric"],
+                    )
+
+                    result_baseline_new["metric_error_val"] = metric_error_val_holdout
+                    result_baseline_new["metric_error"] = metric_error_test_holdout
+
+                    result_baseline_new["method_metadata"]["disk_usage"] = result_baseline_new["method_metadata"]["disk_usage"] // num_children
+
+
+                    # FIXME: support repeat bagging
+
+                if as_baseline:
+                    result_baseline_new = BaselineResult(result=result_baseline_new, convert_format=False, inplace=True)
+                else:
+                    result_baseline_new = AGBagResult(result=result_baseline_new, convert_format=False, inplace=True)
+                results_new.append(result_baseline_new)
+
+            # print("ens", self.result["metric_error"])
+        return results_new

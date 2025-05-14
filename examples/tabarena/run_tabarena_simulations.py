@@ -35,7 +35,7 @@ aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 
 def load_repo(toy_mode: bool, gpu: bool = True):
     repo_names = [
-        "repos/tabarena60_autogluon",
+        # "repos/tabarena60_autogluon",
     ]
 
     if gpu:
@@ -51,8 +51,10 @@ def load_repo(toy_mode: bool, gpu: bool = True):
         ]
 
     repos_extra = [
+        "AutoGluon",
+
         "Dummy",
-        "FTTransformer",
+        # "FTTransformer",
         "CatBoost",
         "XGBoost",
         "LightGBM",
@@ -65,11 +67,45 @@ def load_repo(toy_mode: bool, gpu: bool = True):
         "KNeighbors",
         "LinearModel",
         "RealMLP",
+
+        "TabM",
+        "ModernNCA",
     ]
 
     repos_extra = [f"repos/tabarena61/{r}" for r in repos_extra]
 
     repo_names = repo_names + repos_extra
+
+    repos = [EvaluationRepository.from_dir(repo_path) for repo_path in repo_names]
+    repo = EvaluationRepositoryCollection(repos=repos)
+
+    if toy_mode:
+        repo = convert_repo_to_toy(repo=repo, configs_per_type=10)
+    return repo
+
+
+def load_repo_holdout(toy_mode: bool = False):
+    repos_extra = [
+        "Dummy",
+        # "FTTransformer",
+        "CatBoost",
+        "XGBoost",
+        "LightGBM",
+        "ExplainableBM",
+        "ExtraTrees",
+
+        "NeuralNetFastAI",
+        "NeuralNetTorch",
+        "RandomForest",
+        # "KNeighbors",
+        "LinearModel",
+        "RealMLP",
+
+        "TabM",
+        "ModernNCA",
+    ]
+
+    repo_names = [f"repos/tabarena61/holdout/{r}" for r in repos_extra]
 
     repos = [EvaluationRepository.from_dir(repo_path) for repo_path in repo_names]
     repo = EvaluationRepositoryCollection(repos=repos)

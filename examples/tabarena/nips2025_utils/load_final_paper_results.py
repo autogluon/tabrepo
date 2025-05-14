@@ -64,7 +64,7 @@ def load_paper_results(
         save_pkl.save(path=f"{s3_prefix_private}/{path_datasets_tabicl}", object=datasets_tabicl)
     else:
         datasets_tabpfn = _load_pickle_from_url(url=f"{s3_prefix_public}/{path_datasets_tabpfn}")
-        datasets_tabicl = _load_pickle_from_url(url=f"{s3_prefix_public}/{path_datasets_tabpfn}")
+        datasets_tabicl = _load_pickle_from_url(url=f"{s3_prefix_public}/{path_datasets_tabicl}")
 
         # download_s3_file(s3_bucket="tabarena", s3_prefix=f"{_s3_prefix}/{path_datasets_tabpfn}")
         # datasets_tabpfn = load_pkl.load(path=f"{s3_prefix_public}/{path_datasets_tabpfn}")

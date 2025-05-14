@@ -17,18 +17,27 @@ def load_and_check_if_valid(path) -> bool:
         return False
 
 
-def load_and_align(path):
+def load_and_align(path, convert_to_holdout: bool = False):
     data = load_pkl.load(path)
     data_aligned = ExperimentResults._align_result_input_format(data)
+    if convert_to_holdout:
+        result_holdout = data_aligned.bag_artifacts(as_baseline=False)
+        if len(result_holdout) > 0:
+            assert len(result_holdout) == 1
+            result_holdout = result_holdout[0]
+        else:
+            result_holdout = None
+        return result_holdout
     return data_aligned
 
 
-def load_all_artifacts(file_paths: list[str], engine: str = "sequential"):
+def load_all_artifacts(file_paths: list[str], engine: str = "sequential", convert_to_holdout: bool = False):
     file_paths_lst = []
     for file_path in file_paths:
         file_paths_lst.append(
             {
                 "path": str(file_path),
+                "convert_to_holdout": convert_to_holdout,
             }
         )
 

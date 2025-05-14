@@ -184,6 +184,8 @@ class PaperRunTabArena(PaperRun):
         df_results = df_results.copy(deep=True)
         df_results_og = df_results.copy(deep=True)
 
+        df_results = df_results.drop(columns=["normalized-error-dataset", "normalized-error-task"], errors="ignore")
+
         method_col = "framework"
 
         df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(
@@ -335,9 +337,19 @@ class PaperRunTabArena(PaperRun):
         if only_norm_scores:
             return
 
-        df_results_rank_compare2 = df_results_rank_compare[
-            ~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[
-                method_col].str.contains("_r")]
+        df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[method_col].str.contains("_r")]
+
+        self.plot_tuning_impact(
+            df=df_results,
+            framework_types=framework_types,
+            save_prefix=f"{self.output_dir}",
+            use_gmean=use_gmean,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+            use_score=True,
+            metric="normalized-error-task",
+            name_suffix="-normscore-task",
+        )
 
         tabarena = TabArena(
             method_col=method_col,

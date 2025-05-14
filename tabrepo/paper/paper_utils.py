@@ -33,7 +33,7 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
     return rank_scorer, normalized_scorer
 
 
-def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[int, str]] = None, include_default: bool = True, include_best: bool = True):
+def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[int, str]] = None, include_default: bool = True, include_best: bool = True, include_holdout: bool = True):
     """
 
     Parameters
@@ -106,6 +106,10 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
             f_map_cur["default"] = framework_name(framework_type, tuned=False)
         if include_best:
             f_map_cur["best"] = framework_name(framework_type, tuned=False, suffix=" (best)")
+        if include_holdout:
+            f_map_cur["holdout"] = framework_name(framework_type, tuned=False, suffix=" (holdout)")
+            f_map_cur["holdout_tuned"] = framework_name(framework_type, tuned=False, suffix=" (tuned, holdout)")
+            f_map_cur["holdout_tuned_ensembled"] = framework_name(framework_type, tuned=False, suffix=" (tuned + ensemble, holdout)")
 
         f_map_inverse_cur = {v: k for k, v in f_map_cur.items()}
         # f_map_type_cur = {v: f_map_type_name[framework_type] for k, v in f_map_cur.items()}

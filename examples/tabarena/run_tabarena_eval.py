@@ -25,15 +25,15 @@ if __name__ == '__main__':
 
     eval_save_path_tabpfn_datasets = f"{eval_save_path}/tabpfn_datasets"
     eval_save_path_tabicl_datasets = f"{eval_save_path}/tabicl_datasets"
+    eval_save_path_full = f"{eval_save_path}/full"
 
-    paper_full = PaperRunTabArena(repo=None, output_dir=eval_save_path)
+    paper_full = PaperRunTabArena(repo=None, output_dir=eval_save_path_full)
     paper_tabpfn_datasets = PaperRunTabArena(repo=None, output_dir=eval_save_path_tabpfn_datasets, datasets=datasets_tabpfn)
     paper_tabicl_datasets = PaperRunTabArena(repo=None, output_dir=eval_save_path_tabicl_datasets, datasets=datasets_tabicl)
 
     print(f"Starting evaluations...")
     # Full run
     paper_full.eval(df_results=df_results, only_norm_scores=False, imputed_names=['TabPFNv2', 'TabICL'])
-    exit()
 
     problem_types = ["binary", "regression", "multiclass"]
     for problem_type in problem_types:
