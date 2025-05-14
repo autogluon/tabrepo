@@ -120,7 +120,7 @@ if __name__ == "__main__":
             145793, 145799, 145847, 145977, 145984, 146024, 146063, 146065, 146192, 146210, \
             146800, 146817, 146818, 146819, 146821, 146822] 
 
-    dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 0, 9
+    dataset_name, target_dataset, start, end = amlb, "nature10fold", 9, 13
 
     for did in dataset_name[start:end]:
 
