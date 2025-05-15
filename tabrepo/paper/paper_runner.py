@@ -661,7 +661,7 @@ class PaperRun:
                     plt.show()
 
     def plot_tabarena_times(self, df: pd.DataFrame, output_dir: str,
-                            only_datasets_for_method: dict[str, list[str]] | None = None):
+                            only_datasets_for_method: dict[str, list[str]] | None = None, show: bool = True):
         # for col in df.columns:
         #     print(df[col])
         df_datasets = pd.read_csv('tabarena_dataset_metadata.csv')
@@ -818,7 +818,8 @@ class PaperRun:
         plt.tight_layout(rect=[0, 0, 1, 0.94])
 
         plt.savefig(Path(output_dir) / 'time_plot.pdf')
-        plt.show()
+        if show:
+            plt.show()
         plt.close(fig)
 
     def generate_data_analysis(self):

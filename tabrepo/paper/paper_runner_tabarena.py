@@ -6,6 +6,7 @@ import pandas as pd
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
+from .paper_utils import get_framework_type_method_names
 
 
 class PaperRunTabArena(PaperRun):
@@ -356,24 +357,6 @@ class PaperRunTabArena(PaperRun):
         }).fillna(df_results["method"])
         # print(df_results)
 
-        if remove_methods is not None:
-            f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
-                framework_types=framework_types,
-                max_runtimes=[
-                    (3600 * 4, "_4h"),
-                    (None, None),
-                ]
-            )
-
-            print(f'{df_results["method"].unique().tolist()=}')
-            print(f'{df_results["method"].map(f_map_type).unique()=}')
-
-            assert all(method in df_results["method"].map(f_map_type).unique() for method in remove_methods)
-            df_results = df_results[~df_results["method"].map(f_map_type).isin(remove_methods)]
-
-
-        df_results_rank_compare = copy.deepcopy(df_results)
-
         baselines = [
             # "AutoGluon 1.3 (5m)",
             # "AutoGluon 1.3 (1h)",
@@ -388,8 +371,31 @@ class PaperRunTabArena(PaperRun):
             # "red",
         ]
 
+        df_results_unfiltered = df_results.copy(deep=True)
+
+        if remove_methods is not None:
+            f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+                framework_types=framework_types,
+                max_runtimes=[
+                    (3600 * 4, "_4h"),
+                    (None, None),
+                ]
+            )
+
+            print(f'{df_results["method"].unique().tolist()=}')
+            print(f'{df_results["method"].map(f_map_type).unique()=}')
+
+            assert all(method in df_results["method"].map(f_map_type).unique() for method in remove_methods)
+            df_results = df_results[~df_results["method"].map(f_map_type).isin(remove_methods)]
+            # also remove portfolio baselines except AutoGluon?
+            df_results = df_results[(~df_results["method"].map(f_map_type).isna()) | (df_results["method"].isin(baselines))]
+
+
+
+        df_results_rank_compare = copy.deepcopy(df_results)
+
         self.plot_tabarena_times(df=df_results, output_dir=self.output_dir,
-                                 only_datasets_for_method=only_datasets_for_method)
+                                 only_datasets_for_method=only_datasets_for_method, show=False)
 
         self.plot_tuning_impact(
             df=df_results,
@@ -525,7 +531,7 @@ class PaperRunTabArena(PaperRun):
         ]
 
         # FIXME: TODO (Nick): Move this to its own class for utility plots, no need to re-plot this in every eval call.
-        plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop",
+        plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
                                method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
                                show=False)
 
