@@ -505,6 +505,7 @@ class PaperRunTabArena(PaperRun):
             baseline_colors=baseline_colors,
             name_suffix="-elo",
             imputed_names=imputed_names,
+            plot_tune_types=plot_tune_types,
             show=False
         )
 
@@ -518,6 +519,7 @@ class PaperRunTabArena(PaperRun):
             baseline_colors=baseline_colors,
             name_suffix="-elo-horizontal",
             imputed_names=imputed_names,
+            plot_tune_types=plot_tune_types,
             use_y=True,
             show=False
         )

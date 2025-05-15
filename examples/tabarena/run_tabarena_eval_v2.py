@@ -82,6 +82,7 @@ if __name__ == '__main__':
     )
 
     eval_save_path_w_holdout = f"{eval_save_path}/with_holdout"
+    eval_save_path_w_portfolio = f"{eval_save_path}/with_portfolio"
 
     eval_save_path_tabpfn_datasets = f"{eval_save_path}/tabpfn_datasets"
     eval_save_path_tabicl_datasets = f"{eval_save_path}/tabicl_datasets"
@@ -197,5 +198,27 @@ if __name__ == '__main__':
             imputed_names=['TabPFNv2', 'TabICL'],
             plot_tune_types=["holdout_tuned_ensembled", "tuned_ensembled"],
         )
+
+    paper_w_portfolio = PaperRunTabArena(
+        repo=None,
+        output_dir=eval_save_path_w_portfolio,
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
+        banned_model_types=[
+            "TABPFNV2",
+            "TABICL",
+        ],
+    )
+
+    paper_w_portfolio.eval(
+        df_results=df_results,
+        baselines=[
+            "AutoGluon 1.3 (4h)",
+            "Portfolio-N200 (ensemble) (4h)",
+        ],
+        baseline_colors=[
+            "black",
+            "orange",
+        ]
+    )
 
     # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)
