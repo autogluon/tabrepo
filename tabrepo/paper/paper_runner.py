@@ -277,7 +277,9 @@ class PaperRun:
         ylim = None
         use_latex = True
 
-        imputed_names = imputed_names or ['TabPFNv2', 'TabICL']
+        if imputed_names is None:
+            imputed_names = []
+        # imputed_names = imputed_names or ['TabPFNv2', 'TabICL']
 
         df = df.copy(deep=True)
 
@@ -327,8 +329,8 @@ class PaperRun:
         df_plot = df[df["framework_type"].isin(framework_types)]
         df_plot = df_plot[~df_plot["framework_type"].isin(imputed_names)]
 
-        pd.set_option('display.max_columns', None)  # todo
-        print(f'{df_plot.head()=}')
+        # pd.set_option('display.max_columns', None)  # todo
+        # print(f'{df_plot.head()=}')
 
         # df_plot_w_mean_2 = df_plot.groupby(["framework_type", "tune_method"])[metric].mean().reset_index()
 

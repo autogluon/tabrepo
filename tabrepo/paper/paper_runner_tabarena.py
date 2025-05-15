@@ -16,6 +16,7 @@ class PaperRunTabArena(PaperRun):
             folds: list[int] | None = None,
             datasets: list[str] | None = None,
             problem_types: list[str] | None = None,
+            banned_model_types: list[str] | None = None,
             elo_bootstrap_rounds: int = 10,
             **kwargs,
     ):
@@ -42,6 +43,7 @@ class PaperRunTabArena(PaperRun):
         self.methods = methods
         self.folds = folds
         self.elo_bootstrap_rounds = elo_bootstrap_rounds
+        self.banned_model_types = banned_model_types
 
     def run(self) -> pd.DataFrame:
         df_results_all_no_sim = self.run_no_sim()
@@ -197,7 +199,8 @@ class PaperRunTabArena(PaperRun):
 
         return df_results_og
 
-    def compute_normalized_error_dynamic(self, df_results: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def compute_normalized_error_dynamic(cls, df_results: pd.DataFrame) -> pd.DataFrame:
         df_results = df_results.copy(deep=True)
         df_results_og = df_results.copy(deep=True)
 
@@ -249,10 +252,17 @@ class PaperRunTabArena(PaperRun):
         df_results_og["normalized-error-task"] = df_results["normalized-error-task"]
         return df_results_og
 
-    def eval(self, df_results: pd.DataFrame, use_gmean: bool = False, only_norm_scores: bool = False,
-             imputed_names: list[str] | None = None):
+    def eval(
+        self,
+        df_results: pd.DataFrame,
+        use_gmean: bool = False,
+        only_norm_scores: bool = False,
+        imputed_names: list[str] | None = None,
+    ):
         method_col = "method"
         df_results = df_results.copy(deep=True)
+        if "rank" in df_results:
+            df_results = df_results.drop(columns=["rank"])
         if "seed" not in df_results:
             df_results["seed"] = 0
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
@@ -260,7 +270,7 @@ class PaperRunTabArena(PaperRun):
             "dataset", "fold", "framework", "seed"
         ], keep="first")
 
-        assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error(df_results)` first to get normalized-error."
+        assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
 
         df_results = df_results.rename(columns={
             "framework": method_col,
@@ -349,7 +359,8 @@ class PaperRunTabArena(PaperRun):
             # "AutoGluon 1.3 (5m)",
             # "AutoGluon 1.3 (1h)",
             "AutoGluon 1.3 (4h)",
-            # "Portfolio-N50 (ensemble) (4h)",
+            # "Portfolio-N200 (ensemble) (4h)",
+            # "Portfolio-N200 (ensemble, holdout) (4h)",
         ]
         baseline_colors = [
             # "darkgray",
@@ -386,6 +397,7 @@ class PaperRunTabArena(PaperRun):
             use_score=True,
             metric="normalized-error-task",
             name_suffix="-normscore-task",
+            imputed_names=imputed_names,
         )
 
         tabarena = TabArena(
@@ -475,9 +487,9 @@ class PaperRunTabArena(PaperRun):
             "ModernNCA",
         ]
 
-        # plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/family_prop_incorrect", method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion)
+        # FIXME: TODO (Nick): Move this to its own class for utility plots, no need to re-plot this in every eval call.
         plot_family_proportion(df=df_results, save_prefix=f"{self.output_dir}/figures/family_prop",
-                               method="Portfolio-N50 (ensemble) (4h)", hue_order=hue_order_family_proportion,
+                               method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
                                show=False)
 
         try:
