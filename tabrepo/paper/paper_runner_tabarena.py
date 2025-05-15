@@ -44,15 +44,10 @@ class PaperRunTabArena(PaperRun):
         self.elo_bootstrap_rounds = elo_bootstrap_rounds
 
     def run(self) -> pd.DataFrame:
-        df_results_baselines = self.run_baselines()
-        df_results_configs = self.run_configs()
-        df_results_hpo_all = self.run_hpo_by_family(
-            include_uncapped=True,
-            include_4h=False,
-        )
+        df_results_all_no_sim = self.run_no_sim()
         df_results_single_best_families = self.run_zs_family()
 
-        n_portfolios = [50, 20, 10, 5]
+        n_portfolios = [200, 100, 50, 20, 10, 5]
         df_results_n_portfolio = []
         for n_portfolio in n_portfolios:
             df_results_n_portfolio.append(
@@ -83,12 +78,34 @@ class PaperRunTabArena(PaperRun):
 
         df_results_all = pd.concat([
             df_results_all,
-            df_results_hpo_all,
-            df_results_baselines,
-            df_results_configs,
+            df_results_all_no_sim,
         ], ignore_index=True)
 
         print(df_results_all)
+        return df_results_all
+
+    def run_no_sim(self, model_types: list[str] | None = None) -> pd.DataFrame:
+        """
+        Run logic that isn't impacted by other methods or other datasets
+
+        Returns
+        -------
+
+        """
+        df_results_baselines = self.run_baselines()
+        df_results_configs = self.run_configs()
+        df_results_hpo_all = self.run_hpo_by_family(
+            include_uncapped=True,
+            include_4h=False,
+            model_types=model_types,
+        )
+
+        df_results_all = pd.concat([
+            df_results_configs,
+            df_results_baselines,
+            df_results_hpo_all,
+        ], ignore_index=True)
+
         return df_results_all
 
     def run_zs_family(self) -> pd.DataFrame:
@@ -303,6 +320,26 @@ class PaperRunTabArena(PaperRun):
             "TabDPT_c1_BAG_L1": "TABDPT (default)",
             "TabM_c1_BAG_L1": "TABM (default)",
             "ModernNCA_c1_BAG_L1": "MNCA (default)",
+
+            "RandomForest_r1_BAG_L1_HOLDOUT": "RF (holdout)",
+            "ExtraTrees_r1_BAG_L1_HOLDOUT": "XT (holdout)",
+            "LinearModel_c1_BAG_L1_HOLDOUT": "LR (holdout)",
+
+            "LightGBM_c1_BAG_L1_HOLDOUT": "GBM (holdout)",
+            "XGBoost_c1_BAG_L1_HOLDOUT": "XGB (holdout)",
+            "CatBoost_c1_BAG_L1_HOLDOUT": "CAT (holdout)",
+            "NeuralNetTorch_c1_BAG_L1_HOLDOUT": "NN_TORCH (holdout)",
+            "NeuralNetFastAI_c1_BAG_L1_HOLDOUT": "FASTAI (holdout)",
+
+            "RealMLP_c1_BAG_L1_HOLDOUT": "REALMLP (holdout)",
+            "ExplainableBM_c1_BAG_L1_HOLDOUT": "EBM (holdout)",
+            "FTTransformer_c1_BAG_L1_HOLDOUT": "FT_TRANSFORMER (holdout)",
+            # "TabPFNv2_c1_BAG_L1_HOLDOUT": "TABPFNV2 (holdout)",
+            # "TabICL_c1_BAG_L1_HOLDOUT": "TABICL (holdout)",
+            # "TabDPT_c1_BAG_L1_HOLDOUT": "TABDPT (holdout)",
+            "TabM_c1_BAG_L1_HOLDOUT": "TABM (holdout)",
+            "ModernNCA_c1_BAG_L1_HOLDOUT": "MNCA (holdout)",
+
         }).fillna(df_results["method"])
         # print(df_results)
 
