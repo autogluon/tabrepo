@@ -28,7 +28,7 @@ from tabrepo.benchmark.models.ag.modernnca.data import (
 
 
 def make_random_batches(
-        train_size: int, batch_size: int, device: Optional[torch.device] = None
+        train_size: int, batch_size: int, device: Optional[torch.device] = None, drop_last: bool = True,
 ):
     permutation = torch.randperm(train_size, device=device)
     batches = permutation.split(batch_size)
@@ -41,6 +41,12 @@ def make_random_batches(
     assert torch.equal(
         torch.arange(train_size, device=device), permutation.sort().values
     )
+
+    # Drop the last batch if it does not have enough samples
+    # -> without this, the training code will crash if the last batch has only one sample!
+    if drop_last and (len(batches[0]) != len(batches[-1])):
+        batches = batches[:-1]
+
     return batches  # type: ignore[code]
 
 
