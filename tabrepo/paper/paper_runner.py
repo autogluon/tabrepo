@@ -268,7 +268,7 @@ class PaperRun:
         use_y: bool = False,
         metric: str = "normalized-error",
     ):
-        same_width = False
+        same_width = use_y
         use_lim = True
         use_elo = df_elo is not None
         lower_is_better = True
@@ -398,7 +398,7 @@ class PaperRun:
                 if use_y:
                     x = metric
                     y = framework_col
-                    figsize = (24, 12)
+                    figsize = (3.5, 3)
                     xlim = lim
 
                     framework_type_order.reverse()
@@ -418,13 +418,7 @@ class PaperRun:
                 else:
                     baseline_func = ax.axhline
 
-                for baseline, color in zip(baselines, baseline_colors):
-                    baseline_mean = baseline_means[baseline]
-                    # baseline_func(baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
-                    baseline_func(baseline_mean, color=color, linewidth=2.0, ls="--")
-                    # todo: doesn't work for horizontal plot
-                    # todo: offset needs to depend on ylim
-                    ax.text(x=0.5, y=baseline_mean * 0.97, s=baseline, va='top')
+                linewidth = 0.0 if use_y else 0.3
 
                 to_plot = [
                     dict(
@@ -434,7 +428,7 @@ class PaperRun:
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout"], ax=ax,
                         order=framework_type_order,
                         color=colors[4],
-                        width=0.7, linewidth=0.3,
+                        width=0.7, linewidth=linewidth,
                         err_kws={"color": errcolors[4]},
                     ),
                     dict(
@@ -444,7 +438,7 @@ class PaperRun:
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned"], ax=ax,
                         order=framework_type_order,
                         color=colors[5],
-                        width=0.65, linewidth=0.3,
+                        width=0.65, linewidth=linewidth,
                         err_kws={"color": errcolors[5]},
                     ),
                     dict(
@@ -454,7 +448,7 @@ class PaperRun:
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned_ensembled"], ax=ax,
                         order=framework_type_order,
                         color=colors[6],
-                        width=0.62, linewidth=0.3,
+                        width=0.62, linewidth=linewidth,
                         err_kws={"color": errcolors[6]},
                     ),
                     dict(
@@ -463,7 +457,7 @@ class PaperRun:
                         label="Default",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
                         order=framework_type_order, color=colors[0],
-                        width=0.6, linewidth=0.3,
+                        width=0.6, linewidth=linewidth,
                         err_kws={"color": errcolors[0]},
                         alpha=1.0,
                     ),
@@ -473,7 +467,7 @@ class PaperRun:
                     #     label="Best",
                     #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "best"], ax=ax,
                     #     order=framework_type_order, color=colors[3],
-                    #     width=0.55, linewidth=0.3,
+                    #     width=0.55, linewidth=linewidth,
                     #     err_kws={"color": errcolors[3]},
                     #     alpha=1.0,
                     # ),
@@ -484,7 +478,7 @@ class PaperRun:
                     #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_4h"], ax=ax,
                     #     order=framework_type_order,
                     #     color=colors[4],
-                    #     width=0.5,
+                    #     width=0.5, linewidth=linewidth,,
                     #     err_kws={"color": errcolors[4]},
                     # ),
                     dict(
@@ -494,7 +488,7 @@ class PaperRun:
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
                         order=framework_type_order,
                         color=colors[1],
-                        width=0.55, linewidth=0.3,
+                        width=0.55, linewidth=linewidth,
                         err_kws={"color": errcolors[1]},
                     ),
                     # dict(
@@ -513,7 +507,7 @@ class PaperRun:
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"],
                         ax=ax,
                         order=framework_type_order, color=colors[2],
-                        width=0.5,
+                        width=0.5, linewidth=linewidth,
                         err_kws={"color": errcolors[2]},
                     ),
                 ]
@@ -526,7 +520,7 @@ class PaperRun:
                     to_plot.reverse()
                     for plot_line, width, color, err_kws in zip(to_plot, widths, colors, err_kws_lst):
                         if same_width:
-                            plot_line["width"] = 0.6 * 1.3
+                            plot_line["width"] = 0.61234 * 1.3
                         else:
                             plot_line["width"] = width * 1.3
                         # plot_line["color"] = color
@@ -535,7 +529,10 @@ class PaperRun:
                 for plot_line in to_plot:
                     boxplot = sns.barplot(**plot_line)
 
-                boxplot.set(xlabel=None, ylabel='Elo' if metric=='elo' else 'Normalized score')  # remove "Method" in the x-axis
+                if use_y:
+                    boxplot.set(xlabel='Elo' if metric=='elo' else 'Normalized score', ylabel=None)
+                else:
+                    boxplot.set(xlabel=None, ylabel='Elo' if metric=='elo' else 'Normalized score')  # remove "Method" in the x-axis
                 # boxplot.set_title("Effect of tuning and ensembling")
                 if ylim is not None:
                     ax.set_ylim(ylim)
@@ -544,20 +541,12 @@ class PaperRun:
 
                 if use_elo:
                     # ----- add elo error bars -----
-
                     # Get the bar positions
-                    # x_coords = [p.get_x() + p.get_width() / 2 for p in boxplot.patches]
-                    xticks = boxplot.get_xticks()
-                    xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
-
-                    # Map x-tick positions to category labels
-                    # label_lookup = dict(zip(xticks, xticklabels))
-
+                    xticks = boxplot.get_yticks() if use_y else boxplot.get_xticks()
+                    xticklabels = [tick.get_text() for tick in (boxplot.get_yticklabels() if use_y else boxplot.get_xticklabels())]
 
                     # Add asymmetric error bars manually
                     for x, framework_type in zip(xticks, xticklabels):
-                        # x_category_index = round(x)  # x-ticks are usually 0, 1, 2, ...
-                        # framework_type = label_lookup.get(x_category_index)
                         for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled"], errcolors):
                             row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
                             print(f'{row=}')
@@ -566,36 +555,37 @@ class PaperRun:
                                 y = row['elo'].values
                                 yerr_low = row['elo-'].values
                                 yerr_high = row['elo+'].values
-                                plt.errorbar(x, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
-                    # for x, y, yerr_low, yerr_high in zip(x_coords, df_plot_w_mean_2['elo'], df_plot_w_mean_2['elo-'], df_plot_w_mean_2['elo+']):
-                    #     plt.errorbar(x, y, yerr=[[yerr_low], [yerr_high]], fmt='none', color='black', capsize=5)
+                                if use_y:
+                                    plt.errorbar(y, x, xerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                                else:
+                                    plt.errorbar(x, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
 
 
-                # ----- highlight bars that contain imputed results -----
-                xticks = boxplot.get_xticks()
-                xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
-
-                # Map x-tick positions to category labels
-                label_lookup = dict(zip(xticks, xticklabels))
-
-                for i, bar in enumerate(boxplot.patches):
-                    # Get x-position and convert to category label
-                    # todo: this only works for vertical barplots
-                    x = bar.get_x() + bar.get_width() / 2
-                    x_category_index = round(x)  # x-ticks are usually 0, 1, 2, ...
-                    category = label_lookup.get(x_category_index)
-
-                    # print(f'{category=}')
-
-                    # if category in ['TabPFNv2', 'TabICL', 'TabDPT']:
-                    # if category in ['TABPFNV2', 'TABICL', 'TABDPT']:
-                    if category in imputed_names:
-                        bar.set_hatch('xx')
-                        # bar.set_facecolor('lightgray')
-                        # bar.set_edgecolor('black')
+                # # ----- highlight bars that contain imputed results -----
+                # xticks = boxplot.get_xticks()
+                # xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
+                #
+                # # Map x-tick positions to category labels
+                # label_lookup = dict(zip(xticks, xticklabels))
+                #
+                # for i, bar in enumerate(boxplot.patches):
+                #     # Get x-position and convert to category label
+                #     # todo: this only works for vertical barplots
+                #     x = bar.get_x() + bar.get_width() / 2
+                #     x_category_index = round(x)  # x-ticks are usually 0, 1, 2, ...
+                #     category = label_lookup.get(x_category_index)
+                #
+                #     # print(f'{category=}')
+                #
+                #     # if category in ['TabPFNv2', 'TabICL', 'TabDPT']:
+                #     # if category in ['TABPFNV2', 'TABICL', 'TABDPT']:
+                #     if category in imputed_names:
+                #         bar.set_hatch('xx')
+                #         # bar.set_facecolor('lightgray')
+                #         # bar.set_edgecolor('black')
 
                 if not use_y:
-                    # alternate rows of x tick labels
+                    # ----- alternate rows of x tick labels -----
                     # Get current x tick labels
                     labels = [label.get_text() for label in boxplot.get_xticklabels()]
 
@@ -605,32 +595,47 @@ class PaperRun:
                     # Apply modified labels
                     boxplot.set_xticklabels(new_labels)
 
+
+                for baseline, color in zip(baselines, baseline_colors):
+                    baseline_mean = baseline_means[baseline]
+                    # baseline_func(baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
+                    baseline_func(baseline_mean, color=color, linewidth=2.0, ls="--", zorder=-10)
+
+                    if use_y:
+                        print(f'{ax.get_ylim()=}')
+                        ax.text(y=0.965 * ax.get_ylim()[0], x=baseline_mean * 0.985, s=baseline, ha='right')
+                    else:
+                        ax.text(x=0.5, y=baseline_mean * 0.97, s=baseline, va='top')
+
+
                 # ax.legend(loc="upper center", ncol=5)
-                ax.legend(loc="upper center", ncol=5, bbox_to_anchor=[0.5, 1.05])
+                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.5, 1.05])
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
 
-                # Create a custom legend patch for "imputed"
-                imputed_patch = Patch(facecolor='gray', edgecolor='white', hatch='xx', label='Partially imputed')
-
-                # Add to existing legend
-                handles.append(imputed_patch)
-                labels.append("Partially imputed")
+                # # Create a custom legend patch for "imputed"
+                # imputed_patch = Patch(facecolor='gray', edgecolor='white', hatch='xx', label='Partially imputed')
+                #
+                # # Add to existing legend
+                # handles.append(imputed_patch)
+                # labels.append("Partially imputed")
 
                 # specify order
                 # len_baselines = len(baselines)
-                len_baselines = 0  # we don't put them in the legend anymore
-                num_other = len(labels) - len_baselines
-                order = [n + len_baselines for n in range(num_other)] + [n for n in range(len_baselines)]
+                # len_baselines = 0  # we don't put them in the legend anymore
+                # num_other = len(labels) - len_baselines
+                # order = [n + len_baselines for n in range(num_other)] + [n for n in range(len_baselines)]
                 # order = [3, 4, 5, 0, 1, 2]
-                if len(order) == 4:
-                    order = [2, 1, 0, 3]
+                order = list(range(len(labels)))
+                order = list(reversed(order))
+                # if len(order) == 3:
+                #     order = [2, 1, 0]
                 print(f'{order=}')
 
                 # pass handle & labels lists along with order as below
-                ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=4,
-                          bbox_to_anchor=[0.5, 1.2])
+                ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=3,
+                          bbox_to_anchor=[0.4, 1.15])
 
                 # ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
                 plt.tight_layout()

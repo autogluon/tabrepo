@@ -1,11 +1,134 @@
 from __future__ import annotations
 
 import copy
+from typing import Any
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 import pandas as pd
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
+from .paper_utils import get_framework_type_method_names
+
+
+def plot_tabarena_times(df_results: pd.DataFrame, output_dir: str, sub_benchmarks: dict[str, Any]):
+    for col in df_results.columns:
+        print(df_results[col])
+    df = df_results
+    # times_per_dataset = df.groupby(['dataset', 'framework'])['time_train_s'].mean()
+    # todo: do per 1K samples or so
+    # todo: get on sub-benchmarks
+    print(f'{sub_benchmarks["TabICL"]=}')
+    sub_benchmarks = {'Full': df['dataset'].unique().tolist()} | sub_benchmarks
+
+    sub_times = []
+
+    for sb_name, sb_datasets in sub_benchmarks.items():
+        df_sub_times = df[df['dataset'].isin(sb_datasets)].groupby(['framework'])[['time_train_s', 'time_infer_s']].mean().reset_index()
+        df_sub_times['sub_benchmark'] = sb_name
+        sub_times.append(df_sub_times)
+
+    df = pd.concat(sub_times, ignore_index=True)
+
+    framework_types = [
+        "GBM",
+        "XGB",
+        "CAT",
+        "NN_TORCH",
+        "FASTAI",
+        "KNN",
+        "RF",
+        "XT",
+        "LR",
+        "TABPFNV2",
+        "TABICL",
+        "TABDPT",
+        "REALMLP",
+        "EBM",
+        "FT_TRANSFORMER",
+        "TABM",
+        "MNCA",
+    ]
+
+    f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+        framework_types=framework_types,
+        max_runtimes=[
+            (3600 * 4, "_4h"),
+            (None, None),
+        ]
+    )
+
+    df["framework_type"] = df["framework"].map(f_map_type).fillna(df["framework"])
+    df["tune_method"] = df["framework"].map(f_map_inverse).fillna("default")
+    df = df[df['framework_type'].isin(framework_types)]
+
+    # method_map = {
+    #     'CAT (tuned + ensemble)': 'CatBoost',
+    #     'RealMLP (tuned + ensemble)': 'RealMLP',
+    # }
+    print(df)
+
+    # Unique values for mapping
+    # frameworks = df['framework_type'].unique()
+    frameworks = (
+        df.groupby('framework_type')['time_train_s']
+        .max()
+        .sort_values(ascending=False)
+        .index
+        .tolist()
+    )
+    sub_benchmarks = df['sub_benchmark'].unique()
+    tune_methods = df['tune_method'].unique()
+
+    # Marker and color maps
+    marker_map = {sb: m for sb, m in zip(sub_benchmarks, ['o', 's', '^', 'D', 'P', '*', 'X'])}
+    color_map = {tm: c for tm, c in zip(tune_methods, plt.cm.tab10.colors)}
+
+    print('here1')
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(5, 5))
+    y_positions = np.arange(len(frameworks))
+
+    print(f'here')
+
+    # Alternate row background
+    for i in range(0, len(frameworks), 2):
+        ax.axhspan(i - 0.5, i + 0.5, facecolor='lightgray', alpha=0.3, zorder=0)
+
+    # Plot
+    for i, fw in enumerate(frameworks):
+        df_fw = df[df['framework_type'] == fw]
+        for _, row in df_fw.iterrows():
+            marker = marker_map[row['sub_benchmark']]
+            color = color_map[row['tune_method']]
+
+            ax.plot(row['time_train_s'], i + 0.2, marker=marker, color=color, linestyle='None',
+                    label=f"{row['sub_benchmark']}_{row['tune_method']}")
+            ax.plot(row['time_infer_s'], i - 0.2, marker=marker, color=color, linestyle='None')
+
+    # Log scale for x-axis
+    ax.set_xscale('log')
+
+    # Y-axis ticks and labels
+    ax.set_yticks(y_positions)
+    ax.set_yticklabels(frameworks)
+
+    # Build legend with unique entries
+    handles, labels = ax.get_legend_handles_labels()
+    unique = dict()
+    for h, l in zip(handles, labels):
+        unique[l] = h
+    ax.legend(unique.values(), unique.keys(), loc='upper center', bbox_to_anchor=(0.5, 1.15), ncol=3,
+              title='sub_benchmark + tune_method')
+
+    ax.set_xlabel("Time (s, log scale)")
+    ax.set_title("Training and Inference Time per Framework")
+
+    plt.tight_layout()
+    plt.show()
 
 
 class PaperRunTabArena(PaperRun):
@@ -369,36 +492,36 @@ class PaperRunTabArena(PaperRun):
             # "red",
         ]
 
-        self.plot_tuning_impact(
-            df=df_results,
-            framework_types=framework_types,
-            save_prefix=f"{self.output_dir}",
-            use_gmean=use_gmean,
-            baselines=baselines,
-            baseline_colors=baseline_colors,
-            use_score=True,
-            name_suffix="-normscore-dataset",
-            imputed_names=imputed_names,
-            show=False,
-        )
-
-        if only_norm_scores:
-            return
+        # self.plot_tuning_impact(
+        #     df=df_results,
+        #     framework_types=framework_types,
+        #     save_prefix=f"{self.output_dir}",
+        #     use_gmean=use_gmean,
+        #     baselines=baselines,
+        #     baseline_colors=baseline_colors,
+        #     use_score=True,
+        #     name_suffix="-normscore-dataset",
+        #     imputed_names=imputed_names,
+        #     show=False,
+        # )
+        #
+        # if only_norm_scores:
+        #     return
 
         df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[method_col].str.contains("_r")]
 
-        self.plot_tuning_impact(
-            df=df_results,
-            framework_types=framework_types,
-            save_prefix=f"{self.output_dir}",
-            use_gmean=use_gmean,
-            baselines=baselines,
-            baseline_colors=baseline_colors,
-            use_score=True,
-            metric="normalized-error-task",
-            name_suffix="-normscore-task",
-            imputed_names=imputed_names,
-        )
+        # self.plot_tuning_impact(
+        #     df=df_results,
+        #     framework_types=framework_types,
+        #     save_prefix=f"{self.output_dir}",
+        #     use_gmean=use_gmean,
+        #     baselines=baselines,
+        #     baseline_colors=baseline_colors,
+        #     use_score=True,
+        #     metric="normalized-error-task",
+        #     name_suffix="-normscore-task",
+        #     imputed_names=imputed_names,
+        # )
 
         tabarena = TabArena(
             method_col=method_col,
@@ -457,6 +580,21 @@ class PaperRunTabArena(PaperRun):
             baseline_colors=baseline_colors,
             name_suffix="-elo",
             imputed_names=imputed_names,
+            show=False
+        )
+
+        self.plot_tuning_impact(
+            df=df_results,
+            df_elo=leaderboard,
+            framework_types=framework_types,
+            save_prefix=f"{self.output_dir}",
+            use_gmean=use_gmean,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+            name_suffix="-elo-horizontal",
+            imputed_names=imputed_names,
+            use_y=True,
+            show=False
         )
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)

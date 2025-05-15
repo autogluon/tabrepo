@@ -1,4 +1,4 @@
-from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
+from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena, plot_tabarena_times
 from nips2025_utils.load_final_paper_results import load_paper_results
 from autogluon.common.loaders import load_pd
 import pandas as pd
@@ -68,7 +68,7 @@ def rename_func(name):
 if __name__ == '__main__':
     context_name = "tabarena_paper_full_51"
     eval_save_path = f"{context_name}/output"
-    load_from_s3 = True  # Do this for first run, then make false for speed
+    load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
     with_holdout = False
 
@@ -121,6 +121,11 @@ if __name__ == '__main__':
         output_dir=eval_save_path_tabicl_datasets,
         datasets=datasets_tabicl,
     )
+
+    plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
+                        sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
+
+    exit()
 
     print(f"Starting evaluations...")
     # Full run
