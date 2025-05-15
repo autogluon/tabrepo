@@ -615,7 +615,8 @@ class PaperRun:
 
 
                 # ax.legend(loc="upper center", ncol=5)
-                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.55, 1.05])
+                # these are not the final legend parameters, see below
+                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.5, 1.05])
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
@@ -641,7 +642,7 @@ class PaperRun:
 
                 # pass handle & labels lists along with order as below
                 ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=3,
-                          bbox_to_anchor=[0.4, 1.15])
+                          bbox_to_anchor=[0.5, 1.15])
 
                 # ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
                 plt.tight_layout()
