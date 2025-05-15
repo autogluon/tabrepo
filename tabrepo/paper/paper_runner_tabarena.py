@@ -17,9 +17,18 @@ def plot_tabarena_times(df_results: pd.DataFrame, output_dir: str, sub_benchmark
     for col in df_results.columns:
         print(df_results[col])
     df = df_results
+    df_datasets = pd.read_csv('tabarena_dataset_metadata.csv')
+    df = df.merge(df_datasets[['dataset_name', 'num_instances']],
+                left_on='dataset',
+                right_on='dataset_name',
+                how='left').drop(columns='dataset_name')
+    for time_col in ['time_train_s', 'time_infer_s']:
+        # use 2/3 to divide by number of train+val samples
+        df[time_col] = df[time_col] * 1000 / (2/3 * df['num_instances'])
     # times_per_dataset = df.groupby(['dataset', 'framework'])['time_train_s'].mean()
     # todo: do per 1K samples or so
     # todo: get on sub-benchmarks
+    # todo: get default times
     print(f'{sub_benchmarks["TabICL"]=}')
     sub_benchmarks = {'Full': df['dataset'].unique().tolist()} | sub_benchmarks
 
