@@ -91,6 +91,10 @@ class PaperRunTabArena(PaperRun):
         print(df_results_all)
         return df_results_all
 
+    def run_only_portfolio_200(self) -> pd.DataFrame:
+        n_portfolio = 200
+        return self.run_zs(n_portfolios=n_portfolio, n_ensemble=None, n_ensemble_in_name=False)
+
     def run_no_sim(self, model_types: list[str] | None = None) -> pd.DataFrame:
         """
         Run logic that isn't impacted by other methods or other datasets
