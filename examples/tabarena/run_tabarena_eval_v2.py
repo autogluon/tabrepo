@@ -71,6 +71,7 @@ if __name__ == '__main__':
     load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
     with_holdout = False
+    elo_bootstrap_rounds = 100
 
     print(f"Loading results... context_name={context_name}, load_from_s3={load_from_s3}")
     df_results, df_results_holdout, datasets_tabpfn, datasets_tabicl = load_paper_results(
@@ -88,6 +89,11 @@ if __name__ == '__main__':
     paper_full = PaperRunTabArena(
         repo=None,
         output_dir=eval_save_path_full,
+        banned_model_types=[
+            "TABPFNV2",
+            "TABICL",
+        ],
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
     )
 
     # raise AssertionError
@@ -115,11 +121,19 @@ if __name__ == '__main__':
         repo=None,
         output_dir=eval_save_path_tabpfn_datasets,
         datasets=datasets_tabpfn,
+        banned_model_types=[
+            "TABICL"
+        ],
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
     )
     paper_tabicl_datasets = PaperRunTabArena(
         repo=None,
         output_dir=eval_save_path_tabicl_datasets,
         datasets=datasets_tabicl,
+        banned_model_types=[
+            "TABPFNV2"
+        ],
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
     )
 
     # plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
@@ -128,7 +142,6 @@ if __name__ == '__main__':
     print(f"Starting evaluations...")
     # Full run
     paper_full.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'],
-                    remove_methods=['TABPFNV2', 'TABICL'],
                     only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
     problem_types = ["binary", "regression", "multiclass"]
@@ -138,25 +151,27 @@ if __name__ == '__main__':
             repo=None,
             output_dir=eval_save_path_problem_type,
             problem_types=[problem_type],
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+            banned_model_types=[
+                "TABPFNV2",
+                "TABICL",
+            ],
         )
         paper_run_problem_type.eval(
             df_results=df_results,
             imputed_names=['TabPFNv2', 'TabICL'],
-            remove_methods=['TABPFNV2', 'TABICL'],
         )
 
     # Only TabPFN datasets
     paper_tabpfn_datasets.eval(
         df_results=df_results,
         imputed_names=['TabICL'],
-        remove_methods=['TABICL'],
     )
 
     # Only TabICL datasets
     paper_tabicl_datasets.eval(
         df_results=df_results,
         imputed_names=['TabPFNv2'],
-        remove_methods=['TABPFNV2'],
     )
 
     if with_holdout:
@@ -177,13 +192,17 @@ if __name__ == '__main__':
         paper_w_holdout = PaperRunTabArena(
             repo=None,
             output_dir=eval_save_path_w_holdout,
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+            banned_model_types=[
+                "TABPFNV2",
+                "TABICL",
+            ],
         )
 
         # TODO: Add logic to specify baselines for holdout, generate separate plots for holdout comparisons
         paper_w_holdout.eval(
             df_results=df_results_combined_holdout,
             imputed_names=['TabPFNv2', 'TabICL'],
-            remove_methods=['TABPFNV2', 'TABICL'],
         )
 
     # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)

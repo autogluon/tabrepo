@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
+
 import pandas as pd
 
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
@@ -19,6 +21,7 @@ class PaperRunTabArena(PaperRun):
             problem_types: list[str] | None = None,
             banned_model_types: list[str] | None = None,
             elo_bootstrap_rounds: int = 10,
+            keep_best: bool = False,
             **kwargs,
     ):
         """
@@ -45,6 +48,7 @@ class PaperRunTabArena(PaperRun):
         self.folds = folds
         self.elo_bootstrap_rounds = elo_bootstrap_rounds
         self.banned_model_types = banned_model_types
+        self.keep_best = keep_best
 
     def run(self) -> pd.DataFrame:
         df_results_all_no_sim = self.run_no_sim()
@@ -259,7 +263,6 @@ class PaperRunTabArena(PaperRun):
         use_gmean: bool = False,
         only_norm_scores: bool = False,
         imputed_names: list[str] | None = None,
-        remove_methods: list[str] | None = None,
         only_datasets_for_method: dict[str, list[str]] | None = None
     ):
         method_col = "method"
@@ -371,34 +374,39 @@ class PaperRunTabArena(PaperRun):
             # "red",
         ]
 
-        df_results_unfiltered = df_results.copy(deep=True)
-
-        if remove_methods is not None:
-            f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
-                framework_types=framework_types,
-                max_runtimes=[
-                    (3600 * 4, "_4h"),
-                    (None, None),
-                ]
-            )
-
-            print(f'{df_results["method"].unique().tolist()=}')
-            print(f'{df_results["method"].map(f_map_type).unique()=}')
-
-            assert all(method in df_results["method"].map(f_map_type).unique() for method in remove_methods)
-            df_results = df_results[~df_results["method"].map(f_map_type).isin(remove_methods)]
-            # also remove portfolio baselines except AutoGluon?
-            df_results = df_results[(~df_results["method"].map(f_map_type).isna()) | (df_results["method"].isin(baselines))]
-
-
-
         df_results_rank_compare = copy.deepcopy(df_results)
+        df_results_unfiltered = copy.deepcopy(df_results)
 
-        self.plot_tabarena_times(df=df_results, output_dir=self.output_dir,
+        # FIXME: (Nick) Unsure which form of the df should go in here?
+        self.plot_tabarena_times(df=df_results_unfiltered, output_dir=self.output_dir,
                                  only_datasets_for_method=only_datasets_for_method, show=False)
 
+        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600 * 4, "_4h"),
+                (None, None),
+            ]
+        )
+
+        print(f'{df_results["method"].unique().tolist()=}')
+        print(f'{df_results["method"].map(f_map_type).unique()=}')
+
+        assert all(method in df_results_rank_compare["method"].map(f_map_type).unique() for method in self.banned_model_types)
+        df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare["method"].map(f_map_type).isin(self.banned_model_types)]
+        # also remove portfolio baselines except AutoGluon?
+        df_results_rank_compare = df_results_rank_compare[(~df_results_rank_compare["method"].map(f_map_type).isna()) | (df_results_rank_compare["method"].isin(baselines))]
+
+        if self.banned_model_types:
+            framework_types = [f for f in framework_types if f not in self.banned_model_types]
+
+        if not self.keep_best:
+            df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("(best)")]
+
+        print(f'{df_results_rank_compare["method"].unique().tolist()=}')
+
         self.plot_tuning_impact(
-            df=df_results,
+            df=df_results_rank_compare,
             framework_types=framework_types,
             save_prefix=f"{self.output_dir}",
             use_gmean=use_gmean,
@@ -410,13 +418,8 @@ class PaperRunTabArena(PaperRun):
             show=False,
         )
 
-        if only_norm_scores:
-            return
-
-        df_results_rank_compare2 = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("_BAG_L1") & ~df_results_rank_compare[method_col].str.contains("_r")]
-
         self.plot_tuning_impact(
-            df=df_results,
+            df=df_results_rank_compare,
             framework_types=framework_types,
             save_prefix=f"{self.output_dir}",
             use_gmean=use_gmean,
@@ -428,6 +431,9 @@ class PaperRunTabArena(PaperRun):
             imputed_names=imputed_names,
             show=False,
         )
+
+        if only_norm_scores:
+            return
 
         tabarena = TabArena(
             method_col=method_col,
@@ -450,10 +456,10 @@ class PaperRunTabArena(PaperRun):
 
         # configs_all_success = ["TabPFNv2_c1_BAG_L1"]
         # datasets_tabpfn_valid = self.repo.datasets(configs=configs_all_success, union=False)
-        # df_results_rank_compare3 = df_results_rank_compare2[df_results_rank_compare2["dataset"].isin(datasets_tabpfn_valid)]
+        # df_results_rank_compare3 = df_results_rank_compare[df_results_rank_compare["dataset"].isin(datasets_tabpfn_valid)]
 
         leaderboard = tabarena.leaderboard(
-            data=df_results_rank_compare2,
+            data=df_results_rank_compare,
             # data=df_results_rank_compare3,
             include_mrr=True,
             # include_failure_counts=True,
@@ -472,12 +478,12 @@ class PaperRunTabArena(PaperRun):
         save_pd.save(path=f"{self.output_dir}/tabarena_leaderboard.csv", df=leaderboard)
 
         print(
-            f"Evaluating with {len(df_results_rank_compare2[tabarena.task_col].unique())} datasets... | problem_types={self.problem_types}, folds={self.folds}")
+            f"Evaluating with {len(df_results_rank_compare[tabarena.task_col].unique())} datasets... | problem_types={self.problem_types}, folds={self.folds}")
         with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
             print(leaderboard)
 
         self.plot_tuning_impact(
-            df=df_results,
+            df=df_results_rank_compare,
             df_elo=leaderboard,
             framework_types=framework_types,
             save_prefix=f"{self.output_dir}",
@@ -490,7 +496,7 @@ class PaperRunTabArena(PaperRun):
         )
 
         self.plot_tuning_impact(
-            df=df_results,
+            df=df_results_rank_compare,
             df_elo=leaderboard,
             framework_types=framework_types,
             save_prefix=f"{self.output_dir}",
@@ -503,7 +509,7 @@ class PaperRunTabArena(PaperRun):
             show=False
         )
 
-        results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)
+        results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare)
 
         tabarena.plot_critical_diagrams(results_per_task=results_per_task,
                                         save_path=f"{self.output_dir}/figures/critical-diagram.png", show=False)
@@ -591,3 +597,75 @@ class PaperRunTabArena(PaperRun):
         )
 
         # self.evaluator.plot_overall_rank_comparison(results_df=df_results_rank_compare2, save_dir=f"{self.output_dir}/paper_v2")
+
+    def get_weights_heatmap(self, df_results: pd.DataFrame, method: str, excluded_families: list[str] = None, **kwargs):
+        if self.datasets is not None:
+            df_results = df_results[df_results["dataset"].isin(self.datasets)]
+        if excluded_families is None:
+            excluded_families = []
+
+        df_results_method = df_results[df_results["framework"] == method]
+
+        df_ensemble_weights = df_results_method[["dataset", "fold", "ensemble_weight"]]
+
+        full_dict = []
+        # available_configs = set()
+        # for ensemble_weights in df_ensemble_weights["ensemble_weight"].values:
+        #     for k in ensemble_weights.keys():
+        #         if k not in available_configs:
+        #             available_configs.add(k)
+        #     ens_weights_w_dataset_fold = ensemble_weights.copy(deep=True)
+        #     full_dict.append(ensemble_weights)
+        #
+        # df_ensemble_weights_2 = pd.DataFrame()
+
+        for d, f, ensemble_weights in zip(df_ensemble_weights["dataset"], df_ensemble_weights["fold"], df_ensemble_weights["ensemble_weight"]):
+            ens_weights_w_dataset_fold = dict()
+            ens_weights_w_dataset_fold["dataset"] = d
+            ens_weights_w_dataset_fold["fold"] = f
+            ens_weights_w_dataset_fold.update(ensemble_weights)
+            full_dict.append(ens_weights_w_dataset_fold)
+            pass
+
+        model_to_families = self.repo.configs_type()
+
+        model_families = set()
+        for m, f in model_to_families.items():
+            if f not in model_families:
+                model_families.add(f)
+
+        weight_per_family_dict = []
+        for cur_dict in full_dict:
+            new_dict = {}
+            for k, v in cur_dict.items():
+                if k == "dataset":
+                    new_dict["dataset"] = v
+                elif k == "fold":
+                    new_dict["fold"] = v
+                else:
+                    model_family = model_to_families[k]
+                    if model_family not in new_dict:
+                        new_dict[model_family] = 0
+                    new_dict[model_family] += v
+            weight_per_family_dict.append(new_dict)
+
+        import pandas as pd
+        df = pd.DataFrame(weight_per_family_dict)
+        df = df.set_index(["dataset", "fold"])
+        df = df.fillna(0)
+
+        df_cols = df.columns
+        f_to_add = []
+        for f in model_families:
+            if f not in df_cols:
+                f_to_add.append(f)
+        df[f_to_add] = 0
+
+        if excluded_families:
+            df = df.drop(columns=excluded_families)
+        # FIXME: if family never present, then this won't work
+        p = self.evaluator.plot_ensemble_weights(df_ensemble_weights=df, **kwargs)
+        fig_path = Path(f"{self.output_dir}/figures")
+        fig_path.mkdir(parents=True, exist_ok=True)
+
+        p.savefig(fig_path / "ens-weights-per-dataset")

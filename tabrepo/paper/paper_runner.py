@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import matplotlib
 import numpy as np
@@ -27,10 +28,16 @@ from scripts.dataset_analysis import generate_dataset_analysis
 
 
 class PaperRun:
-    def __init__(self, repo: EvaluationRepository, output_dir: str = None):
+    def __init__(self, repo: EvaluationRepository, output_dir: str = None, backend: Literal["ray", "native"] = "ray"):
         self.repo = repo
         self.evaluator = Evaluator(repo=self.repo)
         self.output_dir = output_dir
+        self.backend = backend
+        assert self.backend in ["ray", "native"]
+        if self.backend == "ray":
+            self.engine = "ray"
+        else:
+            self.engine = "sequential"
 
     def get_config_type_groups(self, ban_families=True) -> dict:
         config_type_groups = {}
@@ -77,11 +84,11 @@ class PaperRun:
             for family in model_types:
                 configs_family = config_type_groups[family]
                 df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="random", seed=0, ensemble_size=40, time_limit=time_limit
+                    configs=configs_family, fit_order="random", seed=0, ensemble_size=40, time_limit=time_limit, backend=self.backend,
                 )
                 df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble) (4h)"
                 df_results_family_hpo, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="random", seed=0, ensemble_size=1, time_limit=time_limit
+                    configs=configs_family, fit_order="random", seed=0, ensemble_size=1, time_limit=time_limit, backend=self.backend,
                 )
                 df_results_family_hpo["framework"] = f"{family} (tuned) (4h)"
                 hpo_results_lst.append(df_results_family_hpo.reset_index())
@@ -91,11 +98,11 @@ class PaperRun:
             for family in model_types:
                 configs_family = config_type_groups[family]
                 df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="original", seed=0, ensemble_size=40, time_limit=None
+                    configs=configs_family, fit_order="original", seed=0, ensemble_size=40, time_limit=None, backend=self.backend,
                 )
                 df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble)"
                 df_results_family_hpo, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="original", seed=0, ensemble_size=1, time_limit=None
+                    configs=configs_family, fit_order="original", seed=0, ensemble_size=1, time_limit=None, backend=self.backend,
                 )
                 df_results_family_hpo["framework"] = f"{family} (tuned)"
                 hpo_results_lst.append(df_results_family_hpo.reset_index())
@@ -119,6 +126,7 @@ class PaperRun:
             n_ensemble_in_name=n_ensemble_in_name,
             n_max_models_per_type=n_max_models_per_type,
             fix_fillna=fix_fillna,
+            engine=self.engine,
             **kwargs,
         )
         # df_zeroshot_portfolio = self.evaluator.compare_metrics(results_df=df_zeroshot_portfolio, configs=[], baselines=[])
@@ -129,11 +137,21 @@ class PaperRun:
             n_portfolios=200,
             n_ensemble=1,
             n_ensemble_in_name=False,
+            engine=self.engine,
         )
         # df_zeroshot_portfolio = self.evaluator.compare_metrics(results_df=df_zeroshot_portfolio, configs=[], baselines=[])
         return df_zeroshot_portfolio
 
-    def run_baselines(self) -> pd.DataFrame:
+    # FIXME: TODO
+    def run_zs_sim_advanced(self) -> pd.DataFrame:
+        from tabrepo.repository import EvaluationRepositoryZeroshot
+        adv = EvaluationRepositoryZeroshot.simulate_zeroshot(self.evaluator.repo)
+        print(adv)
+        return adv
+
+    def run_baselines(self) -> pd.DataFrame | None:
+        if not self.repo.baselines():
+            return None
         df_results_baselines = self.evaluator.compare_metrics(configs=[]).reset_index()
         return df_results_baselines
 
