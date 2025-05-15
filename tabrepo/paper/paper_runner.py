@@ -615,7 +615,8 @@ class PaperRun:
 
 
                 # ax.legend(loc="upper center", ncol=5)
-                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.55, 1.05])
+                # these are not the final legend parameters, see below
+                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.5, 1.05])
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
@@ -641,7 +642,7 @@ class PaperRun:
 
                 # pass handle & labels lists along with order as below
                 ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=3,
-                          bbox_to_anchor=[0.4, 1.15])
+                          bbox_to_anchor=[0.5, 1.15])
 
                 # ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
                 plt.tight_layout()
@@ -661,7 +662,7 @@ class PaperRun:
                     plt.show()
 
     def plot_tabarena_times(self, df: pd.DataFrame, output_dir: str,
-                            only_datasets_for_method: dict[str, list[str]] | None = None):
+                            only_datasets_for_method: dict[str, list[str]] | None = None, show: bool = True):
         # for col in df.columns:
         #     print(df[col])
         df_datasets = pd.read_csv('tabarena_dataset_metadata.csv')
@@ -674,8 +675,9 @@ class PaperRun:
         df['time_infer_s'] = df['time_infer_s'] * 1000 / (1 / 3 * df['num_instances'])
 
         # filter to only common datasets
-        for datasets in only_datasets_for_method.values():
-            df = df[df["dataset"].isin(datasets)]
+        if only_datasets_for_method is not None:
+            for datasets in only_datasets_for_method.values():
+                df = df[df["dataset"].isin(datasets)]
 
         framework_types = [
             "GBM",
@@ -817,7 +819,8 @@ class PaperRun:
         plt.tight_layout(rect=[0, 0, 1, 0.94])
 
         plt.savefig(Path(output_dir) / 'time_plot.pdf')
-        plt.show()
+        if show:
+            plt.show()
         plt.close(fig)
 
     def generate_data_analysis(self):

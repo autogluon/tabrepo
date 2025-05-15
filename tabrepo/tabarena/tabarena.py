@@ -494,7 +494,7 @@ class TabArena:
             from autorank._util import cd_diagram
             plt.rcParams.update({'font.size': 12})
 
-            fig = plt.figure(figsize=(10, 3))
+            fig = plt.figure(figsize=(10, 7))
             ax = fig.add_subplot(1, 1, 1)
 
             data = results_per_task.pivot_table(index=self.task_col, columns=self.method_col, values="rank")

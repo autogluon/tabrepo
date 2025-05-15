@@ -128,6 +128,7 @@ if __name__ == '__main__':
     print(f"Starting evaluations...")
     # Full run
     paper_full.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'],
+                    remove_methods=['TABPFNV2', 'TABICL'],
                     only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
     problem_types = ["binary", "regression", "multiclass"]
@@ -141,18 +142,21 @@ if __name__ == '__main__':
         paper_run_problem_type.eval(
             df_results=df_results,
             imputed_names=['TabPFNv2', 'TabICL'],
+            remove_methods=['TABPFNV2', 'TABICL'],
         )
 
     # Only TabPFN datasets
     paper_tabpfn_datasets.eval(
         df_results=df_results,
         imputed_names=['TabICL'],
+        remove_methods=['TABICL'],
     )
 
     # Only TabICL datasets
     paper_tabicl_datasets.eval(
         df_results=df_results,
         imputed_names=['TabPFNv2'],
+        remove_methods=['TABPFNV2'],
     )
 
     if with_holdout:
@@ -179,6 +183,7 @@ if __name__ == '__main__':
         paper_w_holdout.eval(
             df_results=df_results_combined_holdout,
             imputed_names=['TabPFNv2', 'TabICL'],
+            remove_methods=['TABPFNV2', 'TABICL'],
         )
 
     # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)
