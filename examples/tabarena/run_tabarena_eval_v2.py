@@ -1,4 +1,4 @@
-from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena, plot_tabarena_times
+from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 from nips2025_utils.load_final_paper_results import load_paper_results
 from autogluon.common.loaders import load_pd
 import pandas as pd
@@ -122,14 +122,13 @@ if __name__ == '__main__':
         datasets=datasets_tabicl,
     )
 
-    plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
-                        sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
-
-    exit()
+    # plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
+    #                     sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
     print(f"Starting evaluations...")
     # Full run
-    paper_full.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'])
+    paper_full.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'],
+                    only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
     problem_types = ["binary", "regression", "multiclass"]
     for problem_type in problem_types:

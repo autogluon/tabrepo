@@ -3,11 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib
+import numpy as np
+from matplotlib import ticker
 from tueplots import bundles, fonts, fontsizes, figsizes
 
 matplotlib.rcParams.update(bundles.neurips2024())
 matplotlib.rcParams.update(fonts.neurips2024_tex())
 matplotlib.rcParams.update(fontsizes.neurips2024())
+
+matplotlib.rcParams.update({
+    'text.latex.preamble': r'\usepackage{times} \usepackage{amsmath} \usepackage{amsfonts} \usepackage{amssymb} \usepackage{xcolor}'
+})
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -609,7 +615,7 @@ class PaperRun:
 
 
                 # ax.legend(loc="upper center", ncol=5)
-                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.5, 1.05])
+                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.55, 1.05])
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
@@ -653,6 +659,176 @@ class PaperRun:
                     plt.savefig(fig_save_path)
                 if show:
                     plt.show()
+
+    def plot_tabarena_times(self, df: pd.DataFrame, output_dir: str,
+                            only_datasets_for_method: dict[str, list[str]] | None = None):
+        # for col in df.columns:
+        #     print(df[col])
+        df_datasets = pd.read_csv('tabarena_dataset_metadata.csv')
+        df = df.merge(df_datasets[['dataset_name', 'num_instances']],
+                      left_on='dataset',
+                      right_on='dataset_name',
+                      how='left').drop(columns='dataset_name')
+
+        df['time_train_s'] = df['time_train_s'] * 1000 / (2 / 3 * df['num_instances'])
+        df['time_infer_s'] = df['time_infer_s'] * 1000 / (1 / 3 * df['num_instances'])
+
+        # times_per_dataset = df.groupby(['dataset', 'framework'])['time_train_s'].mean()
+        # todo: do per 1K samples or so
+        # todo: get on sub-benchmarks
+        # todo: get default times
+        # sub_benchmarks = {'Full': df['dataset'].unique().tolist()}
+        #
+        # sub_times = []
+        #
+        # for sb_name, sb_datasets in sub_benchmarks.items():
+        #     df_sub_times = df[df['dataset'].isin(sb_datasets)].groupby(['method'])[['time_train_s', 'time_infer_s']].mean().reset_index()
+        #     df_sub_times['sub_benchmark'] = sb_name
+        #     sub_times.append(df_sub_times)
+        #
+        # df = pd.concat(sub_times, ignore_index=True)
+
+        framework_types = [
+            "GBM",
+            "XGB",
+            "CAT",
+            "NN_TORCH",
+            "FASTAI",
+            "KNN",
+            "RF",
+            "XT",
+            "LR",
+            "TABPFNV2",
+            "TABICL",
+            "TABDPT",
+            "REALMLP",
+            "EBM",
+            "FT_TRANSFORMER",
+            "TABM",
+            "MNCA",
+        ]
+
+        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600 * 4, "_4h"),
+                (None, None),
+            ]
+        )
+
+        df["framework_type"] = df["method"].map(f_map_type).fillna(df["method"])
+        df["tune_method"] = df["method"].map(f_map_inverse).fillna("default")
+        df = df[df["tune_method"].isin(["default", "tuned_ensembled"])]
+        df = df[df['framework_type'].isin(framework_types)]
+        df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
+
+        gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2']  # todo: add TabM + MNCA once available
+
+        if only_datasets_for_method is not None:
+            for method, datasets in only_datasets_for_method.items():
+                mask = (df['framework_type'] == method) & (~df['dataset'].isin(datasets))
+                print(f"{df[mask]=}")
+                df.loc[mask, 'time_train_s'] = np.nan
+                df.loc[mask, 'time_infer_s'] = np.nan
+                print(f"{df[mask]['time_train_s']=}")
+                print(f"{df[mask]['time_infer_s']=}")
+
+        # add device name
+        framework_types = df["framework_type"].unique()
+        device_map = {
+            ft: f'{ft} ' + r'(GPU)' if ft in gpu_methods else f'{ft} (CPU)' for ft in framework_types
+        }
+        df["framework_type"] = df["framework_type"].map(device_map).fillna(df["framework_type"])
+
+        # take mean times
+        df = df.groupby(['framework_type', 'tune_method'])[['time_train_s', 'time_infer_s']].mean().reset_index()
+
+        # ----- ChatGPT plotting code -----
+
+        # Unique values for mapping
+        # Sort frameworks by max train time
+        sorted_frameworks = (
+            df.groupby('framework_type')['time_train_s']
+            .min()
+            .sort_values(ascending=False)
+            .index
+            .tolist()
+        )
+        frameworks = sorted_frameworks
+        y_positions = np.arange(len(frameworks))
+
+        # Maps for tuning method to color and marker
+        tune_methods = df['tune_method'].unique()
+        # color_map = {tm: c for tm, c in zip(tune_methods, plt.cm.tab10.colors)}
+        sns_colors = sns.color_palette("muted").as_hex()
+        color_map = {'default': sns_colors[0], 'tuned': sns_colors[1], 'tuned_ensembled': sns_colors[2]}
+        marker_list = ['o', 's', '^', 'D', 'P', '*', 'X', 'v']
+        marker_map = {tm: m for tm, m in zip(tune_methods, marker_list)}
+
+        # Create side-by-side subplots with shared y-axis
+        fig, (ax_train, ax_infer) = plt.subplots(
+            1, 2, sharey=True, figsize=(5, 4)
+        )
+
+        # Alternate row background on both axes
+        for i in range(0, len(frameworks), 2):
+            for ax in [ax_train, ax_infer]:
+                ax.axhspan(i - 0.5, i + 0.5, facecolor='lightgray', alpha=0.3, zorder=0)
+
+        # Plot training and inference times
+        for i, fw in enumerate(frameworks):
+            df_fw = df[df['framework_type'] == fw]
+            for _, row in df_fw.iterrows():
+                color = color_map[row['tune_method']]
+                marker = marker_map[row['tune_method']]
+                ax_train.plot(row['time_train_s'], i, marker=marker, color=color, linestyle='None')
+                ax_infer.plot(row['time_infer_s'], i, marker=marker, color=color, linestyle='None')
+
+        # Train time axis
+        ax_train.set_xscale('log')
+        ax_train.set_xlabel("Avg. time per 1K samples [s]")
+        ax_train.set_title(r"\textbf{Train+val time}", fontweight='bold')
+        ax_train.set_yticks(y_positions)
+        ax_train.set_yticklabels(frameworks, fontsize=10)
+        ax_train.grid(True, axis='x', alpha=0.5)
+
+        # Inference time axis
+        ax_infer.set_xscale('log')
+        ax_infer.set_xlabel("Avg. time per 1K samples [s]")
+        ax_infer.set_title(r"\textbf{Inference time}", fontweight='bold')
+        ax_infer.set_yticks(y_positions)
+        ax_infer.tick_params(labelleft=False)  # Explicitly hide y-tick labels
+        ax_infer.grid(True, axis='x', alpha=0.5)
+
+        for ax in [ax_train, ax_infer]:
+            ax.xaxis.set_major_locator(ticker.LogLocator(base=10.0))
+            # ax.yaxis.set_major_locator(ticker.LogLocator(base=10.0))
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:g}"))
+            # ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{y:g}"))
+            ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+            # ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+
+        tune_method_display_names = {
+            'default': 'Default',
+            'tuned': 'Tuned',
+            'tuned_ensembled': 'Tuned + Ensemble'
+        }
+
+        # Add legend above both plots
+        legend_elements = [
+            plt.Line2D([0], [0], marker=marker_map[tm], color=color_map[tm],
+                       linestyle='None', label=tune_method_display_names[tm], markersize=8)
+            for tm in tune_methods
+        ]
+        fig.legend(handles=legend_elements,  # title='Tuning Method',
+                   loc='upper center', bbox_to_anchor=(0.65, 1.01), ncol=3, fontsize=10, title_fontsize=11)
+
+        # Layout adjustment (no clipping)
+        plt.tight_layout(rect=[0, 0, 1, 0.94])
+
+        plt.savefig(Path(output_dir) / 'time_plot.pdf')
+        plt.show()
+        plt.close(fig)
 
     def generate_data_analysis(self):
         generate_dataset_analysis(repo=self.repo, expname_outdir=self.output_dir)
