@@ -426,6 +426,7 @@ class PaperRunTabArena(PaperRun):
             metric="normalized-error-task",
             name_suffix="-normscore-task",
             imputed_names=imputed_names,
+            show=False,
         )
 
         tabarena = TabArena(
