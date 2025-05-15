@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import copy
-
 import pandas as pd
+
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
@@ -258,6 +258,7 @@ class PaperRunTabArena(PaperRun):
         use_gmean: bool = False,
         only_norm_scores: bool = False,
         imputed_names: list[str] | None = None,
+        only_datasets_for_method: dict[str, list[str]] | None = None
     ):
         method_col = "method"
         df_results = df_results.copy(deep=True)
@@ -369,6 +370,9 @@ class PaperRunTabArena(PaperRun):
             # "red",
         ]
 
+        self.plot_tabarena_times(df=df_results, output_dir=self.output_dir,
+                                 only_datasets_for_method=only_datasets_for_method)
+
         self.plot_tuning_impact(
             df=df_results,
             framework_types=framework_types,
@@ -457,6 +461,21 @@ class PaperRunTabArena(PaperRun):
             baseline_colors=baseline_colors,
             name_suffix="-elo",
             imputed_names=imputed_names,
+            show=False
+        )
+
+        self.plot_tuning_impact(
+            df=df_results,
+            df_elo=leaderboard,
+            framework_types=framework_types,
+            save_prefix=f"{self.output_dir}",
+            use_gmean=use_gmean,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+            name_suffix="-elo-horizontal",
+            imputed_names=imputed_names,
+            use_y=True,
+            show=False
         )
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare2)

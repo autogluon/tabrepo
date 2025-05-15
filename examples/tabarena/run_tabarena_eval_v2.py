@@ -68,7 +68,7 @@ def rename_func(name):
 if __name__ == '__main__':
     context_name = "tabarena_paper_full_51"
     eval_save_path = f"{context_name}/output"
-    load_from_s3 = True  # Do this for first run, then make false for speed
+    load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
     with_holdout = False
 
@@ -122,9 +122,13 @@ if __name__ == '__main__':
         datasets=datasets_tabicl,
     )
 
+    # plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
+    #                     sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
+
     print(f"Starting evaluations...")
     # Full run
-    paper_full.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'])
+    paper_full.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'],
+                    only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
     problem_types = ["binary", "regression", "multiclass"]
     for problem_type in problem_types:
