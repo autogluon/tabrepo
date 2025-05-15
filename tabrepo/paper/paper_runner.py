@@ -674,8 +674,9 @@ class PaperRun:
         df['time_infer_s'] = df['time_infer_s'] * 1000 / (1 / 3 * df['num_instances'])
 
         # filter to only common datasets
-        for datasets in only_datasets_for_method.values():
-            df = df[df["dataset"].isin(datasets)]
+        if only_datasets_for_method is not None:
+            for datasets in only_datasets_for_method.values():
+                df = df[df["dataset"].isin(datasets)]
 
         framework_types = [
             "GBM",
