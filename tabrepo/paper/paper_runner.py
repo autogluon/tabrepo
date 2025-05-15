@@ -673,20 +673,9 @@ class PaperRun:
         df['time_train_s'] = df['time_train_s'] * 1000 / (2 / 3 * df['num_instances'])
         df['time_infer_s'] = df['time_infer_s'] * 1000 / (1 / 3 * df['num_instances'])
 
-        # times_per_dataset = df.groupby(['dataset', 'framework'])['time_train_s'].mean()
-        # todo: do per 1K samples or so
-        # todo: get on sub-benchmarks
-        # todo: get default times
-        # sub_benchmarks = {'Full': df['dataset'].unique().tolist()}
-        #
-        # sub_times = []
-        #
-        # for sb_name, sb_datasets in sub_benchmarks.items():
-        #     df_sub_times = df[df['dataset'].isin(sb_datasets)].groupby(['method'])[['time_train_s', 'time_infer_s']].mean().reset_index()
-        #     df_sub_times['sub_benchmark'] = sb_name
-        #     sub_times.append(df_sub_times)
-        #
-        # df = pd.concat(sub_times, ignore_index=True)
+        # filter to only common datasets
+        for datasets in only_datasets_for_method.values():
+            df = df[df["dataset"].isin(datasets)]
 
         framework_types = [
             "GBM",
@@ -727,11 +716,11 @@ class PaperRun:
         if only_datasets_for_method is not None:
             for method, datasets in only_datasets_for_method.items():
                 mask = (df['framework_type'] == method) & (~df['dataset'].isin(datasets))
-                print(f"{df[mask]=}")
+                # print(f"{df[mask]=}")
                 df.loc[mask, 'time_train_s'] = np.nan
                 df.loc[mask, 'time_infer_s'] = np.nan
-                print(f"{df[mask]['time_train_s']=}")
-                print(f"{df[mask]['time_infer_s']=}")
+                # print(f"{df[mask]['time_train_s']=}")
+                # print(f"{df[mask]['time_infer_s']=}")
 
         # add device name
         framework_types = df["framework_type"].unique()
@@ -741,7 +730,8 @@ class PaperRun:
         df["framework_type"] = df["framework_type"].map(device_map).fillna(df["framework_type"])
 
         # take mean times
-        df = df.groupby(['framework_type', 'tune_method'])[['time_train_s', 'time_infer_s']].mean().reset_index()
+        df = df.groupby(['dataset', 'framework_type', 'tune_method'])[['time_train_s', 'time_infer_s']].mean().reset_index()
+        df = df.groupby(['framework_type', 'tune_method'])[['time_train_s', 'time_infer_s']].median().reset_index()
 
         # ----- ChatGPT plotting code -----
 
@@ -786,7 +776,7 @@ class PaperRun:
 
         # Train time axis
         ax_train.set_xscale('log')
-        ax_train.set_xlabel("Avg. time per 1K samples [s]")
+        ax_train.set_xlabel("Median time per 1K samples [s]")
         ax_train.set_title(r"\textbf{Train+val time}", fontweight='bold')
         ax_train.set_yticks(y_positions)
         ax_train.set_yticklabels(frameworks, fontsize=10)
@@ -794,7 +784,7 @@ class PaperRun:
 
         # Inference time axis
         ax_infer.set_xscale('log')
-        ax_infer.set_xlabel("Avg. time per 1K samples [s]")
+        ax_infer.set_xlabel("Median time per 1K samples [s]")
         ax_infer.set_title(r"\textbf{Inference time}", fontweight='bold')
         ax_infer.set_yticks(y_positions)
         ax_infer.tick_params(labelleft=False)  # Explicitly hide y-tick labels
