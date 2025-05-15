@@ -6,7 +6,6 @@ import pandas as pd
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
-from .paper_utils import get_framework_type_method_names
 
 
 class PaperRunTabArena(PaperRun):
