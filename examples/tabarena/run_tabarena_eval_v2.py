@@ -81,7 +81,7 @@ if __name__ == '__main__':
         # save_local_to_s3=True,
     )
 
-    eval_save_path_w_holdout = f"{eval_save_path}_w_holdout"
+    eval_save_path_w_holdout = f"{eval_save_path}/with_holdout"
 
     eval_save_path_tabpfn_datasets = f"{eval_save_path}/tabpfn_datasets"
     eval_save_path_tabicl_datasets = f"{eval_save_path}/tabicl_datasets"

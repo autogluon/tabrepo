@@ -836,7 +836,10 @@ class PaperRun:
         # Layout adjustment (no clipping)
         plt.tight_layout(rect=[0, 0, 1, 0.94])
 
-        plt.savefig(Path(output_dir) / 'time_plot.pdf')
+        path_dir = Path(output_dir)
+        path_dir.mkdir(parents=True, exist_ok=True)
+
+        plt.savefig(path_dir / 'time_plot.pdf')
         if show:
             plt.show()
         plt.close(fig)
