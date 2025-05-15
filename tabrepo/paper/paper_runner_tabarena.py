@@ -267,8 +267,29 @@ class PaperRunTabArena(PaperRun):
         use_gmean: bool = False,
         only_norm_scores: bool = False,
         imputed_names: list[str] | None = None,
-        only_datasets_for_method: dict[str, list[str]] | None = None
+        only_datasets_for_method: dict[str, list[str]] | None = None,
+        baselines: list[str] | None = None,
+        baseline_colors: list[str] | None = None,
+        plot_tune_types: list[str] | None = None,
     ):
+        if baselines is None:
+            baselines = [
+                # "AutoGluon 1.3 (5m)",
+                # "AutoGluon 1.3 (1h)",
+                "AutoGluon 1.3 (4h)",
+                # "Portfolio-N200 (ensemble) (4h)",
+                # "Portfolio-N200 (ensemble, holdout) (4h)",
+            ]
+            if baseline_colors is None:
+                baseline_colors = [
+                    # "darkgray",
+                    "black",
+                    # "blue",
+                    # "red",
+                ]
+        if baseline_colors is None:
+            baseline_colors = []
+        assert len(baselines) == len(baseline_colors)
         method_col = "method"
         df_results = df_results.copy(deep=True)
         if "rank" in df_results:
@@ -364,20 +385,6 @@ class PaperRunTabArena(PaperRun):
         }).fillna(df_results["method"])
         # print(df_results)
 
-        baselines = [
-            # "AutoGluon 1.3 (5m)",
-            # "AutoGluon 1.3 (1h)",
-            "AutoGluon 1.3 (4h)",
-            # "Portfolio-N200 (ensemble) (4h)",
-            # "Portfolio-N200 (ensemble, holdout) (4h)",
-        ]
-        baseline_colors = [
-            # "darkgray",
-            "black",
-            # "blue",
-            # "red",
-        ]
-
         df_results_rank_compare = copy.deepcopy(df_results)
         df_results_unfiltered = copy.deepcopy(df_results)
 
@@ -419,6 +426,7 @@ class PaperRunTabArena(PaperRun):
             use_score=True,
             name_suffix="-normscore-dataset",
             imputed_names=imputed_names,
+            plot_tune_types=plot_tune_types,
             show=False,
         )
 
@@ -433,6 +441,7 @@ class PaperRunTabArena(PaperRun):
             metric="normalized-error-task",
             name_suffix="-normscore-task",
             imputed_names=imputed_names,
+            plot_tune_types=plot_tune_types,
             show=False,
         )
 

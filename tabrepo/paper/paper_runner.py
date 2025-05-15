@@ -291,6 +291,7 @@ class PaperRun:
         imputed_names: list[str] | None = None,
         use_y: bool = False,
         metric: str = "normalized-error",
+        plot_tune_types: list[str] | None = None,
     ):
         same_width = use_y
         use_lim = True
@@ -349,6 +350,9 @@ class PaperRun:
 
         df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
         framework_types = [f_map_type_name[ft] if ft in f_map_type_name else ft for ft in framework_types]
+
+        if plot_tune_types:
+            df = df[df["tune_method"].isin(plot_tune_types) | df["method"].isin(baselines)]
 
         df_plot = df[df["framework_type"].isin(framework_types)]
         df_plot = df_plot[~df_plot["framework_type"].isin(imputed_names)]
@@ -471,9 +475,9 @@ class PaperRun:
                         label="Tuned + Ensemble (Holdout)",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned_ensembled"], ax=ax,
                         order=framework_type_order,
-                        color=colors[6],
+                        color=colors[3],
                         width=0.62, linewidth=linewidth,
-                        err_kws={"color": errcolors[6]},
+                        err_kws={"color": errcolors[3]},
                     ),
                     dict(
                         x=x, y=y,

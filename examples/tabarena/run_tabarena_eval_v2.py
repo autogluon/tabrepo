@@ -70,7 +70,7 @@ if __name__ == '__main__':
     eval_save_path = f"{context_name}/output"
     load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
-    with_holdout = False
+    with_holdout = True
     elo_bootstrap_rounds = 100
 
     print(f"Loading results... context_name={context_name}, load_from_s3={load_from_s3}")
@@ -98,22 +98,7 @@ if __name__ == '__main__':
 
     # raise AssertionError
 
-    if with_holdout:
-        df_results_holdout["framework"] = [rename_func(f) for f in df_results_holdout["framework"]]
-
-        df_results = pd.concat([df_results, df_results_holdout], ignore_index=True)
-
-        df_results = df_results.drop_duplicates(subset=[
-            "dataset",
-            "fold",
-            "framework",
-            "seed",
-        ], ignore_index=True)
-
-        # df_results = paper_full.compute_normalized_error(df_results=df_results)
-
-        # must recalculate normalized error after concat
-        df_results = PaperRunTabArena.compute_normalized_error_dynamic(df_results=df_results)
+    load_holdout = False
 
     df_results = df_results[~df_results["framework"].isin(banned_methods)]
 
@@ -189,6 +174,11 @@ if __name__ == '__main__':
         # must recalculate normalized error after concat
         df_results_combined_holdout = PaperRunTabArena.compute_normalized_error_dynamic(df_results=df_results_combined_holdout)
 
+        from autogluon.common.savers import save_pd
+        from autogluon.common.loaders import load_pd
+        save_pd.save(df=df_results_combined_holdout, path=f"{context_name}/data/df_results_combined_holdout.parquet")
+        df_results_combined_holdout = load_pd.load(path=f"{context_name}/data/df_results_combined_holdout.parquet")
+
         paper_w_holdout = PaperRunTabArena(
             repo=None,
             output_dir=eval_save_path_w_holdout,
@@ -196,6 +186,8 @@ if __name__ == '__main__':
             banned_model_types=[
                 "TABPFNV2",
                 "TABICL",
+                "TABDPT",
+                "KNN",
             ],
         )
 
@@ -203,6 +195,7 @@ if __name__ == '__main__':
         paper_w_holdout.eval(
             df_results=df_results_combined_holdout,
             imputed_names=['TabPFNv2', 'TabICL'],
+            plot_tune_types=["holdout_tuned_ensembled", "tuned_ensembled"],
         )
 
     # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)
