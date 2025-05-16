@@ -31,7 +31,7 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
 
     print('Task id', task_id, 'Fold', fold)
 
-    bagged_custom_model = BaggedEnsembleModel(MitraModel(path=""))
+    bagged_custom_model = BaggedEnsembleModel(MitraModel())
     custom_model = MitraModel()
     bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
 
@@ -94,16 +94,20 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     }, index=[f'tabrepo_{task_id}' + f'_fold_{fold}'])
     df.to_csv(file_path, mode='a', index=True, header=not file_exists, float_format='%.4f')
 
+    bagged_custom_model.delete_from_disk(silent=True)
+
 if __name__ == "__main__":
 
     # test_mitra()
 
+    # 8 * 6 + 9 * 2 = 66
+    # 0-8, 8-16, 16-24, 24-32, 32-40, 40-48, 48-57, 57-66
     tabrepo = [2, 11, 37, 2073, 2077, 3512, 3549, 3560, 3581, 3583, 3606, 3608, 3616, \
                 3623, 3664, 3667, 3690, 3702, 3704, 3747, 3749, 3766, 3783, 3793, 3799, \
                 3800, 3812, 3903, 3913, 3918, 9904, 9905, 9906, 9909, 9915, 9924, 9925, \
                 9926, 9970, 9971, 9979, 14954, 125920, 125921, 146800, 146818, 146819, \
                 168757, 168784, 190137, 190146, 359954, 359955, 359956, 359958, 359959, \
-                359960, 359962, 359963, 361333, 361335, 361336, 361339, 361340, 361341, 361345] # 8 * 6 + 9 * 2 = 66
+                359960, 359962, 359963, 361333, 361335, 361336, 361339, 361340, 361341, 361345] 
 
     # 3 * 3 + 4 * 5 = 29
     # 0-3, 3-6, 6-9, 9-13, 13-17, 17-21, 21-25, 25-29
@@ -120,7 +124,7 @@ if __name__ == "__main__":
             145793, 145799, 145847, 145977, 145984, 146024, 146063, 146065, 146192, 146210, \
             146800, 146817, 146818, 146819, 146821, 146822] 
 
-    dataset_name, target_dataset, start, end = amlb, "nature10fold", 9, 13
+    dataset_name, target_dataset, start, end = tabrepo, "tabrepo10fold", 57, 66
 
     for did in dataset_name[start:end]:
 
