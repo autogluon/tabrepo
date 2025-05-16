@@ -38,6 +38,7 @@ class Evaluator:
         baselines: list[str] = None,
         convert_from_sample_to_batch: bool = False,
         keep_extra_columns: bool = False,
+        include_metric_error_val: bool = False,
         fillna: bool = True,
     ) -> pd.DataFrame:
         if datasets is None:
@@ -45,7 +46,10 @@ class Evaluator:
         columns = ["metric_error", "time_train_s", "time_infer_s", "metric", "problem_type"]
 
         if results_df is not None:
-            df_exp = results_df.reset_index().set_index(["dataset", "fold", "framework"])
+            df_exp = results_df
+            if results_df.index.names != [None]:
+                df_exp = df_exp.reset_index()
+            df_exp = df_exp.set_index(["dataset", "fold", "framework"])
             if not keep_extra_columns:
                 df_exp = df_exp[columns]
             else:
@@ -54,8 +58,11 @@ class Evaluator:
         else:
             df_exp = None
 
+        config_columns = columns
+        if include_metric_error_val:
+            config_columns = config_columns + ["metric_error_val"]
         # Dropping task column in df_tr
-        df_tr = self.repo._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[columns]
+        df_tr = self.repo._zeroshot_context.df_configs.set_index(["dataset", "fold", "framework"])[config_columns]
 
         mask = df_tr.index.get_level_values("dataset").isin(datasets)
         if folds is not None:
@@ -84,7 +91,10 @@ class Evaluator:
                 raise AssertionError(f"Baselines specified but no baseline methods exist! (baselines={baselines})")
             df_baselines = None
 
-        df = pd.concat([df_exp, df_tr, df_baselines], axis=0)
+        dfs_to_concat = [df_exp, df_tr, df_baselines]
+        dfs_to_concat = [df for df in dfs_to_concat if df is not None and len(df) > 0]
+
+        df = pd.concat(dfs_to_concat, axis=0)
         df = df.sort_index()
 
         if fillna:
@@ -95,6 +105,8 @@ class Evaluator:
                 datasets=datasets,
                 folds=folds,
                 fillna=False,
+                keep_extra_columns=keep_extra_columns,
+                include_metric_error_val=include_metric_error_val,
             )
             df_fillna = df_fillna.droplevel("framework")
             df = self._fillna_metrics(df_metrics=df, df_fillna=df_fillna)
@@ -332,6 +344,22 @@ class Evaluator:
         plt
 
         """
+        # df_ensemble_weights = self.get_ensemble_weights(
+        #     df_ensemble_weights=df_ensemble_weights,
+        #     aggregate_folds=aggregate_folds,
+        #     sort_by_mean=sort_by_mean,
+        # )
+
+        from tabrepo.plot.plot_ens_weights import create_heatmap
+        p = create_heatmap(df=df_ensemble_weights, include_mean=include_mean, **kwargs)
+        return p
+
+    def get_ensemble_weights(
+        self,
+        df_ensemble_weights: pd.DataFrame,
+        aggregate_folds: bool = True,
+        sort_by_mean: bool = True,
+    ) -> pd.DataFrame:
         df_ensemble_weights = copy.deepcopy(df_ensemble_weights)
         if aggregate_folds:
             df_ensemble_weights = df_ensemble_weights.groupby(level='dataset').mean()
@@ -343,10 +371,7 @@ class Evaluator:
         if sort_by_mean:
             s = df_ensemble_weights.sum()
             df_ensemble_weights = df_ensemble_weights[s.sort_values(ascending=False).index]
-
-        from tabrepo.plot.plot_ens_weights import create_heatmap
-        p = create_heatmap(df=df_ensemble_weights, include_mean=include_mean, **kwargs)
-        return p
+        return df_ensemble_weights
 
     # TODO: WIP
     # TODO: Add a non-loo version
@@ -357,11 +382,12 @@ class Evaluator:
         configs: list[str] | None = None,
         n_portfolios: int = 200,  # FIXME
         n_ensemble: int | None = None,
+        max_runtime: float | None = 14400,
         engine: str = "ray",
         rename_columns: bool = True,  # TODO: Align them automatically so this isn't needed
         n_ensemble_in_name: bool = True,
         n_max_models_per_type: int | str | None = None,
-        fix_fillna: bool = False,
+        fix_fillna: bool = True,
     ) -> pd.DataFrame:
         repo = self.repo
 
@@ -378,6 +404,7 @@ class Evaluator:
             dataset_names=repo.datasets(),
             n_portfolios=[n_portfolios],
             n_ensembles=[n_ensemble],
+            max_runtimes=[max_runtime],
             n_ensemble_in_name=n_ensemble_in_name,
             n_max_models_per_type=[n_max_models_per_type],
             rank_scorer=rank_scorer,
@@ -399,5 +426,7 @@ class Evaluator:
 
             df_zeroshot_portfolio["problem_type"] = df_zeroshot_portfolio["dataset"].map(datasets_info["problem_type"])
             df_zeroshot_portfolio["metric"] = df_zeroshot_portfolio["dataset"].map(datasets_info["metric"])
+
+        df_zeroshot_portfolio = df_zeroshot_portfolio.drop(columns=["normalized_error", "rank"])
 
         return df_zeroshot_portfolio

@@ -708,3 +708,33 @@ class PaperRunTabArena(PaperRun):
         )
 
         return df
+
+    def plot_portfolio_ensemble_weights_barplot(self, df_ensemble_weights: pd.DataFrame):
+        import seaborn as sns
+        import matplotlib.pyplot as plt
+        from pathlib import Path
+
+        fig, ax = plt.subplots(1, 1,
+                               # figsize=figsize
+                               )
+
+        # TODO: Make horizontal?
+        # TODO: Drop TabPFN / TabICL columns if you want
+        # TODO: Better formatting / nicer style?
+        # TODO: Title, xaxis, yaxis names, figsize
+        boxplot = sns.barplot(
+            data=df_ensemble_weights,
+            ax=ax,
+            order=list(df_ensemble_weights.columns),
+        )
+
+        fig_name = f"portfolio-weight-barplot.png"
+        fig_prefix = Path(self.output_dir) / "figures"
+        fig_prefix.mkdir(parents=True, exist_ok=True)
+
+        fig_save_path = fig_prefix / fig_name
+        plt.savefig(fig_save_path)
+
+        fig_name = f"portfolio-weight-barplot.pdf"
+        fig_save_path = fig_prefix / fig_name
+        plt.savefig(fig_save_path)

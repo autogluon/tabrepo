@@ -5,6 +5,44 @@ import pandas as pd
 from autogluon.common.utils.s3_utils import upload_s3_folder
 
 
+def load_df_ensemble_weights(context_name: str) -> pd.DataFrame:
+    df_ensemble_weights = load_pd.load(
+        path=f"https://tabarena.s3.us-west-2.amazonaws.com/evaluation/{context_name}/data/df_portfolio_ensemble_weights.parquet"
+    )
+
+    framework_types = [
+        "GBM",
+        "XGB",
+        "CAT",
+        "NN_TORCH",
+        "FASTAI",
+        "KNN",
+        "RF",
+        "XT",
+        "LR",
+        "TABPFNV2",
+        "TABICL",
+        "TABDPT",
+        "REALMLP",
+        "EBM",
+        "FT_TRANSFORMER",
+        "TABM",
+        "MNCA",
+    ]
+
+    from tabrepo.paper.paper_utils import get_framework_type_method_names
+    f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+        framework_types=framework_types,
+        max_runtimes=[
+            (3600 * 4, "_4h"),
+            (None, None),
+        ]
+    )
+    df_ensemble_weights = df_ensemble_weights.rename(columns=f_map_type_name)
+    return df_ensemble_weights
+
+
+
 def upload_results(folder_to_upload: str, s3_prefix: str):
     upload_s3_folder(
         bucket="tabarena",
@@ -97,7 +135,14 @@ if __name__ == '__main__':
         elo_bootstrap_rounds=elo_bootstrap_rounds,
     )
 
-    # raise AssertionError
+    df_ensemble_weights = load_df_ensemble_weights(context_name=context_name)
+    paper_full.plot_ensemble_weights_heatmap(
+        df_ensemble_weights=df_ensemble_weights,
+        figsize=(24, 20),
+    )
+    paper_full.plot_portfolio_ensemble_weights_barplot(
+        df_ensemble_weights=df_ensemble_weights,
+    )
 
     load_holdout = False
 
@@ -122,13 +167,6 @@ if __name__ == '__main__':
         elo_bootstrap_rounds=elo_bootstrap_rounds,
     )
 
-    df_ensemble_weights = load_pd.load(
-        path=f"https://tabarena.s3.us-west-2.amazonaws.com/evaluation/{context_name}/data/df_portfolio_ensemble_weights.parquet"
-    )
-    paper_full.plot_ensemble_weights_heatmap(
-        df_ensemble_weights=df_ensemble_weights,
-        figsize=(24, 20),
-    )
 
     # plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
     #                     sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
