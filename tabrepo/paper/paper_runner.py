@@ -562,6 +562,16 @@ class PaperRun:
                 else:
                     boxplot.set(xlabel=None, ylabel='Elo' if metric=='elo' else 'Normalized score')  # remove "Method" in the x-axis
                 # boxplot.set_title("Effect of tuning and ensembling")
+
+                # FIXME: (Nick) HACK, otherwise it isn't in the plot, don't know why
+                if use_elo:
+                    if baseline_means and "Portfolio-N200 (ensemble) (4h)" in baselines:
+                        max_baseline_mean = max([v for k, v in baseline_means.items()])
+                        if ylim is not None:
+                            ylim[1] = max_baseline_mean + 50
+                        if xlim is not None:
+                            xlim[1] = max_baseline_mean + 50
+
                 if ylim is not None:
                     ax.set_ylim(ylim)
                 if xlim is not None:

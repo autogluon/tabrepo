@@ -416,6 +416,37 @@ class PaperRunTabArena(PaperRun):
 
         print(f'{df_results_rank_compare["method"].unique().tolist()=}')
 
+        hue_order_family_proportion = [
+            "CatBoost",
+            "TabPFNv2",
+            "TabM",
+            "ModernNCA",
+            "TabDPT",
+            "LightGBM",
+            "TabICL",
+
+            "RandomForest",
+            "XGBoost",
+            "RealMLP",
+
+            "NeuralNetFastAI",
+            "ExplainableBM",
+            "NeuralNetTorch",
+            "ExtraTrees",
+            "LinearModel",
+            "KNeighbors",
+
+            # "TabForestPFN",
+
+            # "FTTransformer",
+
+        ]
+
+        # FIXME: TODO (Nick): Move this to its own class for utility plots, no need to re-plot this in every eval call.
+        plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
+                               method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
+                               show=False)
+
         self.plot_tuning_impact(
             df=df_results_rank_compare,
             framework_types=framework_types,
@@ -531,31 +562,6 @@ class PaperRunTabArena(PaperRun):
         tabarena.plot_critical_diagrams(results_per_task=results_per_task,
                                         save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
 
-        hue_order_family_proportion = [
-            "RealMLP",
-            "CatBoost",
-            "LightGBM",
-            "XGBoost",
-            "NeuralNetTorch",
-            "RandomForest",
-            "ExtraTrees",
-            "LinearModel",
-            "KNeighbors",
-            "TabPFNv2",
-            "TabICL",
-            "TabDPT",
-            # "TabForestPFN",
-            "ExplainableBM",
-            "NeuralNetFastAI",
-            # "FTTransformer",
-            "TabM",
-            "ModernNCA",
-        ]
-
-        # FIXME: TODO (Nick): Move this to its own class for utility plots, no need to re-plot this in every eval call.
-        plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
-                               method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
-                               show=False)
 
         try:
             import autogluon_benchmark
