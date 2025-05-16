@@ -136,10 +136,10 @@ if __name__ == '__main__':
     )
 
     df_ensemble_weights = load_df_ensemble_weights(context_name=context_name)
-    paper_full.plot_ensemble_weights_heatmap(
-        df_ensemble_weights=df_ensemble_weights,
-        figsize=(24, 20),
-    )
+    # paper_full.plot_ensemble_weights_heatmap(
+    #     df_ensemble_weights=df_ensemble_weights,
+    #     figsize=(24, 20),
+    # )
     paper_full.plot_portfolio_ensemble_weights_barplot(
         df_ensemble_weights=df_ensemble_weights,
     )
@@ -167,9 +167,6 @@ if __name__ == '__main__':
         elo_bootstrap_rounds=elo_bootstrap_rounds,
     )
 
-
-    # plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
-    #                     sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
     print(f"Starting evaluations...")
     # Full run
@@ -263,7 +260,7 @@ if __name__ == '__main__':
         ],
         baseline_colors=[
             "black",
-            "orange",
+            "tab:purple",
         ]
     )
 

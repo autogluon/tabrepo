@@ -26,6 +26,14 @@ from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from tabrepo.paper.paper_utils import make_scorers, generate_sensitivity_plots, get_framework_type_method_names
 from scripts.dataset_analysis import generate_dataset_analysis
 
+import matplotlib.colors as mcolors
+
+def darken_color(color_str, amount=0.5):
+    # Convert color string to RGB tuple (values between 0 and 1)
+    rgb = mcolors.to_rgb(color_str)
+    # Interpolate with black (0, 0, 0)
+    darker_rgb = tuple((1 - amount) * c for c in rgb)
+    return darker_rgb
 
 class PaperRun:
     def __init__(self, repo: EvaluationRepository, output_dir: str = None, backend: Literal["ray", "native"] = "ray"):
@@ -472,7 +480,7 @@ class PaperRun:
                     dict(
                         x=x, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
-                        label="Tuned + Ensemble (Holdout)",
+                        label="Tuned + Ensembled (Holdout)",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned_ensembled"], ax=ax,
                         order=framework_type_order,
                         color=colors[3],
@@ -585,7 +593,7 @@ class PaperRun:
 
                     # Add asymmetric error bars manually
                     for x, framework_type in zip(xticks, xticklabels):
-                        for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled"], errcolors):
+                        for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled", "holdout_tuned_ensembled"], errcolors):
                             row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
                             print(f'{row=}')
                             if len(row) == 1:
@@ -634,16 +642,20 @@ class PaperRun:
                     boxplot.set_xticklabels(new_labels)
 
 
-                for baseline, color in zip(baselines, baseline_colors):
+                for baseline_idx, (baseline, color) in enumerate(zip(baselines, baseline_colors)):
                     baseline_mean = baseline_means[baseline]
                     # baseline_func(baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
                     baseline_func(baseline_mean, color=color, linewidth=2.0, ls="--", zorder=-10)
 
+                    if baseline == 'Portfolio-N200 (ensemble) (4h)':
+                        baseline = 'TabArena ensemble (4h)'
+
                     if use_y:
                         print(f'{ax.get_ylim()=}')
-                        ax.text(y=0.965 * ax.get_ylim()[0], x=baseline_mean * 0.985, s=baseline, ha='right')
+                        ax.text(y=(1 - 0.035 * (1 + 2*(len(baselines) - 1 - baseline_idx))) * ax.get_ylim()[0],
+                                x=baseline_mean * 0.985, s=baseline, ha='right', color=darken_color(color))
                     else:
-                        ax.text(x=0.5, y=baseline_mean * 0.97, s=baseline, va='top')
+                        ax.text(x=0.5, y=baseline_mean * 0.97, s=baseline, va='top', color=darken_color(color))
 
 
                 # ax.legend(loc="upper center", ncol=5)
@@ -660,6 +672,13 @@ class PaperRun:
                 # handles.append(imputed_patch)
                 # labels.append("Partially imputed")
 
+                # quick fix
+                is_holdout_plot = "Tuned + Ensembled (Holdout)" in labels
+                if is_holdout_plot:
+                    valid_idxs = [i for i, label in enumerate(labels) if label != "Default"]
+                    labels = [labels[i] for i in valid_idxs]
+                    handles = [handles[i] for i in valid_idxs]
+
                 # specify order
                 # len_baselines = len(baselines)
                 # len_baselines = 0  # we don't put them in the legend anymore
@@ -673,8 +692,8 @@ class PaperRun:
                 print(f'{order=}')
 
                 # pass handle & labels lists along with order as below
-                ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=3,
-                          bbox_to_anchor=[0.5, 1.15])
+                ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=len(labels),
+                          bbox_to_anchor=[0.35 if use_y else 0.5, 1.15])
 
                 # ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
                 plt.tight_layout()
@@ -835,7 +854,7 @@ class PaperRun:
         tune_method_display_names = {
             'default': 'Default',
             'tuned': 'Tuned',
-            'tuned_ensembled': 'Tuned + Ensemble'
+            'tuned_ensembled': 'Tuned + Ensembled'
         }
 
         # Add legend above both plots
