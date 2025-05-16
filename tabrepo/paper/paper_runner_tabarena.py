@@ -626,7 +626,8 @@ class PaperRunTabArena(PaperRun):
         fig_path = Path(f"{self.output_dir}/figures")
         fig_path.mkdir(parents=True, exist_ok=True)
 
-        p.savefig(fig_path / "ens-weights-per-dataset")
+        p.savefig(fig_path / "ens-weights-per-dataset.png")
+        p.savefig(fig_path / "ens-weights-per-dataset.pdf")
 
     def get_ensemble_weights(
         self,

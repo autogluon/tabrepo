@@ -125,7 +125,10 @@ if __name__ == '__main__':
     df_ensemble_weights = load_pd.load(
         path=f"https://tabarena.s3.us-west-2.amazonaws.com/evaluation/{context_name}/data/df_portfolio_ensemble_weights.parquet"
     )
-    paper_full.plot_ensemble_weights_heatmap(df_ensemble_weights=df_ensemble_weights)
+    paper_full.plot_ensemble_weights_heatmap(
+        df_ensemble_weights=df_ensemble_weights,
+        figsize=(24, 20),
+    )
 
     # plot_tabarena_times(df_results=df_results, output_dir=eval_save_path_full,
     #                     sub_benchmarks={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
