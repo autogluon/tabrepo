@@ -460,32 +460,42 @@ class PaperRun:
                     dict(
                         x=x, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
-                        label="Default (Holdout)",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout"], ax=ax,
-                        order=framework_type_order,
-                        color=colors[4],
-                        width=0.7, linewidth=linewidth,
-                        err_kws={"color": errcolors[4]},
+                        label="Tuned + Ensembled",
+                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"],
+                        ax=ax,
+                        order=framework_type_order, color=colors[2],
+                        width=0.6, linewidth=linewidth,
+                        err_kws={"color": errcolors[2]},
                     ),
+                    # dict(
+                    #     x=x, y=y,
+                    #     # hue="tune_method",  # palette=["m", "g", "r],
+                    #     label="Default (Holdout)",
+                    #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout"], ax=ax,
+                    #     order=framework_type_order,
+                    #     color=colors[4],
+                    #     width=0.7, linewidth=linewidth,
+                    #     err_kws={"color": errcolors[4]},
+                    # ),
+                    # dict(
+                    #     x=x, y=y,
+                    #     # hue="tune_method",  # palette=["m", "g", "r],
+                    #     label="Tuned (Holdout)",
+                    #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned"], ax=ax,
+                    #     order=framework_type_order,
+                    #     color=colors[5],
+                    #     width=0.65, linewidth=linewidth,
+                    #     err_kws={"color": errcolors[5]},
+                    # ),
                     dict(
                         x=x, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
-                        label="Tuned (Holdout)",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned"], ax=ax,
+                        label="Tuned",
+                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
                         order=framework_type_order,
-                        color=colors[5],
-                        width=0.65, linewidth=linewidth,
-                        err_kws={"color": errcolors[5]},
-                    ),
-                    dict(
-                        x=x, y=y,
-                        # hue="tune_method",  # palette=["m", "g", "r],
-                        label="Tuned + Ensembled (Holdout)",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned_ensembled"], ax=ax,
-                        order=framework_type_order,
-                        color=colors[3],
-                        width=0.62, linewidth=linewidth,
-                        err_kws={"color": errcolors[3]},
+                        color=colors[1],
+                        width=0.5, linewidth=linewidth,
+                        err_kws={"color": errcolors[1]},
                     ),
                     dict(
                         x=x, y=y,
@@ -493,9 +503,20 @@ class PaperRun:
                         label="Default",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
                         order=framework_type_order, color=colors[0],
-                        width=0.6, linewidth=linewidth,
+                        width=0.4, linewidth=linewidth,
                         err_kws={"color": errcolors[0]},
                         alpha=1.0,
+                    ),
+                    dict(
+                        x=x, y=y,
+                        # hue="tune_method",  # palette=["m", "g", "r],
+                        label="Tuned + Ensembled (Holdout)",
+                        data=df_plot_w_mean_per_dataset[
+                            df_plot_w_mean_per_dataset["tune_method"] == "holdout_tuned_ensembled"], ax=ax,
+                        order=framework_type_order,
+                        color=colors[3],
+                        width=0.3, linewidth=linewidth,
+                        err_kws={"color": errcolors[3]},
                     ),
                     # dict(
                     #     x=x, y=y,
@@ -517,16 +538,6 @@ class PaperRun:
                     #     width=0.5, linewidth=linewidth,,
                     #     err_kws={"color": errcolors[4]},
                     # ),
-                    dict(
-                        x=x, y=y,
-                        # hue="tune_method",  # palette=["m", "g", "r],
-                        label="Tuned",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
-                        order=framework_type_order,
-                        color=colors[1],
-                        width=0.55, linewidth=linewidth,
-                        err_kws={"color": errcolors[1]},
-                    ),
                     # dict(
                     #     x=x, y=y,
                     #     # hue="tune_method",  # palette=["m", "g", "r],
@@ -536,16 +547,7 @@ class PaperRun:
                     #     width=0.4,
                     #     err_kws={"color": errcolors[5]},
                     # ),
-                    dict(
-                        x=x, y=y,
-                        # hue="tune_method",  # palette=["m", "g", "r],
-                        label="Tuned + Ensembled",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"],
-                        ax=ax,
-                        order=framework_type_order, color=colors[2],
-                        width=0.5, linewidth=linewidth,
-                        err_kws={"color": errcolors[2]},
-                    ),
+
                 ]
 
                 if use_score:
@@ -553,10 +555,10 @@ class PaperRun:
                     colors = [plot_line["color"] for plot_line in to_plot]
                     err_kws_lst = [plot_line["err_kws"] for plot_line in to_plot]
 
-                    to_plot.reverse()
+                    # to_plot.reverse()
                     for plot_line, width, color, err_kws in zip(to_plot, widths, colors, err_kws_lst):
                         if same_width:
-                            plot_line["width"] = 0.61234 * 1.3
+                            plot_line["width"] = 0.6 * 1.3
                         else:
                             plot_line["width"] = width * 1.3
                         # plot_line["color"] = color
@@ -641,6 +643,12 @@ class PaperRun:
                     # Apply modified labels
                     boxplot.set_xticklabels(new_labels)
 
+                # remove unnecessary extra space on the sides
+                if use_y:
+                    plt.ylim(len(boxplot.get_yticklabels()) - 0.35, -0.65)
+                else:
+                    plt.xlim(-0.5, len(boxplot.get_xticklabels()) - 0.5)
+
 
                 for baseline_idx, (baseline, color) in enumerate(zip(baselines, baseline_colors)):
                     baseline_mean = baseline_means[baseline]
@@ -694,6 +702,11 @@ class PaperRun:
                 # pass handle & labels lists along with order as below
                 ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=len(labels),
                           bbox_to_anchor=[0.35 if use_y else 0.5, 1.15])
+
+                # if use_y:
+                #     boxplot.margins(y=0.05)
+                # else:
+                #     boxplot.margins(x=0.05)
 
                 # ax.legend(bbox_to_anchor=[0.1, 0.5], loc='center left', ncol=5)
                 plt.tight_layout()
@@ -804,6 +817,7 @@ class PaperRun:
         tune_methods = df['tune_method'].unique()
         # color_map = {tm: c for tm, c in zip(tune_methods, plt.cm.tab10.colors)}
         sns_colors = sns.color_palette("muted").as_hex()
+        # sns_colors = sns.color_palette("pastel").as_hex()
         color_map = {'default': sns_colors[0], 'tuned': sns_colors[1], 'tuned_ensembled': sns_colors[2]}
         marker_list = ['o', 's', '^', 'D', 'P', '*', 'X', 'v']
         marker_map = {tm: m for tm, m in zip(tune_methods, marker_list)}
