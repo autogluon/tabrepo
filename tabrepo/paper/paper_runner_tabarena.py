@@ -713,20 +713,55 @@ class PaperRunTabArena(PaperRun):
         import seaborn as sns
         import matplotlib.pyplot as plt
         from pathlib import Path
+        import matplotlib.colors as mcolors
+        import numpy as np
 
         fig, ax = plt.subplots(1, 1,
-                               # figsize=figsize
+                               figsize=(3.5, 3)
                                )
+
+        print(f'{df_ensemble_weights.columns=}')
+        print(f'{df_ensemble_weights=}')
+
+        df_long = df_ensemble_weights.melt(var_name="Model", value_name="Weight")
+        model_order = list(df_ensemble_weights.columns)
+
+        start_color = mcolors.to_rgb('tab:green')  # Color for vanilla MLP
+        end_color = mcolors.to_rgb('tab:blue')  # Color for final MLP
+        palette = [mcolors.to_hex(c) for c in np.linspace(start_color, end_color, len(model_order))]
+        alphas = np.linspace(0.5, 0.6, len(model_order))[::-1]
+        # palette = sns.color_palette("light:b", n_colors=len(model_order))[::-1]
+
+        barplot = sns.barplot(
+            data=df_long,
+            x="Weight",  # This is now the horizontal axis
+            y="Model",  # Categories on the vertical axis
+            hue="Model",
+            legend=False,
+            ax=ax,
+            order=model_order,  # Optional: control order
+            # palettes: 'coolwarm',
+            palette=palette,
+            err_kws={'color': 'silver'},
+        )
+
+        # Set alpha only for bar face colors, not error bars
+        for patch, alpha in zip(barplot.patches, alphas):
+            r, g, b = patch.get_facecolor()[:3]  # Ignore original alpha
+            patch.set_facecolor((r, g, b, alpha))  # Set new alpha
 
         # TODO: Make horizontal?
         # TODO: Drop TabPFN / TabICL columns if you want
         # TODO: Better formatting / nicer style?
         # TODO: Title, xaxis, yaxis names, figsize
-        boxplot = sns.barplot(
-            data=df_ensemble_weights,
-            ax=ax,
-            order=list(df_ensemble_weights.columns),
-        )
+        # barplot = sns.barplot(
+        #     data=df_ensemble_weights,
+        #     ax=ax,
+        #     order=list(df_ensemble_weights.columns),
+        # )
+
+        barplot.set_xlabel("Average weight in TabArena ensemble")
+        barplot.set_ylabel("")
 
         fig_name = f"portfolio-weight-barplot.png"
         fig_prefix = Path(self.output_dir) / "figures"
