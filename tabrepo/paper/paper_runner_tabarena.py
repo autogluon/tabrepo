@@ -620,7 +620,21 @@ class PaperRunTabArena(PaperRun):
 
         # self.evaluator.plot_overall_rank_comparison(results_df=df_results_rank_compare2, save_dir=f"{self.output_dir}/paper_v2")
 
-    def get_weights_heatmap(self, df_results: pd.DataFrame, method: str, excluded_families: list[str] = None, **kwargs):
+    def plot_ensemble_weights_heatmap(self, df_ensemble_weights: pd.DataFrame, **kwargs):
+        # FIXME: if family never present, then this won't work
+        p = self.evaluator.plot_ensemble_weights(df_ensemble_weights=df_ensemble_weights, **kwargs)
+        fig_path = Path(f"{self.output_dir}/figures")
+        fig_path.mkdir(parents=True, exist_ok=True)
+
+        p.savefig(fig_path / "ens-weights-per-dataset")
+
+    def get_ensemble_weights(
+        self,
+        df_results: pd.DataFrame,
+        method: str,
+        excluded_families: list[str] = None,
+        aggregate_folds: bool = False,
+    ) -> pd.DataFrame:
         if self.datasets is not None:
             df_results = df_results[df_results["dataset"].isin(self.datasets)]
         if excluded_families is None:
@@ -685,9 +699,11 @@ class PaperRunTabArena(PaperRun):
 
         if excluded_families:
             df = df.drop(columns=excluded_families)
-        # FIXME: if family never present, then this won't work
-        p = self.evaluator.plot_ensemble_weights(df_ensemble_weights=df, **kwargs)
-        fig_path = Path(f"{self.output_dir}/figures")
-        fig_path.mkdir(parents=True, exist_ok=True)
 
-        p.savefig(fig_path / "ens-weights-per-dataset")
+        df = self.evaluator.get_ensemble_weights(
+            df_ensemble_weights=df,
+            aggregate_folds=aggregate_folds,
+            sort_by_mean=True,
+        )
+
+        return df

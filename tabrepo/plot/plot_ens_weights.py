@@ -35,8 +35,8 @@ def create_heatmap(df: pd.DataFrame, xlabel: str = "Config", ylabel: str = "Task
     plt.figure(figsize=figsize)
 
     if include_mean:
-        a = df.sum().to_frame(name="mean").T / len(df)
-        df = pd.concat([df, a])
+        df_mean = df.sum().to_frame(name="mean").T / len(df)
+        df = pd.concat([df, df_mean])
 
     # Create mask for zero values
     mask = df == 0
