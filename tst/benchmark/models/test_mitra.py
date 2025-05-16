@@ -53,10 +53,13 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
 
     time1 = time.time()
 
-    if bagging:
-        bagged_custom_model.fit(X=x_train, y=y_train, k_fold=8, save_space=True) # Perform 8-fold bagging
-    else:
-        custom_model.fit(X=x_train, y=y_train)
+    try:
+        if bagging:
+            bagged_custom_model.fit(X=x_train, y=y_train, k_fold=8, save_space=True) # Perform 8-fold bagging
+        else:
+            custom_model.fit(X=x_train, y=y_train)
+    except ValueError:
+        return
     
     time2 = time.time()
 
