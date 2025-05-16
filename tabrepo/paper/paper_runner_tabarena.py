@@ -433,8 +433,9 @@ class PaperRunTabArena(PaperRun):
             "ExplainableBM",
             "NeuralNetTorch",
             "ExtraTrees",
-            "LinearModel",
-            "KNeighbors",
+
+            # "LinearModel",
+            # "KNeighbors",
 
             # "TabForestPFN",
 
