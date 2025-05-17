@@ -112,6 +112,15 @@ class ModernNCAMethod(Method):
                 self.N_test, self.C_test = N_test['test'], None
             # self.y_test = y_test['test']
 
+
+    def early_stop_due_to_timelimit(self, iteration: int) -> bool:
+        if iteration > 0 and self.args.time_to_fit_in_seconds is not None:
+            pred_time_after_next_epoch = (iteration + 1) / iteration * (time.time() - self._start_time)
+            if pred_time_after_next_epoch >= self.args.time_to_fit_in_seconds:
+                return True
+
+        return False
+
     def fit(self, data, info, train=True, config=None):
         N, C, y = data
         # if the method already fit the dataset, skip these steps (such as the hyper-tune process)
@@ -136,22 +145,20 @@ class ModernNCAMethod(Method):
         if not train:
             return
 
-        start_time = time.time()
+        self._start_time = time.time()
 
         time_cost = 0
         for epoch in range(self.args.max_epoch):
             # check time limit
-            if epoch > 0 and self.args.time_to_fit_in_seconds is not None:
-                pred_time_after_next_epoch = (epoch + 1) / epoch * (time.time() - start_time)
-                if pred_time_after_next_epoch >= self.args.time_to_fit_in_seconds:
-                    break
+            if self.early_stop_due_to_timelimit(iteration=epoch):
+                break
 
             tic = time.time()
             self.train_epoch(epoch)
             self.validate(epoch)
             elapsed = time.time() - tic
             time_cost += elapsed
-            print(f'Epoch: {epoch}, Time cost: {elapsed}')
+            print(f'Epoch: {epoch}, Time cost per epoch: {elapsed}')
             if not self.continue_training:
                 break
         torch.save(
@@ -240,6 +247,8 @@ class ModernNCAMethod(Method):
         tl = Averager()
         i = 0
         for batch_idx in make_random_batches(self.train_size, self.args.batch_size, self.args.device):
+            if self.early_stop_due_to_timelimit(iteration=i):
+                break
             self.train_step = self.train_step + 1
 
             X_num = self.N['train'][batch_idx] if self.N is not None else None
