@@ -248,6 +248,7 @@ class ModernNCAMethod(Method):
         i = 0
         for batch_idx in make_random_batches(self.train_size, self.args.batch_size, self.args.device):
             if self.early_stop_due_to_timelimit(iteration=i):
+                self.continue_training = False
                 break
             self.train_step = self.train_step + 1
 
