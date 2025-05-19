@@ -429,8 +429,8 @@ def zeroshot_results(
         #  current fold when filtering by runtime.
         # portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
 
-        if max_runtime is None:
-            max_runtime = default_runtime
+        # if max_runtime is None:
+        #     max_runtime = default_runtime
 
         ensemble_kwargs = {
             "max_models": max_models,
