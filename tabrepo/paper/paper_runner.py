@@ -90,34 +90,73 @@ class PaperRun:
             time_limit = 3600 * 4
             # FIXME: do multiple random seeds and average
             for family in model_types:
-                configs_family = config_type_groups[family]
-                df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="random", seed=0, ensemble_size=40, time_limit=time_limit, backend=self.backend,
+                df_results_family_hpo_ens = self.run_ensemble_config_type(
+                    config_type=family, fit_order="random", seed=0, n_iterations=40, time_limit=time_limit,
                 )
                 df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble) (4h)"
-                df_results_family_hpo, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="random", seed=0, ensemble_size=1, time_limit=time_limit, backend=self.backend,
+                df_results_family_hpo = self.run_ensemble_config_type(
+                    config_type=family, fit_order="random", seed=0, n_iterations=1, time_limit=time_limit,
                 )
                 df_results_family_hpo["framework"] = f"{family} (tuned) (4h)"
-                hpo_results_lst.append(df_results_family_hpo.reset_index())
-                hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
+                hpo_results_lst.append(df_results_family_hpo)
+                hpo_results_lst.append(df_results_family_hpo_ens)
 
         if include_uncapped:
             for family in model_types:
-                configs_family = config_type_groups[family]
-                df_results_family_hpo_ens, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="original", seed=0, ensemble_size=40, time_limit=None, backend=self.backend,
+                df_results_family_hpo_ens = self.run_ensemble_config_type(
+                    config_type=family, fit_order="original", seed=0, n_iterations=40, time_limit=None,
                 )
                 df_results_family_hpo_ens["framework"] = f"{family} (tuned + ensemble)"
-                df_results_family_hpo, _ = self.repo.evaluate_ensembles(
-                    configs=configs_family, fit_order="original", seed=0, ensemble_size=1, time_limit=None, backend=self.backend,
+
+                df_results_family_hpo = self.run_ensemble_config_type(
+                    config_type=family, fit_order="original", seed=0, n_iterations=1, time_limit=None,
                 )
                 df_results_family_hpo["framework"] = f"{family} (tuned)"
-                hpo_results_lst.append(df_results_family_hpo.reset_index())
-                hpo_results_lst.append(df_results_family_hpo_ens.reset_index())
+                hpo_results_lst.append(df_results_family_hpo)
+                hpo_results_lst.append(df_results_family_hpo_ens)
 
         df_results_hpo_all = pd.concat(hpo_results_lst, ignore_index=True)
         return df_results_hpo_all
+
+    def run_ensemble_config_type(
+        self,
+        config_type: str,
+        n_iterations: int,
+        time_limit: float | None = None,
+        fit_order: Literal["original", "random"] = "original",
+        seed: int = 0,
+    ) -> pd.DataFrame:
+        # FIXME: Don't recompute this each call, implement `self.repo.configs(config_types=[config_type])`
+        config_type_groups = self.get_config_type_groups(ban_families=False)
+        configs = config_type_groups[config_type]
+        df_results_family_hpo, _ = self.repo.evaluate_ensembles(
+            configs=configs,
+            fit_order=fit_order,
+            ensemble_size=n_iterations,
+            seed=seed,
+            time_limit=time_limit,
+            backend=self.backend,
+        )
+        df_results_family_hpo = df_results_family_hpo.reset_index()
+        df_results_family_hpo["method_type"] = "hpo"
+
+        if n_iterations == 1:
+            method_subtype = "tuned"
+        else:
+            method_subtype = "tuned_ensemble"
+        df_results_family_hpo["method_subtype"] = method_subtype
+        df_results_family_hpo["config_type"] = config_type
+
+        method_metadata = dict(
+            n_iterations=n_iterations,
+            time_limit=time_limit,
+            config_type=config_type,
+            fit_order=fit_order,
+        )
+
+        df_results_family_hpo["method_metadata"] = [method_metadata] * len(df_results_family_hpo)
+
+        return df_results_family_hpo
 
     def run_zs(
             self,
@@ -125,6 +164,7 @@ class PaperRun:
             n_ensemble: int = None,
             n_ensemble_in_name: bool = True,
             n_max_models_per_type: int | str | None = None,
+            time_limit: float | None = 14400,
             fix_fillna: bool = True,
             **kwargs,
     ) -> pd.DataFrame:
@@ -133,10 +173,12 @@ class PaperRun:
             n_ensemble=n_ensemble,
             n_ensemble_in_name=n_ensemble_in_name,
             n_max_models_per_type=n_max_models_per_type,
+            time_limit=time_limit,
             fix_fillna=fix_fillna,
             engine=self.engine,
             **kwargs,
         )
+        df_zeroshot_portfolio["method_type"] = "portfolio"
         # df_zeroshot_portfolio = self.evaluator.compare_metrics(results_df=df_zeroshot_portfolio, configs=[], baselines=[])
         return df_zeroshot_portfolio
 
@@ -161,10 +203,14 @@ class PaperRun:
         if not self.repo.baselines():
             return None
         df_results_baselines = self.evaluator.compare_metrics(configs=[]).reset_index()
+        df_results_baselines["method_type"] = "baseline"
         return df_results_baselines
 
     def run_configs(self) -> pd.DataFrame:
         df_results_configs = self.evaluator.compare_metrics(baselines=[], include_metric_error_val=True).reset_index()
+        df_results_configs["method_type"] = "config"
+        configs_types = self.repo.configs_type()
+        df_results_configs["config_type"] = df_results_configs["framework"].map(configs_types)
         return df_results_configs
 
     def run(self) -> pd.DataFrame:

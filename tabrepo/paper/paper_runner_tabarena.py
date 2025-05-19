@@ -129,7 +129,10 @@ class PaperRunTabArena(PaperRun):
                 n_ensemble=1,
                 fix_fillna=True,
                 configs=family_configs,
+                time_limit=None,
             )
+            df_single_best_portfolio_family["method_subtype"] = "best"
+            df_single_best_portfolio_family["config_type"] = family
             df_single_best_portfolio_family["framework"] = f"{family} (best)"
             df_single_best_portfolio_family_lst.append(df_single_best_portfolio_family)
 
@@ -562,7 +565,6 @@ class PaperRunTabArena(PaperRun):
                                         save_path=f"{self.output_dir}/figures/critical-diagram.png", show=False)
         tabarena.plot_critical_diagrams(results_per_task=results_per_task,
                                         save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
-
 
         try:
             import autogluon_benchmark

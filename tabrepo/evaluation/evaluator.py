@@ -382,7 +382,7 @@ class Evaluator:
         configs: list[str] | None = None,
         n_portfolios: int = 200,  # FIXME
         n_ensemble: int | None = None,
-        max_runtime: float | None = 14400,
+        time_limit: float | None = 14400,
         engine: str = "ray",
         rename_columns: bool = True,  # TODO: Align them automatically so this isn't needed
         n_ensemble_in_name: bool = True,
@@ -404,7 +404,7 @@ class Evaluator:
             dataset_names=repo.datasets(),
             n_portfolios=[n_portfolios],
             n_ensembles=[n_ensemble],
-            max_runtimes=[max_runtime],
+            max_runtimes=[time_limit],
             n_ensemble_in_name=n_ensemble_in_name,
             n_max_models_per_type=[n_max_models_per_type],
             rank_scorer=rank_scorer,
@@ -421,6 +421,7 @@ class Evaluator:
             df_zeroshot_portfolio = df_zeroshot_portfolio.rename(columns={
                 "test_error": "metric_error",
                 "method": "framework",
+                "metadata": "method_metadata",
             })
             datasets_info = repo.datasets_info()
 
