@@ -276,6 +276,9 @@ class PaperRunTabArena(PaperRun):
         baselines: list[str] | None = None,
         baseline_colors: list[str] | None = None,
         plot_tune_types: list[str] | None = None,
+        plot_times: bool = False,
+        plot_extra_barplots: bool = False,
+        plot_cdd: bool = True,
     ):
         if baselines is None:
             baselines = [
@@ -405,7 +408,8 @@ class PaperRunTabArena(PaperRun):
         df_results_unfiltered = copy.deepcopy(df_results)
 
         # FIXME: (Nick) Unsure which form of the df should go in here?
-        if only_datasets_for_method is not None:
+        # David H: doesn't matter since results are not relative to other methods in the df
+        if only_datasets_for_method is not None and plot_times:
             self.plot_tabarena_times(df=df_results_unfiltered, output_dir=self.output_dir,
                                      only_datasets_for_method=only_datasets_for_method, show=False)
 
@@ -422,7 +426,7 @@ class PaperRunTabArena(PaperRun):
 
         banned_model_types = self.banned_model_types or []
 
-        assert all(method in df_results_rank_compare["method"].map(f_map_type).unique() for method in (banned_model_types))
+        assert all(method in df_results_rank_compare["method"].map(f_map_type).unique() for method in banned_model_types)
         df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare["method"].map(f_map_type).isin(banned_model_types)]
         # also remove portfolio baselines except AutoGluon?
         df_results_rank_compare = df_results_rank_compare[(~df_results_rank_compare["method"].map(f_map_type).isna()) | (df_results_rank_compare["method"].isin(baselines))]
@@ -434,6 +438,15 @@ class PaperRunTabArena(PaperRun):
             df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("(best)")]
 
         print(f'{df_results_rank_compare["method"].unique().tolist()=}')
+
+        # recompute normalized errors (requires temporarily renaming "method" to "framework"
+        df_results_rank_compare = self.compute_normalized_error_dynamic(df_results_rank_compare.rename(columns={
+            method_col: "framework",
+        })).rename(columns={
+            "framework": method_col,
+        })
+
+        # ----- end removing unused methods -----
 
         hue_order_family_proportion = [
             "CatBoost",
@@ -463,9 +476,9 @@ class PaperRunTabArena(PaperRun):
         ]
 
         # FIXME: TODO (Nick): Move this to its own class for utility plots, no need to re-plot this in every eval call.
-        plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
-                               method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
-                               show=False)
+        # plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
+        #                        method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
+        #                        show=False)
 
         self.plot_tuning_impact(
             df=df_results_rank_compare,
@@ -475,26 +488,42 @@ class PaperRunTabArena(PaperRun):
             baselines=baselines,
             baseline_colors=baseline_colors,
             use_score=True,
-            name_suffix="-normscore-dataset",
+            name_suffix="-normscore-dataset-horizontal",
             imputed_names=imputed_names,
             plot_tune_types=plot_tune_types,
             show=False,
+            use_y=True
         )
 
-        self.plot_tuning_impact(
-            df=df_results_rank_compare,
-            framework_types=framework_types,
-            save_prefix=f"{self.output_dir}",
-            use_gmean=use_gmean,
-            baselines=baselines,
-            baseline_colors=baseline_colors,
-            use_score=True,
-            metric="normalized-error-task",
-            name_suffix="-normscore-task",
-            imputed_names=imputed_names,
-            plot_tune_types=plot_tune_types,
-            show=False,
-        )
+        if plot_extra_barplots:
+            self.plot_tuning_impact(
+                df=df_results_rank_compare,
+                framework_types=framework_types,
+                save_prefix=f"{self.output_dir}",
+                use_gmean=use_gmean,
+                baselines=baselines,
+                baseline_colors=baseline_colors,
+                use_score=True,
+                name_suffix="-normscore-dataset",
+                imputed_names=imputed_names,
+                plot_tune_types=plot_tune_types,
+                show=False,
+            )
+
+            self.plot_tuning_impact(
+                df=df_results_rank_compare,
+                framework_types=framework_types,
+                save_prefix=f"{self.output_dir}",
+                use_gmean=use_gmean,
+                baselines=baselines,
+                baseline_colors=baseline_colors,
+                use_score=True,
+                metric="normalized-error-task",
+                name_suffix="-normscore-task",
+                imputed_names=imputed_names,
+                plot_tune_types=plot_tune_types,
+                show=False,
+            )
 
         if only_norm_scores:
             return
@@ -559,20 +588,6 @@ class PaperRunTabArena(PaperRun):
             use_gmean=use_gmean,
             baselines=baselines,
             baseline_colors=baseline_colors,
-            name_suffix="-elo",
-            imputed_names=imputed_names,
-            plot_tune_types=plot_tune_types,
-            show=False
-        )
-
-        self.plot_tuning_impact(
-            df=df_results_rank_compare,
-            df_elo=leaderboard,
-            framework_types=framework_types,
-            save_prefix=f"{self.output_dir}",
-            use_gmean=use_gmean,
-            baselines=baselines,
-            baseline_colors=baseline_colors,
             name_suffix="-elo-horizontal",
             imputed_names=imputed_names,
             plot_tune_types=plot_tune_types,
@@ -580,12 +595,40 @@ class PaperRunTabArena(PaperRun):
             show=False
         )
 
+        if plot_extra_barplots:
+            self.plot_tuning_impact(
+                df=df_results_rank_compare,
+                df_elo=leaderboard,
+                framework_types=framework_types,
+                save_prefix=f"{self.output_dir}",
+                use_gmean=use_gmean,
+                baselines=baselines,
+                baseline_colors=baseline_colors,
+                name_suffix="-elo",
+                imputed_names=imputed_names,
+                plot_tune_types=plot_tune_types,
+                show=False
+            )
+
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare)
 
-        tabarena.plot_critical_diagrams(results_per_task=results_per_task,
-                                        save_path=f"{self.output_dir}/figures/critical-diagram.png", show=False)
-        tabarena.plot_critical_diagrams(results_per_task=results_per_task,
-                                        save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
+        print(f'{results_per_task.columns=}')
+
+        def rename_model(name: str):
+            parts = name.split(" ")
+            if parts[0] in f_map_type_name:
+                parts[0] = f_map_type_name[parts[0]]
+            name = " ".join(parts)
+            return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
+
+        results_te_per_task = results_per_task[results_per_task["method"].map(f_map_inverse).fillna("default") == 'tuned_ensembled']
+        results_te_per_task["method"] = results_te_per_task["method"].map(rename_model)
+
+        if plot_cdd:
+            # tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
+            #                                 save_path=f"{self.output_dir}/figures/critical-diagram.png", show=False)
+            tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
+                                            save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
 
         try:
             import autogluon_benchmark
@@ -821,20 +864,26 @@ class PaperRunTabArena(PaperRun):
 
         df_new = pd.DataFrame()
 
-        df_new["Model"] = df["method"].map(rename_model)
+        df_new[r"Model"] = df["method"].map(rename_model)
         # todo: how to get train + inference time per 1K samples?
         df_new[r"Elo ($\uparrow$)"] = [f'${round(elo)}' + r'_{' + f'-{math.ceil(elom)},+{math.ceil(elop)}' + r'}$'
                                        for elo, elom, elop in zip(df["elo"], df["elo-"], df["elo+"])]
-        df_new[r"Norm.\ score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
-        df_new[r"Avg.\ rank ($\downarrow$)"] = [f'{rank:4.1f}' for rank in df["rank"]]
+        df_new[r"Norm." + "\n" + r"score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
+        df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:4.1f}' for rank in df["rank"]]
         df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
-        df_new[r"Train time [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
-        df_new[r"Predict time [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
+        df_new[r"Train time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
+        df_new[r"Predict time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
 
         rows = []
-        rows.append(r'\begin{tabular}{' + 'lccccrr' + r'}')
+        rows.append(r'\begin{tabular}{' + 'llcccrr' + r'}')
         rows.append(r'\toprule')
-        rows.append(' & '.join(df_new.columns) + r' \\')
+        # rows.append(' & '.join(df_new.columns) + r' \\')
+
+        col_names_split = [col.split('\n') for col in df_new.columns]
+        n_rows_header = max([len(rows) for rows in col_names_split])
+        for row_idx in range(n_rows_header):
+            rows.append(' & '.join([r'\textbf{' + lst[row_idx] + r'}' if row_idx < len(lst) else ''
+                                    for lst in col_names_split]) + r' \\')
         rows.append(r'\midrule')
 
         for row_index, row in df_new.iterrows():

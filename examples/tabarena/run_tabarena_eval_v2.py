@@ -136,6 +136,18 @@ if __name__ == '__main__':
 
     print(f"Starting evaluations...")
 
+    plotter = PaperRunTabArena(
+        repo=None,
+        output_dir=eval_save_path / 'full-imputed-nobaselines',
+        datasets=None,
+        banned_model_types=None,
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
+    )
+    plotter.eval(df_results=df_results, imputed_names=['TabPFNv2', 'TabICL'],
+                 baselines=[],
+                 baseline_colors=[],
+                 only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
+
     # plots for sub-benchmarks, with and without imputation
     for use_tabpfn in [False, True]:
         for use_tabicl in [False, True]:
@@ -171,7 +183,8 @@ if __name__ == '__main__':
                     )
 
                 plotter.eval(df_results=df_results, imputed_names=imputed_models,
-                    only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
+                    only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
+                             plot_extra_barplots='full' in folder_name, plot_times='full' in folder_name)
 
 
     # plots for binary, regression, multiclass
@@ -230,6 +243,7 @@ if __name__ == '__main__':
             df_results=df_results_combined_holdout,
             imputed_names=['TabPFNv2', 'TabICL'],
             plot_tune_types=["holdout_tuned_ensembled", "tuned_ensembled"],
+            plot_cdd=False,
         )
 
     paper_w_portfolio = PaperRunTabArena(
@@ -251,7 +265,8 @@ if __name__ == '__main__':
         baseline_colors=[
             "black",
             "tab:purple",
-        ]
+        ],
+        plot_cdd=False,
     )
 
     # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)

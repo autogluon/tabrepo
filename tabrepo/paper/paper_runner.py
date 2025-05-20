@@ -6,6 +6,7 @@ from typing import Literal
 import matplotlib
 import numpy as np
 from matplotlib import ticker
+from matplotlib.container import BarContainer
 from tueplots import bundles, fonts, fontsizes, figsizes
 
 from examples.tabarena.nips2025_utils.fetch_metadata import load_task_metadata
@@ -724,6 +725,18 @@ class PaperRun:
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
+
+                # this doesn't work, it also removes the hatch from the actual bars in the plot
+                # for handle in handles:
+                #     patches = []
+                #     if isinstance(handle, Patch):
+                #         patches = [handle]
+                #     elif isinstance(handle, BarContainer):
+                #         patches = handle.patches
+                #     for patch in patches:
+                #         # remove hatch from existing handles
+                #         # It can be present if one of the imputed methods is the best method, e.g., for multiclass
+                #         patch.set(hatch=None)
 
                 if has_imputed:
                     # Create a custom legend patch for "imputed"
