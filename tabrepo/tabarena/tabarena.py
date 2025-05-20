@@ -505,7 +505,7 @@ class TabArena:
             from autorank._util import cd_diagram
             plt.rcParams.update({'font.size': 12})
 
-            fig = plt.figure(figsize=(10, 7))
+            fig = plt.figure(figsize=(10, 4))
             ax = fig.add_subplot(1, 1, 1)
 
             data = results_per_task.pivot_table(index=self.task_col, columns=self.method_col, values="rank")
@@ -513,10 +513,10 @@ class TabArena:
 
             ax = cd_diagram(result, reverse=reverse, ax=ax, width=6)
 
-            plt.tight_layout()
+            # plt.tight_layout()  # cuts off text
             if save_path is not None:
                 parent_dir = str(Path(save_path).parent)
                 os.makedirs(parent_dir, exist_ok=True)
-                plt.savefig(save_path)
+                plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
             if show:
                 plt.show()
