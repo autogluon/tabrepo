@@ -271,6 +271,7 @@ def check_cache_hit(
     cache_cls_kwargs: dict | None = None,
     mode: Literal["local", "s3"],
     s3_bucket: str | None = None,
+    delete_cache: bool = False,
 ) -> bool:
     """Returns true if cache exists for the given experiment."""
     base_cache_path = result_dir if mode == "local" else f"s3://{s3_bucket}/{result_dir}"
@@ -290,6 +291,11 @@ def check_cache_hit(
     cache_path = f"{base_cache_path}/{cache_prefix}"
 
     cacher = cache_cls(cache_name=cache_name, cache_path=cache_path, **cache_cls_kwargs)
+
+    if delete_cache:
+        from pathlib import Path
+        Path(cacher.cache_file).unlink(missing_ok=True)
+
     return cacher.exists
 
 
