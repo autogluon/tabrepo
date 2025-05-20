@@ -174,84 +174,84 @@ if __name__ == '__main__':
                     only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl})
 
 
-    # # plots for binary, regression, multiclass
-    # problem_types = ["binary", "regression", "multiclass"]
-    # for problem_type in problem_types:
-    #     eval_save_path_problem_type = eval_save_path / problem_type
-    #     paper_run_problem_type = PaperRunTabArena(
-    #         repo=None,
-    #         output_dir=eval_save_path_problem_type,
-    #         problem_types=[problem_type],
-    #         elo_bootstrap_rounds=elo_bootstrap_rounds,
-    #         # banned_model_types=[
-    #         #     "TABPFNV2",
-    #         #     "TABICL",
-    #         # ],
-    #     )
-    #     paper_run_problem_type.eval(
-    #         df_results=df_results,
-    #         imputed_names=['TabPFNv2', 'TabICL'],
-    #     )
-    #
-    # if with_holdout:
-    #     df_results_holdout["framework"] = [rename_func(f) for f in df_results_holdout["framework"]]
-    #
-    #     df_results_combined_holdout = pd.concat([df_results, df_results_holdout], ignore_index=True)
-    #     df_results_combined_holdout = df_results_combined_holdout.drop_duplicates(subset=[
-    #         "dataset",
-    #         "fold",
-    #         "framework",
-    #         "seed",
-    #     ], ignore_index=True)
-    #     df_results_combined_holdout = df_results_combined_holdout[~df_results_combined_holdout["framework"].isin(banned_methods)]
-    #
-    #     # must recalculate normalized error after concat
-    #     df_results_combined_holdout = PaperRunTabArena.compute_normalized_error_dynamic(df_results=df_results_combined_holdout)
-    #
-    #     from autogluon.common.savers import save_pd
-    #     from autogluon.common.loaders import load_pd
-    #     save_pd.save(df=df_results_combined_holdout, path=f"{context_name}/data/df_results_combined_holdout.parquet")
-    #     df_results_combined_holdout = load_pd.load(path=f"{context_name}/data/df_results_combined_holdout.parquet")
-    #
-    #     paper_w_holdout = PaperRunTabArena(
-    #         repo=None,
-    #         output_dir=eval_save_path_w_holdout,
-    #         elo_bootstrap_rounds=elo_bootstrap_rounds,
-    #         banned_model_types=[
-    #             "TABPFNV2",
-    #             "TABICL",
-    #             "TABDPT",
-    #             "KNN",
-    #         ],
-    #     )
-    #
-    #     # TODO: Add logic to specify baselines for holdout, generate separate plots for holdout comparisons
-    #     paper_w_holdout.eval(
-    #         df_results=df_results_combined_holdout,
-    #         imputed_names=['TabPFNv2', 'TabICL'],
-    #         plot_tune_types=["holdout_tuned_ensembled", "tuned_ensembled"],
-    #     )
-    #
-    # paper_w_portfolio = PaperRunTabArena(
-    #     repo=None,
-    #     output_dir=eval_save_path_w_portfolio,
-    #     elo_bootstrap_rounds=elo_bootstrap_rounds,
-    #     banned_model_types=[
-    #         "TABPFNV2",
-    #         "TABICL",
-    #     ],
-    # )
-    #
-    # paper_w_portfolio.eval(
-    #     df_results=df_results,
-    #     baselines=[
-    #         "AutoGluon 1.3 (4h)",
-    #         "Portfolio-N200 (ensemble) (4h)",
-    #     ],
-    #     baseline_colors=[
-    #         "black",
-    #         "tab:purple",
-    #     ]
-    # )
+    # plots for binary, regression, multiclass
+    problem_types = ["binary", "regression", "multiclass"]
+    for problem_type in problem_types:
+        eval_save_path_problem_type = eval_save_path / problem_type
+        paper_run_problem_type = PaperRunTabArena(
+            repo=None,
+            output_dir=eval_save_path_problem_type,
+            problem_types=[problem_type],
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+            # banned_model_types=[
+            #     "TABPFNV2",
+            #     "TABICL",
+            # ],
+        )
+        paper_run_problem_type.eval(
+            df_results=df_results,
+            imputed_names=['TabPFNv2', 'TabICL'],
+        )
+
+    if with_holdout:
+        df_results_holdout["framework"] = [rename_func(f) for f in df_results_holdout["framework"]]
+
+        df_results_combined_holdout = pd.concat([df_results, df_results_holdout], ignore_index=True)
+        df_results_combined_holdout = df_results_combined_holdout.drop_duplicates(subset=[
+            "dataset",
+            "fold",
+            "framework",
+            "seed",
+        ], ignore_index=True)
+        df_results_combined_holdout = df_results_combined_holdout[~df_results_combined_holdout["framework"].isin(banned_methods)]
+
+        # must recalculate normalized error after concat
+        df_results_combined_holdout = PaperRunTabArena.compute_normalized_error_dynamic(df_results=df_results_combined_holdout)
+
+        from autogluon.common.savers import save_pd
+        from autogluon.common.loaders import load_pd
+        save_pd.save(df=df_results_combined_holdout, path=f"{context_name}/data/df_results_combined_holdout.parquet")
+        df_results_combined_holdout = load_pd.load(path=f"{context_name}/data/df_results_combined_holdout.parquet")
+
+        paper_w_holdout = PaperRunTabArena(
+            repo=None,
+            output_dir=eval_save_path_w_holdout,
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+            banned_model_types=[
+                "TABPFNV2",
+                "TABICL",
+                "TABDPT",
+                "KNN",
+            ],
+        )
+
+        # TODO: Add logic to specify baselines for holdout, generate separate plots for holdout comparisons
+        paper_w_holdout.eval(
+            df_results=df_results_combined_holdout,
+            imputed_names=['TabPFNv2', 'TabICL'],
+            plot_tune_types=["holdout_tuned_ensembled", "tuned_ensembled"],
+        )
+
+    paper_w_portfolio = PaperRunTabArena(
+        repo=None,
+        output_dir=eval_save_path_w_portfolio,
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
+        banned_model_types=[
+            "TABPFNV2",
+            "TABICL",
+        ],
+    )
+
+    paper_w_portfolio.eval(
+        df_results=df_results,
+        baselines=[
+            "AutoGluon 1.3 (4h)",
+            "Portfolio-N200 (ensemble) (4h)",
+        ],
+        baseline_colors=[
+            "black",
+            "tab:purple",
+        ]
+    )
 
     # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)
