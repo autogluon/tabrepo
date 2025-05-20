@@ -16,6 +16,7 @@ extras_require = {
     ],
     "tabpfn": [
         "tabpfn>=2.0.9",  # We used version 2.0.9
+        "kditransform",
     ],
     "tabicl": [
         "tabicl>=0.1.1",
