@@ -527,6 +527,7 @@ class PaperRunTabArena(PaperRun):
         leaderboard = tabarena.leaderboard(
             data=df_results_rank_compare,
             # data=df_results_rank_compare3,
+            include_winrate=True,
             include_mrr=True,
             # include_failure_counts=True,
             include_rank_counts=True,
@@ -591,8 +592,11 @@ class PaperRunTabArena(PaperRun):
         except:
             print(f"WARNING: autogluon_benchmark failed to import... skipping extra figure generation")
         else:
+            results_per_task_ag_benchmark = results_per_task.rename(columns={
+                "champ_delta": "bestdiff",
+            })
             self.run_autogluon_benchmark_logic(
-                results_per_task=results_per_task,
+                results_per_task=results_per_task_ag_benchmark,
                 elo_map=elo_map,
                 tabarena=tabarena,
                 calibration_framework=calibration_framework,

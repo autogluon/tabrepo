@@ -15,10 +15,12 @@ from tabrepo.tabarena.elo_utils import EloHelper
 RANK = "rank"
 ERROR_COUNT = "error_count"
 RANK_1 = "rank=1_count"
-BESTDIFF = "bestdiff"
+CHAMP_DELTA = "champ_delta"
 LOSS_RESCALED = "loss_rescaled"
 TIME_TRAIN_S = "time_train_s"
 TIME_INFER_S = "time_infer_s"
+BEST_ERROR = "BEST_ERROR"
+WORST_ERROR = "WORST_ERROR"
 
 
 # TODO: Should "data" be an init arg? Probably not.
@@ -59,6 +61,8 @@ class TabArena:
         self,
         data: pd.DataFrame,
         include_error: bool = False,
+        include_champ_delta: bool = True,
+        include_rescaled_loss: bool = True,
         include_rank_counts: bool = False,
         include_failure_counts: bool = False,
         include_elo: bool = False,
@@ -123,7 +127,10 @@ class TabArena:
 
         if not include_error:
             results = results.drop(columns=[self.error_col])
-
+        if not include_rescaled_loss:
+            results = results.drop(columns=[LOSS_RESCALED])
+        if not include_champ_delta:
+            results = results.drop(columns=[CHAMP_DELTA])
         if sort_by is not None:
             results = results.sort_values(by=sort_by)
         results.index.name = self.method_col
@@ -295,39 +302,57 @@ class TabArena:
     def compute_results_per_task(self, data: pd.DataFrame) -> pd.DataFrame:
         groupby_cols = self.groupby_columns
         columns_to_agg = self.columns_to_agg
-        results_agg = data[groupby_cols + columns_to_agg].groupby(groupby_cols).mean().reset_index()
+        results_per_task = data[groupby_cols + columns_to_agg].groupby(groupby_cols).mean().reset_index()
 
-        worst_scores = results_agg.sort_values(self.error_col, ascending=False).drop_duplicates(self.task_col)
-        worst_scores = worst_scores[[self.task_col, self.error_col]]
-        worst_scores.columns = [self.task_col, "WORST_ERROR"]
-        best_scores = results_agg.sort_values(self.error_col, ascending=True).drop_duplicates(self.task_col)
-        best_scores = best_scores[[self.task_col, self.error_col]]
-        best_scores.columns = [self.task_col, "BEST_ERROR"]
+        best_error_per_task, worst_error_per_task = self.compute_best_and_worst_error_per_task(results_per_task=results_per_task)
 
-        results_agg = results_agg.merge(best_scores, on=self.task_col)
-        results_agg = results_agg.merge(worst_scores, on=self.task_col)
-        results_agg[BESTDIFF] = 1 - (results_agg["BEST_ERROR"] / results_agg[self.error_col])
-        results_agg[LOSS_RESCALED] = (results_agg[self.error_col] - results_agg["BEST_ERROR"]) / (
-                results_agg["WORST_ERROR"] - results_agg["BEST_ERROR"]
+        results_per_task[BEST_ERROR] = results_per_task[self.task_col].map(best_error_per_task)
+        results_per_task[WORST_ERROR] = results_per_task[self.task_col].map(worst_error_per_task)
+
+        results_per_task[CHAMP_DELTA] = 1 - (results_per_task[BEST_ERROR] / results_per_task[self.error_col])
+        results_per_task[CHAMP_DELTA] = results_per_task[CHAMP_DELTA].fillna(0)
+
+        results_per_task[LOSS_RESCALED] = (results_per_task[self.error_col] - results_per_task[BEST_ERROR]) / (
+                results_per_task[WORST_ERROR] - results_per_task[BEST_ERROR]
         )
-        results_agg[BESTDIFF] = results_agg[BESTDIFF].fillna(0)
-        results_agg[LOSS_RESCALED] = results_agg[LOSS_RESCALED].fillna(0)
-        results_agg = results_agg.drop(["BEST_ERROR"], axis=1)
-        results_agg = results_agg.drop(["WORST_ERROR"], axis=1)
+        results_per_task[LOSS_RESCALED] = results_per_task[LOSS_RESCALED].fillna(0)
+        results_per_task = results_per_task.drop([BEST_ERROR, WORST_ERROR], axis=1)
 
         for time_attr in [TIME_TRAIN_S, TIME_INFER_S]:
             if time_attr in columns_to_agg:
                 best_time_attr = "BEST_" + time_attr
                 best_speed = (
-                    results_agg[[self.task_col, time_attr]].sort_values(time_attr, ascending=True).drop_duplicates(self.task_col)
+                    results_per_task[[self.task_col, time_attr]].sort_values(time_attr, ascending=True).drop_duplicates(self.task_col)
                 )
                 best_speed.columns = [self.task_col, best_time_attr]
-                results_agg = results_agg.merge(best_speed, on=self.task_col)
-                results_agg[time_attr + "_rescaled"] = results_agg[time_attr] / results_agg[best_time_attr]
-                results_agg = results_agg.drop([best_time_attr], axis=1)
+                results_per_task = results_per_task.merge(best_speed, on=self.task_col)
+                results_per_task[time_attr + "_rescaled"] = results_per_task[time_attr] / results_per_task[best_time_attr]
+                results_per_task = results_per_task.drop([best_time_attr], axis=1)
 
-        results_ranked_by_dataset = self.rank_result(results_agg)
-        return results_ranked_by_dataset
+        results_per_task = self.rank_result(results_per_task)
+        return results_per_task
+
+    def compute_best_and_worst_error_per_task(self, results_per_task: pd.DataFrame) -> tuple[dict[str, float], dict[str, float]]:
+        """
+
+        Parameters
+        ----------
+        results_per_task: pd.DataFrame
+
+        Returns
+        -------
+        best_error_per_task: dict[str, float]
+            Mapping of task to error, where error is the lowest (best) error value of all methods in `results_per_task`.
+        worst_error_per_task: dict[str, float]
+            Mapping of task to error, where error is the highest (worst) error value of all methods in `results_per_task`.
+        """
+        best_error_per_task = results_per_task[[self.task_col, self.error_col]].sort_values(
+            self.error_col, ascending=True,
+        ).drop_duplicates(self.task_col).set_index(self.task_col)[self.error_col].to_dict()
+        worst_error_per_task = results_per_task[[self.task_col, self.error_col]].sort_values(
+            self.error_col, ascending=False,
+        ).drop_duplicates(self.task_col).set_index(self.task_col)[self.error_col].to_dict()
+        return best_error_per_task, worst_error_per_task
 
     def aggregate(self, results_by_dataset: pd.DataFrame) -> pd.DataFrame:
         print(f'{results_by_dataset[self.task_col]=}')
