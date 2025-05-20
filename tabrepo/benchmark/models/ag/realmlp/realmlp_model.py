@@ -55,8 +55,13 @@ class RealMLPModel(AbstractModel):
         num_gpus: float = 0,
         **kwargs,
     ):
-        if num_gpus > 0:
-            logger.log(30, f"WARNING: GPUs are not yet implemented for RealMLP model, but `num_gpus={num_gpus}` was specified... Ignoring GPU.")
+        import torch
+        device = "cpu" if num_gpus == 0 else "cuda"
+        if (device == "cuda") and (not torch.cuda.is_available()):
+            raise AssertionError(
+                "Fit specified to use GPU, but CUDA is not available on this machine. "
+                "Please switch to CPU usage instead.",
+            )
 
         hyp = self._get_model_params()
 
@@ -100,10 +105,9 @@ class RealMLPModel(AbstractModel):
         impute_bool = hyp.pop("impute_bool", True)
         name_categories = hyp.pop("name_categories", True)
 
-        # TODO: GPU
         self.model = model_cls(
             n_threads=num_cpus,
-            device="cpu",
+            device="cuda:0",  # FIXME: code assume we only see one GPU in the fit process.
             **init_kwargs,
             **hyp,
         )
@@ -204,9 +208,10 @@ class RealMLPModel(AbstractModel):
         return self.eval_metric
 
     def _get_default_resources(self) -> tuple[int, int]:
+        import torch
         # logical=False is faster in training
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = 0  # TODO: Test GPU support
+        num_gpus = 1 if torch.cuda.is_available() else 0
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
