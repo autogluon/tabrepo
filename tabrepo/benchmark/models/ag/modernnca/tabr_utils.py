@@ -1,20 +1,17 @@
-import torch
-import torch.nn as nn
-from typing import Optional, Union
-import math
-import statistics
-from functools import partial
-from typing import Any, Callable, Optional, Union, cast
-from torch import Tensor
-from torch.nn.parameter import Parameter
+from __future__ import annotations
+
 import math
 
+import numpy as np
+import torch
+from torch import Tensor, nn
+from torch.nn.parameter import Parameter
 
 # from https://github.com/LAMDA-Tabular/TALENT/blob/cb6cb0cc9d69ac75c467e8dae8ca5ac3d3beb2f2/TALENT/model/lib/tabr/utils.py#L1
 
 
 # adapted from https://github.com/yandex-research/tabular-dl-tabr
-def _initialize_embeddings(weight: Tensor, d: Optional[int]) -> None:
+def _initialize_embeddings(weight: Tensor, d: int | None) -> None:
     if d is None:
         d = weight.shape[-1]
     d_sqrt_inv = 1 / math.sqrt(d)
@@ -40,18 +37,18 @@ class CLSEmbedding(nn.Module):
 
 class ResNet(nn.Module):
     def __init__(
-            self,
-            *,
-            d_in: None | int = None,
-            d_out: None | int = None,
-            n_blocks: int,
-            d_block: int,
-            dropout: float,
-            d_hidden_multiplier: float | int,
-            n_linear_layers_per_block: int = 2,
-            activation: str = 'ReLU',
-            normalization: str,
-            first_normalization: bool,
+        self,
+        *,
+        d_in: None | int = None,
+        d_out: None | int = None,
+        n_blocks: int,
+        d_block: int,
+        dropout: float,
+        d_hidden_multiplier: float | int,
+        n_linear_layers_per_block: int = 2,
+        activation: str = "ReLU",
+        normalization: str,
+        first_normalization: bool,
     ) -> None:
         assert n_linear_layers_per_block in (1, 2)
         if n_linear_layers_per_block == 1:
@@ -59,9 +56,7 @@ class ResNet(nn.Module):
         super().__init__()
 
         Activation = getattr(nn, activation)
-        Normalization = (
-            Identity if normalization == 'none' else getattr(nn, normalization)
-        )
+        Normalization = Identity if normalization == "none" else getattr(nn, normalization)
         d_hidden = int(d_block * d_hidden_multiplier)
 
         self.proj = None if d_in is None else nn.Linear(d_in, d_block)
@@ -69,21 +64,13 @@ class ResNet(nn.Module):
             [
                 nn.Sequential(
                     Normalization(d_block) if first_normalization else Identity(),
-                    (
-                        nn.Linear(d_block, d_hidden)
-                        if n_linear_layers_per_block == 2
-                        else nn.Linear(d_block, d_block)
-                    ),
+                    (nn.Linear(d_block, d_hidden) if n_linear_layers_per_block == 2 else nn.Linear(d_block, d_block)),
                     Activation(),
                     nn.Dropout(dropout),
-                    (
-                        nn.Linear(d_hidden, d_block)
-                        if n_linear_layers_per_block == 2
-                        else Identity()
-                    ),
+                    (nn.Linear(d_hidden, d_block) if n_linear_layers_per_block == 2 else Identity()),
                 )
                 for _ in range(n_blocks)
-            ]
+            ],
         )
         self.preoutput = nn.Sequential(Normalization(d_block), Activation())
         self.output = None if d_out is None else nn.Linear(d_block, d_out)
@@ -121,23 +108,29 @@ class LinearEmbeddings(nn.Module):
 
 class PeriodicEmbeddings(nn.Module):
     def __init__(
-            self, n_features: int, n_frequencies: int, frequency_scale: float
+        self,
+        n_features: int,
+        n_frequencies: int,
+        frequency_scale: float,
     ) -> None:
         super().__init__()
         self.frequencies = Parameter(
-            torch.normal(0.0, frequency_scale, (n_features, n_frequencies))
+            torch.normal(0.0, frequency_scale, (n_features, n_frequencies)),
         )
 
     def forward(self, x: Tensor) -> Tensor:
         assert x.ndim == 2
         x = 2 * torch.pi * self.frequencies[None] * x[..., None]
-        x = torch.cat([torch.cos(x), torch.sin(x)], -1)
-        return x
+        return torch.cat([torch.cos(x), torch.sin(x)], -1)
 
 
 class NLinear(nn.Module):
     def __init__(
-            self, n_features: int, d_in: int, d_out: int, bias: bool = True
+        self,
+        n_features: int,
+        d_in: int,
+        d_out: int,
+        bias: bool = True,
     ) -> None:
         super().__init__()
         self.weight = Parameter(Tensor(n_features, d_in, d_out))
@@ -159,7 +152,7 @@ class NLinear(nn.Module):
 
 
 class LREmbeddings(nn.Sequential):
-    """The LR embeddings from the paper 'On Embeddings for Numerical Features in Tabular Deep Learning'."""  # noqa: E501
+    """The LR embeddings from the paper 'On Embeddings for Numerical Features in Tabular Deep Learning'."""
 
     def __init__(self, n_features: int, d_embedding: int) -> None:
         super().__init__(LinearEmbeddings(n_features, d_embedding), nn.ReLU())
@@ -171,15 +164,15 @@ class PLREmbeddings(nn.Sequential):
     Additionally, the 'lite' option is added. Setting it to `False` gives you the original PLR
     embedding from the above paper. We noticed that `lite=True` makes the embeddings
     noticeably more lightweight without critical performance loss, and we used that for our model.
-    """  # noqa: E501
+    """
 
     def __init__(
-            self,
-            n_features: int,
-            n_frequencies: int,
-            frequency_scale: float,
-            d_embedding: int,
-            lite: bool,
+        self,
+        n_features: int,
+        n_frequencies: int,
+        frequency_scale: float,
+        d_embedding: int,
+        lite: bool,
     ) -> None:
         super().__init__(
             PeriodicEmbeddings(n_features, n_frequencies, frequency_scale),
@@ -192,23 +185,24 @@ class PLREmbeddings(nn.Sequential):
         )
 
 
-import numpy as np
-
-
 class PBLDEmbeddings(nn.Module):
-    def __init__(self, n_features: int,
-                 n_frequencies: int,
-                 frequency_scale: float,
-                 d_embedding: int,
-                 lite: bool,
-                 plr_act_name: str = 'relu',
-                 plr_use_densenet: bool = True):
+    def __init__(
+        self,
+        n_features: int,
+        n_frequencies: int,
+        frequency_scale: float,
+        d_embedding: int,
+        lite: bool,
+        plr_act_name: str = "relu",
+        plr_use_densenet: bool = True,
+    ):
         super().__init__()
-        print(f'Constructing PBLD embeddings')
+        print("Constructing PBLD embeddings")
         hidden_2 = d_embedding - 1 if plr_use_densenet else d_embedding
         self.weight_1 = nn.Parameter(frequency_scale * torch.randn(n_features, 1, n_frequencies))
-        self.weight_2 = nn.Parameter((-1 + 2 * torch.rand(n_features, n_frequencies, hidden_2))
-                                     / np.sqrt(n_frequencies))
+        self.weight_2 = nn.Parameter(
+            (-1 + 2 * torch.rand(n_features, n_frequencies, hidden_2)) / np.sqrt(n_frequencies),
+        )
         self.bias_1 = nn.Parameter(np.pi * (-1 + 2 * torch.rand(n_features, 1, n_frequencies)))
         self.bias_2 = nn.Parameter((-1 + 2 * torch.rand(n_features, 1, hidden_2)) / np.sqrt(n_frequencies))
         self.plr_act_name = plr_act_name
@@ -226,9 +220,9 @@ class PBLDEmbeddings(nn.Module):
         x = torch.cos(x)
         x = x.matmul(self.weight_2)  # matmul is automatically batched
         x = x + self.bias_2
-        if self.plr_act_name == 'relu':
+        if self.plr_act_name == "relu":
             x = torch.relu(x)
-        elif self.plr_act_name == 'linear':
+        elif self.plr_act_name == "linear":
             pass
         else:
             raise ValueError(f'Unknown plr_act_name "{self.plr_act_name}"')
@@ -303,16 +297,17 @@ class PBLDEmbeddings(nn.Module):
 #             x = self.head(x)
 #         return x
 
+
 class MLP(nn.Module):
     def __init__(
-            self,
-            *,
-            d_in: None | int = None,
-            d_out: None | int = None,
-            n_blocks: int,
-            d_block: int,
-            dropout: float,
-            activation: str = 'SELU',
+        self,
+        *,
+        d_in: None | int = None,
+        d_out: None | int = None,
+        n_blocks: int,
+        d_block: int,
+        dropout: float,
+        activation: str = "SELU",
     ) -> None:
         super().__init__()
 
@@ -325,7 +320,7 @@ class MLP(nn.Module):
                     nn.Dropout(dropout),
                 )
                 for i in range(n_blocks)
-            ]
+            ],
         )
         self.output = None if d_out is None else nn.Linear(d_block, d_out)
 
@@ -350,12 +345,11 @@ _CUSTOM_MODULES = {
 
 
 def make_module(spec, *args, **kwargs) -> nn.Module:
-    """
-    >>> make_module('ReLU')
+    """>>> make_module('ReLU')
     >>> make_module(nn.ReLU)
     >>> make_module('Linear', 1, out_features=2)
     >>> make_module((lambda *args: nn.Linear(*args)), 1, out_features=2)
-    >>> make_module({'type': 'Linear', 'in_features' 1}, out_features=2)
+    >>> make_module({'type': 'Linear', 'in_features' 1}, out_features=2).
     """
     if isinstance(spec, str):
         Module = getattr(nn, spec, None)
@@ -364,14 +358,13 @@ def make_module(spec, *args, **kwargs) -> nn.Module:
         else:
             assert spec not in _CUSTOM_MODULES
         return make_module(Module, *args, **kwargs)
-    elif isinstance(spec, dict):
+    if isinstance(spec, dict):
         assert not (set(spec) & set(kwargs))
         spec = spec.copy()
-        return make_module(spec.pop('type'), *args, **spec, **kwargs)
-    elif callable(spec):
+        return make_module(spec.pop("type"), *args, **spec, **kwargs)
+    if callable(spec):
         return spec(*args, **kwargs)
-    else:
-        raise ValueError()
+    raise ValueError()
 
 
 def make_module1(type: str, *args, **kwargs) -> nn.Module:

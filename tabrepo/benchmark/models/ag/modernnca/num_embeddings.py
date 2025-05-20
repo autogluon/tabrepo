@@ -1,67 +1,64 @@
+from __future__ import annotations
+
 import math
 import warnings
-from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Union
-from torch import Tensor
-from torch.nn.parameter import Parameter
-import torch.nn as nn
+from typing import Any
+
 import torch
+from torch import Tensor, nn
 
 try:
     import sklearn.tree as sklearn_tree
 except ImportError:
     sklearn_tree = None
 
+
 # from https://github.com/LAMDA-Tabular/TALENT/blob/cb6cb0cc9d69ac75c467e8dae8ca5ac3d3beb2f2/TALENT/model/lib/num_embeddings.py#L1
 
 
-def _check_bins(bins: List[Tensor]) -> None:
+def _check_bins(bins: list[Tensor]) -> None:
     if not bins:
-        raise ValueError('The list of bins must not be empty')
+        raise ValueError("The list of bins must not be empty")
     for i, feature_bins in enumerate(bins):
         if not isinstance(feature_bins, Tensor):
             raise ValueError(
-                'bins must be a list of PyTorch tensors. '
-                f'However, for {i=}: {type(bins[i])=}'
+                f"bins must be a list of PyTorch tensors. However, for {i=}: {type(feature_bins)=}",
             )
         if feature_bins.ndim != 1:
             raise ValueError(
-                'Each item of the bin list must have exactly one dimension.'
-                f' However, for {i=}: {bins[i].ndim=}'
+                f"Each item of the bin list must have exactly one dimension. However, for {i=}: {feature_bins.ndim=}",
             )
         if len(feature_bins) < 2:
             raise ValueError(
-                'All features must have at least two bin edges.'
-                f' However, for {i=}: {len(bins[i])=}'
+                f"All features must have at least two bin edges. However, for {i=}: {len(feature_bins)=}",
             )
         if not feature_bins.isfinite().all():
             raise ValueError(
-                'Bin edges must not contain nan/inf/-inf.'
-                f' However, this is not true for the {i}-th feature'
+                f"Bin edges must not contain nan/inf/-inf. However, this is not true for the {i}-th feature",
             )
         if (feature_bins[:-1] >= feature_bins[1:]).any():
             raise ValueError(
-                'Bin edges must be sorted.'
-                f' However, the for the {i}-th feature, the bin edges are not sorted'
+                f"Bin edges must be sorted. However, the for the {i}-th feature, the bin edges are not sorted",
             )
         if len(feature_bins) == 2:
             warnings.warn(
-                f'The {i}-th feature has just two bin edges, which means only one bin.'
-                ' Strictly speaking, using a single bin for the'
-                ' piecewise-linear encoding should not break anything,'
-                ' but it is the same as using sklearn.preprocessing.MinMaxScaler'
+                f"The {i}-th feature has just two bin edges, which means only one bin."
+                " Strictly speaking, using a single bin for the"
+                " piecewise-linear encoding should not break anything,"
+                " but it is the same as using sklearn.preprocessing.MinMaxScaler",
+                stacklevel=2,
             )
 
 
 def compute_bins(
-        X: torch.Tensor,
-        n_bins: int = 48,
-        *,
-        tree_kwargs: Optional[Dict[str, Any]] = None,
-        y: Optional[Tensor] = None,
-        regression: Optional[bool] = None,
-        verbose: bool = False,
-) -> List[Tensor]:
+    X: torch.Tensor,
+    n_bins: int = 48,
+    *,
+    tree_kwargs: dict[str, Any] | None = None,
+    y: Tensor | None = None,
+    regression: bool | None = None,
+    verbose: bool = False,
+) -> list[Tensor]:
     # Source: https://github.com/yandex-research/rtdl-num-embeddings/blob/main/package/rtdl_num_embeddings.py
     """Compute bin edges for `PiecewiseLinearEmbeddings`.
 
@@ -95,6 +92,7 @@ def compute_bins(
             (must be provided if ``tree`` is not None).
         verbose: if True and ``tree_kwargs`` is not None, than ``tqdm``
             (must be installed) will report the progress while fitting trees.
+
     Returns:
         A list of bin edges for all features. For one feature:
 
@@ -102,31 +100,29 @@ def compute_bins(
         - the minumum possible number of bin edges is ``1``.
     """
     if not isinstance(X, Tensor):
-        raise ValueError(f'X must be a PyTorch tensor, however: {type(X)=}')
+        raise ValueError(f"X must be a PyTorch tensor, however: {type(X)=}")
     if X.ndim != 2:
-        raise ValueError(f'X must have exactly two dimensions, however: {X.ndim=}')
+        raise ValueError(f"X must have exactly two dimensions, however: {X.ndim=}")
     if X.shape[0] < 2:
-        raise ValueError(f'X must have at least two rows, however: {X.shape[0]=}')
+        raise ValueError(f"X must have at least two rows, however: {X.shape[0]=}")
     if X.shape[1] < 1:
-        raise ValueError(f'X must have at least one column, however: {X.shape[1]=}')
+        raise ValueError(f"X must have at least one column, however: {X.shape[1]=}")
     if not X.isfinite().all():
-        raise ValueError('X must not contain nan/inf/-inf.')
-    if (X == X[0]).all(dim=0).any():
+        raise ValueError("X must not contain nan/inf/-inf.")
+    if (X[0] == X).all(dim=0).any():
         raise ValueError(
-            'All columns of X must have at least two distinct values.'
-            ' However, X contains columns with just one distinct value.'
+            "All columns of X must have at least two distinct values."
+            " However, X contains columns with just one distinct value.",
         )
     if n_bins <= 1 or n_bins >= len(X):
         raise ValueError(
-            'n_bins must be more than 1, but less than len(X), however:'
-            f' {n_bins=}, {len(X)=}'
+            f"n_bins must be more than 1, but less than len(X), however: {n_bins=}, {len(X)=}",
         )
 
     if tree_kwargs is None:
         if y is not None or regression is not None or verbose:
             raise ValueError(
-                'If tree_kwargs is None, then y must be None, regression must be None'
-                ' and verbose must be False'
+                "If tree_kwargs is None, then y must be None, regression must be None and verbose must be False",
             )
 
         # NOTE[DIFF]
@@ -147,73 +143,73 @@ def compute_bins(
         bins = [
             q.unique()
             for q in torch.quantile(
-                X, torch.linspace(0.0, 1.0, n_bins + 1).to(X), dim=0
+                X,
+                torch.linspace(0.0, 1.0, n_bins + 1).to(X),
+                dim=0,
             ).T
         ]
         _check_bins(bins)
         return bins
+    if sklearn_tree is None:
+        raise RuntimeError(
+            "The scikit-learn package is missing. See README.md for installation instructions",
+        )
+    if y is None or regression is None:
+        raise ValueError(
+            "If tree_kwargs is not None, then y and regression must not be None",
+        )
+    if y.ndim != 1:
+        raise ValueError(f"y must have exactly one dimension, however: {y.ndim=}")
+    if len(y) != len(X):
+        raise ValueError(
+            f"len(y) must be equal to len(X), however: {len(y)=}, {len(X)=}",
+        )
+    if y is None or regression is None:
+        raise ValueError(
+            "If tree_kwargs is not None, then y and regression must not be None",
+        )
+    if "max_leaf_nodes" in tree_kwargs:
+        raise ValueError(
+            'tree_kwargs must not contain the key "max_leaf_nodes" (it will be set to n_bins automatically).',
+        )
+
+    if verbose:
+        from tqdm import tqdm
+
+        if tqdm is None:
+            raise ImportError("If verbose is True, tqdm must be installed")
+        tqdm_ = tqdm
     else:
-        if sklearn_tree is None:
-            raise RuntimeError(
-                'The scikit-learn package is missing.'
-                ' See README.md for installation instructions'
-            )
-        if y is None or regression is None:
-            raise ValueError(
-                'If tree_kwargs is not None, then y and regression must not be None'
-            )
-        if y.ndim != 1:
-            raise ValueError(f'y must have exactly one dimension, however: {y.ndim=}')
-        if len(y) != len(X):
-            raise ValueError(
-                f'len(y) must be equal to len(X), however: {len(y)=}, {len(X)=}'
-            )
-        if y is None or regression is None:
-            raise ValueError(
-                'If tree_kwargs is not None, then y and regression must not be None'
-            )
-        if 'max_leaf_nodes' in tree_kwargs:
-            raise ValueError(
-                'tree_kwargs must not contain the key "max_leaf_nodes"'
-                ' (it will be set to n_bins automatically).'
-            )
+        tqdm_ = lambda x: x
 
-        if verbose:
-            if tqdm is None:
-                raise ImportError('If verbose is True, tqdm must be installed')
-            tqdm_ = tqdm
-        else:
-            tqdm_ = lambda x: x  # noqa: E731
-
-        if X.device.type != 'cpu' or y.device.type != 'cpu':
-            warnings.warn(
-                'Computing tree-based bins involves the conversion of the input PyTorch'
-                ' tensors to NumPy arrays. The provided PyTorch tensors are not'
-                ' located on CPU, so the conversion has some overhead.',
-                UserWarning,
+    if X.device.type != "cpu" or y.device.type != "cpu":
+        warnings.warn(
+            "Computing tree-based bins involves the conversion of the input PyTorch"
+            " tensors to NumPy arrays. The provided PyTorch tensors are not"
+            " located on CPU, so the conversion has some overhead.",
+            UserWarning,
+            stacklevel=2,
+        )
+    X_numpy = X.cpu().numpy()
+    y_numpy = y.cpu().numpy()
+    bins = []
+    for column in tqdm_(X_numpy.T):
+        feature_bin_edges = [float(column.min()), float(column.max())]
+        tree = (
+            (sklearn_tree.DecisionTreeRegressor if regression else sklearn_tree.DecisionTreeClassifier)(
+                max_leaf_nodes=n_bins, **tree_kwargs
             )
-        X_numpy = X.cpu().numpy()
-        y_numpy = y.cpu().numpy()
-        bins = []
-        for column in tqdm_(X_numpy.T):
-            feature_bin_edges = [float(column.min()), float(column.max())]
-            tree = (
-                (
-                    sklearn_tree.DecisionTreeRegressor
-                    if regression
-                    else sklearn_tree.DecisionTreeClassifier
-                )(max_leaf_nodes=n_bins, **tree_kwargs)
-                .fit(column.reshape(-1, 1), y_numpy)
-                .tree_
-            )
-            for node_id in range(tree.node_count):
-                # The following condition is True only for split nodes. Source:
-                # https://scikit-learn.org/1.0/auto_examples/tree/plot_unveil_tree_structure.html#tree-structure
-                if tree.children_left[node_id] != tree.children_right[node_id]:
-                    feature_bin_edges.append(float(tree.threshold[node_id]))
-            bins.append(torch.as_tensor(feature_bin_edges).unique())
-        _check_bins(bins)
-        return [x.to(device=X.device, dtype=X.dtype) for x in bins]
+            .fit(column.reshape(-1, 1), y_numpy)
+            .tree_
+        )
+        for node_id in range(tree.node_count):
+            # The following condition is True only for split nodes. Source:
+            # https://scikit-learn.org/1.0/auto_examples/tree/plot_unveil_tree_structure.html#tree-structure
+            if tree.children_left[node_id] != tree.children_right[node_id]:
+                feature_bin_edges.append(float(tree.threshold[node_id]))
+        bins.append(torch.as_tensor(feature_bin_edges).unique())
+    _check_bins(bins)
+    return [x.to(device=X.device, dtype=X.dtype) for x in bins]
 
 
 class _PiecewiseLinearEncodingImpl(nn.Module):
@@ -242,7 +238,7 @@ class _PiecewiseLinearEncodingImpl(nn.Module):
     mask: Tensor
 
     # Source: https://github.com/yandex-research/rtdl-num-embeddings/blob/main/package/rtdl_num_embeddings.py
-    def __init__(self, bins: List[Tensor]) -> None:
+    def __init__(self, bins: list[Tensor]) -> None:
         _check_bins(bins)
 
         super().__init__()
@@ -259,23 +255,25 @@ class _PiecewiseLinearEncodingImpl(nn.Module):
         edges = torch.row_stack([torch.cat([x, padding])[:max_n_edges] for x in bins])
 
         # The rightmost edge is needed only to compute the width of the rightmost bin.
-        self.register_buffer('edges', edges[:, :-1])
-        self.register_buffer('width', edges.diff())
+        self.register_buffer("edges", edges[:, :-1])
+        self.register_buffer("width", edges.diff())
         # mask is false for the padding values.
         self.register_buffer(
-            'mask',
+            "mask",
             torch.row_stack(
                 [
                     torch.cat(
                         [
                             torch.ones(len(x) - 1, dtype=torch.bool, device=x.device),
                             torch.zeros(
-                                max_n_edges - 1, dtype=torch.bool, device=x.device
+                                max_n_edges - 1,
+                                dtype=torch.bool,
+                                device=x.device,
                             ),
-                        ]
+                        ],
                     )[: max_n_edges - 1]
                     for x in bins
-                ]
+                ],
             ),
         )
         self._bin_counts = tuple(len(x) - 1 for x in bins)
@@ -284,7 +282,7 @@ class _PiecewiseLinearEncodingImpl(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         if x.ndim < 2:
             raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
+                f"The input must have at least two dimensions, however: {x.ndim=}",
             )
 
         # See Equation 1 in the paper.
@@ -316,12 +314,8 @@ class _PiecewiseLinearEncodingImpl(nn.Module):
                         else torch.cat(
                             [
                                 x[..., i, :1].clamp_max(1.0),
-                                *(
-                                    []
-                                    if n_bins == 2
-                                    else [x[..., i, 1: count - 1].clamp(0.0, 1.0)]
-                                ),
-                                x[..., i, count - 1: count].clamp_min(0.0),
+                                *([] if n_bins == 2 else [x[..., i, 1 : count - 1].clamp(0.0, 1.0)]),
+                                x[..., i, count - 1 : count].clamp_min(0.0),
                                 x[..., i, count:],
                             ],
                             dim=-1,
@@ -345,10 +339,9 @@ class PiecewiseLinearEncoding(nn.Module):
     """
 
     # Source: https://github.com/yandex-research/rtdl-num-embeddings/blob/main/package/rtdl_num_embeddings.py
-    def __init__(self, bins: List[Tensor]) -> None:
-        """
-        Args:
-            bins: the bins computed by `compute_bins`.
+    def __init__(self, bins: list[Tensor]) -> None:
+        """Args:
+        bins: the bins computed by `compute_bins`.
         """
         _check_bins(bins)
 
@@ -364,7 +357,7 @@ class _UnaryEncodingImpl(nn.Module):
     edges: Tensor
     mask: Tensor
 
-    def __init__(self, bins: List[Tensor]) -> None:
+    def __init__(self, bins: list[Tensor]) -> None:
         _check_bins(bins)
 
         super().__init__()
@@ -381,22 +374,24 @@ class _UnaryEncodingImpl(nn.Module):
         edges = torch.row_stack([torch.cat([x, padding])[:max_n_edges] for x in bins])
 
         # The rightmost edge is needed only to compute the width of the rightmost bin.
-        self.register_buffer('edges', edges[:, :-1])
+        self.register_buffer("edges", edges[:, :-1])
         # mask is false for the padding values.
         self.register_buffer(
-            'mask',
+            "mask",
             torch.row_stack(
                 [
                     torch.cat(
                         [
                             torch.ones(len(x) - 1, dtype=torch.bool, device=x.device),
                             torch.zeros(
-                                max_n_edges - 1, dtype=torch.bool, device=x.device
+                                max_n_edges - 1,
+                                dtype=torch.bool,
+                                device=x.device,
                             ),
-                        ]
+                        ],
                     )[: max_n_edges - 1]
                     for x in bins
-                ]
+                ],
             ),
         )
         self._bin_counts = tuple(len(x) - 1 for x in bins)
@@ -405,16 +400,14 @@ class _UnaryEncodingImpl(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         if x.ndim < 2:
             raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
+                f"The input must have at least two dimensions, however: {x.ndim=}",
             )
 
         # Compute which bin each value falls into
         x = (x[..., None] - self.edges).sign().cumsum(dim=-1)
 
         # Ensure values are within [0, 1] range for unary encoding
-        x = x.clamp(0, 1)
-
-        return x
+        return x.clamp(0, 1)
 
 
 class UnaryEncoding(nn.Module):
@@ -428,10 +421,9 @@ class UnaryEncoding(nn.Module):
       ``total_n_bins = sum(len(b) - 1 for b in bins)``.
     """
 
-    def __init__(self, bins: List[Tensor]) -> None:
-        """
-        Args:
-            bins: the bins computed by `compute_bins`.
+    def __init__(self, bins: list[Tensor]) -> None:
+        """Args:
+        bins: the bins computed by `compute_bins`.
         """
         _check_bins(bins)
 
@@ -447,7 +439,7 @@ class _JohnsonEncodingImpl(nn.Module):
     edges: Tensor
     mask: Tensor
 
-    def __init__(self, bins: List[Tensor]) -> None:
+    def __init__(self, bins: list[Tensor]) -> None:
         _check_bins(bins)
 
         super().__init__()
@@ -464,23 +456,25 @@ class _JohnsonEncodingImpl(nn.Module):
         edges = torch.row_stack([torch.cat([x, padding])[:max_n_edges] for x in bins])
 
         # The rightmost edge is needed only to compute the width of the rightmost bin.
-        self.register_buffer('edges', edges[:, :-1])
-        self.register_buffer('width', edges.diff())
+        self.register_buffer("edges", edges[:, :-1])
+        self.register_buffer("width", edges.diff())
         # mask is false for the padding values.
         self.register_buffer(
-            'mask',
+            "mask",
             torch.row_stack(
                 [
                     torch.cat(
                         [
                             torch.ones(len(x) - 1, dtype=torch.bool, device=x.device),
                             torch.zeros(
-                                max_n_edges - 1, dtype=torch.bool, device=x.device
+                                max_n_edges - 1,
+                                dtype=torch.bool,
+                                device=x.device,
                             ),
-                        ]
+                        ],
                     )[: max_n_edges - 1]
                     for x in bins
-                ]
+                ],
             ),
         )
         self._bin_counts = tuple(len(x) - 1 for x in bins)
@@ -489,12 +483,13 @@ class _JohnsonEncodingImpl(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         if x.ndim < 2:
             raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
+                f"The input must have at least two dimensions, however: {x.ndim=}",
             )
 
         # Compute which bin each value falls into
         bin_indices = torch.stack(
-            [torch.bucketize(x[..., i], self.edges[i], right=True) - 1 for i in range(x.shape[-1])], dim=-1)
+            [torch.bucketize(x[..., i], self.edges[i], right=True) - 1 for i in range(x.shape[-1])], dim=-1
+        )
 
         # Generate Johnson code for each bin index
         max_bin = self.edges.shape[1]
@@ -527,10 +522,9 @@ class JohnsonEncoding(nn.Module):
       ``total_n_bits = sum((len(b) - 1) // 2 for b in bins)``.
     """
 
-    def __init__(self, bins: List[Tensor]) -> None:
-        """
-        Args:
-            bins: the bins computed by `compute_bins`.
+    def __init__(self, bins: list[Tensor]) -> None:
+        """Args:
+        bins: the bins computed by `compute_bins`.
         """
         _check_bins(bins)
 
@@ -546,7 +540,7 @@ class _BinsEncodingImpl(nn.Module):
     edges: Tensor
     mask: Tensor
 
-    def __init__(self, bins: List[Tensor]) -> None:
+    def __init__(self, bins: list[Tensor]) -> None:
         _check_bins(bins)
 
         super().__init__()
@@ -563,22 +557,24 @@ class _BinsEncodingImpl(nn.Module):
         edges = torch.row_stack([torch.cat([x, padding])[:max_n_edges] for x in bins])
 
         # The rightmost edge is needed only to compute the width of the rightmost bin.
-        self.register_buffer('edges', edges[:, :-1])
+        self.register_buffer("edges", edges[:, :-1])
         # mask is false for the padding values.
         self.register_buffer(
-            'mask',
+            "mask",
             torch.row_stack(
                 [
                     torch.cat(
                         [
                             torch.ones(len(x) - 1, dtype=torch.bool, device=x.device),
                             torch.zeros(
-                                max_n_edges - 1, dtype=torch.bool, device=x.device
+                                max_n_edges - 1,
+                                dtype=torch.bool,
+                                device=x.device,
                             ),
-                        ]
+                        ],
                     )[: max_n_edges - 1]
                     for x in bins
-                ]
+                ],
             ),
         )
         self._bin_counts = tuple(len(x) - 1 for x in bins)
@@ -587,14 +583,13 @@ class _BinsEncodingImpl(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         if x.ndim < 2:
             raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
+                f"The input must have at least two dimensions, however: {x.ndim=}",
             )
 
         # Compute which bin each value falls into
-        bin_indices = torch.stack(
-            [torch.bucketize(x[..., i], self.edges[i], right=True) - 1 for i in range(x.shape[-1])], dim=-1)
-
-        return bin_indices
+        return torch.stack(
+            [torch.bucketize(x[..., i], self.edges[i], right=True) - 1 for i in range(x.shape[-1])], dim=-1
+        )
 
 
 class BinsEncoding(nn.Module):
@@ -607,10 +602,9 @@ class BinsEncoding(nn.Module):
       where ``total_n_bins`` is the total number of bins for all features.
     """
 
-    def __init__(self, bins: List[Tensor]) -> None:
-        """
-        Args:
-            bins: the bins computed by `compute_bins`.
+    def __init__(self, bins: list[Tensor]) -> None:
+        """Args:
+        bins: the bins computed by `compute_bins`.
         """
         _check_bins(bins)
 

@@ -1,10 +1,10 @@
+from __future__ import annotations
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Union
+from torch import nn
 
 from tabrepo.benchmark.models.ag.modernnca.tabr_utils import make_module
-
 
 # from https://github.com/LAMDA-Tabular/TALENT/blob/cb6cb0cc9d69ac75c467e8dae8ca5ac3d3beb2f2/TALENT/model/models/modernNCA.py#L1
 
@@ -17,7 +17,7 @@ class MLP_Block(nn.Module):
             nn.Linear(d_in, d),
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(d, d_in)
+            nn.Linear(d, d_in),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -26,22 +26,21 @@ class MLP_Block(nn.Module):
 
 class ModernNCA(nn.Module):
     def __init__(
-            self,
-            *,
-            d_in: int,
-            d_num: int,
-            d_out: int,
-            dim: int,
-            dropout: int,
-            d_block: int,
-            n_blocks: int,
-            num_embeddings: Optional[dict],
-            temperature: float = 1.0,
-            sample_rate: float = 0.8
+        self,
+        *,
+        d_in: int,
+        d_num: int,
+        d_out: int,
+        dim: int,
+        dropout: int,
+        d_block: int,
+        n_blocks: int,
+        num_embeddings: dict | None,
+        temperature: float = 1.0,
+        sample_rate: float = 0.8,
     ) -> None:
-
         super().__init__()
-        self.d_in = d_in if num_embeddings is None else d_num * num_embeddings['d_embedding'] + d_in - d_num
+        self.d_in = d_in if num_embeddings is None else d_num * num_embeddings["d_embedding"] + d_in - d_num
         self.d_out = d_out
         self.d_num = d_num
         self.dim = dim
@@ -51,24 +50,23 @@ class ModernNCA(nn.Module):
         self.T = temperature
         self.sample_rate = sample_rate
         if n_blocks > 0:
-            self.post_encoder = nn.Sequential(*[
-                MLP_Block(dim, d_block, dropout)
-                for _ in range(n_blocks)
-            ], nn.BatchNorm1d(dim))
+            self.post_encoder = nn.Sequential(
+                *[MLP_Block(dim, d_block, dropout) for _ in range(n_blocks)], nn.BatchNorm1d(dim)
+            )
         self.encoder = nn.Linear(self.d_in, dim)
-        self.num_embeddings = (
-            None
-            if num_embeddings is None
-            else make_module(num_embeddings, n_features=d_num)
-        )
+        self.num_embeddings = None if num_embeddings is None else make_module(num_embeddings, n_features=d_num)
 
     def make_layer(self):
-        block = MLP_Block(self.dim, self.d_block, self.dropout)
-        return block
+        return MLP_Block(self.dim, self.d_block, self.dropout)
 
-    def forward(self, x, y,
-                candidate_x, candidate_y, is_train,
-                ):
+    def forward(
+        self,
+        x,
+        y,
+        candidate_x,
+        candidate_y,
+        is_train,
+    ):
         if is_train:
             data_size = candidate_x.shape[0]
             retrival_size = int(data_size * self.sample_rate)
@@ -76,8 +74,8 @@ class ModernNCA(nn.Module):
             candidate_x = candidate_x[sample_idx]
             candidate_y = candidate_y[sample_idx]
         if self.num_embeddings is not None and self.d_num > 0:
-            x_num, x_cat = x[:, :self.d_num], x[:, self.d_num:]
-            candidate_x_num, candidate_x_cat = candidate_x[:, :self.d_num], candidate_x[:, self.d_num:]
+            x_num, x_cat = x[:, : self.d_num], x[:, self.d_num :]
+            candidate_x_num, candidate_x_cat = candidate_x[:, : self.d_num], candidate_x[:, self.d_num :]
             x_num = self.num_embeddings(x_num).flatten(1)
             candidate_x_num = self.num_embeddings(candidate_x_num).flatten(1)
             x = torch.cat([x_num, x_cat], dim=-1)

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import logging
-import os
 import random
 import shutil
-import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -14,22 +12,81 @@ from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-
-from tabrepo.benchmark.models.ag.modernnca.modernnca_method import ModernNCAMethod
-from tabrepo.benchmark.models.ag.tabm.tabm_model import RTDLQuantileTransformer, get_tabm_auto_batch_size
+from sklearn.preprocessing import QuantileTransformer
+from sklearn.utils.validation import check_is_fitted
 
 if TYPE_CHECKING:
     import pandas as pd
     from autogluon.core.metrics import Scorer
 
-logger = logging.getLogger(__name__)
 TaskType = Literal["regression", "binclass", "multiclass"]
 
 
+def get_tabm_auto_batch_size(n_train: int) -> int:
+    if n_train < 2_800:
+        return 32
+    if n_train < 4_500:
+        return 64
+    if n_train < 6_400:
+        return 128
+    if n_train < 32_000:
+        return 256
+    if n_train < 108_000:
+        return 512
+    return 1024
+
+
+class RTDLQuantileTransformer(BaseEstimator, TransformerMixin):
+    # adapted from pytabkit
+    def __init__(
+        self,
+        noise=1e-5,
+        random_state=None,
+        n_quantiles=1000,
+        subsample=1_000_000_000,
+        output_distribution="normal",
+    ):
+        self.noise = noise
+        self.random_state = random_state
+        self.n_quantiles = n_quantiles
+        self.subsample = subsample
+        self.output_distribution = output_distribution
+
+    def fit(self, X, y=None):
+        # Calculate the number of quantiles based on data size
+        n_quantiles = max(min(X.shape[0] // 30, self.n_quantiles), 10)
+
+        # Initialize QuantileTransformer
+        normalizer = QuantileTransformer(
+            output_distribution=self.output_distribution,
+            n_quantiles=n_quantiles,
+            subsample=self.subsample,
+            random_state=self.random_state,
+        )
+
+        # Add noise if required
+        X_modified = self._add_noise(X) if self.noise > 0 else X
+
+        # Fit the normalizer
+        normalizer.fit(X_modified)
+        # show that it's fitted
+        self.normalizer_ = normalizer
+
+        return self
+
+    def transform(self, X, y=None):
+        check_is_fitted(self)
+        return self.normalizer_.transform(X)
+
+    def _add_noise(self, X):
+        return X + np.random.default_rng(self.random_state).normal(0.0, 1e-5, X.shape).astype(X.dtype)
+
+
 class ModernNCAImplementation:
-    def __init__(self, early_stopping_metric: Scorer, **config):
+    def __init__(self, early_stopping_metric: Scorer, save_path, **config):
         self.config = config
         self.early_stopping_metric = early_stopping_metric
 
@@ -40,6 +97,7 @@ class ModernNCAImplementation:
         self.n_train_ = None
         self.has_num_cols = None
         self.num_prep_ = None
+        self.save_path_ = save_path
 
     def fit(
         self,
@@ -50,6 +108,8 @@ class ModernNCAImplementation:
         cat_col_names: list[Any],
         time_to_fit_in_seconds: float | None = None,
     ):
+        from tabrepo.benchmark.models.ag.modernnca.modernnca_method import ModernNCAMethod
+
         seed: int | None = self.config.get("random_state", None)
         if seed is not None:
             torch.manual_seed(seed)
@@ -71,8 +131,7 @@ class ModernNCAImplementation:
         device = torch.device(device)
         self.task_type_ = task_type
         self.device_ = device
-        # todo: can we get a temp folder from outside? such that we can delete it afterwards?
-        self.save_path_ = tempfile.mkdtemp()
+        Path(self.save_path_).mkdir(parents=True, exist_ok=True)
 
         # hyperparams
         # defaults taken from https://github.com/LAMDA-Tabular/TALENT/blob/cb6cb0cc9d69ac75c467e8dae8ca5ac3d3beb2f2/TALENT/configs/default/modernNCA.json
@@ -194,6 +253,7 @@ class ModernNCAImplementation:
         self.model_.fit(data=data, info=info, train=True, config=config)
 
     def predict_raw(self, X: pd.DataFrame) -> torch.Tensor:
+        X = X.copy()
         tensors = dict()
         tensors["x_cat"] = X[self.cat_col_names_].to_numpy()
         tensors["x_cont"] = (
@@ -227,27 +287,17 @@ class ModernNCAImplementation:
 
         return y_pred.cpu()
 
-
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         y_pred = self.predict_raw(X)
         if self.task_type_ == "regression":
             return y_pred.numpy()
         return y_pred.argmax(dim=-1).numpy()
 
-
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         probas = torch.softmax(self.predict_raw(X), dim=-1).numpy()
         if probas.shape[1] == 2:
             probas = probas[:, 1]
         return probas
-
-
-    def __del__(self):
-        # todo: save this in AG path or try to avoid saving.
-        # need the check perhaps because the delete can be called multiple times
-        # if the object is serialized, deleted, loaded again, deleted again
-        if os.path.exists(self.save_path_):
-            shutil.rmtree(self.save_path_)
 
 
 class ModernNCAModel(AbstractModel):
@@ -300,11 +350,13 @@ class ModernNCAModel(AbstractModel):
         if X_val is not None:
             X_val = self.preprocess(X_val)
 
+        save_path = self.path + "/tmp_model"
         self.model = ModernNCAImplementation(
             n_threads=num_cpus,
             device=device,
             problem_type=self.problem_type,
             early_stopping_metric=self.stopping_metric,
+            save_path=save_path,
             **hyp,
         )
         self.model.fit(
@@ -315,6 +367,8 @@ class ModernNCAModel(AbstractModel):
             cat_col_names=self._cat_features if self._cat_features is not None else [],
             time_to_fit_in_seconds=time_limit,
         )
+        # Clean up tmp model folder
+        shutil.rmtree(save_path, ignore_errors=True)
 
     def _preprocess(
         self,
