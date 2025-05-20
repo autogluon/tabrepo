@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import copy
+import math
 from pathlib import Path
 
 import pandas as pd
 
+from examples.tabarena.nips2025_utils.fetch_metadata import load_task_metadata
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
@@ -341,6 +343,17 @@ class PaperRunTabArena(PaperRun):
 
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
+        # ----- add times per 1K samples -----
+        df_datasets = load_task_metadata()
+        df_results = df_results.merge(df_datasets[['name', 'NumberOfInstances']],
+                      left_on='dataset',
+                      right_on='name',
+                      how='left').drop(columns='name')
+        df_results = df_results.rename(columns={"NumberOfInstances": 'num_instances'})
+
+        df_results['time_train_s_per_1K'] = df_results['time_train_s'] * 1000 / (2 / 3 * df_results['num_instances'])
+        df_results['time_infer_s_per_1K'] = df_results['time_infer_s'] * 1000 / (1 / 3 * df_results['num_instances'])
+
         # df_results = self.evaluator.compare_metrics(results_df=df_results, configs=[], baselines=[], keep_extra_columns=True, fillna=True)
 
         df_results["method"] = df_results["method"].map({
@@ -392,8 +405,9 @@ class PaperRunTabArena(PaperRun):
         df_results_unfiltered = copy.deepcopy(df_results)
 
         # FIXME: (Nick) Unsure which form of the df should go in here?
-        self.plot_tabarena_times(df=df_results_unfiltered, output_dir=self.output_dir,
-                                 only_datasets_for_method=only_datasets_for_method, show=False)
+        if only_datasets_for_method is not None:
+            self.plot_tabarena_times(df=df_results_unfiltered, output_dir=self.output_dir,
+                                     only_datasets_for_method=only_datasets_for_method, show=False)
 
         f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
             framework_types=framework_types,
@@ -406,8 +420,10 @@ class PaperRunTabArena(PaperRun):
         print(f'{df_results["method"].unique().tolist()=}')
         print(f'{df_results["method"].map(f_map_type).unique()=}')
 
-        assert all(method in df_results_rank_compare["method"].map(f_map_type).unique() for method in self.banned_model_types)
-        df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare["method"].map(f_map_type).isin(self.banned_model_types)]
+        banned_model_types = self.banned_model_types or []
+
+        assert all(method in df_results_rank_compare["method"].map(f_map_type).unique() for method in (banned_model_types))
+        df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare["method"].map(f_map_type).isin(banned_model_types)]
         # also remove portfolio baselines except AutoGluon?
         df_results_rank_compare = df_results_rank_compare[(~df_results_rank_compare["method"].map(f_map_type).isna()) | (df_results_rank_compare["method"].isin(baselines))]
 
@@ -491,6 +507,8 @@ class PaperRunTabArena(PaperRun):
             columns_to_agg_extra=[
                 "time_train_s",
                 "time_infer_s",
+                "time_train_s_per_1K",
+                "time_infer_s_per_1K",
                 "normalized-error",
                 "normalized-error-task",
             ],
@@ -524,6 +542,8 @@ class PaperRunTabArena(PaperRun):
 
         from autogluon.common.savers import save_pd
         save_pd.save(path=f"{self.output_dir}/tabarena_leaderboard.csv", df=leaderboard)
+
+        self.create_leaderboard_latex(leaderboard, framework_types=framework_types, save_dir=self.output_dir)
 
         print(
             f"Evaluating with {len(df_results_rank_compare[tabarena.task_col].unique())} datasets... | problem_types={self.problem_types}, folds={self.folds}")
@@ -722,9 +742,6 @@ class PaperRunTabArena(PaperRun):
                                figsize=(3.5, 3)
                                )
 
-        print(f'{df_ensemble_weights.columns=}')
-        print(f'{df_ensemble_weights=}')
-
         df_long = df_ensemble_weights.melt(var_name="Model", value_name="Weight")
         model_order = list(df_ensemble_weights.columns)
 
@@ -775,3 +792,58 @@ class PaperRunTabArena(PaperRun):
         fig_name = f"portfolio-weight-barplot.pdf"
         fig_save_path = fig_prefix / fig_name
         plt.savefig(fig_save_path)
+
+    def create_leaderboard_latex(self, df: pd.DataFrame, framework_types, save_dir):
+        df = df.copy(deep=True)
+        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600 * 4, "_4h"),
+                (None, None),
+            ]
+        )
+
+        def rename_model(name: str):
+            parts = name.split(" ")
+            if parts[0] in f_map_type_name:
+                parts[0] = f_map_type_name[parts[0]]
+            name = " ".join(parts)
+            name = name.replace('(default)', '(D)')
+            name = name.replace('(tuned)', '(T)')
+            name = name.replace('(tuned + ensemble)', '(T+E)')
+            return name
+
+        df = df.sort_values(by="elo", ascending=False)
+
+        df_new = pd.DataFrame()
+
+        df_new["Model"] = df["method"].map(rename_model)
+        # todo: how to get train + inference time per 1K samples?
+        df_new[r"Elo ($\uparrow$)"] = [f'${round(elo)}' + r'_{' + f'-{math.ceil(elom)},+{math.ceil(elop)}' + r'}$'
+                                       for elo, elom, elop in zip(df["elo"], df["elo-"], df["elo+"])]
+        df_new[r"Norm.\ score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
+        df_new[r"Avg.\ rank ($\downarrow$)"] = [f'{rank:4.1f}' for rank in df["rank"]]
+        df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
+        df_new[r"Train time [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
+        df_new[r"Predict time [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
+
+        rows = []
+        rows.append(r'\begin{tabular}{' + 'lccccrr' + r'}')
+        rows.append(r'\toprule')
+        rows.append(' & '.join(df_new.columns) + r' \\')
+        rows.append(r'\midrule')
+
+        for row_index, row in df_new.iterrows():
+            rows.append(' & '.join([row[col_name] for col_name in df_new.columns]) + r' \\')
+
+        rows.append(r'\bottomrule')
+        rows.append(r'\end{tabular}')
+
+        table = '\n'.join(rows)
+
+        with open(Path(save_dir) / 'leaderboard.tex', 'w') as f:
+            f.write(table)
+
+
+
+

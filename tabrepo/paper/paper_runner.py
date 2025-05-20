@@ -8,6 +8,8 @@ import numpy as np
 from matplotlib import ticker
 from tueplots import bundles, fonts, fontsizes, figsizes
 
+from examples.tabarena.nips2025_utils.fetch_metadata import load_task_metadata
+
 matplotlib.rcParams.update(bundles.neurips2024())
 matplotlib.rcParams.update(fonts.neurips2024_tex())
 matplotlib.rcParams.update(fontsizes.neurips2024())
@@ -409,7 +411,7 @@ class PaperRun:
             df = df[df["tune_method"].isin(plot_tune_types) | df["method"].isin(baselines)]
 
         df_plot = df[df["framework_type"].isin(framework_types)]
-        df_plot = df_plot[~df_plot["framework_type"].isin(imputed_names)]
+        # df_plot = df_plot[~df_plot["framework_type"].isin(imputed_names)]
 
         # pd.set_option('display.max_columns', None)  # todo
         # print(f'{df_plot.head()=}')
@@ -478,7 +480,7 @@ class PaperRun:
                 if use_lim and not lim:
                     lim = [0, 1]
                 if use_y:
-                    x = metric
+                    pos = metric
                     y = framework_col
                     figsize = (3.5, 3)
                     xlim = lim
@@ -486,7 +488,7 @@ class PaperRun:
                     framework_type_order.reverse()
 
                 else:
-                    x = framework_col
+                    pos = framework_col
                     y = metric
                     ylim = lim
                     figsize = (7, 2.7)
@@ -504,7 +506,7 @@ class PaperRun:
 
                 to_plot = [
                     dict(
-                        x=x, y=y,
+                        x=pos, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
                         label="Tuned + Ensembled",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"],
@@ -534,7 +536,7 @@ class PaperRun:
                     #     err_kws={"color": errcolors[5]},
                     # ),
                     dict(
-                        x=x, y=y,
+                        x=pos, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
                         label="Tuned",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned"], ax=ax,
@@ -544,7 +546,7 @@ class PaperRun:
                         err_kws={"color": errcolors[1]},
                     ),
                     dict(
-                        x=x, y=y,
+                        x=pos, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
                         label="Default",
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
@@ -554,7 +556,7 @@ class PaperRun:
                         alpha=1.0,
                     ),
                     dict(
-                        x=x, y=y,
+                        x=pos, y=y,
                         # hue="tune_method",  # palette=["m", "g", "r],
                         label="Tuned + Ensembled (Holdout)",
                         data=df_plot_w_mean_per_dataset[
@@ -633,14 +635,17 @@ class PaperRun:
                 if xlim is not None:
                     ax.set_xlim(xlim)
 
+                ticks = boxplot.get_yticks() if use_y else boxplot.get_xticks()
+                ticklabels = [tick.get_text() for tick in
+                               (boxplot.get_yticklabels() if use_y else boxplot.get_xticklabels())]
+
                 if use_elo:
                     # ----- add elo error bars -----
                     # Get the bar positions
-                    xticks = boxplot.get_yticks() if use_y else boxplot.get_xticks()
-                    xticklabels = [tick.get_text() for tick in (boxplot.get_yticklabels() if use_y else boxplot.get_xticklabels())]
+
 
                     # Add asymmetric error bars manually
-                    for x, framework_type in zip(xticks, xticklabels):
+                    for pos, framework_type in zip(ticks, ticklabels):
                         for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled", "holdout_tuned_ensembled"], errcolors):
                             row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
                             print(f'{row=}')
@@ -650,33 +655,34 @@ class PaperRun:
                                 yerr_low = row['elo-'].values
                                 yerr_high = row['elo+'].values
                                 if use_y:
-                                    plt.errorbar(y, x, xerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                                    plt.errorbar(y, pos, xerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
                                 else:
-                                    plt.errorbar(x, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                                    plt.errorbar(pos, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
 
 
-                # # ----- highlight bars that contain imputed results -----
-                # xticks = boxplot.get_xticks()
-                # xticklabels = [tick.get_text() for tick in boxplot.get_xticklabels()]
-                #
-                # # Map x-tick positions to category labels
-                # label_lookup = dict(zip(xticks, xticklabels))
-                #
-                # for i, bar in enumerate(boxplot.patches):
-                #     # Get x-position and convert to category label
-                #     # todo: this only works for vertical barplots
-                #     x = bar.get_x() + bar.get_width() / 2
-                #     x_category_index = round(x)  # x-ticks are usually 0, 1, 2, ...
-                #     category = label_lookup.get(x_category_index)
-                #
-                #     # print(f'{category=}')
-                #
-                #     # if category in ['TabPFNv2', 'TabICL', 'TabDPT']:
-                #     # if category in ['TABPFNV2', 'TABICL', 'TABDPT']:
-                #     if category in imputed_names:
-                #         bar.set_hatch('xx')
-                #         # bar.set_facecolor('lightgray')
-                #         # bar.set_edgecolor('black')
+                # ----- highlight bars that contain imputed results -----
+
+                # Map x-tick positions to category labels
+                label_lookup = dict(zip(ticks, ticklabels))
+
+                has_imputed = False
+
+                for i, bar in enumerate(boxplot.patches):
+                    # Get x-position and convert to category label
+                    # todo: this only works for vertical barplots
+                    pos = bar.get_y() + bar.get_height() / 2 if use_y else bar.get_x() + bar.get_width() / 2
+                    category_index = round(pos)  # x-ticks are usually 0, 1, 2, ...
+                    category = label_lookup.get(category_index)
+
+                    # print(f'{category=}')
+
+                    # if category in ['TabPFNv2', 'TabICL', 'TabDPT']:
+                    # if category in ['TABPFNV2', 'TABICL', 'TABDPT']:
+                    if category in imputed_names:
+                        has_imputed = True
+                        bar.set_hatch('xx')
+                        # bar.set_facecolor('lightgray')
+                        # bar.set_edgecolor('black')
 
                 if not use_y:
                     # ----- alternate rows of x tick labels -----
@@ -714,17 +720,18 @@ class PaperRun:
 
                 # ax.legend(loc="upper center", ncol=5)
                 # these are not the final legend parameters, see below
-                ax.legend(loc="upper center", ncol=3, bbox_to_anchor=[0.5, 1.05])
+                ax.legend(loc="upper center", bbox_to_anchor=[0.5, 1.02])
 
                 # reordering the labels
                 handles, labels = ax.get_legend_handles_labels()
 
-                # # Create a custom legend patch for "imputed"
-                # imputed_patch = Patch(facecolor='gray', edgecolor='white', hatch='xx', label='Partially imputed')
-                #
-                # # Add to existing legend
-                # handles.append(imputed_patch)
-                # labels.append("Partially imputed")
+                if has_imputed:
+                    # Create a custom legend patch for "imputed"
+                    imputed_patch = Patch(facecolor='gray', edgecolor='white', hatch='xx', label='Partially imputed')
+
+                    # Add to existing legend
+                    handles.append(imputed_patch)
+                    labels.append("Partially imputed")
 
                 # quick fix
                 is_holdout_plot = "Tuned + Ensembled (Holdout)" in labels
@@ -746,8 +753,9 @@ class PaperRun:
                 print(f'{order=}')
 
                 # pass handle & labels lists along with order as below
-                ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="upper center", ncol=len(labels),
-                          bbox_to_anchor=[0.35 if use_y else 0.5, 1.15])
+                ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="lower center",
+                          ncol=(len(labels)+1)//2 if has_imputed and use_y else len(labels),
+                          bbox_to_anchor=[0.35 if use_y else 0.5, 1.05])
 
                 # if use_y:
                 #     boxplot.margins(y=0.05)
@@ -775,14 +783,21 @@ class PaperRun:
                             only_datasets_for_method: dict[str, list[str]] | None = None, show: bool = True):
         # for col in df.columns:
         #     print(df[col])
-        df_datasets = pd.read_csv('tabarena_dataset_metadata.csv')
-        df = df.merge(df_datasets[['dataset_name', 'num_instances']],
-                      left_on='dataset',
-                      right_on='dataset_name',
-                      how='left').drop(columns='dataset_name')
-
-        df['time_train_s'] = df['time_train_s'] * 1000 / (2 / 3 * df['num_instances'])
-        df['time_infer_s'] = df['time_infer_s'] * 1000 / (1 / 3 * df['num_instances'])
+        # could also use the data from load_task_metadata()
+        # df_datasets = pd.read_csv('tabarena_dataset_metadata.csv')
+        # df = df.merge(df_datasets[['dataset_name', 'num_instances']],
+        #               left_on='dataset',
+        #               right_on='dataset_name',
+        #               how='left').drop(columns='dataset_name')
+        # df_datasets = load_task_metadata()
+        # df = df.merge(df_datasets[['name', 'NumberOfInstances']],
+        #               left_on='dataset',
+        #               right_on='name',
+        #               how='left').drop(columns='dataset_name')
+        # df = df.rename(columns={"NumberOfInstances": 'num_instances'})
+        #
+        # df['time_train_s_per_1K'] = df['time_train_s'] * 1000 / (2 / 3 * df['num_instances'])
+        # df['time_infer_s_per_1K'] = df['time_infer_s'] * 1000 / (1 / 3 * df['num_instances'])
 
         # filter to only common datasets
         if only_datasets_for_method is not None:
@@ -829,10 +844,10 @@ class PaperRun:
             for method, datasets in only_datasets_for_method.items():
                 mask = (df['framework_type'] == method) & (~df['dataset'].isin(datasets))
                 # print(f"{df[mask]=}")
-                df.loc[mask, 'time_train_s'] = np.nan
-                df.loc[mask, 'time_infer_s'] = np.nan
-                # print(f"{df[mask]['time_train_s']=}")
-                # print(f"{df[mask]['time_infer_s']=}")
+                df.loc[mask, 'time_train_s_per_1K'] = np.nan
+                df.loc[mask, 'time_infer_s_per_1K'] = np.nan
+                # print(f"{df[mask]['time_train_s_per_1K']=}")
+                # print(f"{df[mask]['time_infer_s_per_1K']=}")
 
         # add device name
         framework_types = df["framework_type"].unique()
@@ -842,15 +857,15 @@ class PaperRun:
         df["framework_type"] = df["framework_type"].map(device_map).fillna(df["framework_type"])
 
         # take mean times
-        df = df.groupby(['dataset', 'framework_type', 'tune_method'])[['time_train_s', 'time_infer_s']].mean().reset_index()
-        df = df.groupby(['framework_type', 'tune_method'])[['time_train_s', 'time_infer_s']].median().reset_index()
+        df = df.groupby(['dataset', 'framework_type', 'tune_method'])[['time_train_s_per_1K', 'time_infer_s_per_1K']].mean().reset_index()
+        df = df.groupby(['framework_type', 'tune_method'])[['time_train_s_per_1K', 'time_infer_s_per_1K']].median().reset_index()
 
         # ----- ChatGPT plotting code -----
 
         # Unique values for mapping
         # Sort frameworks by max train time
         sorted_frameworks = (
-            df.groupby('framework_type')['time_train_s']
+            df.groupby('framework_type')['time_train_s_per_1K']
             .min()
             .sort_values(ascending=False)
             .index
@@ -884,8 +899,8 @@ class PaperRun:
             for _, row in df_fw.iterrows():
                 color = color_map[row['tune_method']]
                 marker = marker_map[row['tune_method']]
-                ax_train.plot(row['time_train_s'], i, marker=marker, color=color, linestyle='None')
-                ax_infer.plot(row['time_infer_s'], i, marker=marker, color=color, linestyle='None')
+                ax_train.plot(row['time_train_s_per_1K'], i, marker=marker, color=color, linestyle='None')
+                ax_infer.plot(row['time_infer_s_per_1K'], i, marker=marker, color=color, linestyle='None')
 
         # Train time axis
         ax_train.set_xscale('log')
