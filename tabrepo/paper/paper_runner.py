@@ -10,8 +10,6 @@ from tueplots import bundles, fonts, fontsizes, figsizes
 
 from examples.tabarena.nips2025_utils.fetch_metadata import load_task_metadata
 
-matplotlib.rcParams.update(bundles.neurips2024())
-matplotlib.rcParams.update(fonts.neurips2024_tex())
 matplotlib.rcParams.update(fontsizes.neurips2024())
 
 matplotlib.rcParams.update({
@@ -460,6 +458,8 @@ class PaperRun:
         # }):
 
         if use_latex:
+            matplotlib.rcParams.update(bundles.neurips2024())
+            matplotlib.rcParams.update(fonts.neurips2024_tex())
             rc_context_params = {
                 'font.family': 'serif',
                 "text.usetex": True,
