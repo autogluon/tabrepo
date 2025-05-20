@@ -35,6 +35,20 @@ USER_DIR=../data/${EXP_DATA_PATH}
 echo "${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}"
 aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 
+
+
+
+
+S3_BUCKET=prateek-ag
+EXP_NAME=neerick-exp-tabarena61_modernnca_cpu_seq_regression_fix
+EXCLUDE=(--exclude "*.log" --exclude "*.json")
+
+EXP_DATA_PATH=${EXP_NAME}/data/
+S3_DIR=s3://${S3_BUCKET}/${EXP_DATA_PATH}
+USER_DIR=../data/${EXP_DATA_PATH}
+echo "${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}"
+aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
+
 """
 
 
@@ -78,6 +92,26 @@ def get_file_paths():
 
     file_paths = remove_duplicate_paths(file_paths=file_paths)
     save_pkl.save(path="./file_paths_full_fix.pkl", object=file_paths)
+
+    expname_tabicl = f"{tabarena_data_root}/2025-05-11-lennart-TabICL"
+    expname_tabdpt = f"{tabarena_data_root}/2025-05-11-lennart-TabDPT"
+    expname_tabpfnv2 = f"{tabarena_data_root}/2025-05-11-lennart-TabPFNv2"
+
+    file_paths_tabicl = fetch_all_pickles(dir_path=expname_tabicl)
+    file_paths_tabicl = sorted([str(f) for f in file_paths_tabicl])
+
+    file_paths_tabdpt = fetch_all_pickles(dir_path=expname_tabdpt)
+    file_paths_tabdpt = sorted([str(f) for f in file_paths_tabdpt])
+
+    file_paths_tabpfnv2 = fetch_all_pickles(dir_path=expname_tabpfnv2)
+    file_paths_tabpfnv2 = sorted([str(f) for f in file_paths_tabpfnv2])
+
+    file_paths = file_paths + file_paths_tabicl + file_paths_tabdpt + file_paths_tabpfnv2
+
+    file_paths = [f if f.endswith(".pkl") else f.rsplit(".pkl", 1)[0] + ".pkl" for f in file_paths]
+    file_paths = sorted(list(set(file_paths)))
+
+    save_pkl.save(path="./file_paths_full_fix_w_gpu.pkl", object=file_paths)
     return file_paths
 
 
@@ -108,13 +142,26 @@ def remove_duplicate_paths(file_paths: list[str]) -> list[str]:
     return file_paths_clean
 
 
+def save_holdout_repo(method: str, file_paths: list[str], repo_dir_prefix: str):
+    repo_dir = f"{repo_dir_prefix}/holdout/{method}"
+
+    print(f"Processing holdout for method {method} | {len(file_paths)} files...")
+    repo_holdout: EvaluationRepository = generate_repo_from_paths(
+        result_paths=file_paths,
+        task_metadata=task_metadata,
+        as_holdout=True,
+    )
+    if repo_holdout is not None:
+        repo_holdout.to_dir(repo_dir)
+
+
 if __name__ == '__main__':
     recompute_paths = False
 
     if recompute_paths:
         file_paths = get_file_paths()
     else:
-        file_paths = load_pkl.load("./file_paths_full_fix.pkl")
+        file_paths = load_pkl.load("./file_paths_full_fix_w_gpu.pkl")
 
     repo_dir_prefix = "repos/tabarena61"
 
@@ -139,6 +186,10 @@ if __name__ == '__main__':
         "TabM",
         "ModernNCA",
 
+        # "TabICL",
+        # "TabDPT",
+        # "TabPFNv2",
+
         # # "FTTransformer",  # Excluded
     ]
 
@@ -151,13 +202,21 @@ if __name__ == '__main__':
     for f in file_paths_per_method:
         print(f"{f}: {len(file_paths_per_method[f])}")
 
-    for method in method_families:
-        repo_dir = f"{repo_dir_prefix}/{method}"
-        file_paths_method = file_paths_per_method[method]
+    # for method in method_families:
+    #     repo_dir = f"{repo_dir_prefix}/{method}"
+    #     file_paths_method = file_paths_per_method[method]
+    #
+    #     print(f"Processing method {method} | {len(file_paths_method)} files...")
+    #     repo: EvaluationRepository = generate_repo_from_paths(result_paths=file_paths_method, task_metadata=task_metadata)
+    #     repo.to_dir(repo_dir)
 
-        print(f"Processing method {method} | {len(file_paths_method)} files...")
-        repo: EvaluationRepository = generate_repo_from_paths(result_paths=file_paths_method, task_metadata=task_metadata)
-        repo.to_dir(repo_dir)
+    for method in method_families:
+        file_paths_method = file_paths_per_method[method]
+        save_holdout_repo(
+            method=method,
+            file_paths=file_paths_method,
+            repo_dir_prefix=repo_dir_prefix,
+        )
 
     # if not load_repo:
     #     repo: EvaluationRepository = generate_repo(experiment_path=expname, task_metadata=task_metadata)

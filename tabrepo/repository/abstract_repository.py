@@ -42,6 +42,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
 
     # TODO: tasks
     def subset(self,
+               *,
                datasets: List[str] = None,
                folds: List[int] = None,
                configs: List[str] = None,

@@ -489,22 +489,23 @@ class TabArena:
     # TODO: Should plotting live in a separate class?
     def plot_critical_diagrams(self, results_per_task, save_path: str | None = None, show: bool = False, reverse: bool = False):
         import matplotlib.pyplot as plt
-        from autorank import autorank
-        from autorank._util import cd_diagram
-        plt.rcParams.update({'font.size': 12})
+        with plt.rc_context({'text.usetex': False}):
+            from autorank import autorank
+            from autorank._util import cd_diagram
+            plt.rcParams.update({'font.size': 12})
 
-        fig = plt.figure(figsize=(10, 3))
-        ax = fig.add_subplot(1, 1, 1)
+            fig = plt.figure(figsize=(10, 7))
+            ax = fig.add_subplot(1, 1, 1)
 
-        data = results_per_task.pivot_table(index=self.task_col, columns=self.method_col, values="rank")
-        result = autorank(data, alpha=0.05, verbose=False, order="ascending", force_mode="nonparametric")
+            data = results_per_task.pivot_table(index=self.task_col, columns=self.method_col, values="rank")
+            result = autorank(data, alpha=0.05, verbose=False, order="ascending", force_mode="nonparametric")
 
-        ax = cd_diagram(result, reverse=reverse, ax=ax, width=6)
+            ax = cd_diagram(result, reverse=reverse, ax=ax, width=6)
 
-        plt.tight_layout()
-        if save_path is not None:
-            parent_dir = str(Path(save_path).parent)
-            os.makedirs(parent_dir, exist_ok=True)
-            plt.savefig(save_path)
-        if show:
-            plt.show()
+            plt.tight_layout()
+            if save_path is not None:
+                parent_dir = str(Path(save_path).parent)
+                os.makedirs(parent_dir, exist_ok=True)
+                plt.savefig(save_path)
+            if show:
+                plt.show()

@@ -190,7 +190,7 @@ class EnsembleMixin:
         time_limit: float = None,
         fit_order: Literal["original", "random"] = "original",
         seed: int = 0,
-        rank: bool = True,
+        rank: bool = False,
         backend: Literal["ray", "native"] = "ray",
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -220,7 +220,7 @@ class EnsembleMixin:
             The ensemble method kwargs.
         ensemble_size: int, default = 100
             The number of ensemble iterations.
-        rank: bool, default = True
+        rank: bool, default = False
             If True, additionally calculates the rank of the ensemble result.
         fit_order: Literal["original", "random"], default = "original"
             Whether to simulate the models being fit in their original order sequentially or randomly.
