@@ -32,7 +32,7 @@ def get_configs_generator_from_name(model_name: str):
         "EBM": lambda: importlib.import_module("tabrepo.models.ebm.generate").gen_ebm,
         "ExtraTrees": lambda: importlib.import_module("tabrepo.models.extra_trees.generate").gen_extratrees,
         "FastaiMLP": lambda: importlib.import_module("tabrepo.models.fastai.generate").gen_fastai,
-        "FTTrasformer": lambda: importlib.import_module("tabrepo.models.ftt.generate").gen_fttransformer,
+        "FTTransformer": lambda: importlib.import_module("tabrepo.models.ftt.generate").gen_fttransformer,
         "KNN": lambda: importlib.import_module("tabrepo.models.knn.generate").gen_knn,
         "LightGBM": lambda: importlib.import_module("tabrepo.models.lightgbm.generate").gen_lightgbm,
         "Linear": lambda: importlib.import_module("tabrepo.models.lr.generate").gen_linear,
