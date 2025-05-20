@@ -330,8 +330,19 @@ class TabArena:
         return results_ranked_by_dataset
 
     def aggregate(self, results_by_dataset: pd.DataFrame) -> pd.DataFrame:
+        print(f'{results_by_dataset[self.task_col]=}')
         results_by_dataset = copy.deepcopy(results_by_dataset)
-        results_agg = results_by_dataset.groupby([self.method_col]).mean(numeric_only=True)
+        results_agg = results_by_dataset.groupby([self.method_col, self.task_col]).mean(numeric_only=True)
+        # Compute mean
+        mean_df = results_agg.groupby([self.method_col]).mean(numeric_only=True)
+
+        # Compute median and prefix column names
+        median_df = results_by_dataset.groupby([self.method_col]).median(numeric_only=True)
+        median_df.columns = [f'median_{col}' for col in median_df.columns]
+
+        # Combine mean and median
+        results_agg = pd.concat([mean_df, median_df], axis=1)
+        # results_agg = results_by_dataset.groupby([self.method_col]).mean(numeric_only=True)
         return results_agg
 
     def compute_ranks(self, results_per_task: pd.DataFrame) -> pd.DataFrame:
