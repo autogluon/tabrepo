@@ -628,7 +628,7 @@ class PaperRunTabArena(PaperRun):
         results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | ((tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
 
         # rename model part
-        results_te_per_task["method"] = results_te_per_task["method"].map(rename_model)
+        results_te_per_task[:, "method"] = results_te_per_task["method"].map(rename_model)
 
         if plot_cdd:
             # tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
@@ -920,13 +920,19 @@ class PaperRunTabArena(PaperRun):
         # then, add textbf or underline to the correct rows
         for col_idx, col in enumerate(df_new.columns):
             if r'\uparrow' in col or r'\downarrow' in col:
-                factor = 1 if r'\downarrow' in col else -1
-                numbers = [factor * extract_first_float(s) for s in df_new[col]]
-                min_indices, second_min_indices = find_smallest_and_second_smallest_indices(numbers)
-                for idx in min_indices:
-                    df_new.iloc[idx, col_idx] = r'\textbf{' + df_new.iloc[idx, col_idx] + r'}'
-                for idx in second_min_indices:
-                    df_new.iloc[idx, col_idx] = r'\underline{' + df_new.iloc[idx, col_idx] + r'}'
+                # factor = 1 if r'\downarrow' in col else -1
+                # numbers = [factor * extract_first_float(s) for s in df_new[col]]
+                ranks = df_new[col].map(extract_first_float).rank(method="min", ascending=r'\downarrow' in col)
+                for rank, color in [(1, 'gold'), (2, 'silver'), (3, 'bronze')]:
+                    df_new.loc[ranks == rank, col] = df_new.loc[ranks == rank, col].apply(
+                        lambda x: f"\\textcolor{{{color}}}{{\\textbf{{{x}}}}}"
+                    )
+
+                # min_indices, second_min_indices = find_smallest_and_second_smallest_indices(numbers)
+                # for idx in min_indices:
+                #     df_new.iloc[idx, col_idx] = r'\textbf{' + df_new.iloc[idx, col_idx] + r'}'
+                # for idx in second_min_indices:
+                #     df_new.iloc[idx, col_idx] = r'\underline{' + df_new.iloc[idx, col_idx] + r'}'
 
 
         # ----- create latex table -----
