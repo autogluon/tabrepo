@@ -8,9 +8,11 @@ from autogluon.common.loaders import load_pd
 import tabrepo
 
 
-def load_task_metadata(v2: bool = True) -> pd.DataFrame:
+def load_task_metadata(v2: bool = True, paper: bool = False) -> pd.DataFrame:
     tabrepo_root = str(Path(tabrepo.__file__).parent.parent)
-    if v2:
+    if paper:
+        path = f"{tabrepo_root}/tabflow/metadata/task_metadata_tabarena51.csv"
+    elif v2:
         path = f"{tabrepo_root}/tabflow/metadata/task_metadata_tabarena61.csv"
     else:
         path = f"{tabrepo_root}/tabflow/metadata/task_metadata_tabarena60.csv"
