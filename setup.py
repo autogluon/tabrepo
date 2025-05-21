@@ -12,7 +12,7 @@ requirements = [
 
 extras_require = {
     "autogluon": [
-        "autogluon.tabular[all]>=1.3",
+        "autogluon>=1.3",
     ],
     "tabpfn": [
         "tabpfn>=2.0.9",  # We used version 2.0.9

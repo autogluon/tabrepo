@@ -64,13 +64,15 @@ class TabDPTModel(AbstractModel):
         """Detect if torch's native flash attention is available on the current machine."""
         import torch
 
-        if torch.cuda.is_available():
-            device = torch.device("cuda:0")
-            capability = torch.cuda.get_device_capability(device)
+        if not torch.cuda.is_available():
+            return False
 
-            if capability == (7, 5):
-                return False
-            return None
+        device = torch.device("cuda:0")
+        capability = torch.cuda.get_device_capability(device)
+
+        if capability == (7, 5):
+            return False
+
         return True
 
     @staticmethod

@@ -56,8 +56,9 @@ class RealMLPModel(AbstractModel):
         **kwargs,
     ):
         import torch
-        device = "cpu" if num_gpus == 0 else "cuda"
-        if (device == "cuda") and (not torch.cuda.is_available()):
+        # FIXME: code assume we only see one GPU in the fit process.
+        device = "cpu" if num_gpus == 0 else "cuda:0"
+        if (device == "cuda:0") and (not torch.cuda.is_available()):
             raise AssertionError(
                 "Fit specified to use GPU, but CUDA is not available on this machine. "
                 "Please switch to CPU usage instead.",
@@ -107,7 +108,7 @@ class RealMLPModel(AbstractModel):
 
         self.model = model_cls(
             n_threads=num_cpus,
-            device="cuda:0",  # FIXME: code assume we only see one GPU in the fit process.
+            device=device,
             **init_kwargs,
             **hyp,
         )
