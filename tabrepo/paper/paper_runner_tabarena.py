@@ -864,13 +864,16 @@ class PaperRunTabArena(PaperRun):
 
         df_new = pd.DataFrame()
 
+        print(f'{df.columns=}')
+
         df_new[r"Model"] = df["method"].map(rename_model)
-        # todo: how to get train + inference time per 1K samples?
         df_new[r"Elo ($\uparrow$)"] = [f'${round(elo)}' + r'_{' + f'-{math.ceil(elom)},+{math.ceil(elop)}' + r'}$'
                                        for elo, elom, elop in zip(df["elo"], df["elo-"], df["elo+"])]
         df_new[r"Norm." + "\n" + r"score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
-        df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:4.1f}' for rank in df["rank"]]
+        df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:.1f}' for rank in df["rank"]]
+        df_new["Harm.\nMean\n" + r"rank ($\downarrow$)"] = [f'{1/val:.1f}' for val in df["mrr"]]
         df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
+        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["champ_delta"]]
         df_new[r"Train time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
         df_new[r"Predict time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
 
