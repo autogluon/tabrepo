@@ -4,6 +4,7 @@ from tabrepo.utils.cache import cache_function
 from tabrepo import load_repository, EvaluationRepository
 
 output_path = Path(__file__).parent
+output_path = Path("")  # FIXME: tmp
 
 
 def load_context(version: str = "D244_F3_C1416_200", as_paper: bool = True, ignore_cache: bool = False) -> EvaluationRepository:
