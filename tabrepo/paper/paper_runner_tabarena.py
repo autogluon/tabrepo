@@ -620,7 +620,13 @@ class PaperRunTabArena(PaperRun):
             name = " ".join(parts)
             return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
 
-        results_te_per_task = results_per_task[results_per_task["method"].map(f_map_inverse).fillna("default") == 'tuned_ensembled']
+        # use tuned+ensembled version if available, and default otherwise
+        tune_methods = results_per_task["method"].map(f_map_inverse).fillna("default")
+        method_types = results_per_task["method"].map(f_map_type).fillna(results_per_task["method"])
+        tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
+        results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | ((tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
+
+        # rename model part
         results_te_per_task["method"] = results_te_per_task["method"].map(rename_model)
 
         if plot_cdd:
