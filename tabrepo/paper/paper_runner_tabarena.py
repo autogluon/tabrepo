@@ -621,7 +621,13 @@ class PaperRunTabArena(PaperRun):
             name = " ".join(parts)
             return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
 
-        results_te_per_task = results_per_task[results_per_task["method"].map(f_map_inverse).fillna("default") == 'tuned_ensembled']
+        # use tuned+ensembled version if available, and default otherwise
+        tune_methods = results_per_task["method"].map(f_map_inverse).fillna("default")
+        method_types = results_per_task["method"].map(f_map_type).fillna(results_per_task["method"])
+        tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
+        results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | ((tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
+
+        # rename model part
         results_te_per_task["method"] = results_te_per_task["method"].map(rename_model)
 
         if plot_cdd:
@@ -864,18 +870,15 @@ class PaperRunTabArena(PaperRun):
 
         df_new = pd.DataFrame()
 
-        print(f'{df.columns=}')
-
-        df_new[r"Model"] = df["method"].map(rename_model)
+        df_new["Model"] = df["method"].map(rename_model)
+        # todo: how to get train + inference time per 1K samples?
         df_new[r"Elo ($\uparrow$)"] = [f'${round(elo)}' + r'_{' + f'-{math.ceil(elom)},+{math.ceil(elop)}' + r'}$'
                                        for elo, elom, elop in zip(df["elo"], df["elo-"], df["elo+"])]
-        df_new[r"Norm." + "\n" + r"score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
-        df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:.1f}' for rank in df["rank"]]
-        df_new["Harm.\nMean\n" + r"rank ($\downarrow$)"] = [f'{1/val:.1f}' for val in df["mrr"]]
+        df_new[r"Norm.\ score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
+        df_new[r"Avg.\ rank ($\downarrow$)"] = [f'{rank:4.1f}' for rank in df["rank"]]
         df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
-        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["champ_delta"]]
-        df_new[r"Train time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
-        df_new[r"Predict time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
+        df_new[r"Train time [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
+        df_new[r"Predict time [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
 
         rows = []
         rows.append(r'\begin{tabular}{' + 'llcccrr' + r'}')
