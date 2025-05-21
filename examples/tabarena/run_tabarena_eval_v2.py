@@ -152,39 +152,47 @@ if __name__ == '__main__':
     for use_tabpfn in [False, True]:
         for use_tabicl in [False, True]:
             for use_imputation in [False, True]:
-                folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
-                    if use_tabicl else ("tabpfn" if use_tabpfn else "full")
-                if use_imputation:
-                    folder_name = folder_name + "-imputed"
+                for lite in [False, True]:
+                    if use_imputation and lite:
+                        continue
 
-                banned_model_types = []
-                imputed_models = []
-                if not use_tabicl:
-                    banned_model_types.append("TABICL")
-                    imputed_models.append("TabICL")
-                if not use_tabpfn:
-                    banned_model_types.append("TABPFNV2")
-                    imputed_models.append("TabPFNv2")
+                    folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
+                        if use_tabicl else ("tabpfn" if use_tabpfn else "full")
+                    if lite:
+                        folder_name = folder_name + "-lite"
+                    if use_imputation:
+                        folder_name = folder_name + "-imputed"
 
-                datasets = (list(set(datasets_tabpfn).intersection(datasets_tabicl)) if use_tabpfn else datasets_tabicl) \
-                    if use_tabicl else (datasets_tabpfn if use_tabpfn else None)
 
-                plotter = PaperRunTabArena(
-                    repo=None,
-                    output_dir=eval_save_path / folder_name,
-                    datasets=datasets,
-                    banned_model_types=None if use_imputation else banned_model_types,
-                    elo_bootstrap_rounds=elo_bootstrap_rounds,
-                )
+                    banned_model_types = []
+                    imputed_models = []
+                    if not use_tabicl:
+                        banned_model_types.append("TABICL")
+                        imputed_models.append("TabICL")
+                    if not use_tabpfn:
+                        banned_model_types.append("TABPFNV2")
+                        imputed_models.append("TabPFNv2")
 
-                if not use_tabpfn and not use_tabicl:
-                    plotter.plot_portfolio_ensemble_weights_barplot(
-                        df_ensemble_weights=df_ensemble_weights,
+                    datasets = (list(set(datasets_tabpfn).intersection(datasets_tabicl)) if use_tabpfn else datasets_tabicl) \
+                        if use_tabicl else (datasets_tabpfn if use_tabpfn else None)
+
+                    plotter = PaperRunTabArena(
+                        repo=None,
+                        output_dir=eval_save_path / folder_name,
+                        datasets=datasets,
+                        banned_model_types=None if use_imputation else banned_model_types,
+                        elo_bootstrap_rounds=elo_bootstrap_rounds,
+                        folds=[0] if lite else None,
                     )
 
-                plotter.eval(df_results=df_results, imputed_names=imputed_models,
-                    only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
-                             plot_extra_barplots='full' in folder_name, plot_times='full' in folder_name)
+                    if not use_tabpfn and not use_tabicl:
+                        plotter.plot_portfolio_ensemble_weights_barplot(
+                            df_ensemble_weights=df_ensemble_weights,
+                        )
+
+                    plotter.eval(df_results=df_results, imputed_names=imputed_models,
+                        only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
+                                 plot_extra_barplots='full' in folder_name, plot_times='full' in folder_name)
 
 
     # plots for binary, regression, multiclass

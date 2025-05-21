@@ -435,7 +435,7 @@ class PaperRunTabArena(PaperRun):
             framework_types = [f for f in framework_types if f not in self.banned_model_types]
 
         if not self.keep_best:
-            df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("(best)")]
+            df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("(best)", regex=False)]
 
         print(f'{df_results_rank_compare["method"].unique().tolist()=}')
 
@@ -622,7 +622,7 @@ class PaperRunTabArena(PaperRun):
             return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
 
         # use tuned+ensembled version if available, and default otherwise
-        tune_methods = results_per_task["method"].map(f_map_inverse).fillna("default")
+        tune_methods = results_per_task["method"].map(f_map_inverse)
         method_types = results_per_task["method"].map(f_map_type).fillna(results_per_task["method"])
         tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
         results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | ((tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
@@ -870,18 +870,69 @@ class PaperRunTabArena(PaperRun):
 
         df_new = pd.DataFrame()
 
-        df_new["Model"] = df["method"].map(rename_model)
-        # todo: how to get train + inference time per 1K samples?
-        df_new[r"Elo ($\uparrow$)"] = [f'${round(elo)}' + r'_{' + f'-{math.ceil(elom)},+{math.ceil(elop)}' + r'}$'
+        print(f'{df.columns=}')
+
+        df_new[r"Model"] = df["method"].map(rename_model)
+        # do the more annoying way {}_{...} so that \textbf{} affects the main number
+        df_new[r"Elo ($\uparrow$)"] = [f'{round(elo)}' + r'${}_{' + f'-{math.ceil(elom)},+{math.ceil(elop)}' + r'}$'
                                        for elo, elom, elop in zip(df["elo"], df["elo-"], df["elo+"])]
-        df_new[r"Norm.\ score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
-        df_new[r"Avg.\ rank ($\downarrow$)"] = [f'{rank:4.1f}' for rank in df["rank"]]
+        df_new[r"Norm." + "\n" + r"score ($\uparrow$)"] = [f'{1-err:5.3f}' for err in df["normalized-error"]]
+        df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:.1f}' for rank in df["rank"]]
+        df_new["Harm.\nmean\n" + r"rank ($\downarrow$)"] = [f'{1/val:.1f}' for val in df["mrr"]]
         df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
-        df_new[r"Train time [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
-        df_new[r"Predict time [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
+        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["champ_delta"]]
+        df_new[r"Train time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
+        df_new[r"Predict time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
+
+        # ----- highlight best and second-best numbers per column -----
+
+        # first, convert the strings back to floats
+        import re
+
+        def extract_first_float(s):
+            """
+            Extracts the first sequence of digits (including decimal point) from the input string
+            and returns it as a float. Returns None if no valid number is found.
+            """
+            match = re.search(r'\d+(\.\d+)?', s)
+            if match:
+                return float(match.group())
+            return None
+
+        def find_smallest_and_second_smallest_indices(numbers):
+            if len(numbers) < 2:
+                return [], []
+
+            # Find the smallest value
+            min_val = min(numbers)
+            min_indices = [i for i, x in enumerate(numbers) if x == min_val]
+
+            # Exclude the smallest values and find the second smallest
+            remaining = [x for x in numbers if x != min_val]
+            if not remaining:
+                return min_indices, []  # No second smallest
+
+            second_min_val = min(remaining)
+            second_min_indices = [i for i, x in enumerate(numbers) if x == second_min_val]
+
+            return min_indices, second_min_indices
+
+        # then, add textbf or underline to the correct rows
+        for col_idx, col in enumerate(df_new.columns):
+            if r'\uparrow' in col or r'\downarrow' in col:
+                factor = 1 if r'\downarrow' in col else -1
+                numbers = [factor * extract_first_float(s) for s in df_new[col]]
+                min_indices, second_min_indices = find_smallest_and_second_smallest_indices(numbers)
+                for idx in min_indices:
+                    df_new.iloc[idx, col_idx] = r'\textbf{' + df_new.iloc[idx, col_idx] + r'}'
+                for idx in second_min_indices:
+                    df_new.iloc[idx, col_idx] = r'\underline{' + df_new.iloc[idx, col_idx] + r'}'
+
+
+        # ----- create latex table -----
 
         rows = []
-        rows.append(r'\begin{tabular}{' + 'llcccrr' + r'}')
+        rows.append(r'\begin{tabular}{' + 'llcccccrr' + r'}')
         rows.append(r'\toprule')
         # rows.append(' & '.join(df_new.columns) + r' \\')
 
