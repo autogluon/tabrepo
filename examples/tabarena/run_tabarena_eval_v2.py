@@ -111,7 +111,7 @@ if __name__ == '__main__':
     load_from_s3 = False  # Do this for first run, then make false for speed
     generate_from_repo = False
     with_holdout = True
-    elo_bootstrap_rounds = 10
+    elo_bootstrap_rounds = 100
 
     print(f"Loading results... context_name={context_name}, load_from_s3={load_from_s3}")
     df_results, df_results_holdout, datasets_tabpfn, datasets_tabicl = load_paper_results(
@@ -192,7 +192,8 @@ if __name__ == '__main__':
 
                     plotter.eval(df_results=df_results, imputed_names=imputed_models,
                         only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
-                                 plot_extra_barplots='full' in folder_name, plot_times='full' in folder_name)
+                                 plot_extra_barplots='full' in folder_name, plot_times='full' in folder_name,
+                                 plot_other=False)
 
 
     # plots for binary, regression, multiclass

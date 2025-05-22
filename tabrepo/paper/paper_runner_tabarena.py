@@ -279,6 +279,7 @@ class PaperRunTabArena(PaperRun):
         plot_times: bool = False,
         plot_extra_barplots: bool = False,
         plot_cdd: bool = True,
+        plot_other: bool = False,
     ):
         if baselines is None:
             baselines = [
@@ -628,7 +629,7 @@ class PaperRunTabArena(PaperRun):
         results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | ((tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
 
         # rename model part
-        results_te_per_task[:, "method"] = results_te_per_task["method"].map(rename_model)
+        results_te_per_task.loc[:, "method"] = results_te_per_task["method"].map(rename_model)
 
         if plot_cdd:
             # tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
@@ -636,20 +637,21 @@ class PaperRunTabArena(PaperRun):
             tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
                                             save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
 
-        try:
-            import autogluon_benchmark
-        except:
-            print(f"WARNING: autogluon_benchmark failed to import... skipping extra figure generation")
-        else:
-            results_per_task_ag_benchmark = results_per_task.rename(columns={
-                "champ_delta": "bestdiff",
-            })
-            self.run_autogluon_benchmark_logic(
-                results_per_task=results_per_task_ag_benchmark,
-                elo_map=elo_map,
-                tabarena=tabarena,
-                calibration_framework=calibration_framework,
-            )
+        if plot_other:
+            try:
+                import autogluon_benchmark
+            except:
+                print(f"WARNING: autogluon_benchmark failed to import... skipping extra figure generation")
+            else:
+                results_per_task_ag_benchmark = results_per_task.rename(columns={
+                    "champ_delta": "bestdiff",
+                })
+                self.run_autogluon_benchmark_logic(
+                    results_per_task=results_per_task_ag_benchmark,
+                    elo_map=elo_map,
+                    tabarena=tabarena,
+                    calibration_framework=calibration_framework,
+                )
 
     def run_autogluon_benchmark_logic(self, results_per_task: pd.DataFrame, elo_map: dict, tabarena: TabArena,
                                       calibration_framework: str):

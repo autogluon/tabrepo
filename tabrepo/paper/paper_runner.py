@@ -479,7 +479,7 @@ class PaperRun:
                 errcolors = sns.color_palette("deep").as_hex()
 
                 if use_lim and not lim:
-                    lim = [0, 1]
+                    lim = [0, None]
                 if use_y:
                     pos = metric
                     y = framework_col
@@ -504,6 +504,14 @@ class PaperRun:
                     baseline_func = ax.axhline
 
                 linewidth = 0.0 if use_y else 0.3
+                err_linewidth = 1.6
+                err_linewidths = {
+                    'tuned_ensembled': err_linewidth,
+                    'tuned': err_linewidth * 0.8,
+                    'default': err_linewidth * 0.6,
+                    'holdout_tuned_ensembled': err_linewidth * 0.6,
+                }
+                err_alpha = 0.6
 
                 to_plot = [
                     dict(
@@ -514,7 +522,7 @@ class PaperRun:
                         ax=ax,
                         order=framework_type_order, color=colors[2],
                         width=0.6, linewidth=linewidth,
-                        err_kws={"color": errcolors[2]},
+                        err_kws={"color": errcolors[2], "linewidth": err_linewidths['tuned_ensembled'], 'alpha': err_alpha},
                     ),
                     # dict(
                     #     x=x, y=y,
@@ -544,7 +552,7 @@ class PaperRun:
                         order=framework_type_order,
                         color=colors[1],
                         width=0.5, linewidth=linewidth,
-                        err_kws={"color": errcolors[1]},
+                        err_kws={"color": errcolors[1], "linewidth": err_linewidths['tuned'], 'alpha': err_alpha},
                     ),
                     dict(
                         x=pos, y=y,
@@ -553,7 +561,7 @@ class PaperRun:
                         data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
                         order=framework_type_order, color=colors[0],
                         width=0.4, linewidth=linewidth,
-                        err_kws={"color": errcolors[0]},
+                        err_kws={"color": errcolors[0], "linewidth": err_linewidths['default'], 'alpha': err_alpha},
                         alpha=1.0,
                     ),
                     dict(
@@ -565,7 +573,8 @@ class PaperRun:
                         order=framework_type_order,
                         color=colors[3],
                         width=0.3, linewidth=linewidth,
-                        err_kws={"color": errcolors[3]},
+                        err_kws={"color": errcolors[3], "linewidth": err_linewidths['holdout_tuned_ensembled'],
+                                 'alpha': err_alpha},
                     ),
                     # dict(
                     #     x=x, y=y,
@@ -584,7 +593,7 @@ class PaperRun:
                     #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_4h"], ax=ax,
                     #     order=framework_type_order,
                     #     color=colors[4],
-                    #     width=0.5, linewidth=linewidth,,
+                    #     width=0.5, linewidth=linewidth,
                     #     err_kws={"color": errcolors[4]},
                     # ),
                     # dict(
@@ -656,9 +665,17 @@ class PaperRun:
                                 yerr_low = row['elo-'].values
                                 yerr_high = row['elo+'].values
                                 if use_y:
-                                    plt.errorbar(y, pos, xerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                                    plotline, caps, barlinecols = plt.errorbar(y, pos, xerr=[yerr_low, yerr_high],
+                                                                               fmt='none', color=errcolor,
+                                                                               alpha=err_alpha,
+                                                                               linewidth=err_linewidths[tune_method])
                                 else:
-                                    plt.errorbar(pos, y, yerr=[yerr_low, yerr_high], fmt='none', color=errcolor)
+                                    plotline, caps, barlinecols = plt.errorbar(pos, y, yerr=[yerr_low, yerr_high],
+                                                                               fmt='none', color=errcolor,
+                                                                               alpha=err_alpha,
+                                                                               linewidth=err_linewidths[tune_method])
+                                # don't round because it will make the lines longer
+                                # plt.setp(barlinecols[0], capstyle="round")
 
 
                 # ----- highlight bars that contain imputed results -----
