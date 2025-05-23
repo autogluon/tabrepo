@@ -29,6 +29,7 @@ class Evaluator:
     # TODO: Add fillna
     # TODO: Docstring
     # Q:Whether to keep these functions a part of TabRepo or keep them separate as a part of new fit()-package
+    # FIXME: Doesn't filter results_df
     def compare_metrics(
         self,
         results_df: pd.DataFrame = None,
