@@ -173,6 +173,8 @@ class RealMLPModel(AbstractModel):
     def _set_default_params(self):
         default_params = dict(
             random_state=0,
+            # TODO: predict_batch_size=512,  # Default 1024, runs OOM on robert sometimes. Verify the speed impact.
+            #  And OVA_Prostate
 
             # Don't use early stopping by default, seems to work well without
             use_early_stopping=False,
