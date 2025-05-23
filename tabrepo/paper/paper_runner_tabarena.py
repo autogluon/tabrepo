@@ -273,14 +273,20 @@ class PaperRunTabArena(PaperRun):
         only_norm_scores: bool = False,
         imputed_names: list[str] | None = None,
         only_datasets_for_method: dict[str, list[str]] | None = None,
-        baselines: list[str] | None = None,
+        baselines: list[str] | str | None = "auto",
         baseline_colors: list[str] | None = None,
         plot_tune_types: list[str] | None = None,
         plot_times: bool = False,
         plot_extra_barplots: bool = False,
         plot_cdd: bool = True,
+        framework_types_extra: list[str] = None,
+        calibration_framework: str | None = "auto",
     ):
-        if baselines is None:
+        if framework_types_extra is None:
+            framework_types_extra = []
+        if calibration_framework is not None and calibration_framework == "auto":
+            calibration_framework = "RF (default)"
+        if baselines is "auto":
             baselines = [
                 # "AutoGluon 1.3 (5m)",
                 # "AutoGluon 1.3 (1h)",
@@ -297,6 +303,8 @@ class PaperRunTabArena(PaperRun):
                 ]
         if baseline_colors is None:
             baseline_colors = []
+        if baselines is None:
+            baselines = []
         assert len(baselines) == len(baseline_colors)
         method_col = "method"
         df_results = df_results.copy(deep=True)
@@ -309,6 +317,8 @@ class PaperRunTabArena(PaperRun):
             "dataset", "fold", "framework", "seed"
         ], keep="first")
 
+        if "normalized-error-dataset" not in df_results:
+            df_results = self.compute_normalized_error_dynamic(df_results=df_results)
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
 
         df_results = df_results.rename(columns={
@@ -334,6 +344,9 @@ class PaperRunTabArena(PaperRun):
             "TABM",
             "MNCA",
         ]
+        if framework_types_extra:
+            framework_types += framework_types_extra
+            framework_types = list(set(framework_types))
 
         if self.datasets is not None:
             df_results = df_results[df_results["dataset"].isin(self.datasets)]
@@ -347,7 +360,7 @@ class PaperRunTabArena(PaperRun):
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         # ----- add times per 1K samples -----
-        df_datasets = load_task_metadata()
+        df_datasets = load_task_metadata(paper=True)
         df_results = df_results.merge(df_datasets[['name', 'NumberOfInstances']],
                       left_on='dataset',
                       right_on='name',
