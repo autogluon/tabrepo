@@ -535,7 +535,7 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     type_count_per_iter = dict()
     type_count_family_per_iter = dict()
 
-    n_iters = 50
+    n_iters = 25
     for i in range(n_iters):
         type_count_per_iter[i] = defaultdict(int)
         type_count_family_per_iter[i] = defaultdict(int)
@@ -581,28 +581,41 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     data_cumulative_df = data_cumulative_df.div(data_cumulative_df.sum(axis=1), axis=0) * 100
     data_cumulative_df2 = data_cumulative_df.stack().reset_index(name='Cumulative Model Frequency (%)').rename(columns={'level_1': 'Model', 'level_0': 'Portfolio Position'})
     data_cumulative_df2["Portfolio Position"] += 1
-    fig, axes = plt.subplots(2, 1, sharey=False, sharex=True, figsize=(16, 10), dpi=300, layout="constrained")
 
-    sns.histplot(
-        data_df2,
-        x="Portfolio Position",
-        weights="Model Frequency (%) at Position",
-        # stat="percent",
-        hue="Model",
-        hue_order=hue_order,
-        multiple="stack",
-        # palette="light:m_r",
-        palette="pastel",
-        edgecolor=".3",
-        linewidth=.5,
-        discrete=True,
-        ax=axes[0],
-        # legend=False,
-    )
-    axes[0].set(ylabel="Model Frequency (%) at Position")
-    axes[0].set_xlim([0, n_iters+1])
-    axes[0].set_ylim([0, 100])
-    sns.move_legend(axes[0], "upper left")
+    plot_per_position = False
+    if plot_per_position:
+        nrows = 2
+    else:
+        nrows = 1
+
+    fig, axes = plt.subplots(nrows, 1, sharey=False, sharex=True, figsize=(3.5, 3), dpi=300, layout="constrained")
+
+    if plot_per_position:
+        legend = False
+        sns.histplot(
+            data_df2,
+            x="Portfolio Position",
+            weights="Model Frequency (%) at Position",
+            # stat="percent",
+            hue="Model",
+            hue_order=hue_order,
+            multiple="stack",
+            # palette="light:m_r",
+            palette="pastel",
+            edgecolor=".3",
+            linewidth=.5,
+            discrete=True,
+            ax=axes[0],
+            # legend=False,
+        )
+        axes[0].set(ylabel="Model Frequency (%) at Position")
+        axes[0].set_xlim([0, n_iters+1])
+        axes[0].set_ylim([0, 100])
+        sns.move_legend(axes[0], "upper left")
+    else:
+        legend = True
+        ax = axes
+        axes = [ax, ax]
 
     sns.histplot(
         data_cumulative_df2,
@@ -618,11 +631,14 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
         linewidth=.5,
         discrete=True,
         ax=axes[1],
-        legend=False,
+        legend=legend,
     )
     axes[1].set(ylabel="Cumulative Model Frequency (%)")
     axes[1].set_xlim([0, n_iters+1])
     axes[1].set_ylim([0, 100])
+
+    if not plot_per_position:
+        sns.move_legend(axes[1], "upper right")
 
     fig.suptitle(f"Model Family Presence in Portfolio by Training Order")
 
@@ -630,6 +646,8 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
         fig_path = Path(save_prefix)
         fig_path.mkdir(parents=True, exist_ok=True)
         fig_save_path = fig_path / f"portfolio-model-presence.png"
+        plt.savefig(fig_save_path)
+        fig_save_path = fig_path / f"portfolio-model-presence.pdf"
         plt.savefig(fig_save_path)
     if show:
         plt.show()

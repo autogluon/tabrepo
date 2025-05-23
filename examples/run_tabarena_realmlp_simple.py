@@ -29,11 +29,11 @@ if __name__ == '__main__':
     repo_dir = "repos/tabarena_big_s3_realmlp_alt"  # location of local cache for fast script running
     load_repo = False  # ensure this is False for the first time running
 
-    # The original TabRepo artifacts for the 1530 configs
-    context_name = "D244_F3_C1530_200"
-    repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
-
     if not load_repo:
+        # The original TabRepo artifacts for the 1530 configs
+        context_name = "D244_F3_C1530_200"
+        repo_og: EvaluationRepository = EvaluationRepository.from_context(context_name, load_predictions=False)
+
         exp_results = ExperimentResults(task_metadata=repo_og.task_metadata)
 
         # load all pickles into a directory
