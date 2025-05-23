@@ -355,7 +355,7 @@ class PaperRun:
         lim = None
         xlim = None
         ylim = None
-        use_latex = True
+        use_latex = False
 
         if imputed_names is None:
             imputed_names = []
