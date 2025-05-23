@@ -1,5 +1,13 @@
 # TabRepo
 
+## TabArena
+
+TabArena code is currently being polished. Documentation for TabArena will be available soon.
+
+For now, please refer to our example scripts: https://github.com/TabArena/tabarena_benchmarking_examples/tree/main
+
+## Introduction
+
 TabRepo contains the predictions and metrics of 1530 models evaluated on 211 classification and regression datasets. 
 This allows to compare against state-of-the-art AutoML systems or random configurations by querying 
 precomputed results. We also store and expose model predictions so any ensembling strategy can also be benchmarked 
