@@ -48,10 +48,15 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
     if only_baselines:
         df_results_baselines = repo._zeroshot_context.df_baselines
     else:
-        df_results_baselines = pd.concat([
-            repo._zeroshot_context.df_configs_ranked,
-            repo._zeroshot_context.df_baselines,
-        ], ignore_index=True)
+        dfs_to_concat = []
+        if len(repo._zeroshot_context.df_configs_ranked) != 0:
+            dfs_to_concat.append(repo._zeroshot_context.df_configs_ranked)
+        if len(repo._zeroshot_context.df_baselines) != 0:
+            dfs_to_concat.append(repo._zeroshot_context.df_baselines)
+        if len(dfs_to_concat) > 1:
+            df_results_baselines = pd.concat(dfs_to_concat, ignore_index=True)
+        else:
+            df_results_baselines = dfs_to_concat[0]
 
     unique_dataset_folds = [
         f"{repo.dataset_to_tid(dataset)}_{fold}"
