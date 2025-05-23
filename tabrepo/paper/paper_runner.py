@@ -968,6 +968,52 @@ class PaperRun:
     def generate_data_analysis(self):
         generate_dataset_analysis(repo=self.repo, expname_outdir=self.output_dir)
 
+    # FIXME: clean this up
+    def generate_runtime_plot(self, df_results: pd.DataFrame):
+        from scripts.dataset_analysis import plot_train_time_deep_dive
+        df_results_configs = df_results[df_results["method_type"] == "config"]
+        df_results_configs = df_results_configs.copy(deep=True)
+        # df_results_configs["method"] = df_results_configs["config_type"]
+
+        framework_types = [
+            "GBM",
+            "XGB",
+            "CAT",
+            "NN_TORCH",
+            "FASTAI",
+            "KNN",
+            "RF",
+            "XT",
+            "LR",
+            "TABPFNV2",
+            "TABICL",
+            "TABDPT",
+            "REALMLP",
+            "EBM",
+            "FT_TRANSFORMER",
+            "TABM",
+            "MNCA",
+        ]
+
+        df_results_configs = df_results_configs[df_results_configs["config_type"].isin(framework_types)]
+
+        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600 * 4, "_4h"),
+                (None, None),
+            ]
+        )
+
+        df_results_configs["method"] = df_results_configs["config_type"].map(f_map_type_name)
+        # df["tune_method"] = df["framework"].map(f_map_inverse).fillna("default")
+
+        # FIXME: Hack for tabarena paper
+        df_results_configs["is_gpu"] = df_results_configs["framework"].str.endswith("_GPU")
+        df_results_configs["method"].loc[df_results_configs["is_gpu"]] = df_results_configs["method"].loc[df_results_configs["is_gpu"]] + " (GPU)"
+
+        plot_train_time_deep_dive(df=df_results_configs, expname_outdir=self.output_dir)
+
 
 class PaperRunMini(PaperRun):
     def run(self) -> pd.DataFrame:

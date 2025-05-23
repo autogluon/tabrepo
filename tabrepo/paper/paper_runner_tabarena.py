@@ -560,8 +560,6 @@ class PaperRunTabArena(PaperRun):
             ],
         )
 
-        calibration_framework = "RF (default)"
-
         # configs_all_success = ["TabPFNv2_c1_BAG_L1"]
         # datasets_tabpfn_valid = self.repo.datasets(configs=configs_all_success, union=False)
         # df_results_rank_compare3 = df_results_rank_compare[df_results_rank_compare["dataset"].isin(datasets_tabpfn_valid)]
