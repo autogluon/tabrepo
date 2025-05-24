@@ -35,6 +35,7 @@ class TabArena:
         columns_to_agg_extra: list[str] | str | None = "auto",
         groupby_columns: list[str] | None = None,
         seed_column: str | None = None,
+        negative_error_threshold: float = -1e-15,
     ):
         self.method_col = method_col
         self.task_col = task_col
@@ -49,6 +50,7 @@ class TabArena:
             groupby_columns = []
         self.groupby_columns = [self.method_col, self.task_col] + groupby_columns
         self.seed_column = seed_column
+        self.negative_error_threshold = negative_error_threshold
 
         for c in self.columns_to_agg:
             assert c not in self.groupby_columns
@@ -172,6 +174,7 @@ class TabArena:
         assert len_data == len_data_dedupe
 
         self.verify_data_is_dense(data=data)
+        self.verify_error(data=data)
 
     def verify_data_is_dense(self, data: pd.DataFrame):
         methods = list(data[self.method_col].unique())
@@ -232,6 +235,34 @@ class TabArena:
                 f"Methods sorted by failure count:\n"
                 f"{invalid_tasks_per_method_filtered}"
             )
+
+    def verify_error(self, data: pd.DataFrame):
+        min_error = data[self.error_col].min()
+        if min_error < 0:
+            data_invalid = data[data[self.error_col] < 0]
+            num_invalid = len(data_invalid)
+            raise ValueError(
+                f"Found {num_invalid} rows where {self.error_col} is less than 0! Error can never be less than 0. "
+                f"Ensure your error is computed correctly."
+                f"\nMinimum value found: {min_error}"
+                f"\nSometimes floating point precision can result in a tiny negative value. "
+                f"You can fix this by doing: data['{self.error_col}'] = data['{self.error_col}'].clip(lower=0)"
+            )
+
+    # TODO: Consider moving this to a different class or finding a better separation.
+    #  The eval code becomes a lot more complicated if we need to account for improperly formatted / invalid data.
+    def clean_data(
+        self,
+        data: pd.DataFrame,
+    ) -> pd.DataFrame:
+        data = copy.deepcopy(data)
+        min_error = data[self.error_col].min()
+        if min_error < 0:
+            if min_error >= self.negative_error_threshold:
+                data[self.error_col] = data[self.error_col].clip(0)
+            else:
+                self.verify_error(data=data)
+        return data
 
     # FIXME: Cleanup
     # FIXME: Other fill methods

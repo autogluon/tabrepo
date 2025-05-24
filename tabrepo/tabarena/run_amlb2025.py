@@ -51,10 +51,16 @@ if __name__ == '__main__':
 
     method_suffix = "_60min"
 
+    banned_methods = [
+        f"FEDOT{method_suffix}",
+        f"NaiveAutoML{method_suffix}",
+        f"autosklearn2{method_suffix}",
+    ]
+
     # df_results = df_results[df_results["type"] == "multiclass"]
 
     df_results = df_results[(df_results["framework"].str.contains(method_suffix)) | (df_results["framework"].isin(default_methods))]
-    df_results = df_results[df_results["framework"] != f"autosklearn2{method_suffix}"]
+    df_results = df_results[~df_results["framework"].isin(banned_methods)]
     df_results = df_results[df_results["framework"] != fillna_method]
 
     arena = TabArena(

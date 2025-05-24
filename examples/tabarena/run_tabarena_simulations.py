@@ -186,34 +186,80 @@ if __name__ == '__main__':
     toy_mode = False
     with_gpu = True
     load_cache = True
-    load_sim_cache = True
-    norm_error_static = True
+    load_sim_cache = False
+    norm_error_static = False
+    ban_datasets: bool = True
 
-    context_name = "tabarena_paper_w_best"
+    context_name = "tabarena_paper_full"
     if with_gpu:
         context_name += "_gpu"
     if toy_mode:
         context_name += "_toy"
     cache_path = f"./{context_name}/repo_cache/tabarena_all.pkl"
-    df_result_save_path = f"./{context_name}/data/df_results.parquet"
+    cache_path_holdout = f"./{context_name}/repo_cache/tabarena_holdout.pkl"
+
+    if ban_datasets:
+        df_results_prefix = "51/"
+    else:
+        df_results_prefix = ""
+
+    df_result_save_path = f"./{context_name}/data/{df_results_prefix}df_results.parquet"
+    df_result_save_path_holdout = f"./{context_name}/data/{df_results_prefix}df_results_holdout.parquet"
 
     norm_err_suffix = ""
-    if not norm_error_static:
-        norm_err_suffix = "_dynamic"
+    if norm_error_static:
+        norm_err_suffix = "_static"
 
     df_result_save_path_w_norm_err = f"./{context_name}/data/df_results_w_norm_err{norm_err_suffix}.parquet"
     s3_path_df_result_save_path_w_norm_err = f"s3://tabarena/evaluation/{context_name}/data/df_results_w_norm_err{norm_err_suffix}.parquet"
     eval_save_path = f"{context_name}/output{norm_err_suffix}"
+    eval_save_path_holdout = f"{context_name}/output_holdout{norm_err_suffix}"
 
     if load_cache:
         repo = EvaluationRepositoryCollection.load(path=cache_path)
     else:
         repo = load_repo(toy_mode=toy_mode, gpu=with_gpu)
         repo.save(path=cache_path)
+
+    # df_missing = find_missing(repo=repo)
+
+    # df_missing = load_pd.load(path="missing_runs.csv")
+
+    banned_datasets = [
+        "ASP-POTASSCO",
+        "Mobile_Price",
+        "Pumpkin_Seeds",
+        "abalone",
+        "fifa",
+        "internet_firewall",
+        "cars",
+        "steel-plates-fault",
+        "solar_flare",
+        "PhishingWebsites",
+    ]
+    repo_datasets = repo.datasets()
+    repo_datasets = [d for d in repo_datasets if d not in banned_datasets]
+    assert len(repo_datasets) == 51
+    if ban_datasets:
+        repo = repo.subset(datasets=repo_datasets)
+
+    # df_missing = df_missing[~df_missing["dataset"].isin(banned_datasets)]
+    #
+    # config_missing_counts = df_missing.value_counts("framework")
+    # configs_to_rerun = set(list(config_missing_counts[config_missing_counts < 10].index.values))
+    # config_tasks_to_rerun = df_missing[df_missing["framework"].isin(configs_to_rerun)].reset_index(drop=True)
+    # save_pd.save(path="s3://tabarena/tmp/rerun_tasks.parquet", df=config_tasks_to_rerun)
+    # find_missing(repo=repo)
     # repo = repo.subset(folds=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+
+    # repo = convert_repo_to_toy(repo=repo, configs_per_type=40, folds=[0, 1, 2])
+
+    # raise AssertionError
     repo.set_config_fallback(config_fallback="RandomForest_c1_BAG_L1")
 
     paper_run = PaperRunTabArena(repo=repo, output_dir=eval_save_path)
+    paper_run.generate_data_analysis()
+
     if not load_sim_cache:
         df_results = paper_run.run()
         save_pd.save(df=df_results, path=df_result_save_path)
@@ -226,3 +272,14 @@ if __name__ == '__main__':
     paper_run.eval(df_results=df_results)
 
     # sanity_check(repo=repo, fillna=True, filter_to_all_valid=False, results_df=results_df, results_df_extra=results_hpo)
+
+    # repo_holdout = load_repo_holdout(toy_mode=toy_mode)
+    # repo_holdout.save(path=cache_path_holdout)
+    repo_holdout = EvaluationRepositoryCollection.load(path=cache_path_holdout)
+    if ban_datasets:
+        repo_holdout = repo_holdout.subset(datasets=repo_datasets)
+    repo_holdout.set_config_fallback(config_fallback="RandomForest_r1_BAG_L1_HOLDOUT")
+
+    paper_run_holdout = PaperRunTabArena(repo=repo_holdout, output_dir=eval_save_path_holdout)
+    df_results_holdout = paper_run_holdout.run()
+    save_pd.save(df=df_results_holdout, path=df_result_save_path_holdout)

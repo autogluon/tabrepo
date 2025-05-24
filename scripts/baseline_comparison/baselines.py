@@ -3,6 +3,7 @@ import itertools
 from typing import List
 
 import numpy as np
+import pandas as pd
 from dataclasses import dataclass
 
 from tqdm import tqdm
@@ -32,6 +33,7 @@ class ResultRow:
     config_selected: list = None
     seed: int = None
     metadata: dict = None
+    ensemble_weight: dict[str, float] = None
 
 
 def evaluate_configs(
@@ -81,6 +83,9 @@ def evaluate_configs(
         assert len(df_metrics) == 1
         metrics = df_metrics.iloc[0]
         configs_selected = [c for c in configs if c in ensemble_weights.columns]
+        assert len(ensemble_weights) == 1
+        ensemble_weights_dict = ensemble_weights.iloc[0].to_dict()
+        ensemble_weights_dict = {k: v for k, v in ensemble_weights_dict.items() if v != 0}
 
         task = repo.task_name(dataset=dataset, fold=fold)
 
@@ -104,7 +109,8 @@ def evaluate_configs(
             metadata=dict(
                 n_iterations=ensemble_size,
                 time_limit=time_limit,
-            )
+            ),
+            ensemble_weight=ensemble_weights_dict,
         ))
     return rows
 
