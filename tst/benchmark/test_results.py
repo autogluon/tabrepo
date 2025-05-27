@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from tabrepo.benchmark.result import AGBagResult, BaselineResult, ConfigResult, ExperimentResults
 
@@ -136,21 +137,32 @@ def test_result_config():
     result = _make_result_config()
     result_obj = ConfigResult(result=result)
 
-    result_obj_calibrated = result_obj.generate_calibrated()
-    assert result_obj_calibrated.framework == "m1_CAL"
-
     repo = experiment_batch_runner.repo_from_results(results_lst=[result], convert_time_infer_s_from_batch_to_sample=False)
     assert repo.baselines() == []
     assert repo.configs() == ["m1"]
     assert repo.config_hyperparameters(config="m1") == {"param1": 10}
 
 
+def test_result_config_calibrate():
+    result = _make_result_config()
+    result_obj = ConfigResult(result=result)
+
+    try:
+        import torch
+    except ImportError as err:
+        pytest.skip(
+            f"Import Error, skipping test... "
+            f"Ensure you have the proper dependencies installed to run this test:\n"
+            f"{err}"
+        )
+    result_obj_calibrated = result_obj.generate_calibrated()
+    assert result_obj_calibrated.framework == "m1_CAL"
+
+
 def test_result_ag_bag():
     result = _make_result_ag_bag()
     result_obj = AGBagResult(result=result)
 
-    result_obj_calibrated = result_obj.generate_calibrated()
-    assert result_obj_calibrated.framework == "m1_CAL"
     result_obj_holdout_lst = result_obj.bag_artifacts()
     assert len(result_obj_holdout_lst) == 1
     assert result_obj_holdout_lst[0].framework == "m1_HOLDOUT"
@@ -159,3 +171,19 @@ def test_result_ag_bag():
     assert repo.baselines() == []
     assert repo.configs() == ["m1"]
     assert repo.config_hyperparameters(config="m1") == {"param1": 10}
+
+
+def test_result_ag_bag_calibrate():
+    result = _make_result_ag_bag()
+    result_obj = AGBagResult(result=result)
+
+    try:
+        import torch
+    except ImportError as err:
+        pytest.skip(
+            f"Import Error, skipping test... "
+            f"Ensure you have the proper dependencies installed to run this test:\n"
+            f"{err}"
+        )
+    result_obj_calibrated = result_obj.generate_calibrated()
+    assert result_obj_calibrated.framework == "m1_CAL"
