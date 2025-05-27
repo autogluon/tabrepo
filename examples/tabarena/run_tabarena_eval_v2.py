@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
-from nips2025_utils.load_final_paper_results import load_paper_results
+from tabrepo.nips2025_utils.load_final_paper_results import load_paper_results
 from autogluon.common.loaders import load_pd
 import pandas as pd
 from autogluon.common.utils.s3_utils import upload_s3_folder

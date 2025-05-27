@@ -9,7 +9,7 @@ from matplotlib import ticker
 from matplotlib.container import BarContainer
 from tueplots import bundles, fonts, fontsizes, figsizes
 
-from examples.tabarena.nips2025_utils.fetch_metadata import load_task_metadata
+from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 
 matplotlib.rcParams.update(fontsizes.neurips2024())
 

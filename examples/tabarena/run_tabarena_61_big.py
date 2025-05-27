@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import pandas as pd
+
 from tabrepo import EvaluationRepository
-from nips2025_utils.sanity_check import sanity_check
-from nips2025_utils.fetch_metadata import load_task_metadata
-from nips2025_utils.script_constants import tabarena_data_root
-from nips2025_utils.generate_repo import generate_repo, generate_repo_from_paths
+from tabrepo.nips2025_utils.sanity_check import sanity_check
+from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
+from tabrepo.nips2025_utils.script_constants import tabarena_data_root
+from tabrepo.nips2025_utils.generate_repo import generate_repo, generate_repo_from_paths
 from tabrepo.utils.pickle_utils import fetch_all_pickles
 from autogluon.common.savers import save_pkl
 from autogluon.common.loaders import load_pkl
-from nips2025_utils.load_artifacts import load_and_check_if_valid
+from tabrepo.nips2025_utils.load_artifacts import load_and_check_if_valid
 
 
 """
@@ -52,7 +54,7 @@ aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 """
 
 
-def get_file_paths():
+def get_file_paths(task_metadata: pd.DataFrame):
     experiment_name = "neerick-exp-tabarena60_big"
     experiment_name_v2 = "neerick-exp-tabarena60_big_v2"
     experiment_name_v3 = "neerick-exp-tabarena61_tabm_modernnca_cpu_seq"
@@ -157,9 +159,10 @@ def save_holdout_repo(method: str, file_paths: list[str], repo_dir_prefix: str):
 
 if __name__ == '__main__':
     recompute_paths = False
+    task_metadata = load_task_metadata()
 
     if recompute_paths:
-        file_paths = get_file_paths()
+        file_paths = get_file_paths(task_metadata)
     else:
         file_paths = load_pkl.load("./file_paths_full_fix_w_gpu.pkl")
 
@@ -202,13 +205,13 @@ if __name__ == '__main__':
     for f in file_paths_per_method:
         print(f"{f}: {len(file_paths_per_method[f])}")
 
-    # for method in method_families:
-    #     repo_dir = f"{repo_dir_prefix}/{method}"
-    #     file_paths_method = file_paths_per_method[method]
-    #
-    #     print(f"Processing method {method} | {len(file_paths_method)} files...")
-    #     repo: EvaluationRepository = generate_repo_from_paths(result_paths=file_paths_method, task_metadata=task_metadata)
-    #     repo.to_dir(repo_dir)
+    for method in method_families:
+        repo_dir = f"{repo_dir_prefix}/{method}"
+        file_paths_method = file_paths_per_method[method]
+
+        print(f"Processing method {method} | {len(file_paths_method)} files...")
+        repo: EvaluationRepository = generate_repo_from_paths(result_paths=file_paths_method, task_metadata=task_metadata)
+        repo.to_dir(repo_dir)
 
     for method in method_families:
         file_paths_method = file_paths_per_method[method]

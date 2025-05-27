@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from tabrepo import EvaluationRepository
-from nips2025_utils.sanity_check import sanity_check
-from nips2025_utils.fetch_metadata import load_task_metadata
-from nips2025_utils.script_constants import tabarena_data_root
-from nips2025_utils.generate_repo import generate_repo
+from tabrepo.nips2025_utils.sanity_check import sanity_check
+from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
+from tabrepo.nips2025_utils.script_constants import tabarena_data_root
+from tabrepo.nips2025_utils.generate_repo import generate_repo
 
 
 """

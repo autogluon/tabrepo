@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from tabrepo import EvaluationRepository
-from nips2025_utils.sanity_check import sanity_check
-from nips2025_utils.fetch_metadata import load_task_metadata
-from nips2025_utils.script_constants import tabarena_data_root
-from nips2025_utils.generate_repo import generate_repo
+from tabrepo.nips2025_utils.sanity_check import sanity_check
+from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
+from tabrepo.nips2025_utils.script_constants import tabarena_data_root
+from tabrepo.nips2025_utils.generate_repo import generate_repo
 
 
 """
@@ -29,13 +29,18 @@ if __name__ == '__main__':
 
     # Load Context
     expname = f"{tabarena_data_root}/{experiment_name}"  # folder location of results, need to point this to the correct folder
-    repo_dir = "repos/tabarena60_autogluon"  # location of local cache for fast script running
+    repo_dir = "repos/tabarena61/AutoGluon"  # location of local cache for fast script running
     load_repo = False  # ensure this is False for the first time running
 
     task_metadata = load_task_metadata()
 
     if not load_repo:
         repo: EvaluationRepository = generate_repo(experiment_path=expname, task_metadata=task_metadata)
+        repo = repo.subset(baselines=[
+            "AutoGluon_bq_4h8c",
+            "AutoGluon_bq_1h8c",
+            "AutoGluon_bq_5m8c",
+        ])
         repo.print_info()
         repo.to_dir(repo_dir)
     else:
