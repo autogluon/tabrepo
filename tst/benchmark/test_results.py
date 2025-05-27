@@ -15,13 +15,18 @@ experiment_batch_runner = ExperimentResults(task_metadata=task_metadata)
 def _make_result_baseline():
     result = dict(
         framework="m1",
-        dataset="d1",
-        fold=0,
         metric_error=0.5,
         metric="log_loss",
         problem_type="multiclass",
         time_train_s=1.2,
         time_infer_s=1.6,
+        task_metadata=dict(
+            fold=0,
+            repeat=0,
+            sample=0,
+            split_idx=0,
+            name="d1",
+        ),
     )
     return result
 

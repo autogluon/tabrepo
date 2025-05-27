@@ -1,9 +1,14 @@
-from typing import List
+from __future__ import annotations
+
 import pandas as pd
 import numpy as np
 
 
-def zeroshot_configs(val_scores: np.array, output_size: int, weights: list[int] | None) -> List[int]:
+def zeroshot_configs(
+    val_scores: np.array,
+    output_size: int,
+    weights: list[int] | None = None,
+) -> list[int]:
     """
     :param val_scores: a tensor with shape (n_task, n_configs) that contains evaluations to consider
     :param output_size: number of configurations to return, in some case where no configuration helps anymore,
