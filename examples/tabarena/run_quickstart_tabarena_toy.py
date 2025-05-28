@@ -12,23 +12,16 @@ from tabrepo.benchmark.experiment.experiment_constructor import YamlExperimentSe
 
 """
 Locally runs the first fold of 3 small datasets for all model families in TabRepo 2
-
-Requires:
-```
-pip install pytabkit
-pip install "interpret-core>=0.6.1"
-pip install "tabpfn>=2"
-```
 """
 
 if __name__ == '__main__':
     # first you have to generate configs_all.yaml by running `run_generate_all_configs_v2.py`
-    yaml_file = "../scripts/configs_all.yaml"
+    yaml_file = "configs_all.yaml"
     methods: list[AGModelBagExperiment] = YamlExperimentSerializer.from_yaml(yaml_file)
 
     # Load Context
     context_name = "D244_F3_C1530_30"  # 30 smallest datasets. To run larger, set to "D244_F3_C1530_200"
-    expname = "./experiments/tabarena_toy_2"  # folder location to save all experiment artifacts
+    expname = "./experiments/tabarena_toy"  # folder location to save all experiment artifacts
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
     # The original TabRepo artifacts for the 1530 configs
@@ -62,7 +55,7 @@ if __name__ == '__main__':
 
     # Convert the run artifacts into an EvaluationRepository
     repo: EvaluationRepository = exp_batch_runner.repo_from_results(results_lst=results_lst, convert_time_infer_s_from_batch_to_sample=False)
-    repo.to_dir("repos/tabarena_toy_2")
+    repo.to_dir("repos/tabarena_toy")
     repo.print_info()
 
     new_baselines = repo.baselines()
