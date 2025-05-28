@@ -7,7 +7,7 @@ from tabrepo.tabarena.tabarena import TabArena
 
 
 if __name__ == '__main__':
-    fev_prefix = "../../../fev/benchmarks/chronos_zeroshot/results/"
+    fev_prefix = "../../../../fev/benchmarks/chronos_zeroshot/results/"
 
     results_files = [
         "auto_arima.csv",

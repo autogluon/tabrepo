@@ -7,7 +7,7 @@ from tabrepo.tabarena.tabarena import TabArena
 
 if __name__ == '__main__':
     context_name = "D244_F3_C1530_10"
-    save_path = f"../paper/tmp/{context_name}/df_results.parquet"
+    save_path = f"tmp/{context_name}/df_results.parquet"
     df_results = load_pd.load(path=save_path)
     df_results = df_results.reset_index(drop=False)
     df_results = df_results.drop(columns=["problem_type"])
