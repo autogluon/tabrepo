@@ -21,24 +21,30 @@ def sample_configs(configs: list[str], n_configs: int) -> list[str]:
 
 
 if __name__ == '__main__':
-    # The original TabRepo artifacts for the 1530 configs
-    context_name = "D244_F3_C1530_200"
+    context_name = "tabarena_big"
     n_configs = None
     use_repo_cache = False
-    repo_path = f"./repo/{context_name}_mini.pkl"
+    repo_path = f"./repo/{context_name}.pkl"
 
     if use_repo_cache:
         my_repo = EvaluationRepositoryCollection.load(path=repo_path)
     else:
-        my_repo: EvaluationRepository = EvaluationRepository.from_context(context_name, cache=True)
-        df_baselines_ag11 = load_ag11_bq_baseline(datasets=my_repo.datasets(), folds=my_repo.folds, repo=my_repo)
-        df_baselines_ag12 = load_ag12_eq_baseline(datasets=my_repo.datasets(), folds=my_repo.folds, repo=my_repo)
+        my_repo: EvaluationRepository = EvaluationRepository.from_dir("../../../examples/repos/tabarena_big_s3")
+        tabrepo_repo: EvaluationRepository = EvaluationRepository.from_context("D244_F3_C1530_200", cache=True)
+        df_baselines_ag11 = load_ag11_bq_baseline(datasets=my_repo.datasets(), folds=my_repo.folds, repo=tabrepo_repo)
+        df_baselines_ag12 = load_ag12_eq_baseline(datasets=my_repo.datasets(), folds=my_repo.folds, repo=tabrepo_repo)
+        tabrepo_repo = tabrepo_repo.subset(configs=[], datasets=my_repo.datasets(), folds=my_repo.folds)
         repo_ag11 = EvaluationRepository.from_raw(df_configs=None, df_baselines=df_baselines_ag11, task_metadata=my_repo.task_metadata, results_lst_simulation_artifacts=None)
         repo_ag12 = EvaluationRepository.from_raw(df_configs=None, df_baselines=df_baselines_ag12, task_metadata=my_repo.task_metadata, results_lst_simulation_artifacts=None)
-        repo_realmlp = EvaluationRepository.from_dir("./../../examples/repo_realmlp_r100")
-        repo_realmlp = repo_realmlp.subset(datasets=my_repo.datasets())
+        repo_realmlp = EvaluationRepository.from_dir("./../../../examples/repo_realmlp_r100")
+        repo_realmlp = repo_realmlp.subset(datasets=my_repo.datasets(), folds=my_repo.folds)
         repo_ag11 = repo_ag11.subset(datasets=my_repo.datasets())
-        my_repo = EvaluationRepositoryCollection(repos=[my_repo, repo_realmlp, repo_ag11, repo_ag12])
+        repo_ag12 = repo_ag12.subset(datasets=my_repo.datasets())
+
+        realmlp_configs = repo_realmlp.configs()
+        my_repo = my_repo.subset(configs=[c for c in my_repo.configs() if c not in realmlp_configs])
+
+        my_repo = EvaluationRepositoryCollection(repos=[my_repo, repo_ag11, repo_ag12, tabrepo_repo, repo_realmlp])
 
         my_repo.save(path=repo_path)
 
@@ -49,6 +55,7 @@ if __name__ == '__main__':
         configs = my_configs
 
     my_repo = my_repo.subset(configs=configs)
+    # my_repo = my_repo.subset(datasets=my_repo.datasets(union=False))
     my_repo.set_config_fallback(config_fallback="ExtraTrees_c1_BAG_L1")
     print(configs)
 
