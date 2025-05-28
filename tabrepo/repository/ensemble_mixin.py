@@ -28,7 +28,7 @@ class EnsembleMixin:
         ensemble_cls: Type[EnsembleScorer] = EnsembleScorerMaxModels,
         ensemble_kwargs: dict = None,
         ensemble_size: int = 100,
-        rank: bool = True,
+        rank: bool = False,
         fit_order: Literal["original", "random"] = "original",
         seed: int = 0,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -54,7 +54,7 @@ class EnsembleMixin:
             The ensemble method kwargs.
         ensemble_size: int, default = 100
             The number of ensemble iterations.
-        rank: bool, default = True
+        rank: bool, default = False
             If True, additionally calculates the rank of the ensemble result.
         fit_order: Literal["original", "random"], default = "original"
             Whether to simulate the models being fit in their original order sequentially or randomly.
@@ -190,7 +190,7 @@ class EnsembleMixin:
         time_limit: float = None,
         fit_order: Literal["original", "random"] = "original",
         seed: int = 0,
-        rank: bool = True,
+        rank: bool = False,
         backend: Literal["ray", "native"] = "ray",
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -220,7 +220,7 @@ class EnsembleMixin:
             The ensemble method kwargs.
         ensemble_size: int, default = 100
             The number of ensemble iterations.
-        rank: bool, default = True
+        rank: bool, default = False
             If True, additionally calculates the rank of the ensemble result.
         fit_order: Literal["original", "random"], default = "original"
             Whether to simulate the models being fit in their original order sequentially or randomly.
@@ -253,8 +253,6 @@ class EnsembleMixin:
         """
         if backend == "native":
             backend = "sequential"
-        if folds is None:
-            folds = self.folds
         if datasets is None:
             datasets = self.datasets()
 
@@ -270,7 +268,14 @@ class EnsembleMixin:
             rank=rank,
         )
 
-        inputs = list(itertools.product(datasets, folds))
+        if folds is None:
+            inputs = []
+            for dataset in datasets:
+                folds_in_dataset = self.dataset_to_folds(dataset=dataset)
+                for fold in folds_in_dataset:
+                    inputs.append((dataset, fold))
+        else:
+            inputs = list(itertools.product(datasets, folds))
         inputs = [{"dataset": dataset, "fold": fold} for dataset, fold in inputs]
 
         list_rows = parallel_for(

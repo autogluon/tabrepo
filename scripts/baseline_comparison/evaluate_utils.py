@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from ast import literal_eval
+from pathlib import Path
 from typing import List, Callable, Dict
 
 import matplotlib
@@ -45,15 +48,20 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
     if only_baselines:
         df_results_baselines = repo._zeroshot_context.df_baselines
     else:
-        df_results_baselines = pd.concat([
-            repo._zeroshot_context.df_configs_ranked,
-            repo._zeroshot_context.df_baselines,
-        ], ignore_index=True)
+        dfs_to_concat = []
+        if len(repo._zeroshot_context.df_configs_ranked) != 0:
+            dfs_to_concat.append(repo._zeroshot_context.df_configs_ranked)
+        if len(repo._zeroshot_context.df_baselines) != 0:
+            dfs_to_concat.append(repo._zeroshot_context.df_baselines)
+        if len(dfs_to_concat) > 1:
+            df_results_baselines = pd.concat(dfs_to_concat, ignore_index=True)
+        else:
+            df_results_baselines = dfs_to_concat[0]
 
     unique_dataset_folds = [
         f"{repo.dataset_to_tid(dataset)}_{fold}"
         for dataset in repo.datasets()
-        for fold in range(repo.n_folds())
+        for fold in repo.dataset_to_folds(dataset=dataset)
     ]
     rank_scorer = RankScorer(df_results_baselines, tasks=unique_dataset_folds, pct=False)
     normalized_scorer = NormalizedScorer(df_results_baselines, tasks=unique_dataset_folds, baseline=None)
@@ -516,7 +524,10 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     df_family = df[df["method"] == method].copy()
     df_family = df_family[df_family["fold"] == 0]
     portfolios = list(df_family["config_selected"].values)
-    portfolios_lst = [literal_eval(portfolio) for portfolio in portfolios]
+    if len(portfolios) > 0 and not isinstance(portfolios[0], list):
+        portfolios_lst = [literal_eval(portfolio) for portfolio in portfolios]
+    else:
+        portfolios_lst = portfolios
 
     from collections import defaultdict
     type_count = defaultdict(int)
@@ -524,7 +535,7 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     type_count_per_iter = dict()
     type_count_family_per_iter = dict()
 
-    n_iters = 50
+    n_iters = 25
     for i in range(n_iters):
         type_count_per_iter[i] = defaultdict(int)
         type_count_family_per_iter[i] = defaultdict(int)
@@ -533,9 +544,6 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
                 continue
             name = portfolio[i]
             family = name.split('_', 1)[0]
-            # To keep naming consistency in the paper
-            if family == "NeuralNetTorch":
-                family = "MLP"
             type_count[name] += 1
             type_count_family[family] += 1
             type_count_per_iter[i][name] += 1
@@ -573,28 +581,41 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
     data_cumulative_df = data_cumulative_df.div(data_cumulative_df.sum(axis=1), axis=0) * 100
     data_cumulative_df2 = data_cumulative_df.stack().reset_index(name='Cumulative Model Frequency (%)').rename(columns={'level_1': 'Model', 'level_0': 'Portfolio Position'})
     data_cumulative_df2["Portfolio Position"] += 1
-    fig, axes = plt.subplots(2, 1, sharey=False, sharex=True, figsize=(16, 10), dpi=300, layout="constrained")
 
-    sns.histplot(
-        data_df2,
-        x="Portfolio Position",
-        weights="Model Frequency (%) at Position",
-        # stat="percent",
-        hue="Model",
-        hue_order=hue_order,
-        multiple="stack",
-        # palette="light:m_r",
-        palette="pastel",
-        edgecolor=".3",
-        linewidth=.5,
-        discrete=True,
-        ax=axes[0],
-        # legend=False,
-    )
-    axes[0].set(ylabel="Model Frequency (%) at Position")
-    axes[0].set_xlim([0, n_iters+1])
-    axes[0].set_ylim([0, 100])
-    sns.move_legend(axes[0], "upper left")
+    plot_per_position = False
+    if plot_per_position:
+        nrows = 2
+    else:
+        nrows = 1
+
+    fig, axes = plt.subplots(nrows, 1, sharey=False, sharex=True, figsize=(3.5, 3), dpi=300, layout="constrained")
+
+    if plot_per_position:
+        legend = False
+        sns.histplot(
+            data_df2,
+            x="Portfolio Position",
+            weights="Model Frequency (%) at Position",
+            # stat="percent",
+            hue="Model",
+            hue_order=hue_order,
+            multiple="stack",
+            # palette="light:m_r",
+            palette="pastel",
+            edgecolor=".3",
+            linewidth=.5,
+            discrete=True,
+            ax=axes[0],
+            # legend=False,
+        )
+        axes[0].set(ylabel="Model Frequency (%) at Position")
+        axes[0].set_xlim([0, n_iters+1])
+        axes[0].set_ylim([0, 100])
+        sns.move_legend(axes[0], "upper left")
+    else:
+        legend = True
+        ax = axes
+        axes = [ax, ax]
 
     sns.histplot(
         data_cumulative_df2,
@@ -610,16 +631,22 @@ def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_pre
         linewidth=.5,
         discrete=True,
         ax=axes[1],
-        legend=False,
+        legend=legend,
     )
     axes[1].set(ylabel="Cumulative Model Frequency (%)")
     axes[1].set_xlim([0, n_iters+1])
     axes[1].set_ylim([0, 100])
 
+    if not plot_per_position:
+        sns.move_legend(axes[1], "upper right")
+
     fig.suptitle(f"Model Family Presence in Portfolio by Training Order")
 
     if save_prefix:
-        fig_path = figure_path(prefix=save_prefix)
+        fig_path = Path(save_prefix)
+        fig_path.mkdir(parents=True, exist_ok=True)
+        fig_save_path = fig_path / f"portfolio-model-presence.png"
+        plt.savefig(fig_save_path)
         fig_save_path = fig_path / f"portfolio-model-presence.pdf"
         plt.savefig(fig_save_path)
     if show:

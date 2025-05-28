@@ -136,6 +136,24 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
 
         return predict_multi
 
+    def _subset_folds(self, folds: list[int]):
+        super()._subset_folds(folds=folds)
+        if self._ground_truth is not None:
+            self._ground_truth.restrict_folds(folds=folds)
+        for repo in self.repos:
+            repo_folds = [f for f in repo.folds if f in folds]
+            repo._subset_folds(folds=repo_folds)
+        self._mapping = self._compute_repo_mapping()
+
+    def _subset_datasets(self, datasets: list[str]):
+        super()._subset_datasets(datasets=datasets)
+        if self._ground_truth is not None:
+            self._ground_truth.restrict_datasets(datasets=datasets)
+        for repo in self.repos:
+            repo_datasets = [d for d in repo.datasets() if d in datasets]
+            repo._subset_datasets(datasets=repo_datasets)
+        self._mapping = self._compute_repo_mapping()
+
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
         """
         Method to force the repository to a dense representation inplace.
@@ -165,10 +183,9 @@ class EvaluationRepositoryCollection(AbstractRepository, EnsembleMixin, GroundTr
             return copy.deepcopy(self).force_to_dense(inplace=True, verbose=verbose)
 
         datasets = self.datasets(union=True)
-        df_dataset_folds = self._zeroshot_context.df_dataset_folds()
+        n_folds_per_dataset = pd.Series({dataset: len(dataset_folds) for dataset, dataset_folds in self._zeroshot_context.dataset_to_folds_dict.items()})
 
         n_folds = self.n_folds()
-        n_folds_per_dataset = df_dataset_folds["dataset"].value_counts()
         datasets_dense = list(n_folds_per_dataset[n_folds_per_dataset == n_folds].index)
 
         # subset to only datasets that contain at least one result for all folds

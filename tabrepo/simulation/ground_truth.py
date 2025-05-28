@@ -25,10 +25,34 @@ class GroundTruth:
     def dataset_folds(self, dataset: str) -> list[int]:
         return sorted(list(self._label_val_dict[dataset].keys()))
 
+    def dataset_fold_lst(self) -> list[tuple[str, int]]:
+        datasets = self.datasets
+        dataset_fold_lst = []
+        for dataset in datasets:
+            dataset_folds = self.dataset_folds(dataset=dataset)
+            for fold in dataset_folds:
+                dataset_fold_lst.append((dataset, fold))
+        return dataset_fold_lst
+
     # FIXME: Add restrict instead, same as tabular_predictions
     def remove_dataset(self, dataset: str):
         self._label_val_dict.pop(dataset)
         self._label_test_dict.pop(dataset)
+
+    def restrict_datasets(self, datasets: list[str]):
+        datasets = set(datasets)
+        datasets_cur = self.datasets
+        for dataset in datasets_cur:
+            if dataset not in datasets:
+                self.remove_dataset(dataset=dataset)
+
+    def restrict_folds(self, folds: list[int]):
+        folds = set(folds)
+        dataset_fold_lst = self.dataset_fold_lst()
+        for dataset, fold in dataset_fold_lst:
+            if fold not in folds:
+                self._label_val_dict[dataset].pop(fold)
+                self._label_test_dict[dataset].pop(fold)
 
     def labels_val(self, dataset: str, fold: int):
         # Note we could also expose the series index (original row of OpenML)

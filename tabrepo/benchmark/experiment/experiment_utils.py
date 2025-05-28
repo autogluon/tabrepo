@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any, Literal, Type
 
 import pandas as pd
-from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
 
-from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
+from tabrepo.benchmark.result import BaselineResult, ExperimentResults
+from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionPickle, CacheFunctionDummy
 from tabrepo import EvaluationRepository
 from tabrepo.benchmark.experiment.experiment_constructor import Experiment
@@ -78,6 +78,7 @@ class ExperimentBatchRunner:
         methods: list[Experiment],
         datasets: list[str],
         folds: list[int],
+        repeats: list[int] | None = None,
         ignore_cache: bool = False,
         raise_on_failure: bool = True,
     ) -> list[dict[str, Any]]:
@@ -88,6 +89,7 @@ class ExperimentBatchRunner:
         methods
         datasets
         folds
+        repeats
         ignore_cache: bool, default False
             If True, will run the experiments regardless if the cache exists already, and will overwrite the cache file upon completion.
             If False, will load the cache result if it exists for a given experiment, rather than running the experiment again.
@@ -101,12 +103,14 @@ class ExperimentBatchRunner:
         """
         self._validate_datasets(datasets=datasets)
         self._validate_folds(folds=folds)
+        self._validate_repeats(repeats=repeats)
 
         tids = [self._dataset_to_tid_dict[dataset] for dataset in datasets]
         return run_experiments(
             expname=self.expname,
             tids=tids,
             folds=folds,
+            repeats=repeats,
             methods=methods,
             task_metadata=self.task_metadata,
             ignore_cache=ignore_cache,
@@ -126,6 +130,7 @@ class ExperimentBatchRunner:
         methods: list[Experiment | str],
         datasets: list[str],
         folds: list[int],
+        repeats: list[int] | None = None,
         require_all: bool = True,
     ) -> list[dict[str, Any]]:
         """
@@ -136,6 +141,7 @@ class ExperimentBatchRunner:
         methods
         datasets
         folds
+        repeats
         require_all: bool, default True
             If True, will raise an exception if not all methods x datasets x folds have a cached result to load.
             If False, will return only the list of results with a cached result. This can be an empty list if no cached results exist.
@@ -149,15 +155,19 @@ class ExperimentBatchRunner:
         results_lst = []
         results_lst_exists = []
         results_lst_missing = []
+        if repeats is not None:
+            repeat_fold_pairs = [(r, f) for r in repeats for f in folds]
+        else:
+            repeat_fold_pairs = [(None, f) for f in folds]
         for method in methods:
             if isinstance(method, Experiment):
                 method_name = method.name
             else:
                 method_name = method
             for dataset in datasets:
-                for fold in folds:
+                for repeat, fold in repeat_fold_pairs:
                     cache_exists = self._cache_exists(method_name=method_name, dataset=dataset, fold=fold)
-                    cache_args = (method_name, dataset, fold)
+                    cache_args = (method_name, dataset, fold, repeat)
                     if cache_exists:
                         results_lst_exists.append(cache_args)
                         print(method.name, dataset, fold)
@@ -171,129 +181,57 @@ class ExperimentBatchRunner:
                 f"or call `exp_batch_runner.run(methods=methods, datasets=datasets, folds=folds)` to run the missing experiments."
                 f"\nMissing experiments:\n\t{results_lst_missing}"
             )
-        for method_name, dataset, fold in results_lst_exists:
-            results_lst.append(self._load_result(method_name=method_name, dataset=dataset, fold=fold))
+        for method_name, dataset, fold, repeat in results_lst_exists:
+            results_lst.append(self._load_result(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat))
         return results_lst
-
-    def generate_repo_from_experiments(
-        self,
-        datasets: list[str],
-        folds: list[int],
-        methods: list[Experiment],
-        ignore_cache: bool,
-        convert_time_infer_s_from_batch_to_sample: bool = True,
-    ) -> EvaluationRepository:
-        """
-
-        Parameters
-        ----------
-        datasets
-        folds
-        methods
-        ignore_cache
-        convert_time_infer_s_from_batch_to_sample
-
-        Returns
-        -------
-        EvaluationRepository
-
-        """
-        results_lst = self.run(
-            datasets=datasets,
-            folds=folds,
-            methods=methods,
-            ignore_cache=ignore_cache,
-        )
-
-        repo = self.repo_from_results(
-            results_lst=results_lst,
-            convert_time_infer_s_from_batch_to_sample=convert_time_infer_s_from_batch_to_sample,
-        )
-
-        return repo
 
     def repo_from_results(
         self,
-        results_lst: list[dict[str, Any]],
-        convert_time_infer_s_from_batch_to_sample: bool = True,  # FIXME: Remove this, it should be False eventually
+        results_lst: list[dict[str, Any] | BaselineResult],
+        calibrate: bool = False,
+        include_holdout: bool = False,
+        convert_time_infer_s_from_batch_to_sample: bool = False,  # FIXME: Remove this, it should be False eventually
     ) -> EvaluationRepository:
-        configs_hyperparameters = self.get_configs_hyperparameters(results_lst=results_lst)
-
-        results_baselines = [result["df_results"] for result in results_lst if result["simulation_artifacts"] is None]
-        df_baselines = pd.concat(results_baselines, ignore_index=True) if results_baselines else None
-
-        results_configs = [result for result in results_lst if result["simulation_artifacts"] is not None]
-
-        results_lst_simulation_artifacts = [result["simulation_artifacts"] for result in results_configs]
-        results_lst_df = [result["df_results"] for result in results_configs]
-
-        if results_lst_df:
-            df_configs = pd.concat(results_lst_df, ignore_index=True)
-            if convert_time_infer_s_from_batch_to_sample:
-                df_configs = _convert_time_infer_s_from_batch_to_sample(df=df_configs, task_metadata=self.task_metadata)
-        else:
-            df_configs = None
-
-        if df_baselines is not None:
-            if convert_time_infer_s_from_batch_to_sample:
-                df_baselines = _convert_time_infer_s_from_batch_to_sample(df=df_baselines, task_metadata=self.task_metadata)
-
-        # TODO: per-fold pred_proba_test and pred_proba_val (indices?)
-        repo: EvaluationRepository = EvaluationRepository.from_raw(
-            df_configs=df_configs,
-            df_baselines=df_baselines,
-            results_lst_simulation_artifacts=results_lst_simulation_artifacts,
-            task_metadata=self.task_metadata,
-            configs_hyperparameters=configs_hyperparameters,
+        experiment_results = ExperimentResults(task_metadata=self.task_metadata)
+        repo = experiment_results.repo_from_results(
+            results_lst=results_lst,
+            calibrate=calibrate,
+            include_holdout=include_holdout,
+            convert_time_infer_s_from_batch_to_sample=convert_time_infer_s_from_batch_to_sample,
         )
-
         return repo
 
-    def get_configs_hyperparameters(self, results_lst: list[dict]) -> dict | None:
-        configs_hyperparameters = {}
-        for result in results_lst:
-            if "method_metadata" in result and "model_hyperparameters" in result["method_metadata"]:
-                method_name = result["framework"]
-                if method_name in configs_hyperparameters:
-                    continue
-                method_metadata = result["method_metadata"]
-                model_hyperparameters = method_metadata["model_hyperparameters"]
-                model_cls = method_metadata.get("model_cls", None)
-                model_type = method_metadata.get("model_type", None)
-                name_prefix = method_metadata.get("name_prefix", None)
+    @classmethod
+    def _subtask_name(cls, fold: int, repeat: int | None = None) -> str:
+        if repeat is None:
+            subtask_name = f"{fold}"
+        else:
+            subtask_name = f"{repeat}_{fold}"
+        return subtask_name
 
-                configs_hyperparameters[method_name] = dict(
-                    model_cls=model_cls,
-                    model_type=model_type,
-                    name_prefix=name_prefix,
-                    hyperparameters=model_hyperparameters,
-                )
-        if not configs_hyperparameters:
-            configs_hyperparameters = None
-        return configs_hyperparameters
-
-    def _cache_name(self, method_name: str, dataset: str, fold: int) -> str:
+    def _cache_name(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> str:
+        subtask_name = self._subtask_name(fold=fold, repeat=repeat)
         # TODO: Windows? Use Path?
         tid = self._dataset_to_tid_dict[dataset]
         if self.cache_path_format == "name_first":
-            cache_name = f"data/{method_name}/{tid}/{fold}/results"
+            cache_name = f"data/{method_name}/{tid}/{subtask_name}/results"
         elif self.cache_path_format == "task_first":
             # Legacy format from early prototyping
-            cache_name = f"data/tasks/{tid}/{fold}/{method_name}/results"
+            cache_name = f"data/tasks/{tid}/{subtask_name}/{method_name}/results"
         else:
             raise ValueError(f"Unknown cache_path_format: {self.cache_path_format}")
         return cache_name
 
-    def _cache_exists(self, method_name: str, dataset: str, fold: int) -> bool:
-        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold)
+    def _cache_exists(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> bool:
+        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat)
         return cacher.exists
 
-    def _load_result(self, method_name: str, dataset: str, fold: int) -> dict[str, Any]:
-        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold)
+    def _load_result(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> dict[str, Any]:
+        cacher = self._get_cacher(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat)
         return cacher.load_cache()
 
-    def _get_cacher(self, method_name: str, dataset: str, fold: int) -> AbstractCacheFunction:
-        cache_name = self._cache_name(method_name=method_name, dataset=dataset, fold=fold)
+    def _get_cacher(self, method_name: str, dataset: str, fold: int, repeat: int | None = None) -> AbstractCacheFunction:
+        cache_name = self._cache_name(method_name=method_name, dataset=dataset, fold=fold, repeat=repeat)
         cacher = self.cache_cls(cache_name=cache_name, cache_path=self.expname, **self.cache_cls_kwargs)
         return cacher
 
@@ -315,14 +253,60 @@ class ExperimentBatchRunner:
         if len(folds) != len(set(folds)):
             raise AssertionError(f"Duplicate folds present! Ensure all folds are unique.")
 
+    def _validate_repeats(self, repeats: list[int] | None):
+        if repeats is None:
+            return
+        if len(repeats) != len(set(repeats)):
+            raise AssertionError(f"Duplicate repeats present! Ensure all repeats are unique.")
+
+def check_cache_hit(
+    *,
+    result_dir: str,
+    method_name: str,
+    task_id: int,
+    fold: int,
+    repeat: int | None,
+    cache_path_format: Literal["name_first", "task_first"],
+    cache_cls: Type[AbstractCacheFunction] | None,
+    cache_cls_kwargs: dict | None = None,
+    mode: Literal["local", "s3"],
+    s3_bucket: str | None = None,
+    delete_cache: bool = False,
+) -> bool:
+    """Returns true if cache exists for the given experiment."""
+    base_cache_path = result_dir if mode == "local" else f"s3://{s3_bucket}/{result_dir}"
+
+    subtask_cache_name = ExperimentBatchRunner._subtask_name(fold=fold, repeat=repeat)
+
+    if cache_path_format == "name_first":
+        cache_prefix = f"data/{method_name}/{task_id}/{subtask_cache_name}"
+        cache_name = "results"
+    elif cache_path_format == "task_first":
+        # Legacy format from early prototyping
+        cache_prefix = f"data/tasks/{task_id}/{subtask_cache_name}/{method_name}"
+        cache_name = "results"
+    else:
+        raise ValueError(f"Invalid cache_path_format: {cache_path_format}")
+
+    cache_path = f"{base_cache_path}/{cache_prefix}"
+
+    cacher = cache_cls(cache_name=cache_name, cache_path=cache_path, **cache_cls_kwargs)
+
+    if delete_cache:
+        from pathlib import Path
+        Path(cacher.cache_file).unlink(missing_ok=True)
+
+    return cacher.exists
+
 
 def run_experiments(
     expname: str,
     tids: list[int],
-    folds: list[int],
+    folds: list[int] | None,
     methods: list[Experiment],
-    task_metadata: pd.DataFrame,
+    task_metadata: pd.DataFrame | dict,
     ignore_cache: bool,
+    repeats: list[int] | None = None,
     cache_cls: Type[AbstractCacheFunction] | None = CacheFunctionPickle,
     cache_cls_kwargs: dict = None,
     cache_path_format: Literal["name_first", "task_first"] = "name_first",
@@ -332,6 +316,7 @@ def run_experiments(
     raise_on_failure: bool = True,
     debug_mode: bool = True,
     s3_dataset_cache: str | None = None,
+    repeat_fold_pairs: list[tuple[int | None, int]] | None = None,
 ) -> list[dict]:
     """
 
@@ -340,8 +325,10 @@ def run_experiments(
     expname: str, Name of the experiment given by the user
     tids: list[int], List of OpenML task IDs given by the user
     folds: list[int], Number of folds present for the given task
+    repeats: list[int] | None, Number of repeats present for the given task. If None, defaults to [0]
     methods: list[Experiment], Models used for fit() and predict() in this experiment
-    task_metadata: pd.DataFrame, OpenML task metadata
+    task_metadata: pd.DataFrame or None, OpenML task metadata
+         If dict, it is a map from TID to task name. As only task name is used here.
     ignore_cache: bool, whether to use cached results (if present)
     cache_cls: WIP
     cache_cls_kwargs: WIP
@@ -355,6 +342,8 @@ def run_experiments(
     s3_dataset_cache: str, default None
         Full S3 URI to the openml dataset cache (format: s3://bucket/prefix)
         If None, skip S3 download attempt
+    repeat_fold_pairs: list[tuple[int | None, int]] | None, default None
+        alternative to `repeats` and `folds` parameters to specify the repeat and fold pairs to run.
 
     Returns
     -------
@@ -367,6 +356,9 @@ def run_experiments(
         cache_cls = CacheFunctionDummy
     if cache_cls_kwargs is None:
         cache_cls_kwargs = {}
+
+    if folds is None:
+        assert repeat_fold_pairs is not None, "If folds is None, repeat_fold_pairs must be provided"
 
     # Modify cache path based on mode
     if mode == "local":
@@ -393,14 +385,31 @@ def run_experiments(
     #  This is probably because `.` isn't a valid name in a file in s3.
     #  TODO: What if `dataset` doesn't exist as a column? Maybe fallback to `name`? Or do the `name` -> `dataset` conversion, or use tid.
     dataset_name_column = "dataset"
-    dataset_names = [task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0] for tid in tids]
+    if isinstance(task_metadata, dict):
+        dataset_names = [task_metadata[tid] for tid in tids]
+    else:
+        dataset_names = [task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0] for tid in tids]
+
+    if repeat_fold_pairs is None:
+        n_splits = len(folds)
+        if repeats is not None:
+            n_splits *= len(repeats)
+    else:
+        n_splits = len(repeat_fold_pairs)
+    if repeat_fold_pairs is None:
+        if repeats is not None:
+            repeat_fold_pairs = [(r, f) for r in repeats for f in folds]
+        else:
+            repeat_fold_pairs = [(None, f) for f in folds]
     print(
         f"Running Experiments for expname: '{expname}'..."
-        f"\n\tFitting {len(tids)} datasets and {len(folds)} folds for a total of {len(tids) * len(folds)} tasks"
-        f"\n\tFitting {len(methods)} methods on {len(tids) * len(folds)} tasks for a total of {len(tids) * len(folds) * len(methods)} jobs..."
+        f"\n\tFitting {len(tids)} datasets and {n_splits} repeat-fold splits for a total of {len(tids) * n_splits} tasks"
+        f"\n\tFitting {len(methods)} methods on {len(tids) *n_splits} tasks for a total of {len(tids) * n_splits * len(methods)} jobs..."
         f"\n\tTIDs    : {tids}"
         f"\n\tDatasets: {dataset_names}"
         f"\n\tFolds   : {folds}"
+        f"\n\tRepeats : {repeats}"
+        f"\n\tRepeat-Fold-Pairs: {repeat_fold_pairs}"
         f"\n\tMethods : {[method.name for method in methods]}"
     )
     result_lst = []
@@ -411,20 +420,24 @@ def run_experiments(
     experiment_fail_count = 0
     experiment_missing_count = 0
     experiment_cache_exists_count = 0
-    experiment_count_total = len(tids) * len(folds) * len(methods)
+    experiment_count_total = len(tids) * len(methods) * n_splits
     for i, tid in enumerate(tids):
         task = None  # lazy task loading
-        task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
+        if isinstance(task_metadata, dict):
+            task_name = task_metadata[tid]
+        else:
+            task_name = task_metadata[task_metadata["tid"] == tid][dataset_name_column].iloc[0]
         print(f"Starting Dataset {i+1}/{num_datasets}...")
-        for fold in folds:
+        for repeat, fold in repeat_fold_pairs:
+            subtask_cache_name = ExperimentBatchRunner._subtask_name(fold=fold, repeat=repeat)
             for method in methods:
                 cur_experiment_idx += 1
                 if cache_path_format == "name_first":
-                    cache_prefix = f"data/{method.name}/{tid}/{fold}"
+                    cache_prefix = f"data/{method.name}/{tid}/{subtask_cache_name}"
                     cache_name = "results"
                 elif cache_path_format == "task_first":
                     # Legacy format from early prototyping
-                    cache_prefix = f"data/tasks/{tid}/{fold}/{method.name}"
+                    cache_prefix = f"data/tasks/{tid}/{subtask_cache_name}/{method.name}"
                     cache_name = "results"
                 else:
                     raise ValueError(f"Invalid cache_path_format: {cache_path_format}")
@@ -435,7 +448,7 @@ def run_experiments(
                     f"{experiment_fail_count} fail | "
                     f"{experiment_cache_exists_count} cache_exists | "
                     f"{experiment_missing_count} missing | "
-                    f"Fitting {task_name} on fold {fold} for method {method.name}"
+                    f"Fitting {task_name} on repeat {repeat}, fold {fold} for method {method.name}"
                 )
                 cache_path = f"{base_cache_path}/{cache_prefix}"
 
@@ -460,6 +473,13 @@ def run_experiments(
                             else:
                                 task = OpenMLTaskWrapper.from_task_id(task_id=tid)
 
+                    if repeat is not None:
+                        run_kwargs = {
+                            "repeat": repeat,
+                        }
+                    else:
+                        run_kwargs = {}
+
                     try:
                         out = method.run(
                             task=task,
@@ -468,6 +488,7 @@ def run_experiments(
                             cacher=cacher,
                             ignore_cache=ignore_cache,
                             debug_mode=debug_mode,
+                            **run_kwargs,
                         )
                     except Exception as exc:
                         if raise_on_failure:
@@ -481,29 +502,3 @@ def run_experiments(
                     experiment_fail_count += 1
 
     return result_lst
-
-
-def convert_leaderboard_to_configs(leaderboard: pd.DataFrame, minimal: bool = True) -> pd.DataFrame:
-    df_configs = leaderboard.rename(columns=dict(
-        time_fit="time_train_s",
-        time_predict="time_infer_s",
-        test_error="metric_error",
-        eval_metric="metric",
-        val_error="metric_error_val",
-    ))
-    if minimal:
-        minimal_columns = [
-            "dataset",
-            "fold",
-            "framework",
-            "metric_error",
-            "metric",
-            "problem_type",
-            "time_train_s",
-            "time_infer_s",
-            "tid",
-        ]
-        if "metric_error_val" in df_configs:
-            minimal_columns.append("metric_error_val")
-        df_configs = df_configs[minimal_columns]
-    return df_configs

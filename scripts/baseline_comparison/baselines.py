@@ -3,6 +3,7 @@ import itertools
 from typing import List
 
 import numpy as np
+import pandas as pd
 from dataclasses import dataclass
 
 from tqdm import tqdm
@@ -32,6 +33,7 @@ class ResultRow:
     config_selected: list = None
     seed: int = None
     metadata: dict = None
+    ensemble_weight: dict[str, float] = None
 
 
 def evaluate_configs(
@@ -81,6 +83,9 @@ def evaluate_configs(
         assert len(df_metrics) == 1
         metrics = df_metrics.iloc[0]
         configs_selected = [c for c in configs if c in ensemble_weights.columns]
+        assert len(ensemble_weights) == 1
+        ensemble_weights_dict = ensemble_weights.iloc[0].to_dict()
+        ensemble_weights_dict = {k: v for k, v in ensemble_weights_dict.items() if v != 0}
 
         task = repo.task_name(dataset=dataset, fold=fold)
 
@@ -104,7 +109,8 @@ def evaluate_configs(
             metadata=dict(
                 n_iterations=ensemble_size,
                 time_limit=time_limit,
-            )
+            ),
+            ensemble_weight=ensemble_weights_dict,
         ))
     return rows
 
@@ -273,7 +279,7 @@ def zeroshot_name(
         n_portfolio: int = n_portfolios_default, n_ensemble: int = None, n_training_dataset: int = None,
         n_training_fold: int = None, n_training_config: int = None,
         max_runtime: float = default_runtime, prefix: str = None, n_ensemble_in_name: bool = False,
-        max_models: int = None, max_models_per_type: int = None,
+        max_models: int = None, max_models_per_type: int = None, fix_fillna: bool = False,
 ):
     """
     :return: name of the zeroshot method such as Zeroshot-N20-C40 if n_training_dataset or n_training_folds are not
@@ -296,6 +302,8 @@ def zeroshot_name(
         suffix += f"-E{n_ensemble}"
     if n_ensemble is None or n_ensemble > 1:
         suffix += " (ensemble)"
+    if not fix_fillna:
+        prefix += f"-bugged_fillna"
     suffix += time_suffix(max_runtime)
     return f"Portfolio{prefix}{suffix}"
 
@@ -332,6 +340,7 @@ def zeroshot_results(
         n_max_models: List[int] = [None],
         n_max_models_per_type: List[int] = [None],
         max_runtimes: List[float] = [default_runtime],
+        fix_fillna: bool = False,
         engine: str = "ray",
         seeds: list = [0],
         method_prefix: str = None,
@@ -366,14 +375,18 @@ def zeroshot_results(
             prefix=method_prefix,
             n_ensemble_in_name=n_ensemble_in_name,
             max_models=max_models,
-            max_models_per_type=max_models_per_type
+            max_models_per_type=max_models_per_type,
+            fix_fillna=fix_fillna,
         )
 
         rng = np.random.default_rng(seed=seed)
 
         # restrict number of evaluation fold
         if n_training_fold is None:
-            n_training_fold = n_eval_folds
+            if n_eval_folds is None:
+                n_training_fold = len(repo.folds)
+            else:
+                n_training_fold = n_eval_folds
 
         # gets all tids that are possible available
         test_tid = repo.dataset_to_tid(test_dataset)
@@ -402,27 +415,37 @@ def zeroshot_results(
 
         df_rank = df_rank.copy().loc[configs]
 
+        train_task_weight = {}
+
         # collects all tasks that are available
         train_tasks = []
         for task in df_rank.columns:
             tid, fold = task.split("_")
-            if int(tid) in selected_tids and int(fold) < n_training_fold:
+            tid = int(tid)
+            fold = int(fold)
+            if tid in selected_tids and fold < n_training_fold:
                 train_tasks.append(task)
+                n_folds_in_dataset = min(n_training_fold, len(repo.dataset_to_folds(repo.tid_to_dataset(tid))))
+                train_task_weight[task] = 1/n_folds_in_dataset
 
         # fit zeroshot portfolio on all available tasks
-        indices = zeroshot_configs(-df_rank[train_tasks].values.T, n_portfolio)
+        indices = zeroshot_configs(-df_rank[train_tasks].values.T, n_portfolio, weights=[train_task_weight[task] for task in train_tasks])
         portfolio_configs = [df_rank.index[i] for i in indices]
         # TODO: Technically we should exclude data from the fold when computing the average runtime and also pass the
         #  current fold when filtering by runtime.
         # portfolio_configs = sort_by_runtime(repo=repo, config_names=portfolio_configs)
 
-        if max_runtime is None:
-            max_runtime = default_runtime
+        # if max_runtime is None:
+        #     max_runtime = default_runtime
 
         ensemble_kwargs = {
             "max_models": max_models,
             "max_models_per_type": max_models_per_type,
         }
+
+        test_folds = repo.dataset_to_folds(dataset=test_dataset)
+        if n_eval_folds is not None:
+            test_folds = test_folds[:n_eval_folds]
 
         results_row_lst: list[ResultRow] = evaluate_configs(
             repo=repo,
@@ -434,7 +457,7 @@ def zeroshot_results(
             tid=test_tid,
             time_limit=max_runtime,
             method=method_name,
-            folds=range(n_eval_folds),
+            folds=test_folds,
             seed=seed,
         )
 
@@ -447,15 +470,24 @@ def zeroshot_results(
     # df_rank = dd.pivot_table(index="framework", columns="dataset", values="score_val").rank()
     # TODO use normalized scores
     df_rank = dd.pivot_table(index="framework", columns="task", values="metric_error").rank(ascending=False)
-    df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
+    # FIXME: df_rank should instead be np.nanmin(df_rank.values)!!!!
+    # FIXME: MASSIVE BUG: NEED TO TEST portfolio build with this bug fixed! I think this bug existed in the paper!
+    # FIXME: THIS MEANS EVERY DATASET WHERE KNN IS MISSING IS IGNORED ONCE KNN IS SELECTED IN PORTFOLIO!
+    if fix_fillna:
+        df_rank.fillna(value=np.nanmin(df_rank.values), inplace=True)
+    else:
+        df_rank.fillna(value=np.nanmax(df_rank.values), inplace=True)
     assert not any(df_rank.isna().values.reshape(-1))
 
     if configs is None:
         configs = repo.configs()
     if framework_types is None:
-        model_frameworks = {
-            "all": sorted(configs)
-        }
+        configs_type = repo.configs_type(configs=configs)
+        model_frameworks = {}
+        for config, config_type in configs_type.items():
+            if config_type not in model_frameworks:
+                model_frameworks[config_type] = []
+            model_frameworks[config_type].append(config)
     else:
         model_frameworks = {
             framework: sorted([x for x in configs if framework in x])

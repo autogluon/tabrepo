@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from typing_extensions import Self
 
+from ..benchmark.task.openml import OpenMLTaskWrapper
 from ..simulation.simulation_context import ZeroshotSimulatorContext
 from ..simulation.single_best_config_scorer import SingleBestConfigScorer
 from ..utils.cache import SaveLoadMixin
@@ -39,10 +40,13 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def _tid_to_dataset_dict(self) -> Dict[int, str]:
         return {v: k for k, v in self._dataset_to_tid_dict.items()}
 
+    # TODO: tasks
     def subset(self,
+               *,
                datasets: List[str] = None,
                folds: List[int] = None,
                configs: List[str] = None,
+               baselines: List[str] = None,
                problem_types: List[str] = None,
                force_to_dense: bool = False,
                inplace: bool = False,
@@ -54,6 +58,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         :param datasets: The list of datasets to subset. Ignored if unspecified.
         :param folds: The list of folds to subset. Ignored if unspecified.
         :param configs: The list of configs to subset. Ignored if unspecified.
+        :param baselines: The list of baselines to subset. Ignored if unspecified.
         :param problem_types: The list of problem types to subset. Ignored if unspecified.
         :param force_to_dense: If True, forces the output to dense representation.
         :param inplace: If True, will perform subset logic inplace.
@@ -65,22 +70,32 @@ class AbstractRepository(ABC, SaveLoadMixin):
                 datasets=datasets,
                 folds=folds,
                 configs=configs,
+                baselines=baselines,
                 problem_types=problem_types,
                 force_to_dense=force_to_dense,
                 inplace=True,
                 verbose=verbose,
             )
         if folds is not None:
-            self._zeroshot_context.subset_folds(folds=folds)
+            self._subset_folds(folds=folds)
         if configs is not None:
             self._zeroshot_context.subset_configs(configs=configs)
+        if baselines is not None:
+            self._zeroshot_context.subset_baselines(baselines=baselines)
         if datasets is not None:
-            self._zeroshot_context.subset_datasets(datasets=datasets)
+            self._subset_datasets(datasets=datasets)
         if problem_types is not None:
-            self._zeroshot_context.subset_problem_types(problem_types=problem_types)
+            datasets_problem_type = self.datasets(problem_type=problem_types)
+            self._subset_datasets(datasets=datasets_problem_type)
         if force_to_dense:
             self.force_to_dense(inplace=True, verbose=verbose)
         return self
+
+    def _subset_folds(self, folds: list[int]):
+        self._zeroshot_context.subset_folds(folds=folds)
+
+    def _subset_datasets(self, datasets: list[str]):
+        self._zeroshot_context.subset_datasets(datasets=datasets)
 
     @abstractmethod
     def force_to_dense(self, inplace: bool = False, verbose: bool = True) -> Self:
@@ -126,14 +141,14 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """
         return self._zeroshot_context.get_tids(problem_type=problem_type)
 
-    def datasets(self, problem_type: str = None, union: bool = True) -> List[str]:
-        """
+    def datasets(self, *, configs: list[str] = None, problem_type: str | list[str] = None, union: bool = True) -> list[str]:
+        """repo_subset2.datasets()
         Return all valid datasets.
         By default, will return all datasets that appear in any config at least once.
 
         Parameters
         ----------
-        problem_type : str, default = None
+        problem_type : str | list[str], default = None
             If specified, will only consider datasets with the given problem type
         union: bool, default = True
             If True, will return the union of datasets present in each config.
@@ -143,7 +158,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         -------
         A list of dataset names satisfying the above conditions.
         """
-        return self._zeroshot_context.get_datasets(problem_type=problem_type, union=union)
+        return self._zeroshot_context.get_datasets(configs=configs, problem_type=problem_type, union=union)
 
     def tasks(self) -> list[tuple[str, int]]:
         dataset_folds = self._zeroshot_context.get_tasks(as_dataset_fold=True)
@@ -205,7 +220,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         return pd.Series({dataset: self._dataset_to_tid_dict[dataset] for dataset in datasets}, name="tid")
 
     def tid_to_dataset(self, tid: int) -> str:
-        return self._tid_to_dataset_dict.get(tid, "Not found")
+        return self._tid_to_dataset_dict[tid]
 
     def metrics(self, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
         """
@@ -442,6 +457,9 @@ class AbstractRepository(ABC, SaveLoadMixin):
         """Returns the fold associated with a task"""
         return self._zeroshot_context.task_to_fold(task=task)
 
+    def dataset_to_folds(self, dataset: str) -> list[int]:
+        return self._zeroshot_context.dataset_to_folds(dataset=dataset)
+
     def config_hyperparameters(self, config: str, include_ag_args: bool = True) -> dict | None:
         """
         Returns config hyperparameters as defined in AutoGluon
@@ -584,3 +602,22 @@ class AbstractRepository(ABC, SaveLoadMixin):
             return np.stack([1 - predictions, predictions], axis=predictions.ndim)
         else:
             return predictions
+
+    # TODO: repo.reproduce(config, dataset, fold)
+    def get_openml_task(self, dataset: str) -> OpenMLTaskWrapper:
+        """
+        Fetch an OpenML task given a dataset name
+
+        Parameters
+        ----------
+        dataset: str
+            The dataset name used to fetch the OpenML task.
+            Must be part of `repo.datasets`
+
+        Returns
+        -------
+        OpenMLTaskWrapper object
+        """
+        tid = self.dataset_to_tid(dataset=dataset)
+        task = OpenMLTaskWrapper.from_task_id(task_id=tid)
+        return task

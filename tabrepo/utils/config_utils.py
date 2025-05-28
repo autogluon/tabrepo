@@ -106,7 +106,7 @@ class ConfigGenerator(AGConfigGenerator):
             model_type = model_cls.ag_key
         else:
             model_type = MODEL_TYPE_DICT[name]
-        assert name is not None
+        assert name is not None, "set `ag_name` and `ag_key` in the model class!"
         super().__init__(
             name=name,
             model_type=model_type,

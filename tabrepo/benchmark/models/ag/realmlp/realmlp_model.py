@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Literal
 
 import pandas as pd
@@ -54,8 +55,14 @@ class RealMLPModel(AbstractModel):
         num_gpus: float = 0,
         **kwargs,
     ):
-        if num_gpus > 0:
-            logger.log(30, f"WARNING: GPUs are not yet implemented for RealMLP model, but `num_gpus={num_gpus}` was specified... Ignoring GPU.")
+        import torch
+        # FIXME: code assume we only see one GPU in the fit process.
+        device = "cpu" if num_gpus == 0 else "cuda:0"
+        if (device == "cuda:0") and (not torch.cuda.is_available()):
+            raise AssertionError(
+                "Fit specified to use GPU, but CUDA is not available on this machine. "
+                "Please switch to CPU usage instead.",
+            )
 
         hyp = self._get_model_params()
 
@@ -99,10 +106,9 @@ class RealMLPModel(AbstractModel):
         impute_bool = hyp.pop("impute_bool", True)
         name_categories = hyp.pop("name_categories", True)
 
-        # TODO: GPU
         self.model = model_cls(
             n_threads=num_cpus,
-            device="cpu",
+            device=device,
             **init_kwargs,
             **hyp,
         )
@@ -167,6 +173,11 @@ class RealMLPModel(AbstractModel):
     def _set_default_params(self):
         default_params = dict(
             random_state=0,
+            # TODO: predict_batch_size=512,  # Default 1024, runs OOM on robert sometimes. Verify the speed impact.
+            #  And OVA_Prostate
+            #  From David Holzmuller:
+            #  a slightly conservative bound (ignoring the model size, which should be not too large) should be something like
+            #  ram_bytes = 4 * n_features * (plr_hidden_1 + plr_hidden_2) * predict_batch_size. Then one could infer predict_batch_size based on a RAM limit...
 
             # Don't use early stopping by default, seems to work well without
             use_early_stopping=False,
@@ -203,9 +214,10 @@ class RealMLPModel(AbstractModel):
         return self.eval_metric
 
     def _get_default_resources(self) -> tuple[int, int]:
+        import torch
         # logical=False is faster in training
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = 0  # TODO: Test GPU support
+        num_gpus = 1 if torch.cuda.is_available() else 0
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
@@ -218,9 +230,60 @@ class RealMLPModel(AbstractModel):
         cls,
         *,
         X: pd.DataFrame,
+        hyperparameters: dict = None,
         **kwargs,
     ) -> int:
-        return 10 * get_approximate_df_mem_usage(X).sum()
+        """
+        Heuristic memory estimate that correlates strongly with RealMLP's more sophisticated method
+
+        More comprehensive memory estimate logic:
+
+        ```python
+        from typing import Any
+
+        from pytabkit.models.alg_interfaces.nn_interfaces import NNAlgInterface
+        from pytabkit.models.data.data import DictDataset, TensorInfo
+        from pytabkit.models.sklearn.default_params import DefaultParams
+
+        def estimate_realmlp_cpu_ram_gb(hparams: dict[str, Any], n_numerical: int, cat_sizes: list[int], n_classes: int,
+                                        n_samples: int):
+            params = copy.copy(DefaultParams.RealMLP_TD_CLASS if n_classes > 0 else DefaultParams.RealMLP_TD_REG)
+            params.update(hparams)
+
+            ds = DictDataset(tensors=None, tensor_infos=dict(x_cont=TensorInfo(feat_shape=[n_numerical]),
+                                                             x_cat=TensorInfo(cat_sizes=cat_sizes),
+                                                             y=TensorInfo(cat_sizes=[n_classes])), device='cpu',
+                             n_samples=n_samples)
+
+            alg_interface = NNAlgInterface(**params)
+            res = alg_interface.get_required_resources(ds, n_cv=1, n_refit=0, n_splits=1, split_seeds=[0], n_train=n_samples)
+            return res.cpu_ram_gb
+        ```
+
+        """
+        if hyperparameters is None:
+            hyperparameters = {}
+        plr_hidden_1 = hyperparameters.get("plr_hidden_1", 16)
+        plr_hidden_2 = hyperparameters.get("plr_hidden_2", 4)
+        hidden_width = hyperparameters.get("hidden_width", 256)
+
+        num_features = len(X.columns)
+        columns_mem_est = num_features * 8e5
+
+        hidden_1_weight = 0.13
+        hidden_2_weight = 0.42
+        width_factor = math.sqrt(hidden_width / 256 + 0.6)
+
+        columns_mem_est_hidden_1 = columns_mem_est * hidden_1_weight * plr_hidden_1 / 16 * width_factor
+        columns_mem_est_hidden_2 = columns_mem_est * hidden_2_weight * plr_hidden_2 / 16 * width_factor
+        columns_mem_est = columns_mem_est_hidden_1 + columns_mem_est_hidden_2
+
+        dataset_size_mem_est = 5 * get_approximate_df_mem_usage(X).sum()  # roughly 5x DataFrame memory size
+        baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
+
+        mem_estimate = dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
+
+        return mem_estimate
 
     @classmethod
     def _class_tags(cls):

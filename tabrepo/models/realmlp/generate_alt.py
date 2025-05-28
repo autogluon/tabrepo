@@ -10,7 +10,7 @@ from tabrepo.utils.config_utils import CustomAGConfigGenerator
 def generate_single_config_realmlp_alt(rng):
     # common search space
     params = {
-        'n_hidden_layers': rng.integers(1, 4, endpoint=True),
+        'n_hidden_layers': rng.integers(2, 4, endpoint=True),
         'hidden_sizes': 'rectangular',
         'hidden_width': rng.choice([256, 384, 512]),
         'p_drop': rng.uniform(0.0, 0.5),
@@ -21,11 +21,11 @@ def generate_single_config_realmlp_alt(rng):
         'scale_lr_factor': np.exp(rng.uniform(np.log(2.0), np.log(10.0))),
         'first_layer_lr_factor': np.exp(rng.uniform(np.log(0.3), np.log(1.5))),
         'ls_eps_sched': 'coslog4',
-        'ls_eps': np.exp(rng.uniform(np.log(5e-3), np.log(2e-1))),
+        'ls_eps': np.exp(rng.uniform(np.log(5e-3), np.log(1e-1))),
         'p_drop_sched': 'flat_cos',
         'lr': np.exp(rng.uniform(np.log(2e-2), np.log(3e-1))),
         'wd': np.exp(rng.uniform(np.log(1e-3), np.log(5e-2))),
-        'use_ls': True,  # use label smoothing (will be ignored for regression)
+        'use_ls': rng.choice(["auto", True]),  # use label smoothing (will be ignored for regression)
     }
 
     if rng.uniform(0.0, 1.0) > 0.5:
@@ -51,8 +51,8 @@ def generate_configs_realmlp_alt(num_random_configs=200, seed=1234):
     return [generate_single_config_realmlp_alt(rng) for _ in range(num_random_configs)]
 
 
-gen_realmlp_alt = CustomAGConfigGenerator(model_cls=RealMLPModel, search_space_func=generate_configs_realmlp_alt,
-                                          manual_configs=[{}])
+gen_realmlp_alt = CustomAGConfigGenerator(model_cls=RealMLPModel, search_space_func=generate_configs_realmlp_alt)
+
 
 if __name__ == '__main__':
     configs_yaml = []

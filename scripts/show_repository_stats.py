@@ -16,7 +16,7 @@
 """
 from pathlib import Path
 
-from scripts import load_context, output_path
+from scripts import load_context
 from scripts.baseline_comparison.plot_utils import table_path
 
 

@@ -23,7 +23,7 @@ def intersect_folds_and_datasets(zsc: ZeroshotSimulatorContext,
                 zeroshot_gt.remove_dataset(dataset=d)
     zsc_datasets = zsc.get_datasets()
     zpp_datasets = [dataset for dataset in zeroshot_pred_proba.datasets if dataset in zsc_datasets]
-    zsc.subset_datasets(zpp_datasets)
+    zsc.subset_datasets(zpp_datasets, only_configs=True)
 
 
 def load_zeroshot_input(path_pred_proba: str,
@@ -31,10 +31,13 @@ def load_zeroshot_input(path_pred_proba: str,
                         datasets: List[str],
                         zsc: ZeroshotSimulatorContext,
                         prediction_format: str = "memmap",
+                        verbose: bool = True,
                         ) -> Tuple[TabularModelPredictions, GroundTruth, ZeroshotSimulatorContext]:
-    print(f'Loading ZS inputs:\n'
-          f'\tpred_proba:  {path_pred_proba}\n'
-    )
+    if verbose:
+        print(
+            f'Loading ZS inputs:\n'
+            f'\tpred_proba:  {path_pred_proba}\n'
+        )
     zeroshot_gt = zsc.load_groundtruth(paths_gt=paths_gt)
     zeroshot_pred_proba = zsc.load_pred(
         path_pred_proba=path_pred_proba,

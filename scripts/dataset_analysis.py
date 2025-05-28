@@ -109,18 +109,8 @@ def generate_dataset_analysis(repo, expname_outdir: str):
 
     df = zsc.df_configs_ranked.copy()
 
-    df["framework"] = df["framework"].map({
-        "FTTransformer_c1_BAG_L1": "FTTransformer_r1_BAG_L1",
-        # "FTTransformer_c2_BAG_L1": "FTTransformer_r2_BAG_L1",
-        # "FTTransformer_c3_BAG_L1": "FTTransformer_r3_BAG_L1",
-        "TabPFN_c1_BAG_L1": "TabPFN_r1_BAG_L1",
-        # "TabPFN_c2_BAG_L1": "TabPFN_r2_BAG_L1",
-        # "TabPFN_c3_BAG_L1": "TabPFN_r3_BAG_L1",
-
-    }).fillna(df["framework"])
     config_regexp = "(" + "|".join([str(x) for x in range(4)]) + ")"
     df = df[df.framework.str.contains(f"r{config_regexp}_BAG_L1")]
-    df.framework = df.framework.str.replace("NeuralNetTorch", "MLP")
 
     metric = "metric_error"
     df_pivot = df.pivot_table(
@@ -128,17 +118,6 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     )
     df_rank = df_pivot.rank() / len(df_pivot)
     df_rank.index = [x.replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
-    # shorten framework names
-    #df_rank.index = [x.replace("ExtraTrees", "ET").replace("CatBoost", "CB").replace("LightGBM", "LGBM").replace("NeuralNetFastAI", "MLP").replace("RandomForest", "RF").replace("_BAG_L1", "").replace("_r", "_").replace("_", "-") for x in df_rank.index]
-    df_rank.index = [
-        x
-        # .replace("ExtraTrees", "ET")
-        # .replace("CatBoost", "CB")
-        # .replace("LightGBM", "LGBM")
-        .replace("NeuralNetTorch", "MLP")
-        # .replace("RandomForest", "_r", "_")
-        # .replace("_", "-")
-        for x in df_rank.index]
 
     df_rank = df_rank[[index(name) is not None and index(name) < num_models_to_plot for name in df_rank.index]]
 
@@ -183,17 +162,27 @@ def generate_dataset_analysis(repo, expname_outdir: str):
         hue="method",
         hue_order=sorted(list(df_grouped["method"].unique())),
         linewidth=3,
-        palette=[  # category10 color palette
-            '#1f77b4',
-            '#ff7f0e',
-            '#2ca02c',
-            '#d62728',
-            '#9467bd',
-            '#8c564b',
-            '#e377c2',
-            '#7f7f7f',
-            '#bcbd22',
-            '#17becf',
+        palette=[
+            '#1f77b4',  # blue
+            '#ff7f0e',  # orange
+            '#2ca02c',  # green
+            '#d62728',  # red
+            '#9467bd',  # purple
+            '#8c564b',  # brown
+            '#e377c2',  # pink
+            '#7f7f7f',  # gray
+            '#bcbd22',  # yellow-green
+            '#17becf',  # cyan
+            '#aec7e8',  # light blue
+            '#ffbb78',  # light orange
+            '#98df8a',  # light green
+            '#ff9896',  # light red
+            '#c5b0d5',  # light purple
+            '#c49c94',  # light brown
+            '#f7b6d2',  # light pink
+            '#c7c7c7',  # light gray
+            '#dbdb8d',  # light yellow-green
+            '#9edae5',  # light cyan
         ],
         ax=ax,
     )
@@ -212,7 +201,7 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     plot_train_time_deep_dive(df, expname_outdir=expname_outdir)
 
 
-def plot_train_time_deep_dive(df, expname_outdir: str):
+def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
     df = df.copy(deep=True)
     title_size = 20
     figsize = (26, 7)
@@ -295,17 +284,27 @@ def plot_train_time_deep_dive(df, expname_outdir: str):
         hue="method",
         hue_order=sorted(list(df["method"].unique())),
         linewidth=3,
-        palette=[  # category10 color palette
-            '#1f77b4',
-            '#ff7f0e',
-            '#2ca02c',
-            '#d62728',
-            '#9467bd',
-            '#8c564b',
-            '#e377c2',
-            '#7f7f7f',
-            '#bcbd22',
-            '#17becf',
+        palette=[
+            '#1f77b4',  # blue
+            '#ff7f0e',  # orange
+            '#2ca02c',  # green
+            '#d62728',  # red
+            '#9467bd',  # purple
+            '#8c564b',  # brown
+            '#e377c2',  # pink
+            '#7f7f7f',  # gray
+            '#bcbd22',  # yellow-green
+            '#17becf',  # cyan
+            '#aec7e8',  # light blue
+            '#ffbb78',  # light orange
+            '#98df8a',  # light green
+            '#ff9896',  # light red
+            '#c5b0d5',  # light purple
+            '#c49c94',  # light brown
+            '#f7b6d2',  # light pink
+            '#c7c7c7',  # light gray
+            '#dbdb8d',  # light yellow-green
+            '#9edae5',  # light cyan
         ],
         ax=ax,
     )
@@ -313,9 +312,9 @@ def plot_train_time_deep_dive(df, expname_outdir: str):
     ax.grid()
     ax.hlines(3600, xmin=0, xmax=df_sorted_by_time["group_index"].max(), color="black", label="3600 Seconds", ls="--")
     ax.legend()
-    ax.set_xlabel("Family configs (Proportion)", fontdict={'size': title_size})
+    ax.set_xlabel("Proportion of Model Configurations", fontdict={'size': title_size})
     ax.set_ylabel("Training runtime (s)", fontdict={'size': title_size})
-    ax.set_title("Family runtime distribution", fontdict={'size': title_size})
+    ax.set_title("Model runtime distribution", fontdict={'size': title_size})
     plt.tight_layout()
 
     ax = axes[2]
@@ -341,26 +340,36 @@ def plot_train_time_deep_dive(df, expname_outdir: str):
         hue="method",
         hue_order=sorted(list(df["method"].unique())),
         linewidth=3,
-        palette=[  # category10 color palette
-            '#1f77b4',
-            '#ff7f0e',
-            '#2ca02c',
-            '#d62728',
-            '#9467bd',
-            '#8c564b',
-            '#e377c2',
-            '#7f7f7f',
-            '#bcbd22',
-            '#17becf',
+        palette=[
+            '#1f77b4',  # blue
+            '#ff7f0e',  # orange
+            '#2ca02c',  # green
+            '#d62728',  # red
+            '#9467bd',  # purple
+            '#8c564b',  # brown
+            '#e377c2',  # pink
+            '#7f7f7f',  # gray
+            '#bcbd22',  # yellow-green
+            '#17becf',  # cyan
+            '#aec7e8',  # light blue
+            '#ffbb78',  # light orange
+            '#98df8a',  # light green
+            '#ff9896',  # light red
+            '#c5b0d5',  # light purple
+            '#c49c94',  # light brown
+            '#f7b6d2',  # light pink
+            '#c7c7c7',  # light gray
+            '#dbdb8d',  # light yellow-green
+            '#9edae5',  # light cyan
         ],
         ax=ax,
     )
     ax.set_yscale('log')
+    # ax.legend()
     ax.grid()
-    ax.legend()
-    ax.set_xlabel("Family configs (Proportion)", fontdict={'size': title_size})
+    ax.set_xlabel("Proportion of Model Configurations", fontdict={'size': title_size})
     ax.set_ylabel("Cumulative training runtime (s)", fontdict={'size': title_size})
-    ax.set_title("Cumulative family runtime distribution", fontdict={'size': title_size})
+    ax.set_title("Cumulative model runtime distribution", fontdict={'size': title_size})
     plt.tight_layout()
 
     fig_save_path = figure_path(prefix=expname_outdir) / f"data-analysis-runtime.pdf"
