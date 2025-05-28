@@ -136,7 +136,7 @@ All the table and figures of the paper will be generated under `scripts/output/{
 
 ### Colab Notebook
 
-To run a subset of experiments on a Colab notebook, refer to [https://colab.research.google.com/github/autogluon/tabrepo/blob/main/examples/TabRepo_Reproducibility.ipynb](https://colab.research.google.com/github/autogluon/tabrepo/blob/main/examples/TabRepo_Reproducibility.ipynb)
+To run a subset of experiments on a Colab notebook, refer to [https://colab.research.google.com/github/autogluon/tabrepo/blob/AutoML2024/examples/TabRepo_Reproducibility.ipynb](https://colab.research.google.com/github/autogluon/tabrepo/blob/AutoML2024/examples/TabRepo_Reproducibility.ipynb)
 
 ### Reproducing the raw TabRepo dataset
 
