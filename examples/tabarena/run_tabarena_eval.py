@@ -120,6 +120,53 @@ if __name__ == '__main__':
         load_from_s3=load_from_s3,
         # save_local_to_s3=True,
     )
+    # df_results_mnca_gpu = load_pd.load(path="tabarena_paper_full_51/output_gpu_ablation/data/df_results_MNCA_GPU.parquet")
+    # df_results_tabm_gpu = load_pd.load(path="tabarena_paper_full_51/output_gpu_ablation/data/df_results_TABM_GPU.parquet")
+    # df_results_mnca_cpu = load_pd.load(path="tabarena_paper_full_51/output_gpu_ablation/data/df_results_MNCA_CPU.parquet")
+    # df_results_tabm_cpu = load_pd.load(path="tabarena_paper_full_51/output_gpu_ablation/data/df_results_TABM_CPU.parquet")
+    #
+    # df_results_w_gpu = pd.concat([
+    #     df_results,
+    #     df_results_mnca_gpu,
+    #     df_results_tabm_gpu,
+    #     df_results_mnca_cpu,
+    #     df_results_tabm_cpu,
+    # ], ignore_index=True)
+    #
+    # eval_save_path_w_gpu = eval_save_path / f"with_gpu"
+    # paper_w_gpu = PaperRunTabArena(
+    #     repo=None,
+    #     output_dir=eval_save_path_w_gpu,
+    #     elo_bootstrap_rounds=elo_bootstrap_rounds,
+    #     banned_model_types=[
+    #         "TABPFNV2",
+    #         "TABICL",
+    #         "TABM",
+    #         "MNCA",
+    #     ],
+    #     # datasets=datasets_tabpfn,
+    # )
+    #
+    # df_results_w_gpu = PaperRunTabArena.compute_normalized_error_dynamic(df_results=df_results_w_gpu)
+    #
+    # paper_w_gpu.eval(
+    #     df_results=df_results_w_gpu,
+    #     baselines=[
+    #         "AutoGluon 1.3 (4h)",
+    #         # "Portfolio-N200 (ensemble) (4h)",
+    #     ],
+    #     baseline_colors=[
+    #         "black",
+    #         # "tab:purple",
+    #     ],
+    #     plot_cdd=False,
+    #     plot_times=True,
+    #     only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl}
+    # )
+    #
+    # upload_results(folder_to_upload=eval_save_path_w_gpu, s3_prefix=eval_save_path_w_gpu)
+    #
+    # raise AssertionError
 
     eval_save_path_w_holdout = eval_save_path / f"with_holdout"
     eval_save_path_w_portfolio = eval_save_path / f"with_portfolio"
