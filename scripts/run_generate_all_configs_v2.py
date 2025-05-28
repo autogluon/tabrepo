@@ -18,7 +18,6 @@ from tabrepo.models.nn_torch.generate import gen_nn_torch
 from tabrepo.models.random_forest.generate import gen_randomforest
 from tabrepo.models.random_forest.generate_alt import gen_rf_alt
 from tabrepo.models.lr.generate import gen_linear
-from tabrepo.models.ftt.generate import gen_fttransformer
 from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
 from tabrepo.models.realmlp.generate import gen_realmlp
 from tabrepo.models.realmlp.generate_alt import gen_realmlp_alt
@@ -28,41 +27,37 @@ from tabrepo.models.modernnca.generate import gen_modernnca
 
 
 if __name__ == '__main__':
-    n_random_configs = 1  # 1 for now as a toy example
+    n_random_configs = 200
+    n_random_configs_baselines = 50
 
     # Original Search Space
-    experiments_linear = gen_linear.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_knn = gen_knn.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_randomforest = gen_randomforest.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_extratrees = gen_extratrees.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_lightgbm = gen_lightgbm.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_xgboost = gen_xgboost.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_catboost = gen_catboost.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_linear = gen_linear.generate_all_bag_experiments(num_random_configs=n_random_configs_baselines)
+    experiments_knn = gen_knn.generate_all_bag_experiments(num_random_configs=n_random_configs_baselines)
+    experiments_randomforest = gen_randomforest.generate_all_bag_experiments(num_random_configs=0)
+    experiments_extratrees = gen_extratrees.generate_all_bag_experiments(num_random_configs=0)
+    experiments_lightgbm = gen_lightgbm.generate_all_bag_experiments(num_random_configs=0)
+    experiments_xgboost = gen_xgboost.generate_all_bag_experiments(num_random_configs=0)
+    experiments_catboost = gen_catboost.generate_all_bag_experiments(num_random_configs=0)
     experiments_nn_torch = gen_nn_torch.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_fttransformer = gen_fttransformer.generate_all_bag_experiments(num_random_configs=0)  # No search space defined
-    # TODO: TabPFNv1?
 
     # New Search Space
-    experiments_randomforest_alt = gen_rf_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
-    experiments_extratrees_alt = gen_xt_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
-    experiments_lightgbm_alt = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
-    experiments_xgboost_alt = gen_xgboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
-    experiments_catboost_alt = gen_catboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
+    experiments_randomforest_alt = gen_rf_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_extratrees_alt = gen_xt_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_lightgbm_alt = gen_lightgbm_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_xgboost_alt = gen_xgboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_catboost_alt = gen_catboost_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
 
     # New methods
     experiments_fastai = gen_fastai.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_ebm = gen_ebm.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_realmlp = gen_realmlp.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_realmlp_alt = gen_realmlp_alt.generate_all_bag_experiments(num_random_configs=n_random_configs, name_id_suffix="_alt")
+    experiments_realmlp = gen_realmlp.generate_all_bag_experiments(num_random_configs=0)
+    experiments_realmlp_alt = gen_realmlp_alt.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_tabm = gen_tabm.generate_all_bag_experiments(num_random_configs=n_random_configs)
 
     experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=0)
     experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_tabdpt= gen_tabdpt.generate_all_bag_experiments(num_random_configs=0)
+    experiments_tabdpt = gen_tabdpt.generate_all_bag_experiments(num_random_configs=0)
     experiments_modernnca = gen_modernnca.generate_all_bag_experiments(num_random_configs=n_random_configs)
-
-    # TODO: TabPFNMix
-    # TODO: TuneTables?
 
     # Dummy (constant predictor)
     experiments_dummy = ConfigGenerator(model_cls=DummyModel, search_space={}, manual_configs=[{}]).generate_all_bag_experiments(num_random_configs=0)
@@ -76,7 +71,6 @@ if __name__ == '__main__':
         experiments_xgboost,
         experiments_catboost,
         experiments_nn_torch,
-        experiments_fttransformer,
 
         experiments_randomforest_alt,
         experiments_extratrees_alt,
