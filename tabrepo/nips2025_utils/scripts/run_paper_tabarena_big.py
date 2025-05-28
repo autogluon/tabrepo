@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 
 from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
-from examples.run_scripts_v5.script_utils import load_ag11_bq_baseline, load_ag12_eq_baseline
+from tabrepo.nips2025_utils.scripts.script_utils import load_ag11_bq_baseline, load_ag12_eq_baseline
 from tabrepo.paper.paper_runner import PaperRunMini
 
 
