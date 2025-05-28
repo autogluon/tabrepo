@@ -7,6 +7,8 @@ from tabrepo.utils.pickle_utils import load_all_pickles
 from tabrepo.benchmark.result import ExperimentResults
 
 
+# Ablation for paper, used to justify the new search spaces
+
 """
 # INSTRUCTIONS: First run the below commands in the folder 1 above the tabrepo root folder to fetch the data from S3 (ex: `workspace/code`)
 # NOTE: These files are non-public, and cant be accessed without credentials
@@ -25,8 +27,8 @@ aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 
 if __name__ == '__main__':
     # Load Context
-    expname = "../../../data/neerick-exp-big-alt-1400"  # folder location of results, need to point this to the correct folder
-    repo_dir = "repos/tabarena_big_alt_1400"  # location of local cache for fast script running
+    expname = "../../../../data/neerick-exp-big-alt-1400"  # folder location of results, need to point this to the correct folder
+    repo_dir = "../repos/tabarena_big_alt_1400"  # location of local cache for fast script running
     load_repo = True  # ensure this is False for the first time running
 
     if not load_repo:
@@ -77,10 +79,11 @@ if __name__ == '__main__':
         ]
     )
 
-    # metrics_fillna = tabarena.fillna_data(data=metrics)
+    metrics = tabarena.clean_data(metrics)
+    metrics_fillna = tabarena.fillna_data(data=metrics)
 
     leaderboard = tabarena.leaderboard(
-        data=metrics,
+        data=metrics_fillna,
     )
 
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
