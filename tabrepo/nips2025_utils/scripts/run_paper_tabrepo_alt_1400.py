@@ -37,15 +37,15 @@ if __name__ == '__main__':
         df_baselines_ag12 = load_ag12_eq_baseline(datasets=my_repo.datasets(), folds=my_repo.folds, repo=my_repo)
         repo_ag11 = EvaluationRepository.from_raw(df_configs=None, df_baselines=df_baselines_ag11, task_metadata=my_repo.task_metadata, results_lst_simulation_artifacts=None)
         repo_ag12 = EvaluationRepository.from_raw(df_configs=None, df_baselines=df_baselines_ag12, task_metadata=my_repo.task_metadata, results_lst_simulation_artifacts=None)
-        repo_realmlp = EvaluationRepository.from_dir("./../../examples/repo_realmlp_r100")
+        repo_realmlp = EvaluationRepository.from_dir("./../../../examples/repo_realmlp_r100")
         repo_realmlp = repo_realmlp.subset(datasets=my_repo.datasets())
         repo_realmlp = repo_realmlp.subset(configs=["RealMLP_c1_BAG_L1"])
 
-        repo_realmlp_alt = EvaluationRepository.from_dir("./../../examples/repos/tabarena_big_s3_realmlp_alt")
+        repo_realmlp_alt = EvaluationRepository.from_dir("./../../../examples/repos/tabarena_big_s3_realmlp_alt")
         repo_realmlp_alt = repo_realmlp_alt.subset(datasets=my_repo.datasets())
 
-        repo_alt_500 = EvaluationRepository.from_dir("./../../examples/repos/tabarena_big_alt_500")
-        repo_alt_1400 = EvaluationRepository.from_dir("./../../examples/repos/tabarena_big_alt_1400")
+        repo_alt_500 = EvaluationRepository.from_dir("./../../../examples/repos/tabarena_big_alt_500")
+        repo_alt_1400 = EvaluationRepository.from_dir("./../../../examples/repos/tabarena_big_alt_1400")
         folds = [0]
 
         repo_alt_500_configs = repo_alt_500.configs()
