@@ -848,14 +848,10 @@ class PaperRunTabArena(PaperRun):
         barplot.set_xlabel("Average weight in TabArena ensemble")
         barplot.set_ylabel("")
 
-        fig_name = f"portfolio-weight-barplot.png"
+        fig_name = f"portfolio-weight-barplot.pdf"
         fig_prefix = Path(self.output_dir) / "figures"
         fig_prefix.mkdir(parents=True, exist_ok=True)
 
-        fig_save_path = fig_prefix / fig_name
-        plt.savefig(fig_save_path)
-
-        fig_name = f"portfolio-weight-barplot.pdf"
         fig_save_path = fig_prefix / fig_name
         plt.savefig(fig_save_path)
 

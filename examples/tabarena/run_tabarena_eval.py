@@ -1,10 +1,9 @@
 from pathlib import Path
 
+import pandas as pd
+
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 from tabrepo.nips2025_utils.load_final_paper_results import load_paper_results
-from autogluon.common.loaders import load_pd
-import pandas as pd
-from autogluon.common.utils.s3_utils import upload_s3_folder
 
 
 def load_df_ensemble_weights(context_name: str) -> pd.DataFrame:
@@ -42,15 +41,6 @@ def load_df_ensemble_weights(context_name: str) -> pd.DataFrame:
     )
     df_ensemble_weights = df_ensemble_weights.rename(columns=f_map_type_name)
     return df_ensemble_weights
-
-
-
-def upload_results(folder_to_upload: str, s3_prefix: str):
-    upload_s3_folder(
-        bucket="tabarena",
-        prefix=f"tmp_neurips2025/{s3_prefix}",
-        folder_to_upload=folder_to_upload,
-    )
 
 
 """
@@ -108,7 +98,7 @@ def rename_func(name):
 if __name__ == '__main__':
     context_name = "tabarena_paper_full_51"
     eval_save_path = Path(context_name) / "output"
-    load_from_s3 = False  # Do this for first run, then make false for speed
+    load_from_s3 = True  # Do this for first run, then make False for speed
     generate_from_repo = False
     with_holdout = True
     elo_bootstrap_rounds = 100
@@ -118,7 +108,6 @@ if __name__ == '__main__':
         context_name=context_name,
         generate_from_repo=generate_from_repo,
         load_from_s3=load_from_s3,
-        # save_local_to_s3=True,
     )
     # df_results_mnca_gpu = load_pd.load(path="tabarena_paper_full_51/output_gpu_ablation/data/df_results_MNCA_GPU.parquet")
     # df_results_tabm_gpu = load_pd.load(path="tabarena_paper_full_51/output_gpu_ablation/data/df_results_TABM_GPU.parquet")
@@ -324,5 +313,3 @@ if __name__ == '__main__':
         ],
         plot_cdd=False,
     )
-
-    # upload_results(folder_to_upload=eval_save_path, s3_prefix=eval_save_path)
