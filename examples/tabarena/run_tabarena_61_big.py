@@ -159,7 +159,7 @@ def save_holdout_repo(method: str, file_paths: list[str], repo_dir_prefix: str):
 
 if __name__ == '__main__':
     recompute_paths = False
-    task_metadata = load_task_metadata()
+    task_metadata = load_task_metadata(paper=False)
 
     if recompute_paths:
         file_paths = get_file_paths(task_metadata)
@@ -167,8 +167,6 @@ if __name__ == '__main__':
         file_paths = load_pkl.load("./file_paths_full_fix_w_gpu.pkl")
 
     repo_dir_prefix = "repos/tabarena61"
-
-    task_metadata = load_task_metadata()
 
     method_families = [
         # --- Completed ---
