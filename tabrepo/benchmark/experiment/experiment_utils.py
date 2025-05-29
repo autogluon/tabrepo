@@ -190,14 +190,12 @@ class ExperimentBatchRunner:
         results_lst: list[dict[str, Any] | BaselineResult],
         calibrate: bool = False,
         include_holdout: bool = False,
-        convert_time_infer_s_from_batch_to_sample: bool = False,  # FIXME: Remove this, it should be False eventually
     ) -> EvaluationRepository:
         experiment_results = ExperimentResults(task_metadata=self.task_metadata)
         repo = experiment_results.repo_from_results(
             results_lst=results_lst,
             calibrate=calibrate,
             include_holdout=include_holdout,
-            convert_time_infer_s_from_batch_to_sample=convert_time_infer_s_from_batch_to_sample,
         )
         return repo
 

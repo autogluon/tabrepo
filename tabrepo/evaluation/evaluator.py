@@ -40,7 +40,7 @@ class Evaluator:
         convert_from_sample_to_batch: bool = False,
         keep_extra_columns: bool = False,
         include_metric_error_val: bool = False,
-        fillna: bool = True,
+        fillna: bool | str = "auto",
     ) -> pd.DataFrame:
         if datasets is None:
             datasets = self.repo.datasets()
@@ -97,6 +97,10 @@ class Evaluator:
 
         df = pd.concat(dfs_to_concat, axis=0)
         df = df.sort_index()
+
+        if isinstance(fillna, str):
+            assert fillna == "auto"
+            fillna = self.repo._config_fallback is not None
 
         if fillna:
             assert self.repo._config_fallback is not None

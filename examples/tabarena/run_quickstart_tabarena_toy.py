@@ -54,7 +54,7 @@ if __name__ == '__main__':
     )
 
     # Convert the run artifacts into an EvaluationRepository
-    repo: EvaluationRepository = exp_batch_runner.repo_from_results(results_lst=results_lst, convert_time_infer_s_from_batch_to_sample=False)
+    repo: EvaluationRepository = exp_batch_runner.repo_from_results(results_lst=results_lst)
     repo.to_dir("repos/tabarena_toy")
     repo.print_info()
 
