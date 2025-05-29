@@ -11,7 +11,7 @@ search_space = {
     'smoothing_rounds': Categorical(0, 25, 50, 75, 100, 150, 200, 350, 500, 750, 1000),
     'learning_rate': Real(0.0025, 0.2, default=0.02, log=True),
     'interactions': Real(0.95, 0.999, default=0.999),
-    'interaction_smoothing_rounds':  Categorical(0, 25, 50, 75, 100, 200, 500),
+    'interaction_smoothing_rounds': Categorical(0, 25, 50, 75, 100, 200, 500),
     'min_hessian': Real(1e-10, 1e-2, default=1e-4, log=True),
     'min_samples_leaf': Int(2, 20, default=4),
     'gain_scale': Real(0.5, 5.0, default=5.0, log=True),
