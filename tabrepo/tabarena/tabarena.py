@@ -145,25 +145,59 @@ class TabArena:
         data_columns_set = set(data_columns)
         assert len(data_columns) == len(data_columns_set)
 
+        missing_columns = []
+        present_columns = []
         for c in self.columns_to_agg:
-            assert c in data_columns_set
+            if c not in data_columns_set:
+                missing_columns.append(c)
+            else:
+                present_columns.append(c)
         for c in self.groupby_columns:
-            assert c in data_columns_set
+            if c not in data_columns_set:
+                missing_columns.append(c)
+            else:
+                present_columns.append(c)
         if self.seed_column is not None:
-            assert self.seed_column in data_columns_set
+            if self.seed_column not in data_columns_set:
+                missing_columns.append(self.seed_column)
+            else:
+                present_columns.append(self.seed_column)
+
+        required_columns = self.groupby_columns + self.columns_to_agg
+        if self.seed_column is not None:
+            required_columns.append(self.seed_column)
+        unused_columns = [d for d in data_columns if d not in required_columns]
+
+        if missing_columns:
+            index_names = data.index.names
+            missing_in_index = []
+            for index_name in index_names:
+                if index_name in missing_columns:
+                    missing_in_index.append(index_name)
+            if missing_in_index:
+                msg_extra = (
+                    "Columns exist in the index that are required to be columns! "
+                    "\n\tEnsure you reset your index to make these columns available: `data = data.reset_index()`\n"
+                )
+            else:
+                msg_extra = ""
+            raise ValueError(
+                f"{msg_extra}"
+                f"Missing required columns:"
+                f"\n\tMissing columns ({len(missing_columns)}): {missing_columns}"
+                f"\n\tExisting columns ({len(present_columns)}): {present_columns}"
+                f"\n\tUnused columns ({len(unused_columns)}): {unused_columns}"
+                f"\n\tIndex names ({len(index_names)}): {index_names}"
+            )
+        if unused_columns:
+            print(f"Unused columns: {unused_columns}")
+
         for c in self.groupby_columns:
             assert data[c].isnull().sum() == 0
         for c in self.columns_to_agg:
             assert is_numeric_dtype(data[c]), f"aggregation columns must be numeric!"
         for c in self.columns_to_agg:
             assert data[c].isnull().sum() == 0
-
-        required_columns = self.groupby_columns + self.columns_to_agg
-        if self.seed_column is not None:
-            required_columns.append(self.seed_column)
-        unused_columns = [d for d in data_columns if d not in required_columns]
-        if unused_columns:
-            print(f"UNUSED COLUMNS: {unused_columns}")
 
         # TODO: Check no duplicates
         len_data = len(data)

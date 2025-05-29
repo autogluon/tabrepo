@@ -12,7 +12,14 @@ from .configuration_list_scorer import ConfigurationListScorer
 from ..utils.parallel_for import parallel_for
 from ..utils.rank_utils import RankScorer
 from ..utils import task_to_tid_fold
-from ..metrics import _fast_log_loss, _fast_roc_auc
+from ..metrics import _fast_log_loss
+
+try:
+    # FIXME: Requires g++, can lead to an exception on import as it needs to compile C code.
+    from ..metrics._fast_roc_auc import fast_roc_auc_cpp
+except FileNotFoundError:
+    print(f"Warning: Failed to compile c++ metric... Try installing g++. Falling back to sklearn implementation...")
+    fast_roc_auc_cpp = get_metric(metric="roc_auc", problem_type="binary")
 
 if TYPE_CHECKING:
     from ..repository.evaluation_repository import EvaluationRepository
@@ -80,7 +87,7 @@ class EnsembleScorer:
             #  This would avoid ever having to pay the preprocessing time cost, and would massively reduce memory usage.
             eval_metric = _fast_log_loss.fast_log_loss
         elif metric_name == 'roc_auc':
-            eval_metric = _fast_roc_auc.fast_roc_auc_cpp
+            eval_metric = fast_roc_auc_cpp
         else:
             eval_metric = get_metric(metric=metric_name, problem_type=problem_type)
         return eval_metric
