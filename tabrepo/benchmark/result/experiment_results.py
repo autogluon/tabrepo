@@ -6,7 +6,6 @@ from typing import Any
 import pandas as pd
 
 from tabrepo.benchmark.result import AGBagResult, BaselineResult, ConfigResult
-from tabrepo.repository.repo_utils import convert_time_infer_s_from_batch_to_sample as _convert_time_infer_s_from_batch_to_sample
 from tabrepo import EvaluationRepository
 
 
@@ -24,7 +23,6 @@ class ExperimentResults:
         results_lst: list[dict[str, Any] | BaselineResult],
         calibrate: bool = False,
         include_holdout: bool = False,
-        convert_time_infer_s_from_batch_to_sample: bool = False,  # FIXME: Remove this, it should be False eventually
     ) -> EvaluationRepository:
         results_lst: list[BaselineResult] = [self._align_result_input_format(result) for result in results_lst]
 
@@ -58,11 +56,6 @@ class ExperimentResults:
         results_lst_df_baselines = [result.compute_df_result() for result in results_baselines]
         df_configs = pd.concat(results_lst_df, ignore_index=True) if results_lst_df else None
         df_baselines = pd.concat(results_lst_df_baselines, ignore_index=True) if results_lst_df_baselines else None
-
-        if df_configs is not None and convert_time_infer_s_from_batch_to_sample:
-            df_configs = _convert_time_infer_s_from_batch_to_sample(df=df_configs, task_metadata=self.task_metadata)
-        if df_baselines is not None and convert_time_infer_s_from_batch_to_sample:
-            df_baselines = _convert_time_infer_s_from_batch_to_sample(df=df_baselines, task_metadata=self.task_metadata)
 
         configs_hyperparameters = self._get_configs_hyperparameters(results_configs=results_configs)
         results_lst_simulation_artifacts = [result.generate_old_sim_artifact() for result in results_configs]

@@ -34,7 +34,7 @@ if __name__ == '__main__':
     repo_dir = "repos/tabarena60_tabpfnv2"  # location of local cache for fast script running
     load_repo = False  # ensure this is False for the first time running
 
-    task_metadata = load_task_metadata()
+    task_metadata = load_task_metadata(paper=False)
 
     if not load_repo:
         repo: EvaluationRepository = generate_repo(experiment_path=expname, task_metadata=task_metadata)
