@@ -8,7 +8,7 @@ TabArena currently consists of:
 - 9 to 30 evaluated splits per dataset.
 - 16 tabular machine learning methods, including 3 tabular foundation models.
 - 25,000,000 trained models across the benchmark, with all validation and test predictions cached to enable tuning and post-hoc ensembling analysis.
-- A [live TabArena leaderboard]((https://huggingface.co/spaces/TabArena/leaderboard)) showcasing the results.
+- A [live TabArena leaderboard](https://huggingface.co/spaces/TabArena/leaderboard) showcasing the results.
 
 ## Installation
 
