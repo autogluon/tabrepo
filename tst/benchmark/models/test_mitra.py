@@ -156,6 +156,10 @@ if __name__ == "__main__":
 
     tabrepo_reg = [167210,359930,359931,359932,359933,359935,359942,359944,359950,359951]
 
+    nature_reg = [167210, 359940, 359948, 359939, 359951, 233215, 359944, 359942, 359945, \
+                360945, 361235, 361236, 361237, 361617, 361243, 361619, 361621, 361251, 361256, \
+                361258, 361259, 361622, 359934, 359933, 359950, 359932, 359931, 359930]
+
     # dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 65, 75
 
     # for did in dataset_name[start:end]:
@@ -164,7 +168,7 @@ if __name__ == "__main__":
 
     #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  
 
-    dataset_name, target_dataset, start, end = tabrepo_reg, "tabrepo_regression10fold", 0, 10
+    dataset_name, target_dataset, start, end = nature_reg, "nature_regression10fold", 0, 28
 
     for did in dataset_name[start:end]:
 
