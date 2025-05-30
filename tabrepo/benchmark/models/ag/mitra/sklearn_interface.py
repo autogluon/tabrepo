@@ -26,6 +26,8 @@ DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
 DEFAULT_EPOCH = 50
 DEFAULT_BUDGET = 10000
+DEFAULT_CLS_METRIC = 'log_loss' # 'log_loss', 'accuracy', 'auc'
+DEFAULT_REG_METRIC = 'mse' # 'mse', 'mae', 'rmse', 'r2'
 DEFAULT_ENSEMBLE = 1
 DEFAULT_DIM = 512
 DEFAULT_LAYERS = 12
@@ -36,8 +38,15 @@ DEFAULT_VALIDATION_SPLIT = 0.2
 class MitraBase(BaseEstimator):
     """Base class for Mitra models with common functionality."""
     
-    def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, budget=DEFAULT_BUDGET, state_dict=None):
+    def __init__(self, 
+            model_type=DEFAULT_MODEL_TYPE, 
+            n_estimators=DEFAULT_ENSEMBLE, 
+            device=DEFAULT_DEVICE, 
+            epoch=DEFAULT_EPOCH, 
+            budget=DEFAULT_BUDGET, 
+            metric=DEFAULT_CLS_METRIC,
+            state_dict=None
+        ):
         """
         Initialize the base Mitra model.
         
@@ -59,6 +68,7 @@ class MitraBase(BaseEstimator):
         self.device = device
         self.epoch = epoch
         self.budget = budget
+        self.metric = metric
         self.state_dict = state_dict
         self.trainers = []
         self.models = []
@@ -99,6 +109,7 @@ class MitraBase(BaseEstimator):
                 'use_pretrained_weights': False,
                 'use_quantile_transformer': False,
                 'budget': self.budget,
+                'metric': self.metric,
             },
         )
 
@@ -178,10 +189,17 @@ class MitraBase(BaseEstimator):
 class MitraClassifier(MitraBase, ClassifierMixin):
     """Classifier implementation of Mitra model."""
 
-    def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, budget=DEFAULT_BUDGET, state_dict='/fsx/xiyuanz/mix5_multi_cat.pt'):
+    def __init__(self, 
+            model_type=DEFAULT_MODEL_TYPE, 
+            n_estimators=DEFAULT_ENSEMBLE, 
+            device=DEFAULT_DEVICE, 
+            epoch=DEFAULT_EPOCH, 
+            budget=DEFAULT_BUDGET, 
+            metric=DEFAULT_CLS_METRIC,
+            state_dict='/fsx/xiyuanz/mix5_multi_cat.pt'
+        ):
         """Initialize the classifier."""
-        super().__init__(model_type, n_estimators, device, epoch, budget, state_dict)
+        super().__init__(model_type, n_estimators, device, epoch, budget, metric, state_dict)
         self.task = 'classification'
     
     def fit(self, X, y, X_val = None, y_val = None):
@@ -267,10 +285,17 @@ class MitraClassifier(MitraBase, ClassifierMixin):
 class MitraRegressor(MitraBase, RegressorMixin):
     """Regressor implementation of Mitra model."""
 
-    def __init__(self, model_type=DEFAULT_MODEL_TYPE, n_estimators=DEFAULT_ENSEMBLE, 
-                 device=DEFAULT_DEVICE, epoch=DEFAULT_EPOCH, budget=DEFAULT_BUDGET, state_dict='/fsx/xiyuanz/atticmix4reg.pt'):
+    def __init__(self, 
+            model_type=DEFAULT_MODEL_TYPE, 
+            n_estimators=DEFAULT_ENSEMBLE, 
+            device=DEFAULT_DEVICE, 
+            epoch=DEFAULT_EPOCH, 
+            budget=DEFAULT_BUDGET, 
+            metric=DEFAULT_REG_METRIC,
+            state_dict='/fsx/xiyuanz/mix5_reg.pt',
+        ):
         """Initialize the regressor."""
-        super().__init__(model_type, n_estimators, device, epoch, budget, state_dict)
+        super().__init__(model_type, n_estimators, device, epoch, budget, metric, state_dict)
         self.task = 'regression'
 
     def fit(self, X, y, X_val = None, y_val = None):

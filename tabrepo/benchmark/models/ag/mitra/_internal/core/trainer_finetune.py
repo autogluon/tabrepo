@@ -64,6 +64,8 @@ class TrainerFinetune(BaseEstimator):
         if self.cfg.task == Task.REGRESSION and self.cfg.hyperparams['regression_loss'] == LossName.CROSS_ENTROPY:
             self.bins = torch.linspace(-0.5, 1.5, self.cfg.hyperparams['dim_output']+1, device=cfg.device)  
             self.bin_width = self.bins[1] - self.bins[0]
+        
+        self.metric = self.cfg.hyperparams['metric']
 
 
     def train(self, x_train: np.ndarray, y_train: np.ndarray, x_val: np.ndarray, y_val: np.ndarray):
@@ -154,7 +156,7 @@ class TrainerFinetune(BaseEstimator):
 
             self.checkpoint(self.model, metrics_valid.loss)
             
-            self.early_stopping(metrics_valid.loss)
+            self.early_stopping(metrics_valid.metrics[self.metric])
             if self.early_stopping.we_should_stop():
                 logger.info("Early stopping")
                 break

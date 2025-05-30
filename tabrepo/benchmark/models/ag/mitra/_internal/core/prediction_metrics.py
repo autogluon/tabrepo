@@ -5,7 +5,7 @@ import numpy as np
 import scipy
 import torch
 from loguru import logger
-from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score
+from sklearn.metrics import f1_score, mean_squared_error, r2_score, roc_auc_score, root_mean_squared_error
 
 from ..._internal.data.preprocessor import Preprocessor
 from ..._internal.config.enums import MetricName, Task
@@ -80,6 +80,7 @@ def roc_auc_score_multiclass(y_true, y_pred_proba, multi_class='ovo', average='m
 def compute_regression_metrics(y_pred: np.ndarray, y_true: np.ndarray) -> tuple[float, float, dict]:
 
     metrics = {
+        MetricName.RMSE: root_mean_squared_error(y_true, y_pred),
         MetricName.MSE: mean_squared_error(y_true, y_pred),
         MetricName.MAE: np.abs(y_true - y_pred).mean(),
         MetricName.R2: r2_score(y_true, y_pred)

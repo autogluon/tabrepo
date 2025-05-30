@@ -27,13 +27,9 @@ def test_mitra():
             f"{err}"
         )
 
-def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", file_name=None):
+def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", file_name=None, task="classification"):
 
     print('Task id', task_id, 'Fold', fold)
-
-    bagged_custom_model = BaggedEnsembleModel(MitraModel())
-    custom_model = MitraModel()
-    bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
 
     task = openml.tasks.get_task(task_id, download_splits=False)
     X, y, _, _ = task.get_dataset().get_data(task.target_name)
@@ -42,7 +38,10 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     y_train, y_test = y[train_indices], y[test_indices]
 
     n_class = len(np.unique(y_train.values))
-    problem_type = 'multiclass' if n_class > 2 else 'binary'
+    if task == "classification":
+        problem_type = 'multiclass' if n_class > 2 else 'binary'
+    elif task == "regression":
+        problem_type = "regression"
 
     label_cleaner = LabelCleaner.construct(problem_type=problem_type, y=y)
     feature_generator = AutoMLPipelineFeatureGenerator()
@@ -50,6 +49,10 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     y_train = label_cleaner.transform(y_train)
     x_test = feature_generator.transform(X=x_test)
     y_test = label_cleaner.transform(y_test).values
+
+    bagged_custom_model = BaggedEnsembleModel(MitraModel(problem_type=problem_type))
+    custom_model = MitraModel(problem_type=problem_type)
+    bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
 
     time1 = time.time()
 
@@ -127,12 +130,20 @@ if __name__ == "__main__":
             145793, 145799, 145847, 145977, 145984, 146024, 146063, 146065, 146192, 146210, \
             146800, 146817, 146818, 146819, 146821, 146822] 
 
+    tabrepo_reg = [167210,359930,359931,359932,359933,359935,359942,359944,359950,359951]
+
     dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 65, 75
 
     for did in dataset_name[start:end]:
 
         for fold in range(10):
 
-            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}")  
+            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", task="classification")  
 
-            # shutil.rmtree("/home/ubuntu/tabular/tabrepo/AutogluonModels")
+    # dataset_name, target_dataset, start, end = tabrepo_reg, "tabrepo_regression10fold", 0, 10
+
+    # for did in dataset_name[start:end]:
+
+    #     for fold in range(10):
+
+    #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", task="regression")  

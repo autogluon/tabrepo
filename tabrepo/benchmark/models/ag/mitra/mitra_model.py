@@ -9,10 +9,17 @@ class MitraModel(AbstractModel):
     ag_key = "MITRA"
     ag_name = "Mitra"
 
+    def __init__(self, problem_type=None):
+        super().__init__()
+        self.problem_type = problem_type
+
     def get_model_cls(self):
         from .sklearn_interface import MitraClassifier
         if self.problem_type in ['binary', 'multiclass']:
             model_cls = MitraClassifier
+        elif self.problem_type == 'regression':
+            from .sklearn_interface import MitraRegressor
+            model_cls = MitraRegressor
         else:
             raise AssertionError(f"Unsupported problem_type: {self.problem_type}")
         return model_cls
@@ -54,7 +61,7 @@ class MitraModel(AbstractModel):
 
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
-        return ["binary", "multiclass"]
+        return ["binary", "multiclass", "regression"]
 
     @classmethod
     def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
