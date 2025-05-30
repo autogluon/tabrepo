@@ -12,7 +12,7 @@ import torch
 import time
 import os
 import pandas as pd
-from sklearn.metrics import roc_auc_score, log_loss, accuracy_score
+from sklearn.metrics import roc_auc_score, log_loss, accuracy_score, root_mean_squared_error, r2_score, mean_squared_error, mean_absolute_error
 
 def test_mitra():
     model_hyperparameters = {"n_estimators": 1}
@@ -27,7 +27,7 @@ def test_mitra():
             f"{err}"
         )
 
-def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", file_name=None, task="classification"):
+def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", file_name=None, t="classification"):
 
     print('Task id', task_id, 'Fold', fold)
 
@@ -38,10 +38,12 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     y_train, y_test = y[train_indices], y[test_indices]
 
     n_class = len(np.unique(y_train.values))
-    if task == "classification":
+    if t == "classification":
         problem_type = 'multiclass' if n_class > 2 else 'binary'
-    elif task == "regression":
+    elif t == "regression":
         problem_type = "regression"
+    else:
+        raise ValueError(f"Unsupported task type: {t}")
 
     label_cleaner = LabelCleaner.construct(problem_type=problem_type, y=y)
     feature_generator = AutoMLPipelineFeatureGenerator()
@@ -79,25 +81,47 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     train_time = time2 - time1
     infer_time = time3 - time2
 
-    accuracy = accuracy_score(y_test, out[:,:n_class].argmax(axis=-1))
-    ce = log_loss(y_test, out[:,:n_class], labels=list(range(n_class)))
-    if n_class == 2:
-        roc = roc_auc_score(y_test, out[:,:2][:, 1])
-    else:
-        roc = roc_auc_score(y_test, out[:,:n_class], multi_class='ovo', labels=list(range(n_class)))
+    if t == "classification":
+        accuracy = accuracy_score(y_test, out[:,:n_class].argmax(axis=-1))
+        ce = log_loss(y_test, out[:,:n_class], labels=list(range(n_class)))
+        if n_class == 2:
+            roc = roc_auc_score(y_test, out[:,:2][:, 1])
+        else:
+            roc = roc_auc_score(y_test, out[:,:n_class], multi_class='ovo', labels=list(range(n_class)))
 
-    print(f"accuracy: {accuracy}, ce: {ce}, roc: {roc}")
+        print(f"accuracy: {accuracy}, ce: {ce}, roc: {roc}")
 
-    file_path = f'/fsx/results/{target_dataset}/{file_name}.csv'
+        file_path = f'/fsx/results/{target_dataset}/{file_name}.csv'
+        
+        file_exists = os.path.isfile(file_path)
+        df = pd.DataFrame({
+            "roc": roc,
+            "ce": ce,
+            "accuracy": accuracy,
+            "time_train_s": train_time,
+            "time_infer_s": infer_time,
+        }, index=[f'tabrepo_{task_id}' + f'_fold_{fold}'])
     
-    file_exists = os.path.isfile(file_path)
-    df = pd.DataFrame({
-        "roc": roc,
-        "ce": ce,
-        "accuracy": accuracy,
-        "time_train_s": train_time,
-        "time_infer_s": infer_time,
-    }, index=[f'tabrepo_{task_id}' + f'_fold_{fold}'])
+    elif t == "regression":
+
+        mse = mean_squared_error(y_test, out)
+        mae = mean_absolute_error(y_test, out)
+        rmse = root_mean_squared_error(y_test, out)
+        r2 = r2_score(y_test, out)
+
+        print(f"mse: {mse}, mae: {mae}, rmse: {rmse}, r2: {r2}")
+
+        file_path = f'/fsx/results/{target_dataset}/{file_name}.csv'
+        file_exists = os.path.isfile(file_path)
+        df = pd.DataFrame({
+            "mse": mse,
+            "mae": mae,
+            "rmse": rmse,
+            "r2": r2,
+            "time_train_s": train_time,
+            "time_infer_s": infer_time,
+        }, index=[f'tabrepo_{task_id}' + f'_fold_{fold}'])
+
     df.to_csv(file_path, mode='a', index=True, header=not file_exists, float_format='%.4f')
 
     bagged_custom_model.delete_from_disk(silent=True)
@@ -132,18 +156,18 @@ if __name__ == "__main__":
 
     tabrepo_reg = [167210,359930,359931,359932,359933,359935,359942,359944,359950,359951]
 
-    dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 65, 75
-
-    for did in dataset_name[start:end]:
-
-        for fold in range(10):
-
-            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", task="classification")  
-
-    # dataset_name, target_dataset, start, end = tabrepo_reg, "tabrepo_regression10fold", 0, 10
+    # dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 65, 75
 
     # for did in dataset_name[start:end]:
 
     #     for fold in range(10):
 
-    #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", task="regression")  
+    #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  
+
+    dataset_name, target_dataset, start, end = tabrepo_reg, "tabrepo_regression10fold", 0, 10
+
+    for did in dataset_name[start:end]:
+
+        for fold in range(10):
+
+            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="regression")  
