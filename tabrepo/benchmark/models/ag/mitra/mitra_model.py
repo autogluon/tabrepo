@@ -36,6 +36,15 @@ class MitraModel(AbstractModel):
         model_cls = self.get_model_cls()
 
         hyp = self._get_model_params()
+        if "state_dict_classification" in hyp:
+            state_dict_classification = hyp.pop("state_dict_classification")
+            if self.problem_type in ["binary", "multiclass"]:
+                hyp["state_dict"] = state_dict_classification
+        if "state_dict_regression" in hyp:
+            state_dict_regression = hyp.pop("state_dict_regression")
+            if self.problem_type in ["regression"]:
+                hyp["state_dict"] = state_dict_regression
+
         self.model = model_cls(
             **hyp,
         )
