@@ -29,6 +29,10 @@ To reproduce all tables and figures in the paper using the raw results data, run
 
 TabArena code is currently being polished. Documentation for TabArena will be available soon.
 
+## Paper
+
+The TabArena paper is currently under review, and will be made publicly available soon.
+
 ## TabRepo
 
 To see details about TabRepo, the portfolio simulation repository, refer to [tabrepo.md](tabrepo.md).
