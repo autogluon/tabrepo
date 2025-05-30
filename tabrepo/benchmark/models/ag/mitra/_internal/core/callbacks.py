@@ -10,18 +10,26 @@ import torch
 
 class EarlyStopping():
 
-    def __init__(self, patience=10, delta=0.0001):
+    def __init__(self, patience=10, delta=0.0001, metric='log_loss'):
 
         self.patience = patience
         self.counter = 0
         self.best_score = None
         self.early_stop = False
         self.delta = delta
+        self.metric = metric
 
 
     def __call__(self, val_loss):
-
-        score = -val_loss
+        
+        # smaller is better for these metrics
+        if self.metric in ["log_loss", "mse", "mae", "rmse"]:
+            score = -val_loss
+        # larger is better for these metrics
+        elif self.metric in ["accuracy", "roc_auc", "r2"]:
+            score = val_loss
+        else:
+            raise ValueError(f"Unsupported metric: {self.metric}. Supported metrics are: log_loss, mse, mae, rmse, accuracy, roc_auc, r2.")
 
         if self.best_score is None:
             self.best_score = score

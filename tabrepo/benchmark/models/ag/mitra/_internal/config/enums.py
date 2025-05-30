@@ -137,6 +137,7 @@ class MetricName(StrEnum):
     MAE = "mae"
     R2 = "r2"
     LOG_LOSS = "log_loss"
+    RMSE = "rmse"
 
 
 class LossName(StrEnum):
