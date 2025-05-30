@@ -9,8 +9,8 @@ class MitraModel(AbstractModel):
     ag_key = "MITRA"
     ag_name = "Mitra"
 
-    def __init__(self, problem_type=None):
-        super().__init__()
+    def __init__(self, problem_type=None, **kwargs):
+        super().__init__(**kwargs)
         self.problem_type = problem_type
 
     def get_model_cls(self):
