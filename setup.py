@@ -41,6 +41,17 @@ extras_require = {
     "modernnca": [
         "category_encoders",
     ],
+    "mitra": [
+        "loguru",
+        "einx",
+
+        # FIXME: flash-attn seems to be an involved process to install... requires running with:
+        #  pip install flash-attn --no-build-isolation
+        #  Ref here: https://github.com/Dao-AILab/flash-attention
+        #  pip install ninja for speedup? (has to be done beforehand?)
+        "flash-attn==2.6.3",
+        "autogluon>=1.3",
+    ],
 }
 
 benchmark_requires = []
