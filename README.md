@@ -23,7 +23,9 @@ pip install -e tabrepo/[benchmark]
 
 Please refer to our [example scripts](https://github.com/TabArena/tabarena_benchmarking_examples/tree/main) for using TabArena.
 
-To reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_tabarena_eval.py](examples/tabarena/run_tabarena_eval.py)
+To locally reproduce individual configurations and compare with the TabArena results of those configurations, refer to [examples/tabarena/run_quickstart_tabarena.py](examples/tabarena/run_quickstart_tabarena.py).
+
+To locally reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_tabarena_eval.py](examples/tabarena/run_tabarena_eval.py)
 
 ## Documentation
 
