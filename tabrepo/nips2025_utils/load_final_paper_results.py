@@ -37,6 +37,32 @@ def _load_repo(context_name: str):
     return repo
 
 
+def load_results(lite: bool = False) -> pd.DataFrame:
+    """
+    Simple function to load the results of the TabArena 2025 paper.
+    The results are at the per-task level (prior to dataset aggregation).
+    For simplicity, the `normalized-error` columns have been removed.
+
+    Parameters
+    ----------
+    lite: bool, default False
+        If True, returns only the first split (fold 0, repeat 0) of the results.
+
+    Returns
+    -------
+    df_results: pd.DataFrame
+        The results on every method benchmarked in the TabArena paper (as present in figure 1)
+        Also includes AutoGluon and the simulated Portfolio.
+
+    """
+    if lite:
+        path = "https://tabarena.s3.us-west-2.amazonaws.com/results/df_results_lite_leaderboard.parquet"
+    else:
+        path = "https://tabarena.s3.us-west-2.amazonaws.com/results/df_results_leaderboard.parquet"
+    df_results = load_pd.load(path=path)
+    return df_results
+
+
 def load_paper_results(
     context_name: str = "tabarena_paper_full_51",
     load_from_s3: bool = True,
