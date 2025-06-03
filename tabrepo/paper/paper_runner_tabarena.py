@@ -22,7 +22,7 @@ class PaperRunTabArena(PaperRun):
             datasets: list[str] | None = None,
             problem_types: list[str] | None = None,
             banned_model_types: list[str] | None = None,
-            elo_bootstrap_rounds: int = 10,
+            elo_bootstrap_rounds: int = 100,
             keep_best: bool = False,
             **kwargs,
     ):
