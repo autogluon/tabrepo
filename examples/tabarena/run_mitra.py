@@ -28,12 +28,7 @@ if __name__ == '__main__':
     repo_dir = str(Path(__file__).parent / "repos" / "tabarena_mitra")
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
-    task_metadata = load_task_metadata()
-    # TODO: make a function for this
-    task_metadata = task_metadata[task_metadata["NumberOfInstances"] <= 15000]
-    task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 501]
-    task_metadata = task_metadata[task_metadata["NumberOfClasses"] <= 10]
-
+    task_metadata = load_task_metadata(subset="TabPFNv2")
     datasets = list(task_metadata["name"])
     folds = [0, 1, 2]
 
