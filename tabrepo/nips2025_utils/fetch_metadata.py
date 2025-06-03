@@ -8,6 +8,26 @@ from autogluon.common.loaders import load_pd
 import tabrepo
 
 
+def _get_n_repeats(n_instances: int) -> int:
+    """
+    Get the number of n_repeats for the full benchmark run based on the 2025 paper.
+    If < 2500 samples, n_repeats = 10, else n_repeats = 3
+
+    Parameters
+    ----------
+    n_instances: int
+
+    Returns
+    -------
+    n_repeats: int
+    """
+    if n_instances < 2500:
+        n_repeats = 10
+    else:
+        n_repeats = 3
+    return n_repeats
+
+
 def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
     """
     Load the task metadata for all datasets in the TabArena benchmark.
@@ -23,7 +43,7 @@ def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
             <=10k samples, <=500 features, <=10 classes
             33/51 datasets
         If "TabICL", filters to tasks compatible with TabICL:
-            <=100k samples, <=500 features, <=10 classes, classification
+            <=100k samples, <=500 features, classification
             36/51 datasets
 
     Returns
@@ -38,18 +58,24 @@ def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
     else:
         path = f"{tabrepo_root}/tabflow/metadata/task_metadata_tabarena61.csv"
     task_metadata = load_pd.load(path=path)
+
+    task_metadata["n_folds"] = 3
+    task_metadata["n_repeats"] = task_metadata["NumberOfInstances"].apply(_get_n_repeats)
+    task_metadata["n_features"] = (task_metadata["NumberOfFeatures"] - 1).astype(int)
+    task_metadata["n_samples_test_per_fold"] = (task_metadata["NumberOfInstances"] / task_metadata["n_folds"]).astype(int)
+    task_metadata["n_samples_train_per_fold"] = (task_metadata["NumberOfInstances"] - task_metadata["n_samples_test_per_fold"]).astype(int)
+
     task_metadata["dataset"] = task_metadata["name"]
 
     if subset is None:
         pass
-    if subset == "TabPFNv2":
-        task_metadata = task_metadata[task_metadata["NumberOfInstances"] <= 15000]
-        task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 501]
+    elif subset == "TabPFNv2":
+        task_metadata = task_metadata[task_metadata["n_samples_train_per_fold"] <= 10000]
+        task_metadata = task_metadata[task_metadata["n_features"] <= 500]
         task_metadata = task_metadata[task_metadata["NumberOfClasses"] <= 10]
     elif subset == "TabICL":
-        task_metadata = task_metadata[task_metadata["NumberOfInstances"] <= 150000]
-        task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 501]
-        task_metadata = task_metadata[task_metadata["NumberOfClasses"] <= 10]
+        task_metadata = task_metadata[task_metadata["n_samples_train_per_fold"] <= 100000]
+        task_metadata = task_metadata[task_metadata["n_features"] <= 500]
         task_metadata = task_metadata[task_metadata["NumberOfClasses"] > 0]
     else:
         raise AssertionError(f"Unknown subset: {subset}")
