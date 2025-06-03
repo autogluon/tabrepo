@@ -129,6 +129,7 @@ class JobManager:
         self.add_timestamp = add_timestamp
         self.wait = wait
         self.s3_dataset_cache = s3_dataset_cache
+        self._job_count = 0  # Used to ensure unique job names
 
         # Create boto3 session
         self.boto_session = boto3.Session(profile_name=self.aws_profile) if self.aws_profile else boto3.Session()
@@ -278,14 +279,20 @@ class JobManager:
     def _task_cache_name(self, task: tuple) -> str:
         return f"{self._task_cache_path(task=task)}/results.pkl"
 
-    def make_job_name(self, task: tuple):
+    def make_job_name(self, task: tuple, suffix: str = None):
         dataset, repeat, fold, method = task
         method_name = method["name"]
 
         # Create a unique job name
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        unique_id = str(uuid.uuid4().int)[:8]
-        base_name = f"{dataset[:4]}-r{repeat}-f{fold}-{method_name[:8]}-{timestamp}-{unique_id}"
+        if suffix is None:
+            unique_id = str(uuid.uuid4().int)[:8]
+        else:
+            unique_id = str(uuid.uuid4().int)[:4]
+        base_name = f"{dataset[:4]}-r{repeat}-f{fold}-{method_name[:12]}"
+        if suffix is not None:
+            base_name = f"{base_name}-{suffix}"
+        base_name = f"{base_name}-{timestamp}-{unique_id}"
         job_name = sanitize_job_name(base_name)
         return job_name
 
@@ -340,7 +347,9 @@ class JobManager:
 
         self.resource_manager.wait_for_available_slot(s3_client=self.s3_client, s3_bucket=self.s3_bucket)
 
-        job_name = self.make_job_name(task=tasks[0])
+        self._job_count += 1
+        job_name_suffix = str(self._job_count)
+        job_name = self.make_job_name(task=tasks[0], suffix=job_name_suffix)
         cache_path = self._task_cache_path(task=tasks[0])
 
         tasks_json = []
