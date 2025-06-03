@@ -31,7 +31,7 @@ if __name__ == '__main__':
     task_metadata = load_task_metadata()
     # TODO: make a function for this
     task_metadata = task_metadata[task_metadata["NumberOfInstances"] <= 15000]
-    task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 500]
+    task_metadata = task_metadata[task_metadata["NumberOfFeatures"] <= 501]
     task_metadata = task_metadata[task_metadata["NumberOfClasses"] <= 10]
 
     datasets = list(task_metadata["name"])
