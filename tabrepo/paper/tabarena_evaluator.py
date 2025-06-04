@@ -136,8 +136,8 @@ class TabArenaEvaluator:
     def eval(
         self,
         df_results: pd.DataFrame,
+        include_norm_score: bool = False,
         use_gmean: bool = False,
-        only_norm_scores: bool = False,
         imputed_names: list[str] | None = None,
         only_datasets_for_method: dict[str, list[str]] | None = None,
         baselines: list[str] | str | None = "auto",
@@ -188,6 +188,7 @@ class TabArenaEvaluator:
         if "normalized-error-dataset" not in df_results:
             df_results = self.compute_normalized_error_dynamic(df_results=df_results)
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
+        df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         framework_types = [
             "GBM",
@@ -220,8 +221,6 @@ class TabArenaEvaluator:
             df_results = df_results[df_results[self.method_col].isin(self.methods)]
         if self.problem_types is not None:
             df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
-
-        df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         # ----- add times per 1K samples -----
         dataset_to_n_samples_train = self.task_metadata.set_index("name")["n_samples_train_per_fold"].to_dict()
@@ -344,22 +343,7 @@ class TabArenaEvaluator:
         #                        method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
         #                        show=False)
 
-        self.plot_tuning_impact(
-            df=df_results_rank_compare,
-            framework_types=framework_types,
-            save_prefix=f"{self.output_dir}",
-            use_gmean=use_gmean,
-            baselines=baselines,
-            baseline_colors=baseline_colors,
-            use_score=True,
-            name_suffix="-normscore-dataset-horizontal",
-            imputed_names=imputed_names,
-            plot_tune_types=plot_tune_types,
-            show=False,
-            use_y=True
-        )
-
-        if plot_extra_barplots:
+        if include_norm_score:
             self.plot_tuning_impact(
                 df=df_results_rank_compare,
                 framework_types=framework_types,
@@ -368,29 +352,42 @@ class TabArenaEvaluator:
                 baselines=baselines,
                 baseline_colors=baseline_colors,
                 use_score=True,
-                name_suffix="-normscore-dataset",
+                name_suffix="-normscore-dataset-horizontal",
                 imputed_names=imputed_names,
                 plot_tune_types=plot_tune_types,
                 show=False,
+                use_y=True
             )
 
-            self.plot_tuning_impact(
-                df=df_results_rank_compare,
-                framework_types=framework_types,
-                save_prefix=f"{self.output_dir}",
-                use_gmean=use_gmean,
-                baselines=baselines,
-                baseline_colors=baseline_colors,
-                use_score=True,
-                metric="normalized-error-task",
-                name_suffix="-normscore-task",
-                imputed_names=imputed_names,
-                plot_tune_types=plot_tune_types,
-                show=False,
-            )
+            if plot_extra_barplots:
+                self.plot_tuning_impact(
+                    df=df_results_rank_compare,
+                    framework_types=framework_types,
+                    save_prefix=f"{self.output_dir}",
+                    use_gmean=use_gmean,
+                    baselines=baselines,
+                    baseline_colors=baseline_colors,
+                    use_score=True,
+                    name_suffix="-normscore-dataset",
+                    imputed_names=imputed_names,
+                    plot_tune_types=plot_tune_types,
+                    show=False,
+                )
 
-        if only_norm_scores:
-            return
+                self.plot_tuning_impact(
+                    df=df_results_rank_compare,
+                    framework_types=framework_types,
+                    save_prefix=f"{self.output_dir}",
+                    use_gmean=use_gmean,
+                    baselines=baselines,
+                    baseline_colors=baseline_colors,
+                    use_score=True,
+                    metric="normalized-error-task",
+                    name_suffix="-normscore-task",
+                    imputed_names=imputed_names,
+                    plot_tune_types=plot_tune_types,
+                    show=False,
+                )
 
         tabarena = TabArena(
             method_col=method_col,
