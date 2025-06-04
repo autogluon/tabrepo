@@ -4,6 +4,7 @@ from typing import Literal
 
 from tabrepo.benchmark.experiment import Experiment, ExperimentBatchRunner
 from tabrepo.benchmark.task.openml import OpenMLS3TaskWrapper, OpenMLTaskWrapper
+from tabrepo.benchmark.task.user_task import UserTask
 from tabrepo.utils.cache import CacheFunctionPickle
 
 
@@ -142,7 +143,7 @@ def run_experiments_new(
     *,
     output_dir: str,
     model_experiments: list[Experiment],
-    tasks: list,  # TODO: add new type
+    tasks: list[int | UserTask],
     repetitions_mode: Literal["TabArena-Lite", "matrix", "individual"],
     repetitions_mode_args: tuple | list | None = None,
     run_mode: str = "local",
@@ -163,8 +164,10 @@ def run_experiments_new(
         List of model experiments to run. Each element must be an instance of the
         Experiment class. Each instance contains the configuration of the model
         and experiment to run.
-    tasks: list[TODO]
-        Todo: new defintion that allows non-OpenML tasks.
+    tasks: list[int | UserTask]
+        The OpenML task IDs or UserTask instances to run the experiments on.
+        See `tabrepo.benchmark.task.user_task` for more details on how to define
+        UserTask.
     repetitions_mode: Literal["TabArena-Lite", "matrix", "individual"]
         Determines how to run repeats of experiments:
             - "TabArena-Lite": Preset setting, run the first fold of the first repeat
@@ -277,6 +280,9 @@ def run_experiments_new(
     assert len({exp.name for exp in model_experiments}) == len(model_experiments), (
         "Duplicate experiment name found in `model_experiments`. All names must be unique."
     )
+    assert all(isinstance(task, (int, UserTask)) for task in tasks), (
+        "Not all tasks are int or UserTask instances! Got: {tasks}"
+    )
 
     fold_repeat_pairs_per_task = _parse_repetitions_mode_and_args(
         repetitions_mode=repetitions_mode,
@@ -298,7 +304,7 @@ def run_experiments_new(
     cur_experiment_idx, experiment_success_count, experiment_fail_count = -1, 0, 0
     experiment_missing_count, experiment_cache_exists_count = 0, 0
     experiment_count_total = n_splits * len(model_experiments)
-    for dataset_index, task_id in enumerate(tasks):
+    for dataset_index, task_id_or_object in enumerate(tasks):
         task = None  # lazy task loading
         print(f"Starting Dataset {dataset_index + 1}/{len(tasks)}...")
 
@@ -314,6 +320,11 @@ def run_experiments_new(
 
             for me_index, model_experiment in enumerate(model_experiments, start=1):
                 cur_experiment_idx += 1
+                cache_task_key = (
+                    task_id_or_object
+                    if isinstance(task_id_or_object, int)
+                    else task_id_or_object.task_id
+                )
                 print(
                     f"Starting Model {me_index}/{len(model_experiments)}..."
                     f"\n\t"
@@ -322,14 +333,12 @@ def run_experiments_new(
                     f"{experiment_fail_count} fail | "
                     f"{experiment_cache_exists_count} cache_exists | "
                     f"{experiment_missing_count} missing | "
-                    f"Fitting {task_id} on repeat {repeat}, fold {fold} for method {model_experiment.name}"
+                    f"Fitting {cache_task_key} on repeat {repeat}, fold {fold} for method {model_experiment.name}"
                 )
 
                 # Setup Cache
                 cache_name = "results"
-                cache_prefix = (
-                    f"data/{model_experiment.name}/{task_id}/{subtask_cache_name}"
-                )
+                cache_prefix = f"data/{model_experiment.name}/{cache_task_key}/{subtask_cache_name}"
                 cache_path = f"{base_cache_path}/{cache_prefix}"
                 cacher = CacheFunctionPickle(
                     cache_name=cache_name, cache_path=cache_path
@@ -349,16 +358,25 @@ def run_experiments_new(
                     if (task is None) and (
                         (cache_mode == "ignore") or (not cache_exists)
                     ):
-                        if (s3_kwargs is not None) and ("dataset_cache" in s3_kwargs):
-                            assert isinstance(s3_kwargs["dataset_cache"], str), (
-                                "'s3_kwargs `dataset_cache` must be a str!"
-                            )
-                            task = OpenMLS3TaskWrapper.from_task_id(
-                                task_id=task_id,
-                                s3_dataset_cache=s3_kwargs["dataset_cache"],
-                            )
+                        if isinstance(task_id_or_object, int):
+                            if (s3_kwargs is not None) and (
+                                "dataset_cache" in s3_kwargs
+                            ):
+                                assert isinstance(s3_kwargs["dataset_cache"], str), (
+                                    "'s3_kwargs `dataset_cache` must be a str!"
+                                )
+                                task = OpenMLS3TaskWrapper.from_task_id(
+                                    task_id=task_id_or_object,
+                                    s3_dataset_cache=s3_kwargs["dataset_cache"],
+                                )
+                            else:
+                                task = OpenMLTaskWrapper.from_task_id(
+                                    task_id=task_id_or_object
+                                )
                         else:
-                            task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
+                            task = OpenMLTaskWrapper(
+                                task=task_id_or_object.to_openml_task()
+                            )
 
                     try:
                         out = model_experiment.run(
@@ -369,7 +387,7 @@ def run_experiments_new(
                             debug_mode=debug_mode,
                             repeat=repeat,
                             # TODO: remove task_name as required parameter in .run()
-                            task_name=f"Task-{task_id}",
+                            task_name=f"Task-{cache_task_key}",
                         )
                     except Exception as exc:
                         if raise_on_failure:
