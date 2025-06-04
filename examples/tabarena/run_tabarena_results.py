@@ -12,7 +12,7 @@ if __name__ == '__main__':
     # load the TabArena paper results
     df_results: pd.DataFrame = load_results()
 
-    eval_save_path = Path("tabarena_paper_cleanup") / "output"
+    eval_save_path = Path("tabarena_paper") / "output"
     elo_bootstrap_rounds = 10  # 100 to reproduce the paper
 
     # regenerate figures and tables
