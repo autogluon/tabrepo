@@ -88,6 +88,9 @@ class UserTask:
         self.target_feature = target_feature
         self.problem_type = problem_type
         self.splits = splits
+        self._task_name_hash = hashlib.sha256(
+            self.task_name.encode("utf-8")
+        ).hexdigest()
 
         self._validate_splits(splits=splits, n_samples=len(dataset))
 
@@ -143,15 +146,15 @@ class UserTask:
                 raise ValueError("All repeats must have the same number of splits.")
 
     @property
-    def task_id(self) -> str:
+    def task_id(self) -> int:
         """Generate a unique task ID based on the task name and a UUID.
         This is used to identify the task, for example, when caching results.
         """
-        return f"user_task_{self.task_name}"
+        return int(self._task_name_hash, 16) % 10**10
 
     @property
     def _local_dataset_id(self) -> str:
-        return hashlib.sha256(self.task_id.encode("utf-8")).hexdigest()
+        return self._task_name_hash
 
     @property
     def _local_cache_path(self) -> Path:
@@ -204,7 +207,7 @@ class UserTask:
         parquet_file = self._local_cache_path / "data.pq"
         parquet_file.parent.mkdir(parents=True, exist_ok=True)
         self._dataset.to_parquet(parquet_file)
-        del self._dataset # Free memory
+        del self._dataset  # Free memory
 
         # We only need local_dataset.get_data() from the OpenMLDataset, thus, we make
         # sure with the code below that get_data() returns the data.
@@ -213,6 +216,7 @@ class UserTask:
 
         # Create the task
         task = task_cls(
+            task_id=self.task_id,
             task_type_id=task_type,
             task_type="None",  # Placeholder, not used for local tasks
             data_set_id=-1,  # Placeholder, not used for local tasks
