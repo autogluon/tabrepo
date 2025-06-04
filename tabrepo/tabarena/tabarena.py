@@ -420,7 +420,6 @@ class TabArena:
         return best_error_per_task, worst_error_per_task
 
     def aggregate(self, results_by_dataset: pd.DataFrame) -> pd.DataFrame:
-        print(f'{results_by_dataset[self.task_col]=}')
         results_by_dataset = copy.deepcopy(results_by_dataset)
         results_agg = results_by_dataset.groupby([self.method_col, self.task_col]).mean(numeric_only=True)
         # Compute mean

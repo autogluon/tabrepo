@@ -5,10 +5,8 @@ import requests
 
 import pandas as pd
 
-from autogluon.common.loaders import load_pd, load_pkl
+from autogluon.common.loaders import load_pd
 from autogluon.common.savers import save_pd, save_pkl
-from autogluon.common.utils.s3_utils import download_s3_file
-from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 
 BANNED_DATASETS = [
     "ASP-POTASSCO",
@@ -59,7 +57,7 @@ def load_results(lite: bool = False) -> pd.DataFrame:
         path = "https://tabarena.s3.us-west-2.amazonaws.com/results/df_results_lite_leaderboard.parquet"
     else:
         path = "https://tabarena.s3.us-west-2.amazonaws.com/results/df_results_leaderboard.parquet"
-    df_results = load_pd.load(path=path)
+    df_results = pd.read_parquet(path=path)
     return df_results
 
 
