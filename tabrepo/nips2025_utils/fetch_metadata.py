@@ -54,9 +54,9 @@ def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
     """
     tabrepo_root = str(Path(tabrepo.__file__).parent.parent)
     if paper:
-        path = f"{tabrepo_root}/tabflow/metadata/task_metadata_tabarena51.csv"
+        path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena51.csv"
     else:
-        path = f"{tabrepo_root}/tabflow/metadata/task_metadata_tabarena61.csv"
+        path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena61.csv"
     task_metadata = load_pd.load(path=path)
 
     task_metadata["n_folds"] = 3
