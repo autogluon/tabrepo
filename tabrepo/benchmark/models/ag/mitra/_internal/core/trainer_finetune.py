@@ -51,7 +51,7 @@ class TrainerFinetune(BaseEstimator):
             dim_output=self.cfg.hyperparams['dim_output'],
             use_quantile_transformer=self.cfg.hyperparams['use_quantile_transformer'],
             use_feature_count_scaling=self.cfg.hyperparams['use_feature_count_scaling'],
-            use_random_transforms=self.cfg.hyperparams['shuffle_classes'], 
+            use_random_transforms=self.cfg.hyperparams['use_random_transforms'], 
             shuffle_classes=self.cfg.hyperparams['shuffle_classes'],
             shuffle_features=self.cfg.hyperparams['shuffle_features'],
             random_mirror_x=self.cfg.hyperparams['random_mirror_x'],
@@ -169,6 +169,9 @@ class TrainerFinetune(BaseEstimator):
                 self.scheduler_warmup.step()
             else:
                 self.scheduler_reduce_on_plateau.step(metrics_valid.loss)
+            
+            current_lr = self.optimizer.param_groups[0]['lr']
+            print(f"Epoch {epoch}: Learning rate = {current_lr:.6f}")
 
         self.checkpoint.set_to_best(self.model)
 
