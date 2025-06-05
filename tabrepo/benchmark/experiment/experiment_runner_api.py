@@ -305,7 +305,7 @@ def run_experiments_new(
     experiment_missing_count, experiment_cache_exists_count = 0, 0
     experiment_count_total = n_splits * len(model_experiments)
     for dataset_index, task_id_or_object in enumerate(tasks):
-        task = None  # lazy task loading
+        task, task_name = None, None  # lazy task loading
         print(f"Starting Dataset {dataset_index + 1}/{len(tasks)}...")
 
         for split_index, (fold, repeat) in enumerate(
@@ -373,7 +373,10 @@ def run_experiments_new(
                                 task = OpenMLTaskWrapper.from_task_id(
                                     task_id=task_id_or_object
                                 )
+                            # TODO: maybe add a prefix to this.
+                            task_name = task.task.get_dataset().name
                         else:
+                            task_name = task_id_or_object.task_name
                             task = OpenMLTaskWrapper(
                                 task=task_id_or_object.to_openml_task()
                             )
@@ -387,7 +390,9 @@ def run_experiments_new(
                             debug_mode=debug_mode,
                             repeat=repeat,
                             # TODO: remove task_name as required parameter in .run()
-                            task_name=f"Task-{cache_task_key}",
+                            #   - also unclear how this is used in only cache case,
+                            #     where we don't have the task object.
+                            task_name=task_name,  # used in eval as name later.
                         )
                     except Exception as exc:
                         if raise_on_failure:

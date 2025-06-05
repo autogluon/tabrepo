@@ -146,6 +146,11 @@ class UserTask:
                 raise ValueError("All repeats must have the same number of splits.")
 
     @property
+    def task_name(self) -> str:
+        """Task/Dataset Name used for the task/dataset."""
+        return f"Task-{self.task_id}"
+
+    @property
     def task_id(self) -> int:
         """Generate a unique task ID based on the task name and a UUID.
         This is used to identify the task, for example, when caching results.
