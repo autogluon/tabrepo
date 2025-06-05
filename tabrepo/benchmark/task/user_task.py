@@ -146,7 +146,7 @@ class UserTask:
                 raise ValueError("All repeats must have the same number of splits.")
 
     @property
-    def task_name(self) -> str:
+    def tabarena_task_name(self) -> str:
         """Task/Dataset Name used for the task/dataset."""
         return f"Task-{self.task_id}"
 
