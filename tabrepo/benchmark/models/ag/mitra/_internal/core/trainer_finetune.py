@@ -169,9 +169,6 @@ class TrainerFinetune(BaseEstimator):
                 self.scheduler_warmup.step()
             else:
                 self.scheduler_reduce_on_plateau.step(metrics_valid.loss)
-            
-            current_lr = self.optimizer.param_groups[0]['lr']
-            print(f"Epoch {epoch}: Learning rate = {current_lr:.6f}")
 
         self.checkpoint.set_to_best(self.model)
 
