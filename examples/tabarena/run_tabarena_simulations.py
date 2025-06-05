@@ -33,22 +33,16 @@ aws s3 cp --recursive ${S3_DIR} ${USER_DIR} ${EXCLUDE[@]}
 """
 
 
-def load_repo(toy_mode: bool, gpu: bool = True):
+def load_repo(toy_mode: bool):
     repo_names = [
         # "repos/tabarena60_autogluon",
     ]
 
-    if gpu:
-        repo_names += [
-            "repos/tabarena_tabicl_gpu",
-            "repos/tabarena_tabpfnv2_gpu",
-            "repos/tabarena_tabdpt_gpu",
-        ]
-    else:
-        repo_names += [
-            "repos/tabarena60_tabicl",
-            "repos/tabarena60_tabpfnv2",
-        ]
+    repo_names += [
+        "repos/tabarena_tabicl_gpu",
+        "repos/tabarena_tabpfnv2_gpu",
+        "repos/tabarena_tabdpt_gpu",
+    ]
 
     repos_extra = [
         "AutoGluon",
@@ -184,15 +178,12 @@ def find_missing(repo: EvaluationRepository):
 
 if __name__ == '__main__':
     toy_mode = False
-    with_gpu = True
     load_cache = True
     load_sim_cache = False
     norm_error_static = False
     ban_datasets: bool = True
 
-    context_name = "tabarena_paper_full"
-    if with_gpu:
-        context_name += "_gpu"
+    context_name = "tabarena_paper_full_gpu"
     if toy_mode:
         context_name += "_toy"
     cache_path = f"./{context_name}/repo_cache/tabarena_all.pkl"
@@ -218,7 +209,7 @@ if __name__ == '__main__':
     if load_cache:
         repo = EvaluationRepositoryCollection.load(path=cache_path)
     else:
-        repo = load_repo(toy_mode=toy_mode, gpu=with_gpu)
+        repo = load_repo(toy_mode=toy_mode)
         repo.save(path=cache_path)
 
     # df_missing = find_missing(repo=repo)
