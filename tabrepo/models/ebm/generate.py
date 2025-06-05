@@ -14,7 +14,6 @@ search_space = {
     'interaction_smoothing_rounds': Categorical(0, 25, 50, 75, 100, 200, 500),
     'min_hessian': Real(1e-10, 1e-2, default=1e-4, log=True),
     'min_samples_leaf': Int(2, 20, default=4),
-    'validation_size': Real(0.05, 0.25, default=0.15),
     'gain_scale': Real(0.5, 5.0, default=5.0, log=True),
     'min_cat_samples': Categorical(5, 10, 15, 20),
     'cat_smooth': Categorical(5.0, 10.0, 20.0, 100.0),
