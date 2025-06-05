@@ -21,13 +21,23 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_openml
 from sklearn.metrics import mean_squared_error, r2_score
 
+# Hyperparameter search space
+DEFAULT_EPOCH = 50 # [50, 60, 70, 80, 90, 100] 
+DEFAULT_CLS_METRIC = 'log_loss' # ['log_loss', 'accuracy', 'auc']
+DEFAULT_REG_METRIC = 'mse' # ['mse', 'mae', 'rmse', 'r2']
+SHUFFLE_CLASSES = False # [True, False]
+SHUFFLE_FEATURES = False # [True, False]
+USE_RANDOM_TRANSFORMS = False # [True, False]
+RANDOM_MIRROR_REGRESSION = True # [True, False]
+RANDOM_MIRROR_X = True # [True, False]
+LR = 0.0001 # [0.00001, 0.000025, 0.00005, 0.000075, 0.0001, 0.00025, 0.0005, 0.00075, 0.001]
+PATIENCE = 40 # [30, 35, 40, 45, 50]
+WARMUP_STEPS = 1000 # [500, 750, 1000, 1250, 1500]
+
 # Constants
+DEFAULT_BUDGET = 3600
 DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
-DEFAULT_EPOCH = 50
-DEFAULT_BUDGET = 10000
-DEFAULT_CLS_METRIC = 'log_loss' # 'log_loss', 'accuracy', 'auc'
-DEFAULT_REG_METRIC = 'mse' # 'mse', 'mae', 'rmse', 'r2'
 DEFAULT_ENSEMBLE = 1
 DEFAULT_DIM = 512
 DEFAULT_LAYERS = 12
@@ -45,7 +55,15 @@ class MitraBase(BaseEstimator):
             epoch=DEFAULT_EPOCH, 
             budget=DEFAULT_BUDGET, 
             metric=DEFAULT_CLS_METRIC,
-            state_dict=None
+            state_dict=None,
+            patience=PATIENCE,
+            lr=LR,
+            warmup_steps=WARMUP_STEPS,
+            shuffle_classes=SHUFFLE_CLASSES,
+            shuffle_features=SHUFFLE_FEATURES,
+            use_random_transforms=USE_RANDOM_TRANSFORMS,
+            random_mirror_regression=RANDOM_MIRROR_REGRESSION,
+            random_mirror_x=RANDOM_MIRROR_X,
         ):
         """
         Initialize the base Mitra model.
@@ -70,6 +88,14 @@ class MitraBase(BaseEstimator):
         self.budget = budget
         self.metric = metric
         self.state_dict = state_dict
+        self.patience = patience
+        self.lr = lr
+        self.warmup_steps = warmup_steps
+        self.shuffle_classes = shuffle_classes
+        self.shuffle_features = shuffle_features
+        self.use_random_transforms = use_random_transforms
+        self.random_mirror_regression = random_mirror_regression
+        self.random_mirror_x = random_mirror_x
         self.trainers = []
         self.models = []
         self.train_time = 0
@@ -84,7 +110,7 @@ class MitraBase(BaseEstimator):
                 'dim_embedding': None,
                 'early_stopping_data_split': 'VALID',
                 'early_stopping_max_samples': 2048,
-                'early_stopping_patience': 40,
+                'early_stopping_patience': self.patience,
                 'grad_scaler_enabled': False,
                 'grad_scaler_growth_interval': 1000,
                 'grad_scaler_scale_init': 65536.0,
@@ -96,15 +122,16 @@ class MitraBase(BaseEstimator):
                 'max_samples_query': 1024,
                 'max_samples_support': 8192,
                 'optimizer': 'adamw',
-                'lr': 0.0001,
+                'lr': self.lr,
                 'weight_decay': 0.1,
-                'warmup_steps': 1000,
+                'warmup_steps': self.warmup_steps,
                 'path_to_weights': self.state_dict,
                 'precision': 'bfloat16',
-                'random_mirror_regression': True,
-                'random_mirror_x': True,
-                'shuffle_classes': self.n_estimators > 1,
-                'shuffle_features': self.n_estimators > 1,
+                'random_mirror_regression': self.random_mirror_regression,
+                'random_mirror_x': self.random_mirror_x,
+                'shuffle_classes': self.shuffle_classes,
+                'shuffle_features': self.shuffle_features,
+                'use_random_transforms': self.use_random_transforms,
                 'use_feature_count_scaling': False,
                 'use_pretrained_weights': False,
                 'use_quantile_transformer': False,
@@ -196,10 +223,34 @@ class MitraClassifier(MitraBase, ClassifierMixin):
             epoch=DEFAULT_EPOCH, 
             budget=DEFAULT_BUDGET, 
             metric=DEFAULT_CLS_METRIC,
-            state_dict='/fsx/xiyuanz/mix5_multi_cat.pt'
+            state_dict='/fsx/xiyuanz/mix5_multi_cat.pt',
+            patience=PATIENCE,
+            lr=LR,
+            warmup_steps=WARMUP_STEPS,
+            shuffle_classes=SHUFFLE_CLASSES,
+            shuffle_features=SHUFFLE_FEATURES,
+            use_random_transforms=USE_RANDOM_TRANSFORMS,
+            random_mirror_regression=RANDOM_MIRROR_REGRESSION,
+            random_mirror_x=RANDOM_MIRROR_X,
         ):
         """Initialize the classifier."""
-        super().__init__(model_type, n_estimators, device, epoch, budget, metric, state_dict)
+        super().__init__(
+            model_type, 
+            n_estimators, 
+            device, 
+            epoch,
+            budget,
+            metric, 
+            state_dict,
+            patience=patience,
+            lr=lr,
+            warmup_steps=warmup_steps,
+            shuffle_classes=shuffle_classes,
+            shuffle_features=shuffle_features,
+            use_random_transforms=use_random_transforms,
+            random_mirror_regression=random_mirror_regression,
+            random_mirror_x=random_mirror_x,
+        )
         self.task = 'classification'
     
     def fit(self, X, y, X_val = None, y_val = None):
@@ -293,9 +344,33 @@ class MitraRegressor(MitraBase, RegressorMixin):
             budget=DEFAULT_BUDGET, 
             metric=DEFAULT_REG_METRIC,
             state_dict='/fsx/xiyuanz/mix5_reg.pt',
+            patience=PATIENCE,
+            lr=LR,
+            warmup_steps=WARMUP_STEPS,
+            shuffle_classes=SHUFFLE_CLASSES,
+            shuffle_features=SHUFFLE_FEATURES,
+            use_random_transforms=USE_RANDOM_TRANSFORMS,
+            random_mirror_regression=RANDOM_MIRROR_REGRESSION,
+            random_mirror_x=RANDOM_MIRROR_X,
         ):
         """Initialize the regressor."""
-        super().__init__(model_type, n_estimators, device, epoch, budget, metric, state_dict)
+        super().__init__(
+            model_type, 
+            n_estimators, 
+            device, 
+            epoch,
+            budget,
+            metric, 
+            state_dict,
+            patience=patience,
+            lr=lr,
+            warmup_steps=warmup_steps,
+            shuffle_classes=shuffle_classes,
+            shuffle_features=shuffle_features,
+            use_random_transforms=use_random_transforms,
+            random_mirror_regression=random_mirror_regression,
+            random_mirror_x=random_mirror_x,
+        )
         self.task = 'regression'
 
     def fit(self, X, y, X_val = None, y_val = None):
