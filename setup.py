@@ -22,7 +22,7 @@ extras_require = {
         "tabicl>=0.1.1",
     ],
     "ebm": [
-        "interpret-core>=0.6.9",
+        "interpret-core>=0.6.11",
     ],
     "search_spaces": [
         "configspace",
