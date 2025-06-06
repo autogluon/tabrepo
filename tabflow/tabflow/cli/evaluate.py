@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
-from typing import Any
 
 from autogluon.common.loaders import load_json
 from tabflow.utils.utils import find_method_by_name
@@ -12,7 +10,6 @@ from tabflow.utils.logging_utils import setup_logging
 from tabrepo import EvaluationRepository
 from tabrepo.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer, AGExperiment
 from tabrepo.benchmark.models.simple import SimpleLightGBM
-from tabrepo.benchmark.models.ag.mitra.mitra_model import MitraModel
 from autogluon.tabular.models import *
 from tabrepo.benchmark.models.ag import *
 
