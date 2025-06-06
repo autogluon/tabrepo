@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import pandas as pd
+from autogluon.common.savers import save_pd
+from autogluon.common.loaders import load_pd
 
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 from tabrepo.nips2025_utils.load_final_paper_results import load_paper_results
@@ -266,8 +268,6 @@ if __name__ == '__main__':
         # must recalculate normalized error after concat
         df_results_combined_holdout = PaperRunTabArena.compute_normalized_error_dynamic(df_results=df_results_combined_holdout)
 
-        from autogluon.common.savers import save_pd
-        from autogluon.common.loaders import load_pd
         save_pd.save(df=df_results_combined_holdout, path=f"{context_name}/data/df_results_combined_holdout.parquet")
         df_results_combined_holdout = load_pd.load(path=f"{context_name}/data/df_results_combined_holdout.parquet")
 

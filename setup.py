@@ -87,6 +87,9 @@ setup(
         "tabrepo": [
             "metrics/_roc_auc_cpp/compile.sh",
             "metrics/_roc_auc_cpp/cpp_auc.cpp",
+            "nips2025_utils/metadata/task_metadata_tabarena51.csv",
+            "nips2025_utils/metadata/task_metadata_tabarena60.csv",
+            "nips2025_utils/metadata/task_metadata_tabarena61.csv",
         ],
     },
     url="https://github.com/autogluon/tabrepo",

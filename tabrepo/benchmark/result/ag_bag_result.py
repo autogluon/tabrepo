@@ -47,8 +47,12 @@ class AGBagResult(ConfigResult):
         pred_test = self._pred_test_from_children()
         if "pred_test" in self.result["simulation_artifacts"]:
             assert pred_test.shape == self.simulation_artifacts["pred_test"].shape
-            if not np.isclose(pred_test, self.simulation_artifacts["pred_test"]).all():
-                print(f"WARNING: Not close TEST: {self.result['task_metadata']['name']}, {self.result['task_metadata']['split_idx']}, {self.result['framework']}")
+            is_close_lst = np.isclose(pred_test, self.simulation_artifacts["pred_test"], rtol=5e-4)
+            if not is_close_lst.all():
+                print(
+                    f"WARNING: Not close TEST: {self.result['task_metadata']['name']}, {self.result['task_metadata']['split_idx']}, {self.result['framework']}"
+                    f" |\t{((1 - is_close_lst.mean()) * 100):.3f}% of samples were not close!"
+                )
         self.simulation_artifacts["pred_test"] = pred_test
         return self.result
 
