@@ -6,13 +6,11 @@ from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 bash ./tabrepo/tabflow/docker/build_docker.sh tabarena tabarena-neerick 763104351884 097403188315 us-west-2
  
 aws s3 cp --recursive "s3://prateek-ag/neerick-exp-3/" ../data/neerick-exp-3/ --exclude "*.log"
-
-
 https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs
 """
 
 
-docker_image_uri = "097403188315.dkr.ecr.us-west-2.amazonaws.com/tabarena:tabarena-neerick"
+docker_image_uri = "097403188315.dkr.ecr.us-west-2.amazonaws.com/tabflow-test:test-mitra"
 # docker_image_uri = "097403188315.dkr.ecr.us-west-2.amazonaws.com/pmdesai:mlflow-tabrepo"
 sagemaker_role = "arn:aws:iam::097403188315:role/service-role/AmazonSageMaker-ExecutionRole-20250128T153145"
 
@@ -20,15 +18,15 @@ sagemaker_role = "arn:aws:iam::097403188315:role/service-role/AmazonSageMaker-Ex
 if __name__ == "__main__":
     task_metadata = load_task_metadata(subset="TabPFNv2")
 
-    experiment_name = "neerick-exp-mitra_toy"
+    experiment_name = "pmdesai-exp-mitra_toy"
     max_concurrent_jobs = 100
     batch_size = 8
     wait = True
     s3_bucket = "prateek-ag"
     region_name = "us-west-2"
-    instance_type = "ml.m6i.2xlarge"  # TODO: Need to use a GPU instance
+    instance_type = "ml.g6.2xlarge"  # TODO: Need to use a GPU instance
 
-    methods_file = "./tabrepo/tabflow/configs/configs_mitra.yaml"  # TODO: Need to create this file
+    methods_file = "./tabrepo/tabflow/configs/method_configs.yaml"  # TODO: Need to create this file
     methods = JobManager.load_methods_from_yaml(methods_file=methods_file)
 
     datasets = list(task_metadata["name"])

@@ -41,8 +41,8 @@ if __name__ == '__main__':
         dataset_folds_repeats_lst.append(dataset_folds_repeats)
 
     mitra_state_dict_params = {
-        "state_dict_classification": "weights/model_step_22000.pt",
-        "state_dict_regression": "weights/mix5_reg.pt",
+        "state_dict_classification": "workspace/weights/model_step_22000.pt",
+        "state_dict_regression": "workspace/weights/mix5_reg.pt",
     }
 
     # This list of methods will be fit sequentially on each task (dataset x fold)
