@@ -147,7 +147,6 @@ def test_user_task_as_openml_task(problem_type, expected_cls, tmp_path):
 )
 def test_validate_splits_valid(splits, n_samples):
     """No exception is expected for well-formed splits."""
-    # Should return None → no assertions needed; test fails if an exception bubbles.
     UserTask._validate_splits(splits=splits, n_samples=n_samples)
 
 
@@ -168,7 +167,7 @@ def test_validate_splits_valid(splits, n_samples):
         ({0: {0: ([0, 1], [1, 2])}}, 3, r"must not overlap"),
         # Negative index
         ({0: {0: ([-1], [1])}}, 3, r"must be non-negative"),
-        # Index ≥ n_samples
+        # Index >= n_samples
         ({0: {0: ([0], [3])}}, 3, r"must not exceed the dataset size"),
         # Overlap of test indices across folds in same repeat
         (
@@ -197,6 +196,6 @@ def test_validate_splits_valid(splits, n_samples):
     ],
 )
 def test_validate_splits_invalid(splits, n_samples, exc_regex):
-    """Every malformed split configuration should raise *and* emit the right message."""
+    """Every malformed split configuration should raise and emit the right message."""
     with pytest.raises(ValueError, match=exc_regex):
         UserTask._validate_splits(splits=splits, n_samples=n_samples)
