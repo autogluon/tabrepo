@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 def _get_dataset(self, **kwargs) -> openml.datasets.OpenMLDataset:
     return self.local_dataset
 
-
+# TODO: support split constructor for common split use cases
 class UserTask:
     """A user-defined task to run on custom datasets or tasks."""
 
@@ -84,7 +84,7 @@ class UserTask:
                   in all other repeat_ids).
         """
         self.task_name = task_name
-        self._dataset = dataset
+        self._dataset = dataset.copy()
         self.target_feature = target_feature
         self.problem_type = problem_type
         self.splits = splits
@@ -170,6 +170,11 @@ class UserTask:
             / self._local_dataset_id
         )
 
+    @property
+    def dataset_name(self) -> str:
+        """The name of the dataset used in the task."""
+        return f"LocalDataset-{self.task_name}"
+
     # TODO: support local OpenML tasks inside of OpenML code...
     def to_openml_task(self) -> OpenMLSupervisedTask:
         """Convert the user-defined task to a local (unpublished) OpenMLSupervisedTask."""
@@ -190,7 +195,7 @@ class UserTask:
             raise NotImplementedError(f"Task type {task_type:d} not supported.")
 
         local_dataset = create_dataset(
-            name=f"LocalDataset-{self.task_name}",
+            name=self.dataset_name,
             description=None,
             creator=None,
             contributor=None,
