@@ -147,7 +147,10 @@ class TrainerFinetune(BaseEstimator):
                     y_hat = self.bins[y_hat] + self.bin_width / 2
 
                 y_hat = y_hat.float()
-                prediction_metrics_tracker.update(y_hat, y_query, train=True)
+                if self.cfg.task == Task.REGRESSION:
+                    prediction_metrics_tracker.update(y_hat, y_query, train=True)
+                else:
+                    prediction_metrics_tracker.update(y_hat, y_query, train=False)
 
             metrics_train = prediction_metrics_tracker.get_metrics()
             metrics_valid = self.evaluate(x_train, y_train, x_val, y_val)   
