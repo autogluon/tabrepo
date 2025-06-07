@@ -35,6 +35,7 @@ PATIENCE = 40 # [30, 35, 40, 45, 50]
 WARMUP_STEPS = 1000 # [500, 750, 1000, 1250, 1500]
 
 # Constants
+SEED = 0
 DEFAULT_BUDGET = 3600
 DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
@@ -64,6 +65,7 @@ class MitraBase(BaseEstimator):
             use_random_transforms=USE_RANDOM_TRANSFORMS,
             random_mirror_regression=RANDOM_MIRROR_REGRESSION,
             random_mirror_x=RANDOM_MIRROR_X,
+            seed=SEED,
         ):
         """
         Initialize the base Mitra model.
@@ -99,14 +101,14 @@ class MitraBase(BaseEstimator):
         self.trainers = []
         self.models = []
         self.train_time = 0
-        self.seed = 0
+        self.seed = seed
 
 
     def _create_config(self, task, dim_output):
         cfg = ConfigRun(
             device=self.device,
             model_name=ModelName.TAB2D,
-            seed=0,
+            seed=self.seed,
             hyperparams={
                 'dim_embedding': None,
                 'early_stopping_data_split': 'VALID',
@@ -233,6 +235,7 @@ class MitraClassifier(MitraBase, ClassifierMixin):
             use_random_transforms=USE_RANDOM_TRANSFORMS,
             random_mirror_regression=RANDOM_MIRROR_REGRESSION,
             random_mirror_x=RANDOM_MIRROR_X,
+            seed=SEED,
         ):
         """Initialize the classifier."""
         super().__init__(
@@ -251,6 +254,7 @@ class MitraClassifier(MitraBase, ClassifierMixin):
             use_random_transforms=use_random_transforms,
             random_mirror_regression=random_mirror_regression,
             random_mirror_x=random_mirror_x,
+            seed=seed,
         )
         self.task = 'classification'
     
@@ -353,6 +357,7 @@ class MitraRegressor(MitraBase, RegressorMixin):
             use_random_transforms=USE_RANDOM_TRANSFORMS,
             random_mirror_regression=RANDOM_MIRROR_REGRESSION,
             random_mirror_x=RANDOM_MIRROR_X,
+            seed=SEED,
         ):
         """Initialize the regressor."""
         super().__init__(
@@ -371,6 +376,7 @@ class MitraRegressor(MitraBase, RegressorMixin):
             use_random_transforms=use_random_transforms,
             random_mirror_regression=random_mirror_regression,
             random_mirror_x=random_mirror_x,
+            seed=seed,
         )
         self.task = 'regression'
 

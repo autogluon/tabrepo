@@ -415,6 +415,7 @@ class MultiheadAttention(torch.nn.Module):
             cu_seqlens_k = cu_seqlens_k,
             max_seqlen_q = max_seqlen_q, # max sequence length, either n or f
             max_seqlen_k = max_seqlen_k,
+            deterministic=True,
         )
 
         output = einops.rearrange(output, 't h d -> t (h d)')
