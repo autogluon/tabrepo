@@ -3,22 +3,22 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from ..._internal.config.enums import Task
 
-def make_dataset_split(x: np.ndarray, y: np.ndarray, task: Task) -> tuple[np.ndarray, ...]:
+def make_dataset_split(x: np.ndarray, y: np.ndarray, task: Task, seed: int) -> tuple[np.ndarray, ...]:
     # Splits the dataset into train and validation sets with ratio 80/20
 
     if task == Task.REGRESSION:
-        return make_standard_dataset_split(x, y)
+        return make_standard_dataset_split(x, y, seed=seed)
 
     size_of_smallest_class = np.min(np.bincount(y))
 
     if size_of_smallest_class >= 5:
         # stratification needs have at least 5 samples in each class if split is 80/20
-        return make_stratified_dataset_split(x, y)
+        return make_stratified_dataset_split(x, y, seed=seed)
     else:
-        return make_standard_dataset_split(x, y)
+        return make_standard_dataset_split(x, y, seed=seed)
     
 
-def make_stratified_dataset_split(x, y, n_splits=5):
+def make_stratified_dataset_split(x, y, n_splits=5, seed=42):
 
     # Stratify doesn't shuffle the data, so we shuffle it first
     permutation = np.random.permutation(len(y))
@@ -36,9 +36,9 @@ def make_stratified_dataset_split(x, y, n_splits=5):
         n_splits = max(2, n_splits)
     else:
         # If we can't do stratified splitting, fall back to standard split
-        return make_standard_dataset_split(x, y)
+        return make_standard_dataset_split(x, y, seed)
 
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True)
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     indices = next(skf.split(x, y))
     x_t_train, x_t_valid = x[indices[0]], x[indices[1]] # 80%, 20%
     y_t_train, y_t_valid = y[indices[0]], y[indices[1]]
@@ -46,8 +46,8 @@ def make_stratified_dataset_split(x, y, n_splits=5):
     return x_t_train, x_t_valid, y_t_train, y_t_valid
 
 
-def make_standard_dataset_split(x, y):
+def make_standard_dataset_split(x, y, seed):
         
     return train_test_split(
-        x, y, test_size=0.2
+        x, y, test_size=0.2, random_state=seed,
     )

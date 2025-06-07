@@ -13,6 +13,7 @@ import time
 import os
 import pandas as pd
 from sklearn.metrics import roc_auc_score, log_loss, accuracy_score, root_mean_squared_error, r2_score, mean_squared_error, mean_absolute_error
+import random
 
 def test_mitra():
     model_hyperparameters = {"n_estimators": 1}
@@ -128,6 +129,13 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
 
 if __name__ == "__main__":
 
+    seed = 0
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
     # test_mitra()
 
     # 8 * 6 + 9 * 2 = 66
@@ -160,6 +168,8 @@ if __name__ == "__main__":
                 360945, 361235, 361236, 361237, 361617, 361243, 361619, 361621, 361251, 361256, \
                 361258, 361259, 361622, 359934, 359933, 359950, 359932, 359931, 359930]
 
+    test_reg = [363612]
+
     # dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 65, 75
 
     # for did in dataset_name[start:end]:
@@ -168,10 +178,10 @@ if __name__ == "__main__":
 
     #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  
 
-    dataset_name, target_dataset, start, end = nature_reg, "nature_regression10fold", 0, 28
+    dataset_name, target_dataset, start, end = test_reg, "tabrepo10fold", 0, 1
 
     for did in dataset_name[start:end]:
 
-        for fold in range(10):
+        for fold in range(1):
 
             run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="regression")  

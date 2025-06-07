@@ -147,7 +147,7 @@ class TrainerFinetune(BaseEstimator):
                     y_hat = self.bins[y_hat] + self.bin_width / 2
 
                 y_hat = y_hat.float()
-                prediction_metrics_tracker.update(y_hat, y_query)
+                prediction_metrics_tracker.update(y_hat, y_query, train=True)
 
             metrics_train = prediction_metrics_tracker.get_metrics()
             metrics_valid = self.evaluate(x_train, y_train, x_val, y_val)   
@@ -225,7 +225,7 @@ class TrainerFinetune(BaseEstimator):
                     y_hat = self.bins[y_hat] + self.bin_width / 2
 
                 y_hat = y_hat.float()
-                prediction_metrics_tracker.update(y_hat, y_q)
+                prediction_metrics_tracker.update(y_hat, y_q, train=False)
 
         metrics_eval = prediction_metrics_tracker.get_metrics()
         return metrics_eval
@@ -303,6 +303,22 @@ class TrainerFinetune(BaseEstimator):
                 pad_to_max_features = False
             case _:
                 raise NotImplementedError(f"Model {self.cfg.model_name} not implemented")
+        
+        g = torch.Generator()
+        g.manual_seed(0)
+
+        def set_seed(seed: int) -> None:
+            import random
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+
+        def seed_worker(worker_id: int) -> None:
+            worker_seed = torch.initial_seed() % 2**32
+            set_seed(worker_seed)
+
 
         return torch.utils.data.DataLoader(
             dataset,
@@ -315,6 +331,9 @@ class TrainerFinetune(BaseEstimator):
                 max_features=self.cfg.hyperparams['dim_embedding'],
                 pad_to_max_features=pad_to_max_features
             ),
+            worker_init_fn=seed_worker,
+            generator=g,
+
         )
     
 

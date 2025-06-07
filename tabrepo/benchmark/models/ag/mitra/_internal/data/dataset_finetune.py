@@ -112,7 +112,7 @@ def DatasetFinetuneGenerator(
         
     while True:
 
-        x_support, x_query, y_support, y_query = make_dataset_split(x=x, y=y, task=task)
+        x_support, x_query, y_support, y_query = make_dataset_split(x=x, y=y, task=task, seed=cfg.seed)
         n_samples_support = x_support.shape[0]
         n_samples_query = x_query.shape[0]
 

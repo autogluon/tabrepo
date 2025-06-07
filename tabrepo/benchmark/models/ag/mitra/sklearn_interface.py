@@ -99,6 +99,7 @@ class MitraBase(BaseEstimator):
         self.trainers = []
         self.models = []
         self.train_time = 0
+        self.seed = 0
 
 
     def _create_config(self, task, dim_output):
@@ -156,7 +157,7 @@ class MitraBase(BaseEstimator):
     def _split_data(self, X, y):
         """Split data into training and validation sets."""
         if hasattr(self, 'task') and self.task == 'classification':
-            return make_stratified_dataset_split(X, y)
+            return make_stratified_dataset_split(X, y, seed=self.seed)
         else:
             # For regression, use random split
             val_indices = np.random.choice(range(len(X)), int(DEFAULT_VALIDATION_SPLIT * len(X)), replace=False).tolist()
