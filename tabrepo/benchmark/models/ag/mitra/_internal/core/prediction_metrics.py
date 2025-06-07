@@ -121,10 +121,7 @@ class PredictionMetricsTracker():
             y_true_ori = self.preprocessor.inverse_transform_y(y_true_np)
         else:
             y_true_ori = y_true_np
-        # y_true_ori = np.zeros((len(y_true_np), len(np.unique(y_true_np))))
-        # for i in range(len(y_true_ori)):
-        #     y_true_ori[i, int(y_true_np[i])] = 1
-
+    
         self.ys_pred.append(y_pred_ori)
         self.ys_true.append(y_true_ori)
 

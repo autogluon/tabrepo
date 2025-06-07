@@ -18,7 +18,7 @@ def make_dataset_split(x: np.ndarray, y: np.ndarray, task: Task, seed: int) -> t
         return make_standard_dataset_split(x, y, seed=seed)
     
 
-def make_stratified_dataset_split(x, y, n_splits=5, seed=42):
+def make_stratified_dataset_split(x, y, n_splits=5, seed=0):
 
     # Stratify doesn't shuffle the data, so we shuffle it first
     permutation = np.random.permutation(len(y))

@@ -5,6 +5,7 @@ from autogluon.features import AutoMLPipelineFeatureGenerator
 import numpy as np
 from autogluon.core.models import BaggedEnsembleModel
 from tabrepo.benchmark.models.ag.mitra.mitra_model import MitraModel
+from tabrepo.benchmark.models.ag.mitra._internal.utils.set_seed import set_seed
 from autogluon.tabular.testing import FitHelper
 from sklearn.metrics import accuracy_score
 import shutil
@@ -129,12 +130,7 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
 
 if __name__ == "__main__":
 
-    seed = 0
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    set_seed(0)
 
     # test_mitra()
 
