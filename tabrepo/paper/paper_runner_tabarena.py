@@ -282,6 +282,7 @@ class PaperRunTabArena(PaperRun):
         plot_other: bool = False,
         framework_types_extra: list[str] = None,
         calibration_framework: str | None = "auto",
+        task_metadata: pd.DataFrame | None = None,
     ):
         if framework_types_extra is None:
             framework_types_extra = []
@@ -361,8 +362,9 @@ class PaperRunTabArena(PaperRun):
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
         # ----- add times per 1K samples -----
-        df_datasets = load_task_metadata(paper=True)
-        df_results = df_results.merge(df_datasets[['name', 'NumberOfInstances']],
+        if task_metadata is None:
+            task_metadata = load_task_metadata(paper=True)
+        df_results = df_results.merge(task_metadata[['name', 'NumberOfInstances']],
                       left_on='dataset',
                       right_on='name',
                       how='left').drop(columns='name')
