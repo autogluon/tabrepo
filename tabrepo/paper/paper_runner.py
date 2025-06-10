@@ -48,7 +48,7 @@ class PaperRun:
         else:
             self.engine = "sequential"
 
-    def get_config_type_groups(self, ban_families=True) -> dict:
+    def get_config_type_groups(self) -> dict:
         config_type_groups = {}
         configs_type = self.repo.configs_type()
         all_configs = self.repo.configs()
@@ -57,22 +57,10 @@ class PaperRun:
                 config_type_groups[configs_type[c]] = []
             config_type_groups[configs_type[c]].append(c)
 
-        if ban_families:
-            # FIXME: TMP HACK
-            banned_families = [
-                "DUMMY",
-                "TABICL",
-                "TABDPT",
-                # "TABPFNV2",
-                "FT_TRANSFORMER",
-            ]
-            for b in banned_families:
-                if b in config_type_groups:
-                    config_type_groups.pop(b)
         return config_type_groups
 
     def run_hpo_by_family(self, include_uncapped: bool = False, include_4h: bool = True, model_types: list[str] | None = None) -> pd.DataFrame:
-        config_type_groups = self.get_config_type_groups(ban_families=True)
+        config_type_groups = self.get_config_type_groups()
 
         hpo_results_lst = []
 
@@ -128,7 +116,7 @@ class PaperRun:
         seed: int = 0,
     ) -> pd.DataFrame:
         # FIXME: Don't recompute this each call, implement `self.repo.configs(config_types=[config_type])`
-        config_type_groups = self.get_config_type_groups(ban_families=False)
+        config_type_groups = self.get_config_type_groups()
         configs = config_type_groups[config_type]
         df_results_family_hpo, _ = self.repo.evaluate_ensembles(
             configs=configs,
@@ -207,8 +195,9 @@ class PaperRun:
         df_results_baselines["method_type"] = "baseline"
         return df_results_baselines
 
-    def run_configs(self) -> pd.DataFrame:
-        df_results_configs = self.evaluator.compare_metrics(baselines=[], include_metric_error_val=True).reset_index()
+    def run_configs(self, model_types: list[str | None] | None = None) -> pd.DataFrame:
+        configs = self.repo.configs(config_types=model_types)
+        df_results_configs = self.evaluator.compare_metrics(configs=configs, baselines=[], include_metric_error_val=True).reset_index()
         df_results_configs["method_type"] = "config"
         configs_types = self.repo.configs_type()
         df_results_configs["config_type"] = df_results_configs["framework"].map(configs_types)
