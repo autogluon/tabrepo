@@ -51,6 +51,7 @@ class TabArenaEvaluator:
         banned_model_types: list[str] | None = None,
         elo_bootstrap_rounds: int = 100,
         keep_best: bool = False,
+        figure_file_type: str = "pdf",
     ):
         """
 
@@ -74,6 +75,7 @@ class TabArenaEvaluator:
         self.output_dir = output_dir
         self.task_metadata = task_metadata
         self.method_col = method_col
+        self.figure_file_type = figure_file_type
 
         self.datasets = datasets
         self.problem_types = problem_types
@@ -480,10 +482,11 @@ class TabArenaEvaluator:
         results_te_per_task.loc[:, self.method_col] = results_te_per_task[self.method_col].map(rename_model)
 
         if plot_cdd:
-            # tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
-            #                                 save_path=f"{self.output_dir}/figures/critical-diagram.png", show=False)
-            tabarena.plot_critical_diagrams(results_per_task=results_te_per_task,
-                                            save_path=f"{self.output_dir}/figures/critical-diagram.pdf", show=False)
+            tabarena.plot_critical_diagrams(
+                results_per_task=results_te_per_task,
+                save_path=f"{self.output_dir}/figures/critical-diagram.{self.figure_file_type}",
+                show=False,
+            )
 
         if plot_other:
             try:
@@ -594,7 +597,7 @@ class TabArenaEvaluator:
         barplot.set_xlabel("Average weight in TabArena ensemble")
         barplot.set_ylabel("")
 
-        fig_name = f"portfolio-weight-barplot.pdf"
+        fig_name = f"portfolio-weight-barplot.{self.figure_file_type}"
         fig_prefix = Path(self.output_dir) / "figures"
         fig_prefix.mkdir(parents=True, exist_ok=True)
 
@@ -1180,9 +1183,9 @@ class TabArenaEvaluator:
                     fig_path = Path(save_prefix)
                     fig_path.mkdir(parents=True, exist_ok=True)
                     if use_gmean:
-                        fig_name = f"tuning-impact-gmean{name_suffix}.pdf"
+                        fig_name = f"tuning-impact-gmean{name_suffix}.{self.figure_file_type}"
                     else:
-                        fig_name = f"tuning-impact{name_suffix}.pdf"
+                        fig_name = f"tuning-impact{name_suffix}.{self.figure_file_type}"
                     fig_save_path = fig_path / fig_name
                     plt.savefig(fig_save_path)
                 if show:
@@ -1338,7 +1341,7 @@ class TabArenaEvaluator:
         path_dir = Path(output_dir)
         path_dir.mkdir(parents=True, exist_ok=True)
 
-        plt.savefig(path_dir / 'time_plot.pdf')
+        plt.savefig(path_dir / f'time_plot.{self.figure_file_type}')
         if show:
             plt.show()
         plt.close(fig)
