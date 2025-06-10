@@ -164,19 +164,28 @@ class AbstractRepository(ABC, SaveLoadMixin):
         dataset_folds = self._zeroshot_context.get_tasks(as_dataset_fold=True)
         return dataset_folds
 
-    def configs(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
+    def configs(
+        self,
+        *,
+        datasets: list[str] = None,
+        tasks: list[tuple[str, int]] = None,
+        config_types: list[str] = None,
+        union: bool = True,
+    ) -> list[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
 
         Parameters
         ----------
-        datasets : list[str], default = None
+        datasets: list[str], default = None
             If specified, will only consider the configs present in the given datasets.
         tasks: list[tuple[str, int]], default = None
             If specified, will only consider the configs present in the given tasks.
             Tasks are in the form `(dataset, fold)`.
             For example, `("abalone", 1)`.
+        config_types: list[str], default = None
+            If specified, will only consider the configs with a config type in `config_types`.
         union: bool, default = True
             If True, will return the union of configs present in each task.
             If False, will return the intersection of configs present in each task.
@@ -185,7 +194,7 @@ class AbstractRepository(ABC, SaveLoadMixin):
         -------
         A list of config names satisfying the above conditions.
         """
-        return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, union=union)
+        return self._zeroshot_context.get_configs(datasets=datasets, tasks=tasks, config_types=config_types, union=union)
 
     # TODO: unit test
     def baselines(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
@@ -521,6 +530,29 @@ class AbstractRepository(ABC, SaveLoadMixin):
         if configs is not None:
             configs_type = {c: configs_type[c] for c in configs}
         return configs_type
+
+    def config_types(self, configs: list[str] | None = None) -> list[str | None]:
+        """
+        Returns the AutoGluon `hyperparameters` type strings for a given config list, returned as a list of config types.
+
+        Parameters
+        ----------
+        configs: list[str], optional
+            If specified, will return the types of configs present in the list.
+            Otherwise, will consider all configs.
+
+        Returns
+        -------
+        config_types: list[str | None]
+            The list of config types present in `configs`.
+
+        """
+        configs_type = self.configs_type(configs=configs)
+        config_types = set()
+        for config_type in configs_type.values():
+            if config_type not in config_types:
+                config_types.add(config_type)
+        return list(config_types)
 
     def autogluon_hyperparameters_dict(self, configs: list[str], ordered: bool = True, include_ag_args: bool = True) -> dict[str, list[dict]]:
         """

@@ -555,7 +555,7 @@ class ZeroshotSimulatorContext:
     def task_name_from_tid(tid: int, fold: int) -> str:
         return f"{tid}_{fold}"
 
-    def get_configs(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, union: bool = True) -> list[str]:
+    def get_configs(self, *, datasets: list[str] = None, tasks: list[tuple[str, int]] = None, config_types: list[str] = None, union: bool = True) -> list[str]:
         """
         Return all valid configs.
         By default, will return all configs that appear in any task at least once.
@@ -566,6 +566,8 @@ class ZeroshotSimulatorContext:
             If specified, will only consider the configs present in the given datasets
         tasks: list[tuple[str, int]], default = None
             If specified, will only consider the configs present in the given tasks
+        config_types: list[str], default = None
+            If specified, will only consider the configs with a config type in `config_types`.
         union: bool, default = True
             If True, will return the union of configs present in each task.
             If False, will return the intersection of configs present in each task.
@@ -578,7 +580,11 @@ class ZeroshotSimulatorContext:
         if df is None:
             return []
         df = self._filter_df_by_datasets(df=df, datasets=datasets, tasks=tasks)
-        return self._get_configs_from_df(df=df, union=union)
+        configs = self._get_configs_from_df(df=df, union=union)
+        if config_types is not None:
+            configs_type = self.configs_type
+            configs = [c for c in configs if configs_type[c] in config_types]
+        return configs
 
     def load_groundtruth(self, paths_gt: List[str]) -> GroundTruth:
         gt_val = defaultdict(_default_dict)
