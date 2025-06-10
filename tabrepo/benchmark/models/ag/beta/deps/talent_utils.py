@@ -400,7 +400,7 @@ def get_deep_args():
 
     warnings.filterwarnings("ignore")
 
-    parser = argparse.ArgumentParser()
+    argparse.ArgumentParser()
     # basic parameters
     default_args = {
         "dataset": "yeast",
@@ -424,120 +424,9 @@ def get_deep_args():
         "dataset_path": "data",
         "model_path": "results_model",
     }
-    parser.add_argument("--dataset", type=str, default=default_args["dataset"])
-    parser.add_argument(
-        "--model_type",
-        type=str,
-        default=default_args["model_type"],
-        choices=[
-            "mlp",
-            "resnet",
-            "ftt",
-            "node",
-            "autoint",
-            "tabpfn",
-            "tangos",
-            "saint",
-            "tabcaps",
-            "tabnet",
-            "snn",
-            "ptarl",
-            "danets",
-            "dcn2",
-            "tabtransformer",
-            "dnnr",
-            "switchtab",
-            "grownet",
-            "tabr",
-            "modernNCA",
-            "hyperfast",
-            "bishop",
-            "realmlp",
-            "protogate",
-            "mlp_plr",
-            "excelformer",
-            "grande",
-            "amformer",
-            "tabptm",
-            "trompt",
-            "tabm",
-            "Beta",
-        ],
-    )
+    from types import SimpleNamespace
 
-    # optimization parameters
-    parser.add_argument("--max_epoch", type=int, default=default_args["max_epoch"])
-    parser.add_argument("--batch_size", type=int, default=default_args["batch_size"])
-    parser.add_argument(
-        "--normalization",
-        type=str,
-        default=default_args["normalization"],
-        choices=["none", "standard", "minmax", "quantile", "maxabs", "power", "robust"],
-    )
-    parser.add_argument(
-        "--num_nan_policy",
-        type=str,
-        default=default_args["num_nan_policy"],
-        choices=["mean", "median"],
-    )
-    parser.add_argument(
-        "--cat_nan_policy",
-        type=str,
-        default=default_args["cat_nan_policy"],
-        choices=["new", "most_frequent"],
-    )
-    parser.add_argument(
-        "--cat_policy",
-        type=str,
-        default=default_args["cat_policy"],
-        choices=[
-            "indices",
-            "ordinal",
-            "ohe",
-            "binary",
-            "hash",
-            "loo",
-            "target",
-            "catboost",
-            "tabr_ohe",
-        ],
-    )
-    parser.add_argument(
-        "--num_policy",
-        type=str,
-        default=default_args["num_policy"],
-        choices=[
-            "none",
-            "Q_PLE",
-            "T_PLE",
-            "Q_Unary",
-            "T_Unary",
-            "Q_bins",
-            "T_bins",
-            "Q_Johnson",
-            "T_Johnson",
-        ],
-    )
-    parser.add_argument("--n_bins", type=int, default=default_args["n_bins"])
-    parser.add_argument(
-        "--cat_min_frequency", type=float, default=default_args["cat_min_frequency"]
-    )
-
-    # other choices
-    parser.add_argument("--n_trials", type=int, default=default_args["n_trials"])
-    parser.add_argument("--seed_num", type=int, default=default_args["seed_num"])
-    parser.add_argument("--workers", type=int, default=default_args["workers"])
-    parser.add_argument("--gpu", default=default_args["gpu"])
-    parser.add_argument("--tune", action="store_true", default=default_args["tune"])
-    parser.add_argument("--retune", action="store_true", default=default_args["retune"])
-    parser.add_argument(
-        "--evaluate_option", type=str, default=default_args["evaluate_option"]
-    )
-    parser.add_argument(
-        "--dataset_path", type=str, default=default_args["dataset_path"]
-    )
-    parser.add_argument("--model_path", type=str, default=default_args["model_path"])
-    args = parser.parse_args()
+    args = SimpleNamespace(**default_args)
 
     set_gpu(args.gpu)
     save_path1 = "-".join([args.dataset, args.model_type])

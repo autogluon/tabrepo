@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 
-def test_realmlp():
-    toy_model_params = {{"batch_size": 8, "max_epoch": 10}}
+def test_beta_tabpfn():
+    toy_model_params = {"batch_size": 8, "max_epoch": 10}
     model_hyperparameters = toy_model_params
 
     from autogluon.tabular.testing import FitHelper
