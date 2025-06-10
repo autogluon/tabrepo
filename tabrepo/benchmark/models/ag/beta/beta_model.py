@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -116,8 +118,14 @@ class BetaModel(AbstractModel):
         args.batch_size = hyp["batch_size"]
         args.time_to_fit_in_seconds = time_limit
         args.early_stopping_metric = self.stopping_metric
+
+        save_path = self.path + "/tmp_model"
+        Path(save_path).mkdir(parents=True, exist_ok=True)
+        args.save_path = str(save_path)
+
         self.model = BetaMethod(args, self.problem_type == "regression")
-        self.model.fit(data=data, info=info, train=True)
+        self.model.fit(data=data, info=info, train=True, model_name="best-val")
+        shutil.rmtree(save_path, ignore_errors=True)
 
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
         X = self.preprocess(X, **kwargs).copy()

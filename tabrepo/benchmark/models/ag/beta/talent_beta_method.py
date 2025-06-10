@@ -17,7 +17,10 @@ from tabrepo.benchmark.models.ag.beta.deps.talent_data import (
     data_norm_process,
     get_categories,
 )
-from tabrepo.benchmark.models.ag.beta.deps.talent_methods_base import Method
+from tabrepo.benchmark.models.ag.beta.deps.talent_methods_base import (
+    Method,
+    check_softmax,
+)
 
 
 def reduce_loss(loss, reduction="mean"):
@@ -51,7 +54,7 @@ class BetaMethod(Method):
             d_out=self.d_out,
             **model_config,
         ).to(self.args.device)
-        self.trlog["best_res"] = 9999
+        self.trlog["best_res"] = float("-inf")
 
     def data_format(self, is_train=True, N=None, C=None, y=None):
         if is_train:
@@ -137,7 +140,7 @@ class BetaMethod(Method):
                 self.N_test, self.C_test = N_test["test"], None
             self.y_test = y_test["test"]
 
-    def fit(self, data, info, train=True, config=None):
+    def fit(self, data, info, train=True, config=None, model_name=None):
         N, C, y = data
         # if the method already fit the dataset, skip these steps (such as the hyper-tune process)
         if self.D is None:
@@ -224,6 +227,24 @@ class BetaMethod(Method):
             if not self.continue_training:
                 break
 
+        # Save model to class object for use at predict time
+        model_path = osp.join(
+            self.args.save_path, model_name + f"-{self.args.seed!s}.pth"
+        )
+        saved_state_dict = torch.load(model_path)["params"]
+
+        filtered_saved_state_dict = {
+            k: v for k, v in saved_state_dict.items() if "TabPFN" not in k
+        }
+
+        self.model.load_state_dict(filtered_saved_state_dict, strict=False)
+        self.indexs = np.load(
+            osp.join(
+                self.args.save_path, model_name + f"-indexs-{self.args.seed!s}.npy"
+            ),
+            allow_pickle=True,
+        )
+
         return time_cost
 
     def early_stop_due_to_timelimit(self, iteration: int) -> bool:
@@ -253,6 +274,8 @@ class BetaMethod(Method):
 
         if self.is_regression:
             assert 0
+        else:
+            test_logit = check_softmax(test_logit)
 
         validation_score = compute_metric(
             y=test_label,
@@ -262,7 +285,7 @@ class BetaMethod(Method):
             silent=True,
         )
 
-        if validation_score > self.trlog["best_res"] or (epoch == 0):
+        if validation_score > self.trlog["best_res"]:
             self.trlog["best_res"] = validation_score
             self.trlog["best_epoch"] = epoch
             model_state_dict = self.model.state_dict()
@@ -330,35 +353,24 @@ class BetaMethod(Method):
         self.PFN_model.fit(X_train, y_train, overwrite_warning=True)
         y_val_predict = self.PFN_model.predict_proba(X_val)
         y_val_predict = torch.tensor(y_val_predict)
-        test_label = torch.tensor(y_val)
-        test_logit = y_val_predict.to(torch.float32)
-        vl = self.criterion(test_logit, test_label).item()
+        test_label = y_val
+        # logits are already in softmax form
+        test_logit = y_val_predict.to(torch.float32).cpu().numpy()
 
         if self.is_regression:
             assert 0
-        else:
-            task_type = "classification"
-            # measure = np.greater_equal
-            measure = np.less_equal
 
-        vres, metric_name = self.metric(test_logit, test_label, self.y_info)
-        # print(metric_name)
-        # assert 0
-        print(f"epoch {epoch}, val, loss={vl:.4f} {task_type} result={vres[0]:.4f}")
-        if measure(vres[-2], self.trlog["best_res"]) or epoch == -1:
-            self.trlog["best_res"] = vres[-2]
-            self.trlog["best_epoch"] = epoch
-            print("🌸 New best epoch! 🌸")
-            self.val_count = 0
-        else:
-            self.val_count += 1
-            if self.val_count > 50:
-                self.continue_training = False
-        print(
-            "best_val_res {}, best_epoch {}".format(
-                self.trlog["best_res"], self.trlog["best_epoch"]
-            )
+        validation_score = compute_metric(
+            y=test_label,
+            metric=self.args.early_stopping_metric,
+            y_pred=test_logit if self.is_regression else test_logit.argmax(axis=-1),
+            y_pred_proba=test_logit[:, 1] if self.is_binclass else test_logit,
+            silent=True,
         )
+
+        self.trlog["best_res"] = validation_score
+        self.trlog["best_epoch"] = epoch
+        self.val_count = 0
 
     def PFN_predict(self, data, info, model_name):
         N, C, y = data
@@ -381,22 +393,7 @@ class BetaMethod(Method):
     def predict(self, data, info, model_name):
         if self.trlog["best_epoch"] == -1:
             return self.PFN_predict(data, info, model_name)
-        model_path = osp.join(
-            self.args.save_path, model_name + f"-{self.args.seed!s}.pth"
-        )
-        saved_state_dict = torch.load(model_path)["params"]
 
-        filtered_saved_state_dict = {
-            k: v for k, v in saved_state_dict.items() if "TabPFN" not in k
-        }
-
-        self.model.load_state_dict(filtered_saved_state_dict, strict=False)
-        indexs = np.load(
-            osp.join(
-                self.args.save_path, model_name + f"-indexs-{self.args.seed!s}.npy"
-            ),
-            allow_pickle=True,
-        )
         N, C, y = data
         self.data_format(False, N, C, y)
         self.model.eval()
@@ -425,7 +422,7 @@ class BetaMethod(Method):
                     self.C_train,
                     self.y_train,
                     is_test=True,
-                    indexs=indexs,
+                    indexs=self.indexs,
                 ).cpu()
 
                 all_test_logit.append(batch_logit)

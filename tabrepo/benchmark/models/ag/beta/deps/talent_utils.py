@@ -442,7 +442,7 @@ def get_deep_args():
 
     save_path = osp.join(save_path1, save_path2)
     args.save_path = osp.join(args.model_path, save_path)
-    mkdir(args.save_path)
+    # mkdir(args.save_path)
 
     # load config parameters
     default_para = {
