@@ -21,6 +21,7 @@ from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
 from tabrepo.paper.paper_utils import get_framework_type_method_names
+from tabrepo.plot.plot_ens_weights import create_heatmap
 
 matplotlib.rcParams.update(fontsizes.neurips2024())
 matplotlib.rcParams.update({
@@ -43,6 +44,7 @@ class TabArenaEvaluator:
         *,
         output_dir: str | Path,
         task_metadata: pd.DataFrame | None = None,
+        config_types: dict[str, str] = None,
         method_col: str = "method",
         methods: list[str] | None = None,
         folds: list[int] | None = None,
@@ -75,6 +77,7 @@ class TabArenaEvaluator:
         self.output_dir = output_dir
         self.task_metadata = task_metadata
         self.method_col = method_col
+        self.config_types = config_types
         self.figure_file_type = figure_file_type
 
         self.datasets = datasets
@@ -178,8 +181,6 @@ class TabArenaEvaluator:
         assert len(baselines) == len(baseline_colors)
         method_col = self.method_col
         df_results = df_results.copy(deep=True)
-        if "rank" in df_results:
-            df_results = df_results.drop(columns=["rank"])
         if "seed" not in df_results:
             df_results["seed"] = 0
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
@@ -192,25 +193,8 @@ class TabArenaEvaluator:
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
-        framework_types = [
-            "GBM",
-            "XGB",
-            "CAT",
-            "NN_TORCH",
-            "FASTAI",
-            "KNN",
-            "RF",
-            "XT",
-            "LR",
-            "TABPFNV2",
-            "TABICL",
-            "TABDPT",
-            "REALMLP",
-            "EBM",
-            "FT_TRANSFORMER",
-            "TABM",
-            "MNCA",
-        ]
+        framework_types = sorted([config_type for config_type in df_results["config_type"].unique() if config_type is not None and isinstance(config_type, str)])
+
         if framework_types_extra:
             framework_types += framework_types_extra
             framework_types = list(set(framework_types))
@@ -1345,3 +1329,153 @@ class TabArenaEvaluator:
         if show:
             plt.show()
         plt.close(fig)
+
+    def get_ensemble_weights(
+        self,
+        df_results: pd.DataFrame,
+        method: str,
+        excluded_families: list[str] = None,
+        aggregate_folds: bool = False,
+    ) -> pd.DataFrame:
+        if self.datasets is not None:
+            df_results = df_results[df_results["dataset"].isin(self.datasets)]
+        if excluded_families is None:
+            excluded_families = []
+
+        df_results_method = df_results[df_results[self.method_col] == method]
+
+        df_ensemble_weights = df_results_method[["dataset", "fold", "ensemble_weight"]]
+
+        full_dict = []
+        # available_configs = set()
+        # for ensemble_weights in df_ensemble_weights["ensemble_weight"].values:
+        #     for k in ensemble_weights.keys():
+        #         if k not in available_configs:
+        #             available_configs.add(k)
+        #     ens_weights_w_dataset_fold = ensemble_weights.copy(deep=True)
+        #     full_dict.append(ensemble_weights)
+        #
+        # df_ensemble_weights_2 = pd.DataFrame()
+
+        for d, f, ensemble_weights in zip(df_ensemble_weights["dataset"], df_ensemble_weights["fold"], df_ensemble_weights["ensemble_weight"]):
+            ens_weights_w_dataset_fold = dict()
+            ens_weights_w_dataset_fold["dataset"] = d
+            ens_weights_w_dataset_fold["fold"] = f
+            ens_weights_w_dataset_fold.update(ensemble_weights)
+            full_dict.append(ens_weights_w_dataset_fold)
+            pass
+
+        model_to_families = self.config_types
+
+        model_families = set()
+        for m, f in model_to_families.items():
+            if f not in model_families:
+                model_families.add(f)
+
+        weight_per_family_dict = []
+        for cur_dict in full_dict:
+            new_dict = {}
+            for k, v in cur_dict.items():
+                if k == "dataset":
+                    new_dict["dataset"] = v
+                elif k == "fold":
+                    new_dict["fold"] = v
+                else:
+                    model_family = model_to_families[k]
+                    if model_family not in new_dict:
+                        new_dict[model_family] = 0
+                    new_dict[model_family] += v
+            weight_per_family_dict.append(new_dict)
+
+        import pandas as pd
+        df = pd.DataFrame(weight_per_family_dict)
+        df = df.set_index(["dataset", "fold"])
+        df = df.fillna(0)
+
+        df_cols = df.columns
+        f_to_add = []
+        for f in model_families:
+            if f not in df_cols:
+                f_to_add.append(f)
+        df[f_to_add] = 0
+
+        if excluded_families:
+            df = df.drop(columns=excluded_families)
+
+        df = self._get_ensemble_weights(
+            df_ensemble_weights=df,
+            aggregate_folds=aggregate_folds,
+            sort_by_mean=True,
+        )
+
+        return df
+
+    @classmethod
+    def _get_ensemble_weights(
+        cls,
+        df_ensemble_weights: pd.DataFrame,
+        aggregate_folds: bool = True,
+        sort_by_mean: bool = True,
+    ) -> pd.DataFrame:
+        df_ensemble_weights = copy.deepcopy(df_ensemble_weights)
+        if aggregate_folds:
+            df_ensemble_weights = df_ensemble_weights.groupby(level='dataset').mean()
+        else:
+            index_new = list(df_ensemble_weights.index.to_flat_index())
+            index_new = [str(t[0]) + "_" + str(t[1]) for t in index_new]
+            df_ensemble_weights.index = index_new
+
+        if sort_by_mean:
+            s = df_ensemble_weights.sum()
+            df_ensemble_weights = df_ensemble_weights[s.sort_values(ascending=False).index]
+        return df_ensemble_weights
+
+
+    # TODO: aggregate_config_family: bool
+    # TODO: sort rows by size? color by problem type?
+    def _plot_ensemble_weights_heatmap(
+        self,
+        df_ensemble_weights: pd.DataFrame,
+        aggregate_folds: bool = True,
+        sort_by_mean: bool = True,
+        include_mean: bool = True,
+        **kwargs,
+    ):
+        """
+
+        Parameters
+        ----------
+        df_ensemble_weights : pd.DataFrame
+            The 2nd output object of `repo.evaluate_ensembles(...)
+        aggregate_folds : bool, default True
+            If True, averages folds of datasets together into single rows representing a dataset.
+            If False, each fold of each dataset will be its own row.
+        sort_by_mean : bool, default True
+            If True, will sort columns by the mean value of the column.
+            If False, columns will remain in the original order.
+        include_mean : bool, default True
+            If True, will add a row at the bottom with label "mean" representing the mean of the config weights across all tasks.
+            NaN values are considered 0 for the purposes of calculating the mean.
+        **kwargs
+            Passed to the `create_heatmap` function
+
+        Returns
+        -------
+        plt
+
+        """
+        # df_ensemble_weights = self.get_ensemble_weights(
+        #     df_ensemble_weights=df_ensemble_weights,
+        #     aggregate_folds=aggregate_folds,
+        #     sort_by_mean=sort_by_mean,
+        # )
+
+        p = create_heatmap(df=df_ensemble_weights, include_mean=include_mean, **kwargs)
+        return p
+
+    def plot_ensemble_weights_heatmap(self, df_ensemble_weights: pd.DataFrame, **kwargs):
+        # FIXME: if family never present, then this won't work
+        p = self._plot_ensemble_weights_heatmap(df_ensemble_weights=df_ensemble_weights, **kwargs)
+        fig_path = Path(f"{self.output_dir}/figures")
+        fig_path.mkdir(parents=True, exist_ok=True)
+        p.savefig(fig_path / f"ens-weights-per-dataset.{self.figure_file_type}")
