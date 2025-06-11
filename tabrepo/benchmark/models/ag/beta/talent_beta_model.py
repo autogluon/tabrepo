@@ -368,6 +368,10 @@ class Beta(nn.Module):
                         single_eval_pos=y_input.shape[0] - x.shape[0],
                     )[:, :, : self.d_out]
                 )
+                # Clean up for next iteration
+                del x, candidate_x, x1, candidate_x1, input, y_input, zeroy_expanded
+                torch.cuda.empty_cache()
+
             logits = torch.cat(val_logits, dim=1)
         if is_val:
             return logits, index_val

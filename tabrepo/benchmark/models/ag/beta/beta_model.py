@@ -116,6 +116,11 @@ class BetaModel(AbstractModel):
         args.device = device
         args.max_epoch = hyp["max_epoch"]
         args.batch_size = hyp["batch_size"]
+
+        if info["n_num_features"] > 200:
+            # Use less K as otherwise exploding memory constraints
+            args.config["model"]["k"] = 10
+
         args.time_to_fit_in_seconds = time_limit
         args.early_stopping_metric = self.stopping_metric
 
