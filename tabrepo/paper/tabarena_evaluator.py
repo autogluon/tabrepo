@@ -138,6 +138,14 @@ class TabArenaEvaluator:
         df_results_og["normalized-error-task"] = df_results["normalized-error-task"]
         return df_results_og
 
+    @classmethod
+    def _get_config_types(cls, df_results: pd.DataFrame) -> list[str]:
+        config_types = sorted([
+            config_type for config_type in df_results["config_type"].unique()
+            if config_type is not None and isinstance(config_type, str)
+        ])
+        return config_types
+
     def eval(
         self,
         df_results: pd.DataFrame,
@@ -193,7 +201,7 @@ class TabArenaEvaluator:
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
-        framework_types = sorted([config_type for config_type in df_results["config_type"].unique() if config_type is not None and isinstance(config_type, str)])
+        framework_types = self._get_config_types(df_results=df_results)
 
         if framework_types_extra:
             framework_types += framework_types_extra
@@ -1182,25 +1190,7 @@ class TabArenaEvaluator:
             for datasets in only_datasets_for_method.values():
                 df = df[df["dataset"].isin(datasets)]
 
-        framework_types = [
-            "GBM",
-            "XGB",
-            "CAT",
-            "NN_TORCH",
-            "FASTAI",
-            "KNN",
-            "RF",
-            "XT",
-            "LR",
-            "TABPFNV2",
-            "TABICL",
-            "TABDPT",
-            "REALMLP",
-            "EBM",
-            "FT_TRANSFORMER",
-            "TABM",
-            "MNCA",
-        ]
+        framework_types = self._get_config_types(df_results=df)
 
         f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
             framework_types=framework_types,
@@ -1479,3 +1469,29 @@ class TabArenaEvaluator:
         fig_path = Path(f"{self.output_dir}/figures")
         fig_path.mkdir(parents=True, exist_ok=True)
         p.savefig(fig_path / f"ens-weights-per-dataset.{self.figure_file_type}")
+
+    # FIXME: clean this up
+    def generate_runtime_plot(self, df_results: pd.DataFrame):
+        from scripts.dataset_analysis import plot_train_time_deep_dive  # FIXME
+        df_results_configs = df_results[df_results["method_type"] == "config"]
+        df_results_configs = df_results_configs.copy(deep=True)
+
+        framework_types = self._get_config_types(df_results=df_results_configs)
+        df_results_configs = df_results_configs[df_results_configs["config_type"].isin(framework_types)]
+
+        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600 * 4, "_4h"),
+                (None, None),
+            ]
+        )
+
+        df_results_configs[self.method_col] = df_results_configs["config_type"].map(f_map_type_name)
+
+        plot_train_time_deep_dive(
+            df=df_results_configs,
+            expname_outdir=self.output_dir,
+            method_col=self.method_col,
+            family_col="config_type",
+        )

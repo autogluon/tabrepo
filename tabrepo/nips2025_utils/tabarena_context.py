@@ -55,10 +55,10 @@ class TabArenaContext:
         return results_dir
 
     def _results_path(self, method: str, extra_prefix: str = None) -> str:
-        return f"{self._results_dir(method=method, extra_prefix=extra_prefix)}/results.parquet"
+        return f"{self._results_dir(method=method, extra_prefix=extra_prefix)}/hpo_results.parquet"
 
     def _results_configs_path(self, method: str, extra_prefix: str = None) -> str:
-        return f"{self._results_dir(method=method, extra_prefix=extra_prefix)}/config_results.parquet"
+        return f"{self._results_dir(method=method, extra_prefix=extra_prefix)}/model_results.parquet"
 
     def simulate_repo(self, method: str, extra_prefix: str = None) -> tuple[pd.DataFrame, pd.DataFrame]:
         data_repo_prefix = self.data_repo_prefix
