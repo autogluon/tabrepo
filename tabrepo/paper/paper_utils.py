@@ -16,7 +16,7 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
         df_results_baselines = repo._zeroshot_context.df_baselines
     else:
         df_results_baselines = pd.concat([
-            repo._zeroshot_context.df_configs_ranked,
+            repo._zeroshot_context.df_configs,
             repo._zeroshot_context.df_baselines,
         ], ignore_index=True)
 

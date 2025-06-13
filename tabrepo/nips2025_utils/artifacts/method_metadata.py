@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
+
+from tabrepo.loaders import Paths
 
 
 class MethodMetadata:
@@ -30,3 +33,31 @@ class MethodMetadata:
         self.has_raw = has_raw
         self.has_processed = has_processed
         self.has_results = has_results
+
+    @property
+    def _path_root(self) -> Path:
+        return Paths.artifacts_root_cache_tabarena
+
+    @property
+    def path(self) -> Path:
+        return self._path_root / self.artifact_name / "methods" / self.method
+
+    @property
+    def path_raw(self) -> Path:
+        return self.path / "raw"
+
+    @property
+    def path_processed(self) -> Path:
+        return self.path / "processed"
+
+    @property
+    def path_results(self) -> Path:
+        return self.path / "results"
+
+    @property
+    def path_results_hpo(self) -> Path:
+        return self.path_results / "hpo_results.parquet"
+
+    @property
+    def path_results_model(self) -> Path:
+        return self.path_results / "model_results.parquet"

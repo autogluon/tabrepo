@@ -33,7 +33,8 @@ def generate_repo_from_paths(
 
     if name_suffix is not None:
         for r in results_lst:
-            r.result["framework"] += name_suffix
+            r.update_name(name_suffix=name_suffix)
+            r.update_model_type(name_suffix=name_suffix)
 
     if len(results_lst) == 0:
         print(f"EMPTY")

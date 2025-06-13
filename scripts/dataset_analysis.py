@@ -107,7 +107,7 @@ def generate_dataset_analysis(repo, expname_outdir: str):
 
     zsc = repo._zeroshot_context
 
-    df = zsc.df_configs_ranked.copy()
+    df = zsc.df_configs.copy()
 
     config_regexp = "(" + "|".join([str(x) for x in range(4)]) + ")"
     df = df[df.framework.str.contains(f"r{config_regexp}_BAG_L1")]
@@ -201,7 +201,7 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     plot_train_time_deep_dive(df, expname_outdir=expname_outdir)
 
 
-def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
+def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, method_col: str = "framework", family_col: str = "method"):
     df = df.copy(deep=True)
     title_size = 20
     figsize = (26, 7)
@@ -211,10 +211,10 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
     index_above_time_limit = df["time_train_s"] >= 2800
     proportion_of_models_reaching_time_limit = index_above_time_limit.mean()
     num_models_reaching_time_limit = index_above_time_limit.sum()
-    models_by_family_reaching_time_limit = df.loc[index_above_time_limit].value_counts("method")
-    models_by_config_reaching_time_limit = df.loc[index_above_time_limit].value_counts("framework")
+    models_by_family_reaching_time_limit = df.loc[index_above_time_limit].value_counts(family_col)
+    models_by_config_reaching_time_limit = df.loc[index_above_time_limit].value_counts(method_col)
     datasets_reaching_time_limit = df.loc[index_above_time_limit].value_counts("dataset")
-    datasets_type_reaching_time_limit = df.loc[index_above_time_limit].value_counts(["dataset", "method"])
+    datasets_type_reaching_time_limit = df.loc[index_above_time_limit].value_counts(["dataset", family_col])
 
     latex_kwargs = dict(
         index=False,
@@ -254,9 +254,9 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
     df_sorted_by_time["time_train_s_cumsum"] = df_sorted_by_time["time_train_s"].cumsum()
     # df_sorted_by_time["time_train_s_cumsum"] = df_sorted_by_time["time_train_s_cumsum"] / df_sorted_by_time["time_train_s_cumsum"].max()
     df_sorted_by_time["index"] = df_sorted_by_time["index"] / df_sorted_by_time["index"].max()
-    df_sorted_by_time["group_time_train_s_cumsum"] = df_sorted_by_time.groupby("method")["time_train_s"].cumsum()
-    df_sorted_by_time["group_index"] = df_sorted_by_time.groupby("method")["time_train_s"].cumcount()
-    df_sorted_by_time["group_index_max"] = df_sorted_by_time["method"].map(df_sorted_by_time.value_counts("method"))
+    df_sorted_by_time["group_time_train_s_cumsum"] = df_sorted_by_time.groupby(family_col)["time_train_s"].cumsum()
+    df_sorted_by_time["group_index"] = df_sorted_by_time.groupby(family_col)["time_train_s"].cumcount()
+    df_sorted_by_time["group_index_max"] = df_sorted_by_time[family_col].map(df_sorted_by_time.value_counts(family_col))
     df_sorted_by_time["group_index"] = df_sorted_by_time["group_index"] / df_sorted_by_time["group_index_max"]
 
     ax = axes[0]
@@ -281,8 +281,8 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
         data=df_sorted_by_time,
         x="group_index",
         y="time_train_s",
-        hue="method",
-        hue_order=sorted(list(df["method"].unique())),
+        hue=family_col,
+        hue_order=sorted(list(df[family_col].unique())),
         linewidth=3,
         palette=[
             '#1f77b4',  # blue
@@ -337,8 +337,8 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
         data=df_sorted_by_time,
         x="group_index",
         y="group_time_train_s_cumsum",
-        hue="method",
-        hue_order=sorted(list(df["method"].unique())),
+        hue=family_col,
+        hue_order=sorted(list(df[family_col].unique())),
         linewidth=3,
         palette=[
             '#1f77b4',  # blue
@@ -372,7 +372,9 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str):
     ax.set_title("Cumulative model runtime distribution", fontdict={'size': title_size})
     plt.tight_layout()
 
-    fig_save_path = figure_path(prefix=expname_outdir) / f"data-analysis-runtime.pdf"
+    fig_save_path = Path(expname_outdir) / "figures" / f"data-analysis-runtime.pdf"
+    fig_save_path.parent.mkdir(exist_ok=True, parents=True)
+
     plt.savefig(fig_save_path)
     plt.show()
 

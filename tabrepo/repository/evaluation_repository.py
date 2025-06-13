@@ -285,7 +285,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         return repo
 
-    def to_dir(self, path: str):
+    def to_dir(self, path: str | Path):
         from tabrepo.contexts.context import BenchmarkContext, construct_context
 
         path = os.path.abspath(path) + os.path.sep

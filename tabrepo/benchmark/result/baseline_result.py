@@ -103,6 +103,20 @@ class BaselineResult(AbstractResult):
         if "tid" in self.result["task_metadata"]:
             data.update({"tid": self.result["task_metadata"]["tid"]})
 
+        if "method_metadata" in self.result:
+            method_metadata = self.result["method_metadata"]
+
+            optional_metadata_columns = [
+                "num_cpus",
+                "num_gpus",
+                "disk_usage",
+            ]
+
+            for col in optional_metadata_columns:
+                if col in method_metadata:
+                    assert col not in data.keys()
+                    data.update({col: method_metadata[col]})
+
         df_result = pd.DataFrame([data])
 
         return df_result

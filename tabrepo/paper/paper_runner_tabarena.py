@@ -243,7 +243,7 @@ class PaperRunTabArena(PaperRun):
         rank_scorer, normalized_scorer_task = make_scorers(self.repo)
 
         df_results_baselines = pd.concat([
-            self.repo._zeroshot_context.df_configs_ranked,
+            self.repo._zeroshot_context.df_configs,
             self.repo._zeroshot_context.df_baselines,
         ], ignore_index=True)
 

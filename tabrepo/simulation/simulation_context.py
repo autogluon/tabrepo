@@ -576,7 +576,7 @@ class ZeroshotSimulatorContext:
         -------
         A list of config names satisfying the above conditions.
         """
-        df = self.df_configs_ranked
+        df = self.df_configs
         if df is None:
             return []
         df = self._filter_df_by_datasets(df=df, datasets=datasets, tasks=tasks)
