@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
+
+
+common_kwargs = dict(
+    artifact_name="tabarena-2025-06-12",
+    date="2025-06-12",
+    method_type="config",
+    has_raw=True,
+    has_processed=True,
+    has_results=True,
+)
+
+cpu_kwargs = dict(
+    compute="cpu",
+    name_suffix=None,
+    **common_kwargs,
+)
+
+gpu_kwargs = dict(
+    compute="gpu",
+    name_suffix="_GPU",
+    **common_kwargs,
+)
+
+methods_ag_key_map = {
+    "CatBoost": "CAT",
+    "Dummy": "DUMMY",
+    "ExplainableBM": "EBM",
+    "ExtraTrees": "XT",
+    "KNeighbors": "KNN",
+    "LightGBM": "GBM",
+    "LinearModel": "LR",
+    "ModernNCA": "MNCA",
+    "NeuralNetFastAI": "FASTAI_NN",
+    "NeuralNetTorch": "NN_TORCH",
+    "RandomForest": "RF",
+    "RealMLP": "REALMLP",
+    "TabM": "TABM",
+    "XGBoost": "XGB",
+
+    "Mitra_GPU": "MITRA",
+    "ModernNCA_GPU": "MNCA",
+    "RealMLP_GPU": "REALMLP",
+    "TabDPT_GPU": "TABDPT",
+    "TabICL_GPU": "TABICL",
+    "TabM_GPU": "TABM",
+    "TabPFNv2_GPU": "TABPFNV2",
+}
+
+methods_config_default_map = {
+    "CatBoost": "CatBoost_c1_BAG_L1",
+    "Dummy": "Dummy_c1_BAG_L1",
+    "ExplainableBM": "ExplainableBM_c1_BAG_L1",
+    "ExtraTrees": "ExtraTrees_c1_BAG_L1",
+    "KNeighbors": "KNeighbors_c1_BAG_L1",
+    "LightGBM": "LightGBM_c1_BAG_L1",
+    "LinearModel": "LinearModel_c1_BAG_L1",
+    "ModernNCA": "ModernNCA_c1_BAG_L1",
+    "NeuralNetFastAI": "NeuralNetFastAI_c1_BAG_L1",
+    "NeuralNetTorch": "NeuralNetTorch_c1_BAG_L1",
+    "RandomForest": "RandomForest_c1_BAG_L1",
+    "RealMLP": "RealMLP_c1_BAG_L1",
+    "TabM": "TabM_c1_BAG_L1",
+    "XGBoost": "XGBoost_c1_BAG_L1",
+
+    "Mitra_GPU": "Mitra_GPU_c1_BAG_L1",
+    "ModernNCA_GPU": "ModernNCA_GPU_c1_BAG_L1",
+    "RealMLP_GPU": "RealMLP_GPU_c1_BAG_L1",
+    "TabDPT_GPU": "TabDPT_GPU_c1_BAG_L1",
+    "TabICL_GPU": "TabICL_GPU_c1_BAG_L1",
+    "TabM_GPU": "TabM_GPU_c1_BAG_L1",
+    "TabPFNv2_GPU": "TabPFNv2_GPU_c1_BAG_L1",
+}
+
+
+methods_compute_map = {
+    "CatBoost": "cpu",
+    "Dummy": "cpu",
+    "ExplainableBM": "cpu",
+    "ExtraTrees": "cpu",
+    "KNeighbors": "cpu",
+    "LightGBM": "cpu",
+    "LinearModel": "cpu",
+    "ModernNCA": "cpu",
+    "NeuralNetFastAI": "cpu",
+    "NeuralNetTorch": "cpu",
+    "RandomForest": "cpu",
+    "RealMLP": "cpu",
+    "TabM": "cpu",
+    "XGBoost": "cpu",
+
+    "Mitra_GPU": "gpu",
+    "ModernNCA_GPU": "gpu",
+    "RealMLP_GPU": "gpu",
+    "TabDPT_GPU": "gpu",
+    "TabICL_GPU": "gpu",
+    "TabM_GPU": "gpu",
+    "TabPFNv2_GPU": "gpu",
+
+}
+
+
+methods = [
+    "CatBoost",
+    "Dummy",
+    "ExplainableBM",
+    "ExtraTrees",
+    "KNeighbors",
+    "LightGBM",
+    "LinearModel",
+    "ModernNCA",
+    "NeuralNetFastAI",
+    "NeuralNetTorch",
+    "RandomForest",
+    "RealMLP",
+    "TabM",
+    "XGBoost",
+
+    "Mitra_GPU",
+    "ModernNCA_GPU",
+    "RealMLP_GPU",
+    "TabDPT_GPU",
+    "TabICL_GPU",
+    "TabM_GPU",
+    "TabPFNv2_GPU",
+]
+
+
+tabarena_method_metadata_map: dict[str, MethodMetadata] = {}
+
+for method in methods:
+    compute_type = methods_compute_map[method]
+    ag_key = methods_ag_key_map[method]
+    config_default = methods_config_default_map[method]
+    assert compute_type in ["cpu", "gpu"]
+    if compute_type == "cpu":
+        method_kwargs = cpu_kwargs
+    else:
+        method_kwargs = gpu_kwargs
+
+    method_metadata = MethodMetadata(
+        method=method,
+        config_default=config_default,
+        ag_key=ag_key,
+        **method_kwargs,
+    )
+    tabarena_method_metadata_map[method_metadata.method] = method_metadata
