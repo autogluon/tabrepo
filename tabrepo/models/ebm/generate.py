@@ -8,10 +8,10 @@ manual_configs = [
 ]
 search_space = {
     'max_leaves': Int(2, 3, default=2),
-    'smoothing_rounds': Categorical(0, 25, 50, 75, 100, 150, 200, 350, 500, 750, 1000),
+    'smoothing_rounds': Int(0, 1000, default=200),
     'learning_rate': Real(0.0025, 0.2, default=0.02, log=True),
     'interactions': Categorical(0, "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x"),
-    'interaction_smoothing_rounds': Categorical(0, 25, 50, 75, 100, 200, 500),
+    'interaction_smoothing_rounds': Int(0, 200, default=90),
     'min_hessian': Real(1e-10, 1e-2, default=1e-4, log=True),
     'min_samples_leaf': Int(2, 20, default=4),
     'gain_scale': Real(0.5, 5.0, default=5.0, log=True),
