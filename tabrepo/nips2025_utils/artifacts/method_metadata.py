@@ -61,3 +61,6 @@ class MethodMetadata:
     @property
     def path_results_model(self) -> Path:
         return self.path_results / "model_results.parquet"
+
+    def relative_to_root(self, path: Path) -> Path:
+        return path.relative_to(self._path_root)

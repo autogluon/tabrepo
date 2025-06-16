@@ -332,7 +332,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     @classmethod
     def from_dir(
         cls,
-        path: str,
+        path: str | Path,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
         update_relative_path: bool = True,
     ) -> Self:
