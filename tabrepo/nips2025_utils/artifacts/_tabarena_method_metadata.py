@@ -147,3 +147,18 @@ for method in methods:
         **method_kwargs,
     )
     tabarena_method_metadata_map[method_metadata.method] = method_metadata
+
+
+ag_130_metadata = MethodMetadata(
+    method="AutoGluon_v130",
+    artifact_name="tabarena-2025-06-12",
+    date="2025-06-12",
+    method_type="baseline",
+    config_default="AutoGluon_v130_bq_4h8c",
+    compute="cpu",
+    has_raw=True,
+    has_processed=True,
+    has_results=True,
+)
+
+tabarena_method_metadata_map[ag_130_metadata.method] = ag_130_metadata

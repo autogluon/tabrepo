@@ -55,12 +55,12 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         n_methods = len(self.methods)
 
         for i, method in enumerate(self.methods):
-            print(f"Starting raw artifact upload of method {method}")
+            print(f"Starting raw artifact upload of method {method} ({i+1}/{n_methods})")
             ts = time.time()
             self._upload_raw_method(method=method)
             te = time.time()
             time_elapsed = te - ts
-            print(f"Uploaded raw artifact of method {method} |\t ({i+1}/{n_methods} complete... |\tCompleted in {time_elapsed:.2f}s")
+            print(f"Uploaded raw artifact of method {method} ({i+1}/{n_methods} complete) |\tCompleted in {time_elapsed:.2f}s")
 
     # FIXME: Update this
     def _upload_raw_method(self, method: str):
@@ -132,9 +132,12 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         s3_path = str(Path("cache") / "artifacts" / relative_to_root)
 
         file_names = [
-            "model_results.parquet",
-            "hpo_results.parquet",
+            "model_results.parquet"
         ]
+
+        if metadata.can_hpo:
+            file_names.append("hpo_results.parquet")
+
         for file_name in file_names:
             local_file_path = path_results / file_name
             self._upload_file(file_name=local_file_path, prefix=s3_path)

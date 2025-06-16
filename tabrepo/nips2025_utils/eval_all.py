@@ -41,13 +41,13 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
                         if problem_type is not None:
                             folder_name = folder_name + f"-{problem_type}"
 
-                        banned_model_types = []
+                        banned_model_types = set()
                         imputed_models = []
                         if not use_tabicl:
-                            banned_model_types.append("TABICL")
+                            banned_model_types.add("TABICL")
                             imputed_models.append("TabICL")
                         if not use_tabpfn:
-                            banned_model_types.append("TABPFNV2")
+                            banned_model_types.add("TABPFNV2")
                             imputed_models.append("TabPFNv2")
 
                         datasets = (
@@ -65,9 +65,11 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
                         else:
                             raise AssertionError(f"Invalid problem_type value: {problem_type}")
 
+                        if use_imputation:
+                            banned_model_types = set()
                         if problem_type == "reg":
-                            banned_model_types.append("TABICL")
-                            banned_model_types = list(set(banned_model_types))
+                            banned_model_types.add("TABICL")
+                        banned_model_types = list(banned_model_types)
 
                         if problem_types:
                             datasets = [d for d in datasets if task_metadata[task_metadata["name"] == d].iloc[0]["problem_type"] in problem_types]
@@ -79,7 +81,7 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
                             output_dir=eval_save_path / folder_name,
                             datasets=datasets,
                             problem_types=problem_types,
-                            banned_model_types=None if use_imputation else banned_model_types,
+                            banned_model_types=banned_model_types,
                             elo_bootstrap_rounds=elo_bootstrap_rounds,
                             folds=[0] if lite else None,
                         )

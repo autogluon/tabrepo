@@ -195,8 +195,10 @@ class PaperRun:
         df_results_baselines["method_type"] = "baseline"
         return df_results_baselines
 
-    def run_configs(self, model_types: list[str | None] | None = None) -> pd.DataFrame:
+    def run_configs(self, model_types: list[str | None] | None = None) -> pd.DataFrame | None:
         configs = self.repo.configs(config_types=model_types)
+        if not configs:
+            return None
         df_results_configs = self.evaluator.compare_metrics(configs=configs, baselines=[], include_metric_error_val=True).reset_index()
         df_results_configs["method_type"] = "config"
         configs_types = self.repo.configs_type()

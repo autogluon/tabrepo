@@ -35,6 +35,10 @@ class MethodMetadata:
         self.has_results = has_results
 
     @property
+    def can_hpo(self) -> bool:
+        return self.method_type == "config"
+
+    @property
     def _path_root(self) -> Path:
         return Paths.artifacts_root_cache_tabarena
 

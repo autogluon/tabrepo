@@ -1,7 +1,10 @@
 
 import copy
+from pathlib import Path
 
 import pandas as pd
+
+from autogluon.common.savers import save_pkl
 
 from tabrepo.benchmark.result.abstract_result import AbstractResult
 
@@ -41,6 +44,14 @@ class BaselineResult(AbstractResult):
     @property
     def split_idx(self) -> int:
         return self.result["task_metadata"]["split_idx"]
+
+    @property
+    def repeat(self) -> int:
+        return self.result["task_metadata"]["repeat"]
+
+    @property
+    def fold(self) -> int:
+        return self.result["task_metadata"]["fold"]
 
     def _align_result_input_format(self) -> dict:
         """
@@ -120,3 +131,14 @@ class BaselineResult(AbstractResult):
         df_result = pd.DataFrame([data])
 
         return df_result
+
+    def to_dir(self, path: str):
+        suffix = Path(f"{self.framework}")
+        if "tid" in self.result["task_metadata"]:
+            suffix = suffix / str(self.result["task_metadata"]["tid"])
+        else:
+            suffix = suffix / str(self.dataset)
+        suffix = suffix / f"{self.repeat}_{self.fold}"
+        path_full = Path(path) / suffix
+        path_file = path_full / "results.pkl"
+        save_pkl.save(path=str(path_file), object=self)

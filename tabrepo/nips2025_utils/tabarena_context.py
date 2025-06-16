@@ -55,7 +55,7 @@ class TabArenaContext:
         config_fallback = metadata_rf.config_default
 
         save_file = str(metadata.path_results_hpo)
-        save_file_config = str(metadata.path_results_model)
+        save_file_model = str(metadata.path_results_model)
         repo = EvaluationRepository.from_dir(path=path_processed)
 
         model_types = repo.config_types()
@@ -67,19 +67,28 @@ class TabArenaContext:
         repo.set_config_fallback(config_fallback=config_fallback)
         simulator = PaperRunTabArena(repo=repo)
         # FIXME: do this in simulator automatically
-        results = simulator.run_minimal_paper(model_types=model_types)
-        results["ta_name"] = metadata.method
-        results["ta_suite"] = metadata.artifact_name
-        results = results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
-        save_pd.save(path=save_file, df=results)
+
+        if metadata.can_hpo:
+            hpo_results = simulator.run_minimal_paper(model_types=model_types)
+            hpo_results["ta_name"] = metadata.method
+            hpo_results["ta_suite"] = metadata.artifact_name
+            hpo_results = hpo_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
+            save_pd.save(path=save_file, df=hpo_results)
+        else:
+            hpo_results = None
 
         config_results = simulator.run_configs(model_types=model_types)
-        config_results["ta_name"] = metadata.method
-        config_results["ta_suite"] = metadata.artifact_name
-        config_results = config_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
-        save_pd.save(path=save_file_config, df=config_results)
+        baseline_results = simulator.run_baselines()
+        results_lst = [config_results, baseline_results]
+        results_lst = [r for r in results_lst if r is not None]
+        model_results = pd.concat(results_lst, ignore_index=True)
 
-        return results, config_results
+        model_results["ta_name"] = metadata.method
+        model_results["ta_suite"] = metadata.artifact_name
+        model_results = model_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
+        save_pd.save(path=save_file_model, df=model_results)
+
+        return hpo_results, model_results
 
     def simulate_portfolio(self, methods: list[str | tuple[str, str]], config_fallback: str):
         repos = []
@@ -100,13 +109,28 @@ class TabArenaContext:
         results = results.rename(columns={"framework": "method"})
         return results
 
-    def load_results(self, method: str) -> pd.DataFrame:
+    def load_hpo_results(self, method: str) -> pd.DataFrame:
         metadata = self._method_metadata(method=method)
         return pd.read_parquet(path=metadata.path_results_hpo)
 
     def load_config_results(self, method: str) -> pd.DataFrame:
         metadata = self._method_metadata(method=method)
         return pd.read_parquet(path=metadata.path_results_model)
+
+    def load_results_paper(self, methods: list[str]) -> pd.DataFrame:
+        assert methods is not None and len(methods) > 0
+        df_metadata_lst = []
+        for method in methods:
+            metadata = self._method_metadata(method=method)
+            if metadata.method_type == "config":
+                df_metadata = self.load_hpo_results(method=method)
+            elif metadata.method_type == "baseline":
+                df_metadata = self.load_config_results(method=method)
+            else:
+                raise ValueError(f"Unknown method_type: {metadata.method_type} for method {method}")
+            df_metadata_lst.append(df_metadata)
+        df_metadata = pd.concat(df_metadata_lst, ignore_index=True)
+        return df_metadata
 
     def find_missing(self, method: str):
         metadata = self._method_metadata(method=method)

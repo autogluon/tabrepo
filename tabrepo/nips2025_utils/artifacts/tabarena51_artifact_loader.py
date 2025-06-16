@@ -68,7 +68,7 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
             te = time.time()
             time_elapsed = te - ts
             print(
-                f"Downloaded raw artifact of method {method} |\t ({i + 1}/{n_methods} complete... "
+                f"Downloaded raw artifact of method {method} ({i + 1}/{n_methods} complete)"
                 f"|\tCompleted in {time_elapsed:.2f}s"
             )
 

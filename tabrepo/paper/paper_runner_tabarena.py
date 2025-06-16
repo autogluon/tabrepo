@@ -142,19 +142,27 @@ class PaperRunTabArena(PaperRun):
         -------
 
         """
-        df_results_baselines = self.run_baselines()
-        df_results_configs_default = self.run_configs_default(model_types=model_types)
-        df_results_hpo_all = self.run_hpo_by_family(
-            include_uncapped=True,
-            include_4h=False,
-            model_types=model_types,
-        )
+        if model_types is not None:
+            df_results_configs_default = self.run_configs_default(model_types=model_types)
+        else:
+            df_results_configs_default = None
 
-        df_results_all = pd.concat([
+        if model_types is not None:
+            df_results_hpo_all = self.run_hpo_by_family(
+                include_uncapped=True,
+                include_4h=False,
+                model_types=model_types,
+            )
+        else:
+            df_results_hpo_all = None
+
+        to_concat_lst = [
             df_results_configs_default,
-            df_results_baselines,
             df_results_hpo_all,
-        ], ignore_index=True)
+        ]
+        to_concat_lst = [df for df in to_concat_lst if df is not None]
+
+        df_results_all = pd.concat(to_concat_lst, ignore_index=True)
 
         return df_results_all
 
