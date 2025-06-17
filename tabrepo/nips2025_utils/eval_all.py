@@ -26,6 +26,9 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
 
     eval_save_path = Path(eval_save_path)
 
+    tabicl_type = "TABICL_GPU"
+    tabpfn_type = "TABPFNV2_GPU"
+
     # plots for sub-benchmarks, with and without imputation
     for use_tabpfn in [False, True]:
         for use_tabicl in [False, True]:
@@ -44,10 +47,10 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
                         banned_model_types = set()
                         imputed_models = []
                         if not use_tabicl:
-                            banned_model_types.add("TABICL")
+                            banned_model_types.add(tabicl_type)
                             imputed_models.append("TabICL")
                         if not use_tabpfn:
-                            banned_model_types.add("TABPFNV2")
+                            banned_model_types.add(tabpfn_type)
                             imputed_models.append("TabPFNv2")
 
                         datasets = (
@@ -68,7 +71,7 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
                         if use_imputation:
                             banned_model_types = set()
                         if problem_type == "reg":
-                            banned_model_types.add("TABICL")
+                            banned_model_types.add(tabicl_type)
                         banned_model_types = list(banned_model_types)
 
                         if problem_types:

@@ -160,11 +160,8 @@ class TabArenaEvaluator:
         plot_extra_barplots: bool = False,
         plot_cdd: bool = True,
         plot_other: bool = False,
-        framework_types_extra: list[str] = None,
         calibration_framework: str | None = "auto",
     ):
-        if framework_types_extra is None:
-            framework_types_extra = []
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
         if baselines is None:
@@ -201,12 +198,6 @@ class TabArenaEvaluator:
         assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
         df_results["normalized-error"] = df_results["normalized-error-dataset"]
 
-        framework_types = self._get_config_types(df_results=df_results)
-
-        if framework_types_extra:
-            framework_types += framework_types_extra
-            framework_types = list(set(framework_types))
-
         if self.datasets is not None:
             df_results = df_results[df_results["dataset"].isin(self.datasets)]
         if self.folds is not None:
@@ -215,6 +206,14 @@ class TabArenaEvaluator:
             df_results = df_results[df_results[self.method_col].isin(self.methods)]
         if self.problem_types is not None:
             df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
+        if not self.keep_best:
+            # FIXME: Don't do regex, use subtype column value
+            df_results = df_results[~df_results[self.method_col].str.contains("(best)", regex=False)]
+
+        if self.banned_model_types:
+            df_results = df_results[~df_results["config_type"].isin(self.banned_model_types)]
+            # framework_types = [f for f in framework_types if f not in self.banned_model_types]
+        framework_types = self._get_config_types(df_results=df_results)
 
         # ----- add times per 1K samples -----
         dataset_to_n_samples_train = self.task_metadata.set_index("name")["n_samples_train_per_fold"].to_dict()
@@ -226,27 +225,7 @@ class TabArenaEvaluator:
             dataset_to_n_samples_test)
 
         df_results[self.method_col] = df_results[self.method_col].map({
-            "AutoGluon_bq_4h8c": "AutoGluon 1.3 (4h)",
-            "AutoGluon_bq_1h8c": "AutoGluon 1.3 (1h)",
-            "AutoGluon_bq_5m8c": "AutoGluon 1.3 (5m)",
-            "LightGBM_c1_BAG_L1": "GBM (default)",
-            "XGBoost_c1_BAG_L1": "XGB (default)",
-            "CatBoost_c1_BAG_L1": "CAT (default)",
-            "NeuralNetTorch_c1_BAG_L1": "NN_TORCH (default)",
-            "NeuralNetFastAI_c1_BAG_L1": "FASTAI (default)",
-            "KNeighbors_c1_BAG_L1": "KNN (default)",
-            "RandomForest_c1_BAG_L1": "RF (default)",
-            "ExtraTrees_c1_BAG_L1": "XT (default)",
-            "LinearModel_c1_BAG_L1": "LR (default)",
-            "TabPFN_c1_BAG_L1": "TABPFN (default)",
-            "RealMLP_c1_BAG_L1": "REALMLP (default)",
-            "ExplainableBM_c1_BAG_L1": "EBM (default)",
-            "FTTransformer_c1_BAG_L1": "FT_TRANSFORMER (default)",
-            "TabPFNv2_c1_BAG_L1": "TABPFNV2 (default)",
-            "TabICL_c1_BAG_L1": "TABICL (default)",
-            "TabDPT_c1_BAG_L1": "TABDPT (default)",
-            "TabM_c1_BAG_L1": "TABM (default)",
-            "ModernNCA_c1_BAG_L1": "MNCA (default)",
+            "AutoGluon_v130_bq_4h8c": "AutoGluon 1.3 (4h)",
 
             "RandomForest_r1_BAG_L1_HOLDOUT": "RF (holdout)",
             "ExtraTrees_r1_BAG_L1_HOLDOUT": "XT (holdout)",
@@ -260,10 +239,6 @@ class TabArenaEvaluator:
 
             "RealMLP_c1_BAG_L1_HOLDOUT": "REALMLP (holdout)",
             "ExplainableBM_c1_BAG_L1_HOLDOUT": "EBM (holdout)",
-            "FTTransformer_c1_BAG_L1_HOLDOUT": "FT_TRANSFORMER (holdout)",
-            # "TabPFNv2_c1_BAG_L1_HOLDOUT": "TABPFNV2 (holdout)",
-            # "TabICL_c1_BAG_L1_HOLDOUT": "TABICL (holdout)",
-            # "TabDPT_c1_BAG_L1_HOLDOUT": "TABDPT (holdout)",
             "TabM_c1_BAG_L1_HOLDOUT": "TABM (holdout)",
             "ModernNCA_c1_BAG_L1_HOLDOUT": "MNCA (holdout)",
 
@@ -287,18 +262,8 @@ class TabArenaEvaluator:
             ]
         )
 
-        banned_model_types = self.banned_model_types or []
-
-        assert all(method in df_results_rank_compare[self.method_col].map(f_map_type).unique() for method in banned_model_types)
-        df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare[self.method_col].map(f_map_type).isin(banned_model_types)]
         # also remove portfolio baselines except AutoGluon?
         df_results_rank_compare = df_results_rank_compare[(~df_results_rank_compare[self.method_col].map(f_map_type).isna()) | (df_results_rank_compare[self.method_col].isin(baselines))]
-
-        if self.banned_model_types:
-            framework_types = [f for f in framework_types if f not in self.banned_model_types]
-
-        if not self.keep_best:
-            df_results_rank_compare = df_results_rank_compare[~df_results_rank_compare[method_col].str.contains("(best)", regex=False)]
 
         # recompute normalized errors
         df_results_rank_compare = self.compute_normalized_error_dynamic(df_results_rank_compare)
@@ -1206,7 +1171,7 @@ class TabArenaEvaluator:
         df = df[df['framework_type'].isin(framework_types)]
         df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
 
-        gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2']  # todo: add TabM + MNCA once available
+        gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2', "ModernNCA", "TabM", "RealMLP"]
 
         if only_datasets_for_method is not None:
             for method, datasets in only_datasets_for_method.items():

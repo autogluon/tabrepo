@@ -54,25 +54,6 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
     f_map = dict()
     f_map_type = dict()
     f_map_inverse = dict()
-    # f_map_type_name = {
-    #     'KNN': 'KNN',
-    #     'LR': 'Linear',
-    #     'RF': 'RF',
-    #     'XT': 'XT',
-    #     'EBM': 'EBM',
-    #     'XGB': 'XGB',
-    #     'GBM': 'LGBM',
-    #     'CAT': 'CAT',  # todo
-    #     'FASTAI': 'FastaiMLP',
-    #     'NN_TORCH': 'TorchMLP',
-    #     'FT_TRANSFORMER': 'FT-Transformer',
-    #     'MNCA': 'MNCA',  # todo
-    #     'TABM': 'TabM',
-    #     'REALMLP': 'RealMLP',
-    #     'TABDPT': 'TabDPT',
-    #     'TABICL': 'TabICL',
-    #     'TABPFNV2': 'TabPFNv2',
-    # }
     f_map_type_name = {
         'KNN': 'KNN',
         'LR': 'Linear',
@@ -81,16 +62,15 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
         'EBM': 'EBM',
         'XGB': 'XGBoost',
         'GBM': 'LightGBM',
-        'CAT': 'CatBoost',  # todo
+        'CAT': 'CatBoost',
         'FASTAI': 'FastaiMLP',
         'NN_TORCH': 'TorchMLP',
-        'FT_TRANSFORMER': 'FT-Transformer',
-        'MNCA': 'ModernNCA',  # todo
-        'TABM': 'TabM',
-        'REALMLP': 'RealMLP',
-        'TABDPT': 'TabDPT',
-        'TABICL': 'TabICL',
-        'TABPFNV2': 'TabPFNv2',
+        'MNCA_GPU': 'ModernNCA',
+        'TABM_GPU': 'TabM',
+        'REALMLP_GPU': 'RealMLP',
+        'TABDPT_GPU': 'TabDPT',
+        'TABICL_GPU': 'TabICL',
+        'TABPFNV2_GPU': 'TabPFNv2',
     }
     for framework_type in framework_types:
         f_map_cur = dict()
