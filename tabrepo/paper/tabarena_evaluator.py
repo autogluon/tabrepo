@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import math
 from pathlib import Path
 import re
@@ -1313,6 +1314,9 @@ class TabArenaEvaluator:
         # df_ensemble_weights_2 = pd.DataFrame()
 
         for d, f, ensemble_weights in zip(df_ensemble_weights["dataset"], df_ensemble_weights["fold"], df_ensemble_weights["ensemble_weight"]):
+            if isinstance(ensemble_weights, str):
+                ensemble_weights = json.loads(ensemble_weights)
+            assert isinstance(ensemble_weights, dict)
             ens_weights_w_dataset_fold = dict()
             ens_weights_w_dataset_fold["dataset"] = d
             ens_weights_w_dataset_fold["fold"] = f

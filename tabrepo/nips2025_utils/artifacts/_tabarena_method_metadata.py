@@ -24,6 +24,9 @@ gpu_kwargs = dict(
     **common_kwargs,
 )
 
+# Methods in this list will upload s3 artifacts privately (useful for storing results for unreleased models)
+# If a method is not in this list, it will be public when uploaded.
+methods_upload_as_private = []
 
 # If the method was fit with bagging (8-fold)
 # If not present in this list, the model could instead have been refit on the full data, ex: TabPFNv2
@@ -163,6 +166,7 @@ for method in methods:
     ag_key = methods_ag_key_map[method]
     config_default = methods_config_default_map[method]
     is_bag = method in methods_is_bag
+    upload_as_public = method not in methods_upload_as_private
     assert compute_type in ["cpu", "gpu"]
     if compute_type == "cpu":
         method_kwargs = cpu_kwargs
@@ -174,6 +178,7 @@ for method in methods:
         config_default=config_default,
         ag_key=ag_key,
         is_bag=is_bag,
+        upload_as_public=upload_as_public,
         **method_kwargs,
     )
     tabarena_method_metadata_map[method_metadata.method] = method_metadata
@@ -189,6 +194,7 @@ ag_130_metadata = MethodMetadata(
     has_raw=True,
     has_processed=True,
     has_results=True,
+    upload_as_public=True,
 )
 
 tabarena_method_metadata_map[ag_130_metadata.method] = ag_130_metadata
@@ -201,6 +207,7 @@ portfolio_metadata = MethodMetadata(
     has_raw=False,
     has_processed=False,
     has_results=True,
+    upload_as_public=True,
 )
 
 tabarena_method_metadata_map[portfolio_metadata.method] = portfolio_metadata

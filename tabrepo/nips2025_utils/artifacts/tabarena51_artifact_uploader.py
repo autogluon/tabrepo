@@ -19,7 +19,9 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
     def __init__(self):
         self.artifact_name = "tabarena-2025-06-12"
         self.bucket = "tabarena"
-        self.prefix = f"cache/artifacts/{self.artifact_name}"
+        self.s3_cache_root_prefix = "cache"
+        self.s3_cache_root = f"s3://{self.bucket}/{self.s3_cache_root_prefix}"
+        self.prefix = f"{self.s3_cache_root_prefix}/artifacts/{self.artifact_name}"
         self.local_paths = Paths
         self.upload_as_public = True
         self.method_metadata_map = tabarena_method_metadata_map
@@ -122,6 +124,8 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         file_name = f"{file_prefix}.zip"
 
         self._upload_file(file_name=file_name, prefix=s3_path)
+        metadata.upload_configs_hyperparameters(s3_cache_root=self.s3_cache_root, holdout=True)
+
         os.remove(file_name)
 
     def _upload_processed_method(self, method: str):
@@ -137,6 +141,8 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         file_name = f"{file_prefix}.zip"
 
         self._upload_file(file_name=file_name, prefix=s3_path)
+        metadata.upload_configs_hyperparameters(s3_cache_root=self.s3_cache_root, holdout=False)
+
         os.remove(file_name)
 
     def upload_results(self):

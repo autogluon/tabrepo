@@ -22,6 +22,7 @@ def evaluate_all(
     df_results: pd.DataFrame,
     eval_save_path: str | Path,
     df_results_holdout: pd.DataFrame = None,
+    configs_hyperparameters: dict[str, dict] = None,
     elo_bootstrap_rounds: int = 100,
 ):
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
@@ -35,10 +36,27 @@ def evaluate_all(
     tabicl_type = "TABICL_GPU"
     tabpfn_type = "TABPFNV2_GPU"
 
+    portfolio_name = "TabArena ensemble (4h)"
+
     df_results = df_results.copy(deep=True)
     df_results["method"] = df_results["method"].map({
-        "Portfolio-N200 (ensemble) (4h)": "TabArena ensemble (4h)"
+        "Portfolio-N200 (ensemble) (4h)": portfolio_name
     }).fillna(df_results["method"])
+
+    if configs_hyperparameters is not None:
+        config_types = {k: v["model_type"] for k, v in configs_hyperparameters.items()}
+        plotter_ensemble_weights = TabArenaEvaluator(
+            output_dir=eval_save_path / Path("ablation") / "ensemble_weights",
+            config_types=config_types,
+        )
+        # plotter_ensemble_weights.plot_portfolio_ensemble_weights_barplot(df_ensemble_weights=df_ensemble_weights)
+        df_ensemble_weights = plotter_ensemble_weights.get_ensemble_weights(
+            df_results=df_results,
+            method=portfolio_name,
+            aggregate_folds=True,
+        )
+        plotter_ensemble_weights.plot_portfolio_ensemble_weights_barplot(df_ensemble_weights=df_ensemble_weights)
+        plotter_ensemble_weights.plot_ensemble_weights_heatmap(df_ensemble_weights=df_ensemble_weights, figsize=(24, 20))
 
     if df_results_holdout is not None:
         eval_holdout_ablation(

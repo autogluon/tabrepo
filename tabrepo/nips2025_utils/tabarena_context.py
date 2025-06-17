@@ -52,6 +52,8 @@ class TabArenaContext:
         self.name = "tabarena-2025-06-12"
         self.method_metadata_map: dict[str, MethodMetadata] = tabarena_method_metadata_map
         self.root_cache = Paths.artifacts_root_cache_tabarena
+        self.s3_cache_root = "s3://tabarena/cache"
+        self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
         self.backend = "ray"
         assert self.backend in ["ray", "native"]
@@ -220,17 +222,62 @@ class TabArenaContext:
         df_metadata = pd.concat(df_metadata_lst, ignore_index=True)
         return df_metadata
 
+    def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
+        if methods is None:
+            methods = _methods_paper
+            methods = [m for m in methods if self._method_metadata(m).method_type == "config"]
+            if holdout:
+                # only include methods that can have holdout
+                methods = [m for m in methods if self._method_metadata(m).is_bag]
+        configs_hyperparameters_lst = []
+        for method in methods:
+            metadata = self._method_metadata(method=method)
+            if isinstance(download, bool) and download:
+                metadata.download_configs_hyperparameters(s3_cache_root=self.s3_cache_root_url, holdout=holdout)
+            try:
+                configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
+            except FileNotFoundError as err:
+                if isinstance(download, str) and download == "auto":
+                    print(
+                        f"Cache miss detected for configs_hyperparameters.json "
+                        f"(method={metadata.method}), attempting download..."
+                    )
+                    metadata.download_configs_hyperparameters(s3_cache_root=self.s3_cache_root_url, holdout=holdout)
+                    configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
+                    print(f"\tDownload successful")
+                else:
+                    raise err
+            configs_hyperparameters_lst.append(configs_hyperparameters)
+
+        def merge_dicts_no_duplicates(dicts: list[dict]) -> dict:
+            merged = {}
+            for d in dicts:
+                for key in d:
+                    if key in merged:
+                        raise KeyError(
+                            f"Duplicate key found in configs_hyperparameters: {key}\n"
+                            f"This should never happen and may mean that a given config name "
+                            f"belongs to multiple different hyperparameters!"
+                        )
+                merged.update(d)
+            return merged
+
+        configs_hyperparameters = merge_dicts_no_duplicates(configs_hyperparameters_lst)
+        return configs_hyperparameters
+
     @classmethod
     def evaluate_all(
         cls,
         df_results: pd.DataFrame,
         save_path: str | Path,
         df_results_holdout: pd.DataFrame = None,
+        configs_hyperparameters: dict[str, dict] = None,
         elo_bootstrap_rounds: int = 100,
     ):
         evaluate_all(
             df_results=df_results,
             df_results_holdout=df_results_holdout,
+            configs_hyperparameters=configs_hyperparameters,
             eval_save_path=save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
         )
