@@ -100,30 +100,32 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
     def _download_processed_method(self, method: str):
         self._download_method(method=method, data_type="processed")
 
-    def download_results(self):
+    def download_results(self, holdout: bool = False):
         methods = [method for method in self.methods if self._method_metadata(method).has_results]
         n_methods = len(methods)
         for i, method in enumerate(methods):
             print(f"Starting results artifact download of method {method} ({i + 1}/{n_methods})")
-            self._download_results_method(method=method)
+            self._download_results_method(method=method, holdout=holdout)
             print(
                 f"Downloaded processed artifact of method {method} ({i + 1}/{n_methods} complete)"
             )
 
     # TODO: Add the download logic to the method metadata and call that instead
-    def _download_results_method(self, method: str):
+    def _download_results_method(self, method: str, holdout: bool = False):
         metadata = self._method_metadata(method=method)
+        if holdout and not metadata.is_bag:
+            return
         url_prefix = f"{self.url_prefix}/{self.prefix}/{self.artifact_name}/methods/{method}"
         if metadata.can_hpo:
-            path_hpo = metadata.path_results_hpo
+            path_hpo = metadata.path_results_hpo(holdout=holdout)
             url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_hpo)}"
             _download_file(url=url_prefix_full, local_path=path_hpo)
         if metadata.method_type == "portfolio":
-            path_portfolio = metadata.path_results_portfolio
+            path_portfolio = metadata.path_results_portfolio(holdout=holdout)
             url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_portfolio)}"
             _download_file(url=url_prefix_full, local_path=path_portfolio)
         else:
-            path_model = metadata.path_results_model
+            path_model = metadata.path_results_model(holdout=holdout)
             url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_model)}"
             _download_file(url=url_prefix_full, local_path=path_model)
 

@@ -79,16 +79,43 @@ class TabArenaContext:
         repo.to_dir(path_processed)
         return path_processed
 
-    def simulate_repo(self, method: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    def generate_repo_holdout(self, method: str) -> str:
         metadata = self._method_metadata(method=method)
-        path_processed = metadata.path_processed
+
+        path_raw = metadata.path_raw
+        path_processed = metadata.path_processed_holdout
+
+        name_suffix = metadata.name_suffix
+
+        file_paths_method = fetch_all_pickles(dir_path=path_raw)
+        repo: EvaluationRepository = generate_repo_from_paths(
+            result_paths=file_paths_method,
+            task_metadata=self.task_metadata,
+            engine=self.engine,
+            name_suffix=name_suffix,
+            as_holdout=True,
+        )
+
+        repo.to_dir(path_processed)
+        return path_processed
+
+    def simulate_repo(self, method: str, holdout: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+        metadata = self._method_metadata(method=method)
+        if holdout:
+            path_processed = metadata.path_processed_holdout
+        else:
+            path_processed = metadata.path_processed
 
         metadata_rf = self._method_metadata(method="RandomForest")
-        path_processed_rf = metadata_rf.path_processed
-        config_fallback = metadata_rf.config_default
+        if holdout:
+            config_fallback = "RandomForest_r1_BAG_L1_HOLDOUT"  # FIXME: Avoid hardcoding
+            path_processed_rf = metadata_rf.path_processed_holdout
+        else:
+            config_fallback = metadata_rf.config_default
+            path_processed_rf = metadata_rf.path_processed
 
-        save_file = str(metadata.path_results_hpo)
-        save_file_model = str(metadata.path_results_model)
+        save_file = str(metadata.path_results_hpo(holdout=holdout))
+        save_file_model = str(metadata.path_results_model(holdout=holdout))
         repo = EvaluationRepository.from_dir(path=path_processed)
 
         model_types = repo.config_types()
@@ -142,48 +169,51 @@ class TabArenaContext:
         results = results.rename(columns={"framework": "method"})
         return results
 
-    def load_hpo_results(self, method: str) -> pd.DataFrame:
+    def load_hpo_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
         metadata = self._method_metadata(method=method)
-        return pd.read_parquet(path=metadata.path_results_hpo)
+        return metadata.load_hpo_results(holdout=holdout)
 
-    def load_config_results(self, method: str) -> pd.DataFrame:
+    def load_config_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
         metadata = self._method_metadata(method=method)
-        return pd.read_parquet(path=metadata.path_results_model)
+        return metadata.load_model_results(holdout=holdout)
 
-    def load_portfolio_results(self, method: str) -> pd.DataFrame:
+    def load_portfolio_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
         metadata = self._method_metadata(method=method)
-        return pd.read_parquet(path=metadata.path_results_portfolio)
+        return metadata.load_portfolio_results(holdout=holdout)
 
-    def load_results_paper(self, methods: list[str] | None = None, download_results: str | bool = False) -> pd.DataFrame:
+    def load_results_paper(self, methods: list[str] | None = None, holdout: bool = False, download_results: str | bool = False) -> pd.DataFrame:
         if isinstance(download_results, bool) and download_results:
             loader = TabArena51ArtifactLoader()
-            loader.download_results()
+            loader.download_results(holdout=holdout)
         try:
-            df_results = self._load_results_paper(methods=methods)
+            df_results = self._load_results_paper(methods=methods, holdout=holdout)
         except FileNotFoundError as err:
             if isinstance(download_results, str) and download_results == "auto":
                 print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
                 loader = TabArena51ArtifactLoader()
-                loader.download_results()
-                df_results = self._load_results_paper(methods=methods)
+                loader.download_results(holdout=holdout)
+                df_results = self._load_results_paper(methods=methods, holdout=holdout)
             else:
                 print(f"Missing local results files! Try setting `download_results=True` to get the required files.")
                 raise err
         return df_results
 
-    def _load_results_paper(self, methods: list[str] | None = None) -> pd.DataFrame:
+    def _load_results_paper(self, methods: list[str] | None = None, holdout: bool = False) -> pd.DataFrame:
         if methods is None:
             methods = _methods_paper
+            if holdout:
+                # only include methods that can have holdout
+                methods = [m for m in methods if self._method_metadata(m).is_bag]
         assert methods is not None and len(methods) > 0
         df_metadata_lst = []
         for method in methods:
             metadata = self._method_metadata(method=method)
             if metadata.method_type == "config":
-                df_metadata = self.load_hpo_results(method=method)
+                df_metadata = self.load_hpo_results(method=method, holdout=holdout)
             elif metadata.method_type == "baseline":
-                df_metadata = self.load_config_results(method=method)
+                df_metadata = self.load_config_results(method=method, holdout=holdout)
             elif metadata.method_type == "portfolio":
-                df_metadata = self.load_portfolio_results(method=method)
+                df_metadata = self.load_portfolio_results(method=method, holdout=holdout)
             else:
                 raise ValueError(f"Unknown method_type: {metadata.method_type} for method {method}")
             df_metadata_lst.append(df_metadata)
@@ -195,9 +225,15 @@ class TabArenaContext:
         cls,
         df_results: pd.DataFrame,
         save_path: str | Path,
+        df_results_holdout: pd.DataFrame = None,
         elo_bootstrap_rounds: int = 100,
     ):
-        evaluate_all(df_results=df_results, eval_save_path=save_path, elo_bootstrap_rounds=elo_bootstrap_rounds)
+        evaluate_all(
+            df_results=df_results,
+            df_results_holdout=df_results_holdout,
+            eval_save_path=save_path,
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+        )
 
     def find_missing(self, method: str):
         metadata = self._method_metadata(method=method)

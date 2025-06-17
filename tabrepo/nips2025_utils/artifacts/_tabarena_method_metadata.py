@@ -24,6 +24,34 @@ gpu_kwargs = dict(
     **common_kwargs,
 )
 
+
+# If the method was fit with bagging (8-fold)
+# If not present in this list, the model could instead have been refit on the full data, ex: TabPFNv2
+methods_is_bag = [
+    "CatBoost",
+    "Dummy",
+    "ExplainableBM",
+    "ExtraTrees",
+    # "KNeighbors",
+    "LightGBM",
+    "LinearModel",
+    "ModernNCA",
+    "NeuralNetFastAI",
+    "NeuralNetTorch",
+    "RandomForest",
+    "RealMLP",
+    "TabM",
+    "XGBoost",
+    "Mitra_GPU",
+    "ModernNCA_GPU",
+    "RealMLP_GPU",
+    # "TabDPT_GPU",
+    # "TabICL_GPU",
+    "TabM_GPU",
+    # "TabPFNv2_GPU",
+]
+
+
 methods_ag_key_map = {
     "CatBoost": "CAT",
     "Dummy": "DUMMY",
@@ -134,6 +162,7 @@ for method in methods:
     compute_type = methods_compute_map[method]
     ag_key = methods_ag_key_map[method]
     config_default = methods_config_default_map[method]
+    is_bag = method in methods_is_bag
     assert compute_type in ["cpu", "gpu"]
     if compute_type == "cpu":
         method_kwargs = cpu_kwargs
@@ -144,6 +173,7 @@ for method in methods:
         method=method,
         config_default=config_default,
         ag_key=ag_key,
+        is_bag=is_bag,
         **method_kwargs,
     )
     tabarena_method_metadata_map[method_metadata.method] = method_metadata

@@ -104,10 +104,14 @@ class PaperRunTabArena(PaperRun):
         if len(configs_default) == 1:
             return configs_default[0]
         elif len(configs_default) == 0:
-            raise ValueError(
-                f"Could not find any default config for config_type='{config_type}'"
-                f"\n\tconfigs={configs}"
-            )
+            configs_default = [c for c in configs if "_r1_" in c]
+            if len(configs_default) == 0:
+                raise ValueError(
+                    f"Could not find any default config for config_type='{config_type}'"
+                    f"\n\tconfigs={configs}"
+                )
+            else:
+                return configs_default[0]
         else:  # >1
             raise ValueError(
                 f"Found {len(configs_default)} potential default configs for config_type='{config_type}', but only one should exist."

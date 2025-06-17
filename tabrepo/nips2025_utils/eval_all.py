@@ -18,7 +18,12 @@ def _get_problem_type(n_classes: int):
         return "multiclass"
 
 
-def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_bootstrap_rounds: int = 100):
+def evaluate_all(
+    df_results: pd.DataFrame,
+    eval_save_path: str | Path,
+    df_results_holdout: pd.DataFrame = None,
+    elo_bootstrap_rounds: int = 100,
+):
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
     datasets_tabicl = list(load_task_metadata(subset="TabICL")["name"])
     task_metadata = load_task_metadata()
@@ -34,6 +39,14 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
     df_results["method"] = df_results["method"].map({
         "Portfolio-N200 (ensemble) (4h)": "TabArena ensemble (4h)"
     }).fillna(df_results["method"])
+
+    if df_results_holdout is not None:
+        eval_holdout_ablation(
+            df_results=df_results,
+            df_results_holdout=df_results_holdout,
+            eval_save_path=eval_save_path,
+            elo_bootstrap_rounds=elo_bootstrap_rounds
+        )
 
     use_tabpfn_lst = [False, True]
     use_tabicl_lst = [False, True]
@@ -129,3 +142,59 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
             plot_times=True,
             plot_other=False,
         )
+
+
+def eval_holdout_ablation(
+    df_results: pd.DataFrame,
+    df_results_holdout: pd.DataFrame,
+    eval_save_path: str | Path,
+    elo_bootstrap_rounds: int = 100,
+):
+    folder_name = Path("ablation") / "holdout"
+
+    df_results = df_results.copy(deep=True)
+    df_results_holdout = df_results_holdout.copy(deep=True)
+
+    df_results_holdout["method"] = df_results_holdout["method"].apply(rename_holdout)
+
+    config_types_results = df_results["config_type"].unique()
+
+    config_types_results_holdout = df_results_holdout["config_type"].unique()
+
+    config_types_shared = [c for c in config_types_results if c in config_types_results_holdout]
+
+    # filter to only config_types that are present in both results results_holdout
+    df_results = df_results[df_results["config_type"].isna() | df_results["config_type"].isin(config_types_shared)]
+    df_results_holdout = df_results_holdout[df_results_holdout["config_type"].isna() | df_results_holdout["config_type"].isin(config_types_shared)]
+    df_results = pd.concat([df_results, df_results_holdout], ignore_index=True)
+
+    # only these tune types will be part of the elo plot
+    plot_tune_types = ["tuned_ensembled", "holdout_tuned_ensembled"]
+
+    baselines = ["AutoGluon 1.3 (4h)"]
+    baseline_colors = ["black"]
+
+    plotter = TabArenaEvaluator(
+        output_dir=eval_save_path / folder_name,
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
+    )
+
+    plotter.eval(
+        df_results=df_results,
+        baselines=baselines,
+        baseline_colors=baseline_colors,
+        plot_extra_barplots=True,
+        plot_times=False,
+        plot_tune_types=plot_tune_types,
+        plot_other=False,
+    )
+
+
+def rename_holdout(name: str) -> str:
+    if "(default)" in name:
+        name = name.replace("(default)", "(holdout)")
+    elif "(tuned)" in name:
+        name = name.replace("(tuned)", "(tuned, holdout)")
+    elif "(tuned + ensemble)" in name:
+        name = name.replace("(tuned + ensemble)", "(tuned + ensemble, holdout)")
+    return name

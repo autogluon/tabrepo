@@ -109,6 +109,21 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             time_elapsed = te - ts
             print(f"Uploaded processed artifact of method {method} |\t ({i+1}/{n_methods} complete... |\tCompleted in {time_elapsed:.2f}s")
 
+    def _upload_processed_holdout_method(self, method: str):
+        metadata = self._method_metadata(method=method)
+        path_processed_holdout = metadata.path_processed_holdout
+
+        relative_to_root = metadata.relative_to_root(metadata.path)
+        s3_path = str(Path("cache") / "artifacts" / relative_to_root)
+
+        tmp_dir = Path("~/tabarena_tmp")
+        file_prefix = tmp_dir / metadata.artifact_name / metadata.method / "processed_holdout"
+        shutil.make_archive(file_prefix, 'zip', root_dir=path_processed_holdout)
+        file_name = f"{file_prefix}.zip"
+
+        self._upload_file(file_name=file_name, prefix=s3_path)
+        os.remove(file_name)
+
     def _upload_processed_method(self, method: str):
         metadata = self._method_metadata(method=method)
         path_processed = metadata.path_processed
@@ -129,11 +144,14 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         for method in methods:
             self._upload_results_method(method=method)
 
-    def _upload_results_method(self, method: str):
+    def _upload_results_method(self, method: str, holdout: bool = False):
         metadata = self._method_metadata(method=method)
-        path_results = metadata.path_results
+        if holdout:
+            path_results = metadata.path_results_holdout
+        else:
+            path_results = metadata.path_results
 
-        relative_to_root = metadata.relative_to_root(metadata.path_results)
+        relative_to_root = metadata.relative_to_root(path_results)
         s3_path = str(Path("cache") / "artifacts" / relative_to_root)
 
         if metadata.method_type == "portfolio":

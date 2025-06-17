@@ -12,7 +12,14 @@ if __name__ == '__main__':
 
     tabarena_context = TabArenaContext()
     df_results = tabarena_context.load_results_paper(download_results=download_results)
-    tabarena_context.evaluate_all(df_results=df_results, save_path=save_path, elo_bootstrap_rounds=elo_bootstrap_rounds)
+    df_results_holdout = tabarena_context.load_results_paper(download_results=download_results, holdout=True)
+
+    tabarena_context.evaluate_all(
+        df_results=df_results,
+        df_results_holdout=df_results_holdout,
+        save_path=save_path,
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
+    )
 
     zip_results = True
     upload_to_s3 = False

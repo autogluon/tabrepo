@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+import pandas as pd
+
 from tabrepo.loaders import Paths
 
 
@@ -18,6 +20,7 @@ class MethodMetadata:
         ag_key: str | None = None,
         config_default: str | None = None,
         compute: Literal["cpu", "gpu"] = "cpu",
+        is_bag: bool = False,
         has_raw: bool = False,
         has_processed: bool = False,
         has_results: bool = False,
@@ -30,6 +33,7 @@ class MethodMetadata:
         self.name_suffix = name_suffix
         self.config_default = config_default
         self.compute = compute
+        self.is_bag = is_bag
         self.has_raw = has_raw
         self.has_processed = has_processed
         self.has_results = has_results
@@ -55,23 +59,40 @@ class MethodMetadata:
         return self.path / "processed"
 
     @property
+    def path_processed_holdout(self) -> Path:
+        return self.path / "processed_holdout"
+
+    @property
     def path_results(self) -> Path:
         return self.path / "results"
 
     @property
-    def path_results_hpo(self) -> Path:
-        return self.path_results / "hpo_results.parquet"
+    def path_results_holdout(self) -> Path:
+        return self.path_results / "holdout"
 
-    @property
-    def path_results_model(self) -> Path:
-        return self.path_results / "model_results.parquet"
+    def path_results_hpo(self, holdout: bool = False) -> Path:
+        path_prefix = self.path_results_holdout if holdout else self.path_results
+        return path_prefix / "hpo_results.parquet"
 
-    @property
-    def path_results_portfolio(self) -> Path:
-        return self.path_results / "portfolio_results.parquet"
+    def path_results_model(self, holdout: bool = False) -> Path:
+        path_prefix = self.path_results_holdout if holdout else self.path_results
+        return path_prefix / "model_results.parquet"
+
+    def path_results_portfolio(self, holdout: bool = False) -> Path:
+        path_prefix = self.path_results_holdout if holdout else self.path_results
+        return path_prefix / "portfolio_results.parquet"
 
     def relative_to_root(self, path: Path) -> Path:
         return path.relative_to(self._path_root)
 
     def relative_to_method(self, path: Path) -> Path:
         return path.relative_to(self.path)
+
+    def load_model_results(self, holdout: bool = False) -> pd.DataFrame:
+        return pd.read_parquet(path=self.path_results_model(holdout=holdout))
+
+    def load_hpo_results(self, holdout: bool = False) -> pd.DataFrame:
+        return pd.read_parquet(path=self.path_results_hpo(holdout=holdout))
+
+    def load_portfolio_results(self, holdout: bool = False) -> pd.DataFrame:
+        return pd.read_parquet(path=self.path_results_portfolio(holdout=holdout))
