@@ -13,7 +13,7 @@ class MethodMetadata:
         artifact_name: str,
         *,
         date: str,
-        method_type: Literal["config", "baseline"] = "config",
+        method_type: Literal["config", "baseline", "portfolio"] = "config",
         name_suffix: str | None = None,
         ag_key: str | None = None,
         config_default: str | None = None,
@@ -65,6 +65,10 @@ class MethodMetadata:
     @property
     def path_results_model(self) -> Path:
         return self.path_results / "model_results.parquet"
+
+    @property
+    def path_results_portfolio(self) -> Path:
+        return self.path_results / "portfolio_results.parquet"
 
     def relative_to_root(self, path: Path) -> Path:
         return path.relative_to(self._path_root)

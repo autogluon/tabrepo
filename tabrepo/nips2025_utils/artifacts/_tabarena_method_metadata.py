@@ -162,3 +162,15 @@ ag_130_metadata = MethodMetadata(
 )
 
 tabarena_method_metadata_map[ag_130_metadata.method] = ag_130_metadata
+
+portfolio_metadata = MethodMetadata(
+    method="Portfolio-N200-4h",
+    artifact_name="tabarena-2025-06-12",
+    date="2025-06-12",
+    method_type="portfolio",
+    has_raw=False,
+    has_processed=False,
+    has_results=True,
+)
+
+tabarena_method_metadata_map[portfolio_metadata.method] = portfolio_metadata

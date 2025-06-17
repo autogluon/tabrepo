@@ -24,6 +24,8 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         self.upload_as_public = True
         self.method_metadata_map = tabarena_method_metadata_map
         self.methods = [
+            "AutoGluon_v130",
+            "Portfolio-N200-4h",
             "CatBoost",
             "Dummy",
             "ExplainableBM",
@@ -52,9 +54,10 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         return self.method_metadata_map[method]
 
     def upload_raw(self):
-        n_methods = len(self.methods)
+        methods = [method for method in self.methods if self._method_metadata(method).has_raw]
+        n_methods = len(methods)
 
-        for i, method in enumerate(self.methods):
+        for i, method in enumerate(methods):
             print(f"Starting raw artifact upload of method {method} ({i+1}/{n_methods})")
             ts = time.time()
             self._upload_raw_method(method=method)
@@ -95,9 +98,10 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         upload_file(file_name=file_name, bucket=self.bucket, prefix=prefix, **kwargs)
 
     def upload_processed(self):
-        n_methods = len(self.methods)
+        methods = [method for method in self.methods if self._method_metadata(method).has_processed]
+        n_methods = len(methods)
 
-        for i, method in enumerate(self.methods):
+        for i, method in enumerate(methods):
             print(f"Starting processed artifact upload of method {method}")
             ts = time.time()
             self._upload_processed_method(method=method)
@@ -121,7 +125,8 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         os.remove(file_name)
 
     def upload_results(self):
-        for method in self.methods:
+        methods = [method for method in self.methods if self._method_metadata(method).has_results]
+        for method in methods:
             self._upload_results_method(method=method)
 
     def _upload_results_method(self, method: str):
@@ -131,9 +136,14 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
         relative_to_root = metadata.relative_to_root(metadata.path_results)
         s3_path = str(Path("cache") / "artifacts" / relative_to_root)
 
-        file_names = [
-            "model_results.parquet"
-        ]
+        if metadata.method_type == "portfolio":
+            file_names = [
+                "portfolio_results.parquet"
+            ]
+        else:
+            file_names = [
+                "model_results.parquet"
+            ]
 
         if metadata.can_hpo:
             file_names.append("hpo_results.parquet")

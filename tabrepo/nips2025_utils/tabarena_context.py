@@ -22,7 +22,9 @@ class TabArenaContext:
         self.method_metadata_map: dict[str, MethodMetadata] = tabarena_method_metadata_map
         self.root_cache = Paths.artifacts_root_cache_tabarena
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
-        self.engine = "ray"
+        self.backend = "ray"
+        assert self.backend in ["ray", "native"]
+        self.engine = "ray" if self.backend == "ray" else "sequential"
 
     def _method_metadata(self, method: str) -> MethodMetadata:
         return self.method_metadata_map[method]
@@ -65,7 +67,7 @@ class TabArenaContext:
             repo_rf_mini = repo_rf.subset(configs=[config_fallback])
             repo = EvaluationRepositoryCollection(repos=[repo, repo_rf_mini])
         repo.set_config_fallback(config_fallback=config_fallback)
-        simulator = PaperRunTabArena(repo=repo)
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
         # FIXME: do this in simulator automatically
 
         if metadata.can_hpo:
@@ -97,7 +99,7 @@ class TabArenaContext:
             cur_repo = EvaluationRepository.from_dir(path=metadata.path_processed)
             repos.append(cur_repo)
         repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
-        simulator = PaperRunTabArena(repo=repo)
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
 
         df_results_n_portfolio = []
         n_portfolios = [200]
@@ -117,6 +119,10 @@ class TabArenaContext:
         metadata = self._method_metadata(method=method)
         return pd.read_parquet(path=metadata.path_results_model)
 
+    def load_portfolio_results(self, method: str) -> pd.DataFrame:
+        metadata = self._method_metadata(method=method)
+        return pd.read_parquet(path=metadata.path_results_portfolio)
+
     def load_results_paper(self, methods: list[str]) -> pd.DataFrame:
         assert methods is not None and len(methods) > 0
         df_metadata_lst = []
@@ -126,6 +132,8 @@ class TabArenaContext:
                 df_metadata = self.load_hpo_results(method=method)
             elif metadata.method_type == "baseline":
                 df_metadata = self.load_config_results(method=method)
+            elif metadata.method_type == "portfolio":
+                df_metadata = self.load_portfolio_results(method=method)
             else:
                 raise ValueError(f"Unknown method_type: {metadata.method_type} for method {method}")
             df_metadata_lst.append(df_metadata)
