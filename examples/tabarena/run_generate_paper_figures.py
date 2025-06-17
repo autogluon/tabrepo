@@ -17,7 +17,6 @@ if __name__ == '__main__':
     file_prefix = f"tabarena51_paper_results"
     file_name = f"{file_prefix}.zip"
 
-
     loader = TabArena51ArtifactLoader()
     if isinstance(download_results, bool) and download_results:
         loader.download_results()
