@@ -14,6 +14,8 @@ from tabrepo.loaders import Paths
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_map
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
+from tabrepo.nips2025_utils.artifacts.tabarena51_artifact_loader import TabArena51ArtifactLoader
+from tabrepo.nips2025_utils.eval_all import evaluate_all
 
 
 _methods_paper = [
@@ -152,7 +154,24 @@ class TabArenaContext:
         metadata = self._method_metadata(method=method)
         return pd.read_parquet(path=metadata.path_results_portfolio)
 
-    def load_results_paper(self, methods: list[str] | None = None) -> pd.DataFrame:
+    def load_results_paper(self, methods: list[str] | None = None, download_results: str | bool = False) -> pd.DataFrame:
+        if isinstance(download_results, bool) and download_results:
+            loader = TabArena51ArtifactLoader()
+            loader.download_results()
+        try:
+            df_results = self._load_results_paper(methods=methods)
+        except FileNotFoundError as err:
+            if isinstance(download_results, str) and download_results == "auto":
+                print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
+                loader = TabArena51ArtifactLoader()
+                loader.download_results()
+                df_results = self._load_results_paper(methods=methods)
+            else:
+                print(f"Missing local results files! Try setting `download_results=True` to get the required files.")
+                raise err
+        return df_results
+
+    def _load_results_paper(self, methods: list[str] | None = None) -> pd.DataFrame:
         if methods is None:
             methods = _methods_paper
         assert methods is not None and len(methods) > 0
@@ -170,6 +189,15 @@ class TabArenaContext:
             df_metadata_lst.append(df_metadata)
         df_metadata = pd.concat(df_metadata_lst, ignore_index=True)
         return df_metadata
+
+    @classmethod
+    def evaluate_all(
+        cls,
+        df_results: pd.DataFrame,
+        save_path: str | Path,
+        elo_bootstrap_rounds: int = 100,
+    ):
+        evaluate_all(df_results=df_results, eval_save_path=save_path, elo_bootstrap_rounds=elo_bootstrap_rounds)
 
     def find_missing(self, method: str):
         metadata = self._method_metadata(method=method)
