@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from itertools import product
 from pathlib import Path
 
 import pandas as pd
@@ -34,83 +35,97 @@ def evaluate_all(df_results: pd.DataFrame, eval_save_path: str | Path, elo_boots
         "Portfolio-N200 (ensemble) (4h)": "TabArena ensemble (4h)"
     }).fillna(df_results["method"])
 
+    use_tabpfn_lst = [False, True]
+    use_tabicl_lst = [False, True]
+    use_imputation_lst = [False, True]
+    problem_type_pst = [None, "cls", "reg"]
+    include_portfolio_lst = [False, True]
+    lite_lst = [False, True]
+
+    all_combinations = list(product(
+        use_tabpfn_lst,
+        use_tabicl_lst,
+        use_imputation_lst,
+        problem_type_pst,
+        include_portfolio_lst,
+        lite_lst,
+    ))
+    n_combinations = len(all_combinations)
+
     # TODO: Use ray to speed up?
     # plots for sub-benchmarks, with and without imputation
-    for use_tabpfn in [False, True]:
-        for use_tabicl in [False, True]:
-            for use_imputation in [False, True]:
-                for problem_type in [None, "cls", "reg"]:
-                    for include_portfolio in [False, True]:
-                        for lite in [False, True]:
-                            folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
-                                if use_tabicl else ("tabpfn" if use_tabpfn else "full")
-                            baselines = ["AutoGluon 1.3 (4h)"]
-                            baseline_colors = ["black"]
-                            if include_portfolio:
-                                baselines.append("TabArena ensemble (4h)")
-                                baseline_colors.append("tab:purple")
-                                folder_name = str(Path("portfolio") / folder_name)
-                            if lite:
-                                folder_name = str(Path("lite") / folder_name)
-                            else:
-                                folder_name = str(Path("all") / folder_name)
-                            if use_imputation:
-                                folder_name = folder_name + "-imputed"
-                            if problem_type is not None:
-                                folder_name = folder_name + f"-{problem_type}"
+    for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, lite) in enumerate(all_combinations):
+        print(f"Running figure generation {i+1}/{n_combinations}...")
 
-                            banned_model_types = set()
-                            imputed_models = []
-                            if not use_tabicl:
-                                banned_model_types.add(tabicl_type)
-                                imputed_models.append("TabICL")
-                            if not use_tabpfn:
-                                banned_model_types.add(tabpfn_type)
-                                imputed_models.append("TabPFNv2")
+        folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
+            if use_tabicl else ("tabpfn" if use_tabpfn else "full")
+        baselines = ["AutoGluon 1.3 (4h)"]
+        baseline_colors = ["black"]
+        if include_portfolio:
+            baselines.append("TabArena ensemble (4h)")
+            baseline_colors.append("tab:purple")
+            folder_name = str(Path("portfolio") / folder_name)
+        if lite:
+            folder_name = str(Path("lite") / folder_name)
+        else:
+            folder_name = str(Path("all") / folder_name)
+        if use_imputation:
+            folder_name = folder_name + "-imputed"
+        if problem_type is not None:
+            folder_name = folder_name + f"-{problem_type}"
 
-                            datasets = (
-                                list(set(datasets_tabpfn).intersection(datasets_tabicl)) if use_tabpfn else datasets_tabicl) \
-                                if use_tabicl else (datasets_tabpfn if use_tabpfn else None)
-                            if datasets is None:
-                                datasets = list(task_metadata["name"])
+        banned_model_types = set()
+        imputed_models = []
+        if not use_tabicl:
+            banned_model_types.add(tabicl_type)
+            imputed_models.append("TabICL")
+        if not use_tabpfn:
+            banned_model_types.add(tabpfn_type)
+            imputed_models.append("TabPFNv2")
 
-                            if problem_type is None:
-                                problem_types = None
-                            elif problem_type == "cls":
-                                problem_types = ["binary", "multiclass"]
-                            elif problem_type == "reg":
-                                problem_types = ["regression"]
-                            else:
-                                raise AssertionError(f"Invalid problem_type value: {problem_type}")
+        datasets = (
+            list(set(datasets_tabpfn).intersection(datasets_tabicl)) if use_tabpfn else datasets_tabicl) \
+            if use_tabicl else (datasets_tabpfn if use_tabpfn else None)
+        if datasets is None:
+            datasets = list(task_metadata["name"])
 
-                            if use_imputation:
-                                banned_model_types = set()
-                            if problem_type == "reg":
-                                banned_model_types.add(tabicl_type)
-                            banned_model_types = list(banned_model_types)
+        if problem_type is None:
+            problem_types = None
+        elif problem_type == "cls":
+            problem_types = ["binary", "multiclass"]
+        elif problem_type == "reg":
+            problem_types = ["regression"]
+        else:
+            raise AssertionError(f"Invalid problem_type value: {problem_type}")
 
-                            if problem_types:
-                                datasets = [d for d in datasets if task_metadata[task_metadata["name"] == d].iloc[0]["problem_type"] in problem_types]
+        if use_imputation:
+            banned_model_types = set()
+        if problem_type == "reg":
+            banned_model_types.add(tabicl_type)
+        banned_model_types = list(banned_model_types)
 
-                            if len(datasets) == 0:
-                                continue
+        if problem_types:
+            datasets = [d for d in datasets if task_metadata[task_metadata["name"] == d].iloc[0]["problem_type"] in problem_types]
 
-                            plotter = TabArenaEvaluator(
-                                output_dir=eval_save_path / folder_name,
-                                datasets=datasets,
-                                problem_types=problem_types,
-                                banned_model_types=banned_model_types,
-                                elo_bootstrap_rounds=elo_bootstrap_rounds,
-                                folds=[0] if lite else None,
-                            )
+        if len(datasets) == 0:
+            continue
 
-                            plotter.eval(
-                                df_results=df_results,
-                                baselines=baselines,
-                                baseline_colors=baseline_colors,
-                                imputed_names=imputed_models,
-                                only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
-                                plot_extra_barplots=True,
-                                plot_times=True,
-                                plot_other=False,
-                            )
+        plotter = TabArenaEvaluator(
+            output_dir=eval_save_path / folder_name,
+            datasets=datasets,
+            problem_types=problem_types,
+            banned_model_types=banned_model_types,
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+            folds=[0] if lite else None,
+        )
+
+        plotter.eval(
+            df_results=df_results,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+            imputed_names=imputed_models,
+            only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
+            plot_extra_barplots=True,
+            plot_times=True,
+            plot_other=False,
+        )
