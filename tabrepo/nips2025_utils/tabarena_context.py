@@ -16,6 +16,35 @@ from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_map
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 
 
+_methods_paper = [
+    "AutoGluon_v130",
+    "Portfolio-N200-4h",
+
+    "CatBoost",
+    # "Dummy",
+    "ExplainableBM",
+    "ExtraTrees",
+    "KNeighbors",
+    "LightGBM",
+    "LinearModel",
+    # "ModernNCA",
+    "NeuralNetFastAI",
+    "NeuralNetTorch",
+    "RandomForest",
+    # "RealMLP",
+    # "TabM",
+    "XGBoost",
+
+    # "Mitra_GPU",
+    "ModernNCA_GPU",
+    "RealMLP_GPU",
+    "TabDPT_GPU",
+    "TabICL_GPU",
+    "TabM_GPU",
+    "TabPFNv2_GPU",
+]
+
+
 class TabArenaContext:
     def __init__(self):
         self.name = "tabarena-2025-06-12"
@@ -123,7 +152,9 @@ class TabArenaContext:
         metadata = self._method_metadata(method=method)
         return pd.read_parquet(path=metadata.path_results_portfolio)
 
-    def load_results_paper(self, methods: list[str]) -> pd.DataFrame:
+    def load_results_paper(self, methods: list[str] | None = None) -> pd.DataFrame:
+        if methods is None:
+            methods = _methods_paper
         assert methods is not None and len(methods) > 0
         df_metadata_lst = []
         for method in methods:

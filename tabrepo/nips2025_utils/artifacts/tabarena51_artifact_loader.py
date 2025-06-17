@@ -101,7 +101,31 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
         self._download_method(method=method, data_type="processed")
 
     def download_results(self):
-        raise NotImplementedError
+        methods = [method for method in self.methods if self._method_metadata(method).has_results]
+        n_methods = len(methods)
+        for i, method in enumerate(methods):
+            print(f"Starting results artifact download of method {method} ({i + 1}/{n_methods})")
+            self._download_results_method(method=method)
+            print(
+                f"Downloaded processed artifact of method {method} ({i + 1}/{n_methods} complete)"
+            )
+
+    # TODO: Add the download logic to the method metadata and call that instead
+    def _download_results_method(self, method: str):
+        metadata = self._method_metadata(method=method)
+        url_prefix = f"{self.url_prefix}/{self.prefix}/{self.artifact_name}/methods/{method}"
+        if metadata.can_hpo:
+            path_hpo = metadata.path_results_hpo
+            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_hpo)}"
+            _download_file(url=url_prefix_full, local_path=path_hpo)
+        if metadata.method_type == "portfolio":
+            path_portfolio = metadata.path_results_portfolio
+            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_portfolio)}"
+            _download_file(url=url_prefix_full, local_path=path_portfolio)
+        else:
+            path_model = metadata.path_results_model
+            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_model)}"
+            _download_file(url=url_prefix_full, local_path=path_model)
 
     def _download_method(self, method: str, data_type: str):
         url_prefix = f"{self.url_prefix}/{self.prefix}/{self.artifact_name}/methods"
@@ -114,6 +138,9 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
 
 
 def _download_and_extract_zip(url: str, local_dir: str | Path):
+    local_dir = Path(local_dir)
+    local_dir.mkdir(parents=True, exist_ok=True)
+
     print(f"Beginning download of '{url}', extracting into '{local_dir}'...")
 
     # Send a GET request to the URL
@@ -124,3 +151,16 @@ def _download_and_extract_zip(url: str, local_dir: str | Path):
     with ZipFile(BytesIO(response.content)) as zip_file:
         zip_file.extractall(local_dir)  # Extract to the specified directory
         print(f"Extraction complete: '{url}' -> '{local_dir}'")
+
+
+def _download_file(url: str, local_path: str | Path):
+    local_path = Path(local_path)
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+
+    response = requests.get(url, stream=True)
+    response.raise_for_status()  # Check for HTTP request errors
+
+    with open(local_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:  # Filter out keep-alive chunks
+                f.write(chunk)

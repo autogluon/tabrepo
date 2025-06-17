@@ -72,3 +72,6 @@ class MethodMetadata:
 
     def relative_to_root(self, path: Path) -> Path:
         return path.relative_to(self._path_root)
+
+    def relative_to_method(self, path: Path) -> Path:
+        return path.relative_to(self.path)
