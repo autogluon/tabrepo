@@ -107,7 +107,7 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
             print(f"Starting results artifact download of method {method} ({i + 1}/{n_methods})")
             self._download_results_method(method=method, holdout=holdout)
             print(
-                f"Downloaded processed artifact of method {method} ({i + 1}/{n_methods} complete)"
+                f"\tDownloaded results artifact of method {method} ({i + 1}/{n_methods} complete)"
             )
 
     # TODO: Add the download logic to the method metadata and call that instead
@@ -116,7 +116,7 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
         if holdout and not metadata.is_bag:
             return
         url_prefix = f"{self.url_prefix}/{self.prefix}/{self.artifact_name}/methods/{method}"
-        if metadata.can_hpo:
+        if metadata.method_type == "config":
             path_hpo = metadata.path_results_hpo(holdout=holdout)
             url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_hpo)}"
             _download_file(url=url_prefix_full, local_path=path_hpo)
