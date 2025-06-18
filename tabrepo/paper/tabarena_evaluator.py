@@ -190,6 +190,9 @@ class TabArenaEvaluator:
         df_results = df_results.copy(deep=True)
         if "seed" not in df_results:
             df_results["seed"] = 0
+        if "imputed" not in df_results:
+            df_results["imputed"] = False
+        df_results["imputed"] = df_results["imputed"].fillna(False).astype(bool)
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
         df_results = df_results.drop_duplicates(subset=[
             "dataset", "fold", self.method_col, "seed"
@@ -362,6 +365,7 @@ class TabArenaEvaluator:
                 "time_infer_s_per_1K",
                 "normalized-error",
                 "normalized-error-task",
+                "imputed",
             ],
             groupby_columns=[
                 "metric",
