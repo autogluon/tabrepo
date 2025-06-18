@@ -55,6 +55,7 @@ class TabArenaEvaluator:
         elo_bootstrap_rounds: int = 100,
         keep_best: bool = False,
         figure_file_type: str = "pdf",
+        use_latex: bool = False,
     ):
         """
 
@@ -88,6 +89,17 @@ class TabArenaEvaluator:
         self.elo_bootstrap_rounds = elo_bootstrap_rounds
         self.banned_model_types = banned_model_types
         self.keep_best = keep_best
+
+        self.use_latex = use_latex
+        if self.use_latex:
+            matplotlib.rcParams.update(bundles.neurips2024())
+            matplotlib.rcParams.update(fonts.neurips2024_tex())
+            self.rc_context_params = {
+                                    'font.family': 'serif',
+                                    "text.usetex": True,
+                                } | fontsizes.neurips2024(default_smaller=0)
+        else:
+            self.rc_context_params = {}
 
     def compute_normalized_error_dynamic(self, df_results: pd.DataFrame) -> pd.DataFrame:
         df_results = df_results.copy(deep=True)
@@ -723,7 +735,6 @@ class TabArenaEvaluator:
         lim = None
         xlim = None
         ylim = None
-        use_latex = False
 
         if imputed_names is None:
             imputed_names = []
@@ -826,19 +837,9 @@ class TabArenaEvaluator:
         #     'text.latex.preamble': r'\usepackage{times} \usepackage{amsmath} \usepackage{amsfonts} \usepackage{amssymb} \usepackage{xcolor}'
         # }):
 
-        if use_latex:
-            matplotlib.rcParams.update(bundles.neurips2024())
-            matplotlib.rcParams.update(fonts.neurips2024_tex())
-            rc_context_params = {
-                'font.family': 'serif',
-                "text.usetex": True,
-            } | fontsizes.neurips2024(default_smaller=0)
-        else:
-            rc_context_params = {}
-
         with sns.axes_style("whitegrid"):
             # with plt.rc_context({'font.family': 'serif', "text.usetex": True, 'font.size': 12, 'axes.labelsize': 12, 'xtick.labelsize': 12}):
-            with plt.rc_context(rc_context_params
+            with plt.rc_context(self.rc_context_params
                                 # | figsizes.neurips2024(height_to_width_ratio=0.8)
                                 ):
             # with plt.rc_context(fontsizes.neurips2024() | fonts.neurips2024()):

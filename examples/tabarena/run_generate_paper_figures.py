@@ -9,6 +9,7 @@ if __name__ == '__main__':
     download_results: bool | str = "auto"  # results must be downloaded for the script to work
     elo_bootstrap_rounds = 100  # 1 for toy, 100 for paper
     save_path = "output_paper_results"  # folder to save all figures and tables
+    use_latex: bool = False  # Set to True if you have the appropriate latex packages installed for nicer figure style
 
     tabarena_context = TabArenaContext()
     df_results = tabarena_context.load_results_paper(download_results=download_results)
@@ -30,6 +31,7 @@ if __name__ == '__main__':
         configs_hyperparameters=configs_hyperparameters,
         save_path=save_path,
         elo_bootstrap_rounds=elo_bootstrap_rounds,
+        use_latex=use_latex,
     )
 
     zip_results = True
