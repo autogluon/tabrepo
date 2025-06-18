@@ -1482,4 +1482,5 @@ class TabArenaEvaluator:
             expname_outdir=self.output_dir,
             method_col=self.method_col,
             family_col="config_type",
+            show=False
         )
