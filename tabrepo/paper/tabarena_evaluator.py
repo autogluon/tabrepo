@@ -518,39 +518,49 @@ class TabArenaEvaluator:
         df_long = df_ensemble_weights.melt(var_name="Model", value_name="Weight")
         model_order = list(df_ensemble_weights.columns)
 
-        start_color = mcolors.to_rgb('tab:green')  # Color for vanilla MLP
-        end_color = mcolors.to_rgb('tab:blue')  # Color for final MLP
-        palette = [mcolors.to_hex(c) for c in np.linspace(start_color, end_color, len(model_order))]
-        alphas = np.linspace(0.5, 0.6, len(model_order))[::-1]
-        # palette = sns.color_palette("light:b", n_colors=len(model_order))[::-1]
+        pastel_palette = sns.color_palette("pastel")
+        deep_palette = sns.color_palette("deep")
 
+        # Define gradient from pastel and deep separately
+        pastel_start = mcolors.to_rgb(pastel_palette[2])
+        pastel_end = mcolors.to_rgb(pastel_palette[0])
+        deep_start = mcolors.to_rgb(deep_palette[2])
+        deep_end = mcolors.to_rgb(deep_palette[0])
+
+        # Create pastel gradient for bars
+        bar_colors = [mcolors.to_hex(c) for c in np.linspace(pastel_start, pastel_end, len(model_order))]
+
+        # Create deep gradient for error bars
+        error_colors = [mcolors.to_hex(c) for c in np.linspace(deep_start, deep_end, len(model_order))]
+
+        # Alphas for bars
+        alphas = np.linspace(1.0, 1.0, len(model_order))[::-1]  # Keep at 1.0 for now
+
+        # Create barplot
         barplot = sns.barplot(
             data=df_long,
-            x="Weight",  # This is now the horizontal axis
-            y="Model",  # Categories on the vertical axis
+            x="Weight",
+            y="Model",
             hue="Model",
             legend=False,
             ax=ax,
-            order=model_order,  # Optional: control order
-            # palettes: 'coolwarm',
-            palette=palette,
-            err_kws={'color': 'silver'},
+            order=model_order,
+            palette=bar_colors,
         )
 
-        # Set alpha only for bar face colors, not error bars
+        # Apply alpha to bar colors
         for patch, alpha in zip(barplot.patches, alphas):
-            r, g, b = patch.get_facecolor()[:3]  # Ignore original alpha
-            patch.set_facecolor((r, g, b, alpha))  # Set new alpha
+            r, g, b = patch.get_facecolor()[:3]
+            patch.set_facecolor((r, g, b, alpha))
 
-        # TODO: Make horizontal?
-        # TODO: Drop TabPFN / TabICL columns if you want
-        # TODO: Better formatting / nicer style?
-        # TODO: Title, xaxis, yaxis names, figsize
-        # barplot = sns.barplot(
-        #     data=df_ensemble_weights,
-        #     ax=ax,
-        #     order=list(df_ensemble_weights.columns),
-        # )
+        # Update error bar colors manually
+        for i, line in enumerate(ax.lines):
+            # Seaborn/matplotlib adds error bar lines in a certain order.
+            # Each bar usually has 2 lines: one vertical bar and one cap on top.
+            # Here, we assume two lines per error bar, so divide i by 2.
+            color_index = i // 2
+            if color_index < len(error_colors):
+                line.set_color(error_colors[color_index])
 
         barplot.set_xlabel("Average weight in TabArena ensemble")
         barplot.set_ylabel("")
