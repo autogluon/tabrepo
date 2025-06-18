@@ -21,7 +21,7 @@ from autogluon.common.savers import save_pd
 from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
-from tabrepo.paper.paper_utils import get_framework_type_method_names
+from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map
 from tabrepo.plot.plot_ens_weights import create_heatmap
 
 matplotlib.rcParams.update(fontsizes.neurips2024())
@@ -514,6 +514,11 @@ class TabArenaEvaluator:
         fig, ax = plt.subplots(1, 1,
                                figsize=(3.5, 3)
                                )
+
+        df_ensemble_weights = df_ensemble_weights.copy(deep=True)
+        _method_rename_map = get_method_rename_map()  # FIXME: Avoid hardcoding
+        columns_new = [_method_rename_map.get(c, c) for c in df_ensemble_weights.columns]
+        df_ensemble_weights.columns = columns_new
 
         df_long = df_ensemble_weights.melt(var_name="Model", value_name="Weight")
         model_order = list(df_ensemble_weights.columns)

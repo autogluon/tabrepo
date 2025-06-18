@@ -31,6 +31,28 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
     return rank_scorer, normalized_scorer
 
 
+# FIXME: Make this non-hardcoded
+def get_method_rename_map() -> dict:
+    return {
+        'KNN': 'KNN',
+        'LR': 'Linear',
+        'RF': 'RandomForest',
+        'XT': 'ExtraTrees',
+        'EBM': 'EBM',
+        'XGB': 'XGBoost',
+        'GBM': 'LightGBM',
+        'CAT': 'CatBoost',
+        'FASTAI': 'FastaiMLP',
+        'NN_TORCH': 'TorchMLP',
+        'MNCA_GPU': 'ModernNCA',
+        'TABM_GPU': 'TabM',
+        'REALMLP_GPU': 'RealMLP',
+        'TABDPT_GPU': 'TabDPT',
+        'TABICL_GPU': 'TabICL',
+        'TABPFNV2_GPU': 'TabPFNv2',
+    }
+
+
 def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[int, str]] = None, include_default: bool = True, include_best: bool = True, include_holdout: bool = True):
     """
 
@@ -54,24 +76,7 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
     f_map = dict()
     f_map_type = dict()
     f_map_inverse = dict()
-    f_map_type_name = {
-        'KNN': 'KNN',
-        'LR': 'Linear',
-        'RF': 'RandomForest',
-        'XT': 'ExtraTrees',
-        'EBM': 'EBM',
-        'XGB': 'XGBoost',
-        'GBM': 'LightGBM',
-        'CAT': 'CatBoost',
-        'FASTAI': 'FastaiMLP',
-        'NN_TORCH': 'TorchMLP',
-        'MNCA_GPU': 'ModernNCA',
-        'TABM_GPU': 'TabM',
-        'REALMLP_GPU': 'RealMLP',
-        'TABDPT_GPU': 'TabDPT',
-        'TABICL_GPU': 'TabICL',
-        'TABPFNV2_GPU': 'TabPFNv2',
-    }
+    f_map_type_name = get_method_rename_map()
     for framework_type in framework_types:
         f_map_cur = dict()
         for max_runtime, suffix in max_runtimes:
