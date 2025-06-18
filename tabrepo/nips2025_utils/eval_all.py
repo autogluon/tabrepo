@@ -27,7 +27,10 @@ def evaluate_all(
     df_results_configs: pd.DataFrame = None,
     configs_hyperparameters: dict[str, dict] = None,
     elo_bootstrap_rounds: int = 100,
+    use_latex: bool = False,
 ):
+    evaluator_kwargs = {"use_latex": use_latex}
+
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
     datasets_tabicl = list(load_task_metadata(subset="TabICL")["name"])
     task_metadata = load_task_metadata()
@@ -51,6 +54,7 @@ def evaluate_all(
         df_results_configs_only_valid = df_results_configs[df_results_configs["config_type"].isin(config_types_valid)]
         plotter_runtime = TabArenaEvaluator(
             output_dir=eval_save_path / "ablation" / "all-runtimes",
+            **evaluator_kwargs,
         )
         plotter_runtime.generate_runtime_plot(df_results=df_results_configs_only_valid)
 
@@ -59,6 +63,7 @@ def evaluate_all(
         plotter_ensemble_weights = TabArenaEvaluator(
             output_dir=eval_save_path / Path("ablation") / "ensemble_weights",
             config_types=config_types,
+            **evaluator_kwargs,
         )
         # plotter_ensemble_weights.plot_portfolio_ensemble_weights_barplot(df_ensemble_weights=df_ensemble_weights)
         df_ensemble_weights = plotter_ensemble_weights.get_ensemble_weights(
@@ -75,6 +80,7 @@ def evaluate_all(
             df_results_holdout=df_results_holdout,
             eval_save_path=eval_save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
+            evaluator_kwargs=evaluator_kwargs,
         )
 
     if df_results_cpu is not None:
@@ -84,6 +90,7 @@ def evaluate_all(
             df_results_configs=df_results_configs,
             eval_save_path=eval_save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
+            evaluator_kwargs=evaluator_kwargs,
         )
 
     get_per_dataset_tables(
@@ -173,6 +180,7 @@ def evaluate_all(
             banned_model_types=banned_model_types,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             folds=[0] if lite else None,
+            **evaluator_kwargs,
         )
 
         plotter.eval(
@@ -192,7 +200,10 @@ def eval_holdout_ablation(
     df_results_holdout: pd.DataFrame,
     eval_save_path: str | Path,
     elo_bootstrap_rounds: int = 100,
+    evaluator_kwargs: dict = None,
 ):
+    if evaluator_kwargs is None:
+        evaluator_kwargs = {}
     folder_name = Path("ablation") / "holdout"
 
     df_results = df_results.copy(deep=True)
@@ -220,6 +231,7 @@ def eval_holdout_ablation(
     plotter = TabArenaEvaluator(
         output_dir=eval_save_path / folder_name,
         elo_bootstrap_rounds=elo_bootstrap_rounds,
+        **evaluator_kwargs,
     )
 
     plotter.eval(
@@ -249,7 +261,10 @@ def eval_cpu_vs_gpu_ablation(
     eval_save_path: str | Path,
     df_results_configs: pd.DataFrame = None,
     elo_bootstrap_rounds: int = 100,
+    evaluator_kwargs: dict = None,
 ):
+    if evaluator_kwargs is None:
+        evaluator_kwargs = {}
     df_results_cpu_gpu = pd.concat([df_results, df_results_cpu], ignore_index=True)
 
     tabicl_type = "TABICL_GPU"
@@ -266,6 +281,7 @@ def eval_cpu_vs_gpu_ablation(
         output_dir=eval_save_path / folder_name,
         elo_bootstrap_rounds=elo_bootstrap_rounds,
         banned_model_types=banned_model_types,
+        **evaluator_kwargs,
     )
 
     plotter.eval(
@@ -283,6 +299,7 @@ def eval_cpu_vs_gpu_ablation(
             output_dir=eval_save_path / folder_name,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             banned_model_types=banned_model_types,
+            **evaluator_kwargs,
         )
 
         df_results_configs_only_cpu_gpu = df_results_configs[df_results_configs["config_type"].isin([
