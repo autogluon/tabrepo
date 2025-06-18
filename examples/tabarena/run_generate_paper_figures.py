@@ -14,11 +14,19 @@ if __name__ == '__main__':
     df_results = tabarena_context.load_results_paper(download_results=download_results)
     df_results_holdout = tabarena_context.load_results_paper(download_results=download_results, holdout=True)
 
+    cpu_methods = [
+        "ModernNCA",
+        "RealMLP",
+        "TabM",
+    ]
+    df_results_cpu = tabarena_context.load_results_paper(methods=cpu_methods, download_results=download_results)
+
     configs_hyperparameters = tabarena_context.load_configs_hyperparameters(download=download_results)
 
     tabarena_context.evaluate_all(
         df_results=df_results,
         df_results_holdout=df_results_holdout,
+        df_results_cpu=df_results_cpu,
         configs_hyperparameters=configs_hyperparameters,
         save_path=save_path,
         elo_bootstrap_rounds=elo_bootstrap_rounds,

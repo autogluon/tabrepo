@@ -28,6 +28,13 @@ gpu_kwargs = dict(
 # If a method is not in this list, it will be public when uploaded.
 methods_upload_as_private = []
 
+
+# If the method should not be tuned/tuned+enesmbled in the simulator, for example, due to having only 1 config
+methods_no_hpo = [
+    "TabICL_GPU",
+    "TabDPT_GPU",
+]
+
 # If the method was fit with bagging (8-fold)
 # If not present in this list, the model could instead have been refit on the full data, ex: TabPFNv2
 methods_is_bag = [
@@ -172,12 +179,17 @@ for method in methods:
         method_kwargs = cpu_kwargs
     else:
         method_kwargs = gpu_kwargs
+    if method in methods_no_hpo:
+        can_hpo = False
+    else:
+        can_hpo = True
 
     method_metadata = MethodMetadata(
         method=method,
         config_default=config_default,
         ag_key=ag_key,
         is_bag=is_bag,
+        can_hpo=can_hpo,
         upload_as_public=upload_as_public,
         **method_kwargs,
     )

@@ -160,6 +160,7 @@ class TabArenaEvaluator:
         plot_times: bool = False,
         plot_extra_barplots: bool = False,
         plot_cdd: bool = True,
+        plot_runtimes: bool = False,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
     ):
@@ -445,6 +446,9 @@ class TabArenaEvaluator:
                 save_path=f"{self.output_dir}/figures/critical-diagram.{self.figure_file_type}",
                 show=False,
             )
+
+        if plot_runtimes:
+            self.generate_runtime_plot(df_results=df_results_rank_compare)
 
         if plot_other:
             try:
@@ -1201,7 +1205,7 @@ class TabArenaEvaluator:
         # add device name
         framework_types = df["framework_type"].unique()
         device_map = {
-            ft: f'{ft} ' + r'(GPU)' if ft in gpu_methods else f'{ft} (CPU)' for ft in framework_types
+            ft: f'{ft} ' + r'(GPU)' if ft in gpu_methods else f'{ft} (CPU)' if not ft.endswith("(CPU)") else ft for ft in framework_types
         }
         df["framework_type"] = df["framework_type"].map(device_map).fillna(df["framework_type"])
 
@@ -1471,7 +1475,7 @@ class TabArenaEvaluator:
             ]
         )
 
-        df_results_configs[self.method_col] = df_results_configs["config_type"].map(f_map_type_name)
+        df_results_configs["config_type"] = df_results_configs["config_type"].map(f_map_type_name)
 
         plot_train_time_deep_dive(
             df=df_results_configs,

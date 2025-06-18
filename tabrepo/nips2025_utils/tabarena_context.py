@@ -130,8 +130,8 @@ class TabArenaContext:
         simulator = PaperRunTabArena(repo=repo, backend=self.backend)
         # FIXME: do this in simulator automatically
 
-        if metadata.can_hpo:
-            hpo_results = simulator.run_minimal_paper(model_types=model_types)
+        if metadata.method_type == "config":
+            hpo_results = simulator.run_minimal_paper(model_types=model_types, tune=metadata.can_hpo)
             hpo_results["ta_name"] = metadata.method
             hpo_results["ta_suite"] = metadata.artifact_name
             hpo_results = hpo_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
@@ -265,18 +265,26 @@ class TabArenaContext:
         configs_hyperparameters = merge_dicts_no_duplicates(configs_hyperparameters_lst)
         return configs_hyperparameters
 
-    @classmethod
     def evaluate_all(
-        cls,
+        self,
         df_results: pd.DataFrame,
         save_path: str | Path,
         df_results_holdout: pd.DataFrame = None,
+        df_results_cpu: pd.DataFrame = None,
         configs_hyperparameters: dict[str, dict] = None,
         elo_bootstrap_rounds: int = 100,
     ):
+        df_results_configs_lst = []
+        for k, v in self.method_metadata_map.items():
+            if v.method_type == "config":
+                df_results_configs_lst.append(self.load_config_results(k))
+        df_results_configs = pd.concat(df_results_configs_lst, ignore_index=True)
+
         evaluate_all(
             df_results=df_results,
             df_results_holdout=df_results_holdout,
+            df_results_cpu=df_results_cpu,
+            df_results_configs=df_results_configs,
             configs_hyperparameters=configs_hyperparameters,
             eval_save_path=save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,

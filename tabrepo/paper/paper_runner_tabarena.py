@@ -138,7 +138,7 @@ class PaperRunTabArena(PaperRun):
         df_results_configs = pd.concat(df_results_configs_lst, ignore_index=True)
         return df_results_configs
 
-    def run_minimal_paper(self, model_types: list[str] | None = None) -> pd.DataFrame:
+    def run_minimal_paper(self, model_types: list[str] | None = None, tune: bool = True) -> pd.DataFrame:
         """
         Run logic that isn't impacted by other methods or other datasets
 
@@ -151,7 +151,7 @@ class PaperRunTabArena(PaperRun):
         else:
             df_results_configs_default = None
 
-        if model_types is not None:
+        if model_types is not None and tune:
             df_results_hpo_all = self.run_hpo_by_family(
                 include_uncapped=True,
                 include_4h=False,

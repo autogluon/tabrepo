@@ -22,6 +22,7 @@ class MethodMetadata:
         name_suffix: str | None = None,
         ag_key: str | None = None,
         config_default: str | None = None,
+        can_hpo: bool | None = None,
         compute: Literal["cpu", "gpu"] = "cpu",
         is_bag: bool = False,
         has_raw: bool = False,
@@ -42,10 +43,9 @@ class MethodMetadata:
         self.has_processed = has_processed
         self.has_results = has_results
         self.upload_as_public = upload_as_public
-
-    @property
-    def can_hpo(self) -> bool:
-        return self.method_type == "config"
+        if can_hpo is None:
+            can_hpo = self.method_type == "config"
+        self.can_hpo = can_hpo
 
     @property
     def has_configs_hyperparameters(self) -> bool:

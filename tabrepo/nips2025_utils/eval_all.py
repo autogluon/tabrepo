@@ -22,6 +22,8 @@ def evaluate_all(
     df_results: pd.DataFrame,
     eval_save_path: str | Path,
     df_results_holdout: pd.DataFrame = None,
+    df_results_cpu: pd.DataFrame = None,
+    df_results_configs: pd.DataFrame = None,
     configs_hyperparameters: dict[str, dict] = None,
     elo_bootstrap_rounds: int = 100,
 ):
@@ -43,6 +45,14 @@ def evaluate_all(
         "Portfolio-N200 (ensemble) (4h)": portfolio_name
     }).fillna(df_results["method"])
 
+    if df_results_configs is not None:
+        config_types_valid = df_results["config_type"].unique()
+        df_results_configs_only_valid = df_results_configs[df_results_configs["config_type"].isin(config_types_valid)]
+        plotter_runtime = TabArenaEvaluator(
+            output_dir=eval_save_path / "ablation" / "all-runtimes",
+        )
+        plotter_runtime.generate_runtime_plot(df_results=df_results_configs_only_valid)
+
     if configs_hyperparameters is not None:
         config_types = {k: v["model_type"] for k, v in configs_hyperparameters.items()}
         plotter_ensemble_weights = TabArenaEvaluator(
@@ -63,7 +73,16 @@ def evaluate_all(
             df_results=df_results,
             df_results_holdout=df_results_holdout,
             eval_save_path=eval_save_path,
-            elo_bootstrap_rounds=elo_bootstrap_rounds
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+        )
+
+    if df_results_cpu is not None:
+        eval_cpu_vs_gpu_ablation(
+            df_results=df_results,
+            df_results_cpu=df_results_cpu,
+            df_results_configs=df_results_configs,
+            eval_save_path=eval_save_path,
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
         )
 
     use_tabpfn_lst = [False, True]
@@ -216,3 +235,57 @@ def rename_holdout(name: str) -> str:
     elif "(tuned + ensemble)" in name:
         name = name.replace("(tuned + ensemble)", "(tuned + ensemble, holdout)")
     return name
+
+
+def eval_cpu_vs_gpu_ablation(
+    df_results: pd.DataFrame,
+    df_results_cpu: pd.DataFrame,
+    eval_save_path: str | Path,
+    df_results_configs: pd.DataFrame = None,
+    elo_bootstrap_rounds: int = 100,
+):
+    df_results_cpu_gpu = pd.concat([df_results, df_results_cpu], ignore_index=True)
+
+    tabicl_type = "TABICL_GPU"
+    tabpfn_type = "TABPFNV2_GPU"
+
+    folder_name = Path("ablation") / "cpu_vs_gpu"
+
+    banned_model_types = [tabpfn_type, tabicl_type]
+
+    baselines = ["AutoGluon 1.3 (4h)"]
+    baseline_colors = ["black"]
+
+    plotter = TabArenaEvaluator(
+        output_dir=eval_save_path / folder_name,
+        elo_bootstrap_rounds=elo_bootstrap_rounds,
+        banned_model_types=banned_model_types,
+    )
+
+    plotter.eval(
+        df_results=df_results_cpu_gpu,
+        baselines=baselines,
+        baseline_colors=baseline_colors,
+        plot_extra_barplots=True,
+        plot_times=True,
+        plot_other=False,
+        only_datasets_for_method={},
+    )
+
+    if df_results_configs is not None:
+        plotter = TabArenaEvaluator(
+            output_dir=eval_save_path / folder_name,
+            elo_bootstrap_rounds=elo_bootstrap_rounds,
+            banned_model_types=banned_model_types,
+        )
+
+        df_results_configs_only_cpu_gpu = df_results_configs[df_results_configs["config_type"].isin([
+            "REALMLP",
+            "REALMLP_GPU",
+            "TABM",
+            "TABM_GPU",
+            "MNCA",
+            "MNCA_GPU",
+        ])]
+
+        plotter.generate_runtime_plot(df_results=df_results_configs_only_cpu_gpu)

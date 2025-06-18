@@ -50,6 +50,10 @@ def get_method_rename_map() -> dict:
         'TABDPT_GPU': 'TabDPT',
         'TABICL_GPU': 'TabICL',
         'TABPFNV2_GPU': 'TabPFNv2',
+
+        'MNCA': 'ModernNCA (CPU)',
+        'TABM': 'TabM (CPU)',
+        'REALMLP': 'RealMLP (CPU)',
     }
 
 

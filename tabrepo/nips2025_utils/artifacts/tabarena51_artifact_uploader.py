@@ -169,7 +169,7 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
                 "model_results.parquet"
             ]
 
-        if metadata.can_hpo:
+        if metadata.method_type == "config":
             file_names.append("hpo_results.parquet")
 
         for file_name in file_names:
