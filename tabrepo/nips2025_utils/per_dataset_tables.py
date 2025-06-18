@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
@@ -125,7 +126,7 @@ def get_significance(best_results, curr_model_results, method="wilcoxon", alpha=
 
     return p_value
 
-def get_per_dataset_tables(df_results, save_path='.'):
+def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
 
 
     # df_results["method"] = df_results["method"].map({
@@ -327,7 +328,7 @@ def get_per_dataset_tables(df_results, save_path='.'):
 
 
 
-    output_file = save_path+"/per_dataset_tables.tex"
+    output_file = str(save_path / "per_dataset_tables.tex")
     per_col    = 2                  # 2 columns per row
     per_page   = 6                  # 3 rows × 2 columns = 6 subtables per figure
     sub_width  = 0.48               # width for each subtable (2 across)
@@ -337,6 +338,8 @@ def get_per_dataset_tables(df_results, save_path='.'):
     metrics_used = {key.replace("_", r"\_"): "AUC" if value=="roc_auc" else ("logloss" if value=="log_loss" else "rmse") for key, value in metrics_used.items()}
 
     items = list(datasets_dict.items())
+
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_file, "w") as f:
         for page_start in range(0, len(items), per_page):

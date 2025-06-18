@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
+from tabrepo.nips2025_utils.per_dataset_tables import get_per_dataset_tables
 from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
 
 
@@ -84,6 +85,11 @@ def evaluate_all(
             eval_save_path=eval_save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
         )
+
+    get_per_dataset_tables(
+        df_results=df_results,
+        save_path=eval_save_path / "per_dataset"
+    )
 
     use_tabpfn_lst = [False, True]
     use_tabicl_lst = [False, True]
