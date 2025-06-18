@@ -1199,7 +1199,7 @@ class TabArenaEvaluator:
         df = df[df['framework_type'].isin(framework_types)]
         df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
 
-        gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2', "ModernNCA", "TabM", "RealMLP"]
+        gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2', "ModernNCA", "TabM"]
 
         if only_datasets_for_method is not None:
             for method, datasets in only_datasets_for_method.items():
@@ -1215,6 +1215,18 @@ class TabArenaEvaluator:
         device_map = {
             ft: f'{ft} ' + r'(GPU)' if ft in gpu_methods else f'{ft} (CPU)' if not ft.endswith("(CPU)") else ft for ft in framework_types
         }
+        device_map = {}
+        for ft in framework_types:
+            if ft in gpu_methods:
+                ft_new = f'{ft} (GPU)'
+            elif ft.endswith("(CPU)"):
+                ft_new = ft
+            elif ft.endswith("(GPU)"):
+                ft_new = ft
+            else:
+                ft_new = f'{ft} (CPU)'
+            device_map[ft] = ft_new
+
         df["framework_type"] = df["framework_type"].map(device_map).fillna(df["framework_type"])
 
         # take mean times

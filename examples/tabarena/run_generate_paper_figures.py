@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     cpu_methods = [
         "ModernNCA",
-        "RealMLP",
+        "RealMLP_GPU",  # GPU method, since RealMLP uses CPU
         "TabM",
     ]
     df_results_cpu = tabarena_context.load_results_paper(methods=cpu_methods, download_results=download_results)
