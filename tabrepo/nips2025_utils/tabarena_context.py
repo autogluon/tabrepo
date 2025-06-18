@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from autogluon.common.savers import save_pd
@@ -274,10 +275,19 @@ class TabArenaContext:
         configs_hyperparameters: dict[str, dict] = None,
         elo_bootstrap_rounds: int = 100,
     ):
+
+        ta_names = list(df_results["ta_name"].unique())
+        if df_results_cpu is not None:
+            ta_names_cpu = list(df_results_cpu["ta_name"].unique())
+            ta_names += ta_names_cpu
+            ta_names = list(set(ta_names))
+        ta_names = [c for c in ta_names if c != np.nan]
+
         df_results_configs_lst = []
-        for k, v in self.method_metadata_map.items():
-            if v.method_type == "config":
-                df_results_configs_lst.append(self.load_config_results(k))
+        for method_key in ta_names:
+            metadata = self.method_metadata_map[method_key]
+            if metadata.method_type == "config":
+                df_results_configs_lst.append(self.load_config_results(method_key))
         df_results_configs = pd.concat(df_results_configs_lst, ignore_index=True)
 
         evaluate_all(
