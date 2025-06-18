@@ -508,6 +508,9 @@ class TabArenaEvaluator:
             BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
         )
 
+    def get_method_rename_map(self) -> dict[str, str]:
+        return get_method_rename_map()  # FIXME: Avoid hardcoding
+
     def plot_portfolio_ensemble_weights_barplot(self, df_ensemble_weights: pd.DataFrame):
         import seaborn as sns
         import matplotlib.pyplot as plt
@@ -520,7 +523,7 @@ class TabArenaEvaluator:
                                )
 
         df_ensemble_weights = df_ensemble_weights.copy(deep=True)
-        _method_rename_map = get_method_rename_map()  # FIXME: Avoid hardcoding
+        _method_rename_map = self.get_method_rename_map()
         columns_new = [_method_rename_map.get(c, c) for c in df_ensemble_weights.columns]
         df_ensemble_weights.columns = columns_new
 
@@ -1467,15 +1470,8 @@ class TabArenaEvaluator:
         framework_types = self._get_config_types(df_results=df_results_configs)
         df_results_configs = df_results_configs[df_results_configs["config_type"].isin(framework_types)]
 
-        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
-            framework_types=framework_types,
-            max_runtimes=[
-                (3600 * 4, "_4h"),
-                (None, None),
-            ]
-        )
-
-        df_results_configs["config_type"] = df_results_configs["config_type"].map(f_map_type_name)
+        method_rename_map = self.get_method_rename_map()
+        df_results_configs["config_type"] = df_results_configs["config_type"].map(method_rename_map)
 
         plot_train_time_deep_dive(
             df=df_results_configs,
