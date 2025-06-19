@@ -7,7 +7,7 @@ from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 
 if __name__ == '__main__':
     download_results: bool | str = "auto"  # results must be downloaded for the script to work
-    elo_bootstrap_rounds = 3  # 1 for toy, 100 for paper
+    elo_bootstrap_rounds = 100  # 1 for toy, 100 for paper
     save_path = "output_paper_results"  # folder to save all figures and tables
     use_latex: bool = True  # Set to True if you have the appropriate latex packages installed for nicer figure style
 
