@@ -201,7 +201,7 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     plot_train_time_deep_dive(df, expname_outdir=expname_outdir)
 
 
-def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_method: bool = True, method_col: str = "framework", family_col: str = "method"):
+def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_method: bool = True, method_col: str = "framework", family_col: str = "method", show: bool = True):
     df = df.copy(deep=True)
     title_size = 20
     if only_per_method:
@@ -390,7 +390,8 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_me
     fig_save_path.parent.mkdir(exist_ok=True, parents=True)
 
     plt.savefig(fig_save_path)
-    plt.show()
+    if show:
+        plt.show()
 
 
 if __name__ == "__main__":
