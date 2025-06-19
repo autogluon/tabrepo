@@ -101,8 +101,9 @@ def evaluate_all(
     use_tabpfn_lst = [False, True]
     use_tabicl_lst = [False, True]
     use_imputation_lst = [False, True]
-    problem_type_pst = [None, "cls", "reg"]
+    problem_type_pst = [None, "cls", "reg", "binary", "multiclass"]
     include_portfolio_lst = [False, True]
+    with_baselines_lst = [False, True]
     lite_lst = [False, True]
 
     all_combinations = list(product(
@@ -111,14 +112,22 @@ def evaluate_all(
         use_imputation_lst,
         problem_type_pst,
         include_portfolio_lst,
+        with_baselines_lst,
         lite_lst,
     ))
     n_combinations = len(all_combinations)
 
     # TODO: Use ray to speed up?
     # plots for sub-benchmarks, with and without imputation
-    for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, lite) in enumerate(all_combinations):
+    for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite) in enumerate(all_combinations):
         print(f"Running figure generation {i+1}/{n_combinations}...")
+
+        # combinations to skip
+        if problem_type in ["binary", "multiclass"] and (use_tabpfn or use_tabicl or include_portfolio or lite):
+            continue
+
+        if not with_baselines and (include_portfolio or lite or use_tabpfn or use_tabicl):
+            continue
 
         folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
             if use_tabicl else ("tabpfn" if use_tabpfn else "full")
@@ -134,6 +143,10 @@ def evaluate_all(
             folder_name = str(Path("all") / folder_name)
         if use_imputation:
             folder_name = folder_name + "-imputed"
+        if not with_baselines:
+            baselines = []
+            baseline_colors = []
+            folder_name = folder_name + "-nobaselines"
         if problem_type is not None:
             folder_name = folder_name + f"-{problem_type}"
 
@@ -158,6 +171,10 @@ def evaluate_all(
             problem_types = ["binary", "multiclass"]
         elif problem_type == "reg":
             problem_types = ["regression"]
+        elif problem_type == "binary":
+            problem_types = ["binary"]
+        elif problem_type == "multiclass":
+            problem_types = ["multiclass"]
         else:
             raise AssertionError(f"Invalid problem_type value: {problem_type}")
 
@@ -189,7 +206,8 @@ def evaluate_all(
             baseline_colors=baseline_colors,
             imputed_names=imputed_models,
             only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
-            plot_extra_barplots=True,
+            plot_extra_barplots=False,
+            include_norm_score=not include_portfolio,
             plot_times=True,
             plot_other=False,
         )

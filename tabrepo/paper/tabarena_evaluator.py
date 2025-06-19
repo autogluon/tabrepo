@@ -408,6 +408,7 @@ class TabArenaEvaluator:
         with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
             print(leaderboard)
 
+        # horizontal elo barplot
         self.plot_tuning_impact(
             df=df_results_rank_compare,
             df_elo=leaderboard,
@@ -423,20 +424,20 @@ class TabArenaEvaluator:
             show=False
         )
 
-        if plot_extra_barplots:
-            self.plot_tuning_impact(
-                df=df_results_rank_compare,
-                df_elo=leaderboard,
-                framework_types=framework_types,
-                save_prefix=f"{self.output_dir}",
-                use_gmean=use_gmean,
-                baselines=baselines,
-                baseline_colors=baseline_colors,
-                name_suffix="-elo",
-                imputed_names=imputed_names,
-                plot_tune_types=plot_tune_types,
-                show=False
-            )
+        # vertical elo barplot
+        self.plot_tuning_impact(
+            df=df_results_rank_compare,
+            df_elo=leaderboard,
+            framework_types=framework_types,
+            save_prefix=f"{self.output_dir}",
+            use_gmean=use_gmean,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+            name_suffix="-elo",
+            imputed_names=imputed_names,
+            plot_tune_types=plot_tune_types,
+            show=False
+        )
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare)
 
@@ -1000,14 +1001,30 @@ class TabArenaEvaluator:
                     boxplot.set(xlabel=None, ylabel='Elo' if metric=='elo' else 'Normalized score')  # remove method in the x-axis
                 # boxplot.set_title("Effect of tuning and ensembling")
 
-                # FIXME: (Nick) HACK, otherwise it isn't in the plot, don't know why
-                if use_elo:
-                    if baseline_means and "Portfolio-N200 (ensemble) (4h)" in baselines:
-                        max_baseline_mean = max([v for k, v in baseline_means.items()])
-                        if ylim is not None:
-                            ylim[1] = max_baseline_mean + 50
-                        if xlim is not None:
-                            xlim[1] = max_baseline_mean + 50
+                # # FIXME: (Nick) HACK, otherwise it isn't in the plot, don't know why
+                # if use_elo:
+                #     if baseline_means and "Portfolio-N200 (ensemble) (4h)" in baselines:
+                #         max_baseline_mean = max([v for k, v in baseline_means.items()])
+                #         if ylim is not None:
+                #             ylim[1] = max_baseline_mean + 50
+                #         if xlim is not None:
+                #             xlim[1] = max_baseline_mean + 50
+
+                # do this before setting x/y limits
+                for baseline_idx, (baseline, color) in enumerate(zip(baselines, baseline_colors)):
+                    baseline_mean = baseline_means[baseline]
+                    # baseline_func(baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
+                    baseline_func(baseline_mean, color=color, linewidth=2.0, ls="--", zorder=-10)
+
+                    if baseline == 'Portfolio-N200 (ensemble) (4h)':
+                        baseline = 'TabArena ensemble (4h)'
+
+                    if use_y:
+                        ax.text(y=(1 - 0.035 * (1 + 2*(len(baselines) - 1 - baseline_idx))) * ax.get_ylim()[0],
+                                x=baseline_mean * 0.985, s=baseline, ha='right', color=color)
+                    else:
+                        ax.text(x=0.5, y=baseline_mean * 0.97, s=baseline, va='top', color=color)
+
 
                 if ylim is not None:
                     ax.set_ylim(ylim)
@@ -1054,21 +1071,14 @@ class TabArenaEvaluator:
                 has_imputed = False
 
                 for i, bar in enumerate(boxplot.patches):
-                    # Get x-position and convert to category label
-                    # todo: this only works for vertical barplots
+                    # Get position and convert to category label
                     pos = bar.get_y() + bar.get_height() / 2 if use_y else bar.get_x() + bar.get_width() / 2
                     category_index = round(pos)  # x-ticks are usually 0, 1, 2, ...
                     category = label_lookup.get(category_index)
 
-                    # print(f'{category=}')
-
-                    # if category in ['TabPFNv2', 'TabICL', 'TabDPT']:
-                    # if category in ['TABPFNV2', 'TABICL', 'TABDPT']:
                     if category in imputed_names:
                         has_imputed = True
                         bar.set_hatch('xx')
-                        # bar.set_facecolor('lightgray')
-                        # bar.set_edgecolor('black')
 
                 if not use_y:
                     # ----- alternate rows of x tick labels -----
@@ -1087,21 +1097,6 @@ class TabArenaEvaluator:
                     plt.ylim(len(boxplot.get_yticklabels()) - 0.35, -0.65)
                 else:
                     plt.xlim(-0.5, len(boxplot.get_xticklabels()) - 0.5)
-
-
-                for baseline_idx, (baseline, color) in enumerate(zip(baselines, baseline_colors)):
-                    baseline_mean = baseline_means[baseline]
-                    # baseline_func(baseline_mean, label=baseline, color=color, linewidth=2.0, ls="--")
-                    baseline_func(baseline_mean, color=color, linewidth=2.0, ls="--", zorder=-10)
-
-                    if baseline == 'Portfolio-N200 (ensemble) (4h)':
-                        baseline = 'TabArena ensemble (4h)'
-
-                    if use_y:
-                        ax.text(y=(1 - 0.035 * (1 + 2*(len(baselines) - 1 - baseline_idx))) * ax.get_ylim()[0],
-                                x=baseline_mean * 0.985, s=baseline, ha='right', color=darken_color(color))
-                    else:
-                        ax.text(x=0.5, y=baseline_mean * 0.97, s=baseline, va='top', color=darken_color(color))
 
 
                 # ax.legend(loc="upper center", ncol=5)
