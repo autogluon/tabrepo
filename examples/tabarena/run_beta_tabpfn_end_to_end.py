@@ -17,6 +17,8 @@ if __name__ == '__main__':
     """
     Run logic end-to-end and cache all results:
     1. load raw artifacts
+        path_raw should be a directory containing `results.pkl` files for each run.
+        In the current code, we require `path_raw` to contain the results of only 1 type of method.
     2. infer method_metadata
     3. cache method_metadata
     4. cache raw artifacts
