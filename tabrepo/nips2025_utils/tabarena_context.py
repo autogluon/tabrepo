@@ -367,3 +367,55 @@ class TabArenaContext:
         # save_pd.save(path="missing_runs.csv", df=df_missing)
 
         return df_missing
+
+    @classmethod
+    def fillna_metrics(cls, df_metrics: pd.DataFrame, df_fillna: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fills missing (dataset, fold, framework) rows in df_metrics with the (dataset, fold) row in df_fillna.
+
+        Parameters
+        ----------
+        df_metrics
+        df_fillna
+
+        Returns
+        -------
+
+        """
+
+        method_col = "method"
+        split_col = "fold"
+        dataset_col = "dataset"
+
+        df_metrics = df_metrics.set_index([dataset_col, split_col, method_col], drop=True)
+        df_fillna = df_fillna.set_index([dataset_col, split_col], drop=True).drop(columns=[method_col])
+
+        unique_frameworks = list(df_metrics.index.unique(level=method_col))
+
+        df_filled = df_fillna.index.to_frame().merge(
+            pd.Series(data=unique_frameworks, name=method_col),
+            how="cross",
+        )
+        df_filled = df_filled.set_index(keys=list(df_filled.columns))
+
+        # missing results
+        nan_vals = df_filled.index.difference(df_metrics.index)
+
+        # fill valid values
+        fill_cols = list(df_metrics.columns)
+        df_filled[fill_cols] = np.nan
+        df_filled[fill_cols] = df_filled[fill_cols].astype(df_metrics.dtypes)
+        df_filled.loc[df_metrics.index] = df_metrics
+
+        a = df_fillna.loc[nan_vals.droplevel(level=method_col)]
+        a.index = nan_vals
+        df_filled.loc[nan_vals] = a
+
+        df_filled["imputed"] = False
+        df_filled.loc[nan_vals, "imputed"] = True
+
+        df_metrics = df_filled
+
+        df_metrics = df_metrics.reset_index(drop=False)
+
+        return df_metrics
