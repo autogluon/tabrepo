@@ -164,6 +164,10 @@ class ZeroshotSimulatorContext:
         # assert that each dataset contains only one problem type
         dataset_problem_types = cls._compute_dataset_problem_types(df_configs=df_configs, df_baselines=df_baselines)
 
+        if df_metadata is not None:
+            if "dataset" not in df_metadata and "name" in df_metadata:
+                df_metadata = df_metadata.copy(deep=True)
+                df_metadata["dataset"] = df_metadata["name"]
         cls._validate_df_metadata(df_metadata=df_metadata)
 
         df_configs, df_baselines, dataset_tid = cls._align_tid(

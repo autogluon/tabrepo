@@ -63,7 +63,7 @@ class TabArenaContext:
     def _method_metadata(self, method: str) -> MethodMetadata:
         return self.method_metadata_map[method]
 
-    def generate_repo(self, method: str) -> str:
+    def generate_repo(self, method: str) -> Path:
         metadata = self._method_metadata(method=method)
 
         path_raw = metadata.path_raw
@@ -71,7 +71,7 @@ class TabArenaContext:
 
         name_suffix = metadata.name_suffix
 
-        file_paths_method = fetch_all_pickles(dir_path=path_raw)
+        file_paths_method = fetch_all_pickles(dir_path=path_raw, suffix="results.pkl")
         repo: EvaluationRepository = generate_repo_from_paths(
             result_paths=file_paths_method,
             task_metadata=self.task_metadata,
@@ -82,7 +82,7 @@ class TabArenaContext:
         repo.to_dir(path_processed)
         return path_processed
 
-    def generate_repo_holdout(self, method: str) -> str:
+    def generate_repo_holdout(self, method: str) -> Path:
         metadata = self._method_metadata(method=method)
 
         path_raw = metadata.path_raw
@@ -90,7 +90,7 @@ class TabArenaContext:
 
         name_suffix = metadata.name_suffix
 
-        file_paths_method = fetch_all_pickles(dir_path=path_raw)
+        file_paths_method = fetch_all_pickles(dir_path=path_raw, suffix="results.pkl")
         repo: EvaluationRepository = generate_repo_from_paths(
             result_paths=file_paths_method,
             task_metadata=self.task_metadata,
@@ -102,32 +102,46 @@ class TabArenaContext:
         repo.to_dir(path_processed)
         return path_processed
 
-    def simulate_repo(self, method: str, holdout: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
-        metadata = self._method_metadata(method=method)
-        if holdout:
-            path_processed = metadata.path_processed_holdout
+    def simulate_repo(
+        self,
+        method: str | MethodMetadata,
+        repo: EvaluationRepository | None = None,
+        holdout: bool = False,
+        use_rf_config_fallback: bool = True,
+        cache: bool = True,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        if isinstance(method, MethodMetadata):
+            metadata = method
+            method = metadata.method
         else:
-            path_processed = metadata.path_processed
-
-        metadata_rf = self._method_metadata(method="RandomForest")
-        if holdout:
-            config_fallback = "RandomForest_r1_BAG_L1_HOLDOUT"  # FIXME: Avoid hardcoding
-            path_processed_rf = metadata_rf.path_processed_holdout
-        else:
-            config_fallback = metadata_rf.config_default
-            path_processed_rf = metadata_rf.path_processed
+            metadata = self._method_metadata(method=method)
 
         save_file = str(metadata.path_results_hpo(holdout=holdout))
         save_file_model = str(metadata.path_results_model(holdout=holdout))
-        repo = EvaluationRepository.from_dir(path=path_processed)
+        if repo is None:
+            if holdout:
+                path_processed = metadata.path_processed_holdout
+            else:
+                path_processed = metadata.path_processed
+            repo = EvaluationRepository.from_dir(path=path_processed)
 
         model_types = repo.config_types()
-        # FIXME: Try to avoid this being expensive
-        if config_fallback not in repo.configs():
-            repo_rf = EvaluationRepository.from_dir(path=path_processed_rf)
-            repo_rf_mini = repo_rf.subset(configs=[config_fallback])
-            repo = EvaluationRepositoryCollection(repos=[repo, repo_rf_mini])
-        repo.set_config_fallback(config_fallback=config_fallback)
+
+        if use_rf_config_fallback:
+            metadata_rf = self._method_metadata(method="RandomForest")
+            if holdout:
+                config_fallback = "RandomForest_r1_BAG_L1_HOLDOUT"  # FIXME: Avoid hardcoding
+                path_processed_rf = metadata_rf.path_processed_holdout
+            else:
+                config_fallback = metadata_rf.config_default
+                path_processed_rf = metadata_rf.path_processed
+
+            # FIXME: Try to avoid this being expensive
+            if config_fallback not in repo.configs():
+                repo_rf = EvaluationRepository.from_dir(path=path_processed_rf)
+                repo_rf_mini = repo_rf.subset(configs=[config_fallback])
+                repo = EvaluationRepositoryCollection(repos=[repo, repo_rf_mini])
+            repo.set_config_fallback(config_fallback=config_fallback)
         simulator = PaperRunTabArena(repo=repo, backend=self.backend)
         # FIXME: do this in simulator automatically
 
@@ -136,7 +150,8 @@ class TabArenaContext:
             hpo_results["ta_name"] = metadata.method
             hpo_results["ta_suite"] = metadata.artifact_name
             hpo_results = hpo_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
-            save_pd.save(path=save_file, df=hpo_results)
+            if cache:
+                save_pd.save(path=save_file, df=hpo_results)
         else:
             hpo_results = None
 
@@ -149,7 +164,8 @@ class TabArenaContext:
         model_results["ta_name"] = metadata.method
         model_results["ta_suite"] = metadata.artifact_name
         model_results = model_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
-        save_pd.save(path=save_file_model, df=model_results)
+        if cache:
+            save_pd.save(path=save_file_model, df=model_results)
 
         return hpo_results, model_results
 

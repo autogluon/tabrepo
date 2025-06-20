@@ -4,20 +4,26 @@ import json
 from pathlib import Path
 import requests
 from typing import Literal
+from typing_extensions import Self
 
 from autogluon.common.utils.s3_utils import s3_path_to_bucket_prefix
 import pandas as pd
+import yaml
 
 from tabrepo.loaders import Paths
+from tabrepo.utils.pickle_utils import fetch_all_pickles
+from tabrepo.repository.evaluation_repository import EvaluationRepository
+from tabrepo.nips2025_utils.generate_repo import generate_repo_from_results_lst
+from tabrepo.nips2025_utils.load_artifacts import load_all_artifacts
 
 
 class MethodMetadata:
     def __init__(
         self,
         method: str,
-        artifact_name: str,
         *,
-        date: str,
+        artifact_name: str = None,
+        date: str | None = None,
         method_type: Literal["config", "baseline", "portfolio"] = "config",
         name_suffix: str | None = None,
         ag_key: str | None = None,
@@ -31,6 +37,8 @@ class MethodMetadata:
         upload_as_public: bool = False,
     ):
         self.method = method
+        if artifact_name is None:
+            artifact_name = method
         self.artifact_name = artifact_name
         self.date = date
         self.method_type = method_type
@@ -46,6 +54,11 @@ class MethodMetadata:
         if can_hpo is None:
             can_hpo = self.method_type == "config"
         self.can_hpo = can_hpo
+
+        assert isinstance(self.method, str) and len(self.method) > 0
+        assert isinstance(self.artifact_name, str) and len(self.artifact_name) > 0
+        assert self.method_type in ["config", "baseline", "portfolio"]
+        assert self.compute in ["cpu", "gpu"]
 
     @property
     def has_configs_hyperparameters(self) -> bool:
@@ -164,3 +177,50 @@ class MethodMetadata:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:  # Filter out keep-alive chunks
                     f.write(chunk)
+
+    def load_raw(
+        self,
+        path_raw: str | Path = None,
+        engine: str = "ray",
+        as_holdout: bool = False,
+    ) -> list:
+        if path_raw is None:
+            path_raw = self.path_raw
+        file_paths_method = fetch_all_pickles(dir_path=path_raw, suffix="results.pkl")
+        results_lst = load_all_artifacts(file_paths=file_paths_method, engine=engine, convert_to_holdout=as_holdout)
+        return results_lst
+
+    def generate_repo(
+        self,
+        results_lst: list = None,
+        task_metadata: pd.DataFrame = None,
+        cache: bool = False,
+        engine: str = "ray",
+    ) -> EvaluationRepository:
+        if results_lst is None:
+            results_lst = self.load_raw(engine=engine)
+        path_processed = self.path_processed
+        name_suffix = self.name_suffix
+
+        repo: EvaluationRepository = generate_repo_from_results_lst(
+            results_lst=results_lst,
+            task_metadata=task_metadata,
+            name_suffix=name_suffix,
+        )
+
+        if cache:
+            repo.to_dir(path_processed)
+        return repo
+
+    def to_yaml(self, path: Path | str):
+        assert path.endswith(".yaml")
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as outfile:
+            yaml.dump(self.__dict__, outfile, default_flow_style=False)
+
+    @classmethod
+    def from_yaml(cls, path: Path | str) -> Self:
+        assert path.endswith(".yaml")
+        with open(path, 'r') as file:
+            kwargs = yaml.safe_load(file)
+        return cls(**kwargs)

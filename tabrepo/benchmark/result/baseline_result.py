@@ -35,7 +35,7 @@ class BaselineResult(AbstractResult):
 
     @property
     def dataset(self) -> str:
-        return self.result["task_metadata"]["name"]
+        return self.task_metadata["name"]
 
     @property
     def problem_type(self) -> str:
@@ -43,15 +43,19 @@ class BaselineResult(AbstractResult):
 
     @property
     def split_idx(self) -> int:
-        return self.result["task_metadata"]["split_idx"]
+        return self.task_metadata["split_idx"]
 
     @property
     def repeat(self) -> int:
-        return self.result["task_metadata"]["repeat"]
+        return self.task_metadata["repeat"]
 
     @property
     def fold(self) -> int:
-        return self.result["task_metadata"]["fold"]
+        return self.task_metadata["fold"]
+
+    @property
+    def task_metadata(self) -> dict:
+        return self.result["task_metadata"]
 
     def _align_result_input_format(self) -> dict:
         """
