@@ -3,8 +3,7 @@ from __future__ import annotations
 from setuptools import find_packages, setup
 
 requirements = [
-    "autogluon.features>=1.3",
-    "autogluon.core[all]>=1.3",
+    "autogluon>=1.3",  # TODO: Remove after moving `benchmark` code elsewhere
     "openml>=0.14.1",  # consider making optional
     "pyyaml",
     "pytest",
@@ -13,9 +12,6 @@ requirements = [
 ]
 
 extras_require = {
-    "autogluon": [
-        "autogluon>=1.3",
-    ],
     "tabpfn": [
         "tabpfn>=2.0.9",  # We used version 2.0.9
         "kditransform",
@@ -47,7 +43,6 @@ extras_require = {
 
 benchmark_requires = []
 for extra_package in [
-    "autogluon",
     "tabpfn",
     "tabicl",
     "ebm",
