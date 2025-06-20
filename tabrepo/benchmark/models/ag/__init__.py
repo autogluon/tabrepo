@@ -8,6 +8,7 @@ from tabrepo.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
 from tabrepo.benchmark.models.ag.tabm.tabm_model import TabMModel
 from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_client_model import TabPFNV2ClientModel
 from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
+from tabrepo.benchmark.models.ag.perpetual.perpetual_model import PerpetualBoostingModel
 
 __all__ = [
     "ExplainableBoostingMachineModel",
@@ -18,4 +19,5 @@ __all__ = [
     "TabMModel",
     "TabPFNV2ClientModel",
     "TabPFNV2Model",
+    "PerpetualBoostingModel",
 ]
