@@ -64,7 +64,7 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
         if bagging:
             bagged_custom_model.fit(X=x_train, y=y_train, k_fold=8, save_space=True) # Perform 8-fold bagging
         else:
-            custom_model.fit(X=x_train, y=y_train)
+            custom_model.fit(X=x_train, y=y_train, time_limit=5)
     except ValueError:
         return
     
@@ -174,10 +174,10 @@ if __name__ == "__main__":
 
     #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  
 
-    dataset_name, target_dataset, start, end = test_reg, "tabrepo10fold", 0, 1
+    dataset_name, target_dataset, start, end = tabrepo, "tabrepo10fold", 0, 66
 
     for did in dataset_name[start:end]:
 
-        for fold in range(1):
+        for fold in range(10):
 
-            run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="regression")  
+            run_bagging(task_id=did, fold=fold, bagging=False, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  

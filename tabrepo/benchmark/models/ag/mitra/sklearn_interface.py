@@ -36,7 +36,6 @@ WARMUP_STEPS = 1000 # [500, 750, 1000, 1250, 1500]
 
 # Constants
 SEED = 0
-DEFAULT_BUDGET = 3600
 DEFAULT_MODEL_TYPE = "Tab2D"
 DEFAULT_DEVICE = "cuda"
 DEFAULT_ENSEMBLE = 1
@@ -54,7 +53,6 @@ class MitraBase(BaseEstimator):
             n_estimators=DEFAULT_ENSEMBLE, 
             device=DEFAULT_DEVICE, 
             epoch=DEFAULT_EPOCH, 
-            budget=DEFAULT_BUDGET, 
             metric=DEFAULT_CLS_METRIC,
             state_dict=None,
             patience=PATIENCE,
@@ -87,7 +85,6 @@ class MitraBase(BaseEstimator):
         self.n_estimators = n_estimators
         self.device = device
         self.epoch = epoch
-        self.budget = budget
         self.metric = metric
         self.state_dict = state_dict
         self.patience = patience
@@ -104,7 +101,7 @@ class MitraBase(BaseEstimator):
         self.seed = seed
 
 
-    def _create_config(self, task, dim_output):
+    def _create_config(self, task, dim_output, time_limit=None):
         cfg = ConfigRun(
             device=self.device,
             model_name=ModelName.TAB2D,
@@ -138,7 +135,7 @@ class MitraBase(BaseEstimator):
                 'use_feature_count_scaling': False,
                 'use_pretrained_weights': False,
                 'use_quantile_transformer': False,
-                'budget': self.budget,
+                'budget': time_limit,
                 'metric': self.metric,
             },
         )
@@ -166,10 +163,10 @@ class MitraBase(BaseEstimator):
             train_indices = [i for i in range(len(X)) if i not in val_indices]
             return X[train_indices], X[val_indices], y[train_indices], y[val_indices]
     
-    def _train_ensemble(self, X_train, y_train, X_valid, y_valid, task, dim_output, n_classes=0):
+    def _train_ensemble(self, X_train, y_train, X_valid, y_valid, task, dim_output, n_classes=0, time_limit=None):
         """Train the ensemble of models."""
 
-        cfg, Tab2D = self._create_config(task, dim_output)
+        cfg, Tab2D = self._create_config(task, dim_output, time_limit)
 
         success = False
         while not success:
@@ -224,7 +221,6 @@ class MitraClassifier(MitraBase, ClassifierMixin):
             n_estimators=DEFAULT_ENSEMBLE, 
             device=DEFAULT_DEVICE, 
             epoch=DEFAULT_EPOCH, 
-            budget=DEFAULT_BUDGET, 
             metric=DEFAULT_CLS_METRIC,
             state_dict='/fsx/xiyuanz/mix5_multi_cat.pt',
             patience=PATIENCE,
@@ -243,7 +239,6 @@ class MitraClassifier(MitraBase, ClassifierMixin):
             n_estimators, 
             device, 
             epoch,
-            budget,
             metric, 
             state_dict,
             patience=patience,
@@ -258,7 +253,7 @@ class MitraClassifier(MitraBase, ClassifierMixin):
         )
         self.task = 'classification'
     
-    def fit(self, X, y, X_val = None, y_val = None):
+    def fit(self, X, y, X_val = None, y_val = None, time_limit = None):
         """
         Fit the ensemble of models.
         
@@ -291,7 +286,7 @@ class MitraClassifier(MitraBase, ClassifierMixin):
         else:
             X_train, X_valid, y_train, y_valid = self._split_data(X, y)
 
-        return self._train_ensemble(X_train, y_train, X_valid, y_valid, self.task, DEFAULT_CLASSES, n_classes=DEFAULT_CLASSES)
+        return self._train_ensemble(X_train, y_train, X_valid, y_valid, self.task, DEFAULT_CLASSES, n_classes=DEFAULT_CLASSES, time_limit=time_limit)
 
     def predict(self, X):
         """
@@ -346,7 +341,6 @@ class MitraRegressor(MitraBase, RegressorMixin):
             n_estimators=DEFAULT_ENSEMBLE, 
             device=DEFAULT_DEVICE, 
             epoch=DEFAULT_EPOCH, 
-            budget=DEFAULT_BUDGET, 
             metric=DEFAULT_REG_METRIC,
             state_dict='/fsx/xiyuanz/mix5_reg.pt',
             patience=PATIENCE,
@@ -365,7 +359,6 @@ class MitraRegressor(MitraBase, RegressorMixin):
             n_estimators, 
             device, 
             epoch,
-            budget,
             metric, 
             state_dict,
             patience=patience,
@@ -380,7 +373,7 @@ class MitraRegressor(MitraBase, RegressorMixin):
         )
         self.task = 'regression'
 
-    def fit(self, X, y, X_val = None, y_val = None):
+    def fit(self, X, y, X_val = None, y_val = None, time_limit = None):
         """
         Fit the ensemble of models.
         
@@ -413,7 +406,7 @@ class MitraRegressor(MitraBase, RegressorMixin):
         else:
             X_train, X_valid, y_train, y_valid = self._split_data(X, y)
 
-        return self._train_ensemble(X_train, y_train, X_valid, y_valid, self.task, 1)
+        return self._train_ensemble(X_train, y_train, X_valid, y_valid, self.task, 1, time_limit=time_limit)
 
     def predict(self, X):
         """

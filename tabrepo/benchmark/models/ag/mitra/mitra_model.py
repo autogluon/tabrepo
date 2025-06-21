@@ -30,6 +30,7 @@ class MitraModel(AbstractModel):
         y: pd.Series,
         X_val: pd.DataFrame = None,
         y_val: pd.Series = None,
+        time_limit: float = None,
         num_cpus: int = 1,
         **kwargs,
     ):
@@ -58,6 +59,7 @@ class MitraModel(AbstractModel):
             y=y,
             X_val=X_val,
             y_val=y_val,
+            time_limit=time_limit,
         )
 
     def _set_default_params(self):

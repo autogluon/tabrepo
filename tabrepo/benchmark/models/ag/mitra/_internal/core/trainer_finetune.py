@@ -164,7 +164,7 @@ class TrainerFinetune(BaseEstimator):
                 logger.info("Early stopping")
                 break
 
-            if self.cfg.hyperparams["budget"] > 0 and time.time() - start_time > self.cfg.hyperparams["budget"]:
+            if self.cfg.hyperparams["budget"] is not None and self.cfg.hyperparams["budget"] > 0 and time.time() - start_time > self.cfg.hyperparams["budget"]:
                 logger.info("Time limit reached")
                 break
 
