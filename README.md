@@ -4,8 +4,7 @@
 <div id="user-content-toc">
   <ul align="center" style="list-style: none;">
     <summary>
-      <img src="https://avatars.githubusercontent.com/u/210855230?s=200&v=4" width="100" alt="TabArena Logo"/>
-      <h1>TabArena</h1>
+      <img src="https://avatars.githubusercontent.com/u/210855230" width="250" alt="TabArena Logo"/>
     </summary>
   </ul>
 </div>
