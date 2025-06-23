@@ -5,6 +5,11 @@ import einx
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from safetensors.torch import save_file
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
+import os
+import json
 
 # Try to import flash attention, but make it optional
 try:
@@ -186,6 +191,47 @@ class Tab2D(BaseModel):
         # default PyTorch initialization for everything else
 
 
+    def save_pretrained(self, save_directory: str):
+        os.makedirs(save_directory, exist_ok=True)
+
+        save_file(self.state_dict(), os.path.join(save_directory, "model.safetensors"))
+
+        config = {
+            "dim": self.dim,
+            "dim_output": self.dim_output,
+            "n_layers": self.n_layers,
+            "n_heads": self.n_heads,
+            "task": str(self.task).upper(),
+        }
+        with open(os.path.join(save_directory, "config.json"), "w") as f:
+            json.dump(config, f)
+
+            
+    @classmethod
+    def from_pretrained(cls, path_or_repo_id: str, device: str = "cuda") -> "Tab2D":
+
+        config_path = hf_hub_download(repo_id=path_or_repo_id, filename="config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        model = cls(
+            dim=config["dim"],
+            dim_output=config["dim_output"],
+            n_layers=config["n_layers"],
+            n_heads=config["n_heads"],
+            task=config["task"],
+            use_pretrained_weights=False,
+            path_to_weights="",
+            device=device
+        )
+
+        weights_path = hf_hub_download(repo_id=path_or_repo_id, filename="model.safetensors")
+        state_dict = load_file(weights_path, device=device)
+        model.load_state_dict(state_dict)
+
+        return model
+    
+    
 class Padder(torch.nn.Module):
 
     def __init__(self, x: torch.Tensor, padding_mask: torch.Tensor, feature_mask: torch.Tensor) -> None:

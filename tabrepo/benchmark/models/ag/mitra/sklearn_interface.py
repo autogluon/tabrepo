@@ -44,6 +44,7 @@ DEFAULT_LAYERS = 12
 DEFAULT_HEADS = 4
 DEFAULT_CLASSES = 10
 DEFAULT_VALIDATION_SPLIT = 0.2
+USE_HF = True  # Use Hugging Face pretrained models if available
 
 class MitraBase(BaseEstimator):
     """Base class for Mitra models with common functionality."""
@@ -176,16 +177,22 @@ class MitraBase(BaseEstimator):
                 
                 self.train_time = 0
                 for _ in range(self.n_estimators):
-                    model = Tab2D(
-                        dim=cfg.hyperparams['dim'],
-                        dim_output=dim_output,
-                        n_layers=cfg.hyperparams['n_layers'],
-                        n_heads=cfg.hyperparams['n_heads'],
-                        task=task.upper(),
-                        use_pretrained_weights=True,
-                        path_to_weights=Path(self.state_dict),
-                        device=self.device,
-                    )
+                    if USE_HF:
+                        if task == 'classification':
+                            model = Tab2D.from_pretrained("autogluon/mitra-classifier", device=self.device)
+                        elif task == 'regression':
+                            model = Tab2D.from_pretrained("autogluon/mitra-regressor", device=self.device)
+                    else:
+                        model = Tab2D(
+                            dim=cfg.hyperparams['dim'],
+                            dim_output=dim_output,
+                            n_layers=cfg.hyperparams['n_layers'],
+                            n_heads=cfg.hyperparams['n_heads'],
+                            task=task.upper(),
+                            use_pretrained_weights=True,
+                            path_to_weights=Path(self.state_dict),
+                            device=self.device,
+                        )
                     trainer = TrainerFinetune(cfg, model, n_classes=n_classes, device=self.device)
 
                     start_time = time.time()
