@@ -40,7 +40,8 @@ class TrainerFinetune(BaseEstimator):
             enabled=self.cfg.hyperparams['grad_scaler_enabled'],
             scale_init=self.cfg.hyperparams['grad_scaler_scale_init'],
             scale_min=self.cfg.hyperparams['grad_scaler_scale_min'],
-            growth_interval=self.cfg.hyperparams['grad_scaler_growth_interval']
+            growth_interval=self.cfg.hyperparams['grad_scaler_growth_interval'],
+            device=self.device
         )
 
         self.early_stopping = EarlyStopping(patience=self.cfg.hyperparams['early_stopping_patience'])

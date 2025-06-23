@@ -184,6 +184,7 @@ class MitraBase(BaseEstimator):
                         task=task.upper(),
                         use_pretrained_weights=True,
                         path_to_weights=Path(self.state_dict),
+                        device=self.device,
                     )
                     trainer = TrainerFinetune(cfg, model, n_classes=n_classes, device=self.device)
 

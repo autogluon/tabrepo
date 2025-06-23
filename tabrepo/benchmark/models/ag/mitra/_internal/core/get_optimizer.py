@@ -69,15 +69,17 @@ class GradScaler(torch.amp.GradScaler):
         enabled: bool = True,
         scale_init: float = 2.**16,
         scale_min: float = 1.,
-        growth_interval: int = 2000
+        growth_interval: int = 2000,
+        device: str = 'cuda'
     ):
         super().__init__(enabled=enabled, device="cpu", init_scale=scale_init, growth_interval=growth_interval) # type: ignore
         self._enabled = enabled
         self.scale_min = scale_min
+        self.device = device
 
         if not self._enabled:
             # We write scale=1 to log if the scaler is disabled
-            self._scale = torch.tensor((1,), dtype=torch.float32, device='cuda')
+            self._scale = torch.tensor((1,), dtype=torch.float32, device=self.device)
 
 
     def update(self):

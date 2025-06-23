@@ -54,6 +54,15 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     x_test = feature_generator.transform(X=x_test)
     y_test = label_cleaner.transform(y_test).values
 
+    # simulate data to test memory usage
+    # sup, qry, feat = 500, 1000, 100
+    # x_train = np.random.random((sup, feat))
+    # x_test = np.random.random((qry, feat))
+    # y_train = np.random.randint(0, n_class, size=(sup,))
+    # y_test = np.random.randint(0, n_class, size=(qry,))
+    # x_train = pd.DataFrame(x_train, columns=[f'feature_{i}' for i in range(x_train.shape[1])])
+    # x_test = pd.DataFrame(x_test, columns=[f'feature_{i}' for i in range(x_test.shape[1])])
+
     bagged_custom_model = BaggedEnsembleModel(MitraModel(problem_type=problem_type))
     custom_model = MitraModel(problem_type=problem_type)
     bagged_custom_model.params['fold_fitting_strategy'] = 'sequential_local' 
