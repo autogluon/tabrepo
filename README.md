@@ -72,4 +72,4 @@ Bibtex entry:
 --- 
 ## Relation to TabRepo 
 
-TabArena was build upon [TabRepo](https://arxiv.org/pdf/2311.02971) and now replaces TabRepo. To see details about TabRepo, the portfolio simulation repository, refer to [tabrepo.md](tabrepo.md).
+TabArena was built upon [TabRepo](https://arxiv.org/pdf/2311.02971) and now replaces TabRepo. To see details about TabRepo, the portfolio simulation repository, refer to [tabrepo.md](tabrepo.md).
