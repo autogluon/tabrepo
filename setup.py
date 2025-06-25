@@ -39,6 +39,10 @@ extras_require = {
     "modernnca": [
         "category_encoders",
     ],
+    "perpetualboosting": [
+        # used version: 0.9.4
+        "perpetual",
+    ],
 }
 
 benchmark_requires = []
