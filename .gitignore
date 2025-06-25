@@ -133,3 +133,6 @@ data/results/*
 autogluon/
 .pkl
 .idea
+
+datasets/
+AutogluonModels/
