@@ -16,7 +16,7 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
         df_results_baselines = repo._zeroshot_context.df_baselines
     else:
         df_results_baselines = pd.concat([
-            repo._zeroshot_context.df_configs_ranked,
+            repo._zeroshot_context.df_configs,
             repo._zeroshot_context.df_baselines,
         ], ignore_index=True)
 
@@ -29,6 +29,32 @@ def make_scorers(repo: EvaluationRepository, only_baselines=False):
     rank_scorer = RankScorer(df_results_baselines, tasks=unique_dataset_folds, pct=False)
     normalized_scorer = NormalizedScorer(df_results_baselines, tasks=tasks, baseline=None)
     return rank_scorer, normalized_scorer
+
+
+# FIXME: Make this non-hardcoded
+def get_method_rename_map() -> dict:
+    return {
+        'KNN': 'KNN',
+        'LR': 'Linear',
+        'RF': 'RandomForest',
+        'XT': 'ExtraTrees',
+        'EBM': 'EBM',
+        'XGB': 'XGBoost',
+        'GBM': 'LightGBM',
+        'CAT': 'CatBoost',
+        'FASTAI': 'FastaiMLP',
+        'NN_TORCH': 'TorchMLP',
+        'MNCA_GPU': 'ModernNCA',
+        'TABM_GPU': 'TabM',
+        'REALMLP_GPU': 'RealMLP (GPU)',
+        'TABDPT_GPU': 'TabDPT',
+        'TABICL_GPU': 'TabICL',
+        'TABPFNV2_GPU': 'TabPFNv2',
+
+        'MNCA': 'ModernNCA (CPU)',
+        'TABM': 'TabM (CPU)',
+        'REALMLP': 'RealMLP',
+    }
 
 
 def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[int, str]] = None, include_default: bool = True, include_best: bool = True, include_holdout: bool = True):
@@ -54,44 +80,7 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
     f_map = dict()
     f_map_type = dict()
     f_map_inverse = dict()
-    # f_map_type_name = {
-    #     'KNN': 'KNN',
-    #     'LR': 'Linear',
-    #     'RF': 'RF',
-    #     'XT': 'XT',
-    #     'EBM': 'EBM',
-    #     'XGB': 'XGB',
-    #     'GBM': 'LGBM',
-    #     'CAT': 'CAT',  # todo
-    #     'FASTAI': 'FastaiMLP',
-    #     'NN_TORCH': 'TorchMLP',
-    #     'FT_TRANSFORMER': 'FT-Transformer',
-    #     'MNCA': 'MNCA',  # todo
-    #     'TABM': 'TabM',
-    #     'REALMLP': 'RealMLP',
-    #     'TABDPT': 'TabDPT',
-    #     'TABICL': 'TabICL',
-    #     'TABPFNV2': 'TabPFNv2',
-    # }
-    f_map_type_name = {
-        'KNN': 'KNN',
-        'LR': 'Linear',
-        'RF': 'RandomForest',
-        'XT': 'ExtraTrees',
-        'EBM': 'EBM',
-        'XGB': 'XGBoost',
-        'GBM': 'LightGBM',
-        'CAT': 'CatBoost',  # todo
-        'FASTAI': 'FastaiMLP',
-        'NN_TORCH': 'TorchMLP',
-        'FT_TRANSFORMER': 'FT-Transformer',
-        'MNCA': 'ModernNCA',  # todo
-        'TABM': 'TabM',
-        'REALMLP': 'RealMLP',
-        'TABDPT': 'TabDPT',
-        'TABICL': 'TabICL',
-        'TABPFNV2': 'TabPFNv2',
-    }
+    f_map_type_name = get_method_rename_map()
     for framework_type in framework_types:
         f_map_cur = dict()
         for max_runtime, suffix in max_runtimes:

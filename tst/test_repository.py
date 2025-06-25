@@ -116,7 +116,7 @@ def test_repository():
     assert repo.labels_test(dataset=dataset, fold=2).shape == (13,)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     result_errors, result_ensemble_weights = repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")
-    assert result_errors.shape == (3, 6)
+    assert result_errors.shape == (3, 8)
     assert len(result_ensemble_weights) == 3
 
     dataset_info = repo.dataset_info(dataset=dataset)
@@ -131,12 +131,12 @@ def test_repository():
     result_errors_w_max_models, result_ensemble_weights_w_max_models = repo.evaluate_ensembles(
         datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native", ensemble_kwargs={"max_models_per_type": 1}
     )
-    assert result_errors_w_max_models.shape == (3, 6)
+    assert result_errors_w_max_models.shape == (3, 8)
     assert len(result_ensemble_weights_w_max_models) == 3
     assert np.allclose(result_ensemble_weights_w_max_models.loc[(dataset, 0)], [1.0, 0.0])
 
     assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config],
-                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 6)
+                                  ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 8)
 
     repo: EvaluationRepository = repo.subset(folds=[0, 2])
     assert repo.datasets() == ['abalone', 'ada']
@@ -148,9 +148,9 @@ def test_repository():
     assert repo.predict_test(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
     # result_errors, result_ensemble_weights = repo.evaluate_ensemble(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0],
-    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (2, 6)
-    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 6)
-    assert repo.evaluate_ensemble(dataset=dataset, fold=2, configs=[config, config], ensemble_size=5)[0].shape == (1, 6)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (2, 8)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 8)
+    assert repo.evaluate_ensemble(dataset=dataset, fold=2, configs=[config, config], ensemble_size=5)[0].shape == (1, 8)
 
     repo: EvaluationRepository = repo.subset(folds=[2], datasets=[dataset], configs=[config])
     assert repo.datasets() == ['abalone']
@@ -161,9 +161,9 @@ def test_repository():
     assert repo.predict_val(dataset=dataset, config=config, fold=2).shape == (123, 25)
     assert repo.predict_test(dataset=dataset, config=config, fold=2).shape == (13, 25)
     assert repo.dataset_metadata(dataset=dataset) == {'dataset': dataset, 'task_type': 'TaskType.SUPERVISED_CLASSIFICATION'}
-    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 6)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, backend="native")[0].shape == (1, 8)
 
-    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 6)
+    assert repo.evaluate_ensembles(datasets=[dataset], configs=[config, config], ensemble_size=5, folds=[2], backend="native")[0].shape == (1, 8)
 
 
 def test_repository_force_to_dense():
