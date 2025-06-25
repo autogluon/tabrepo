@@ -99,6 +99,9 @@ class EndToEndResults:
         fillna_method = "RF (default)"
         paper_results = tabarena_context.load_results_paper(download_results="auto")
 
+
+
+
         # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
         #  need to use original, not filled values
         #  This doesn't impact the evaluation, but could introduce bugs in future if we use these columns
@@ -117,13 +120,23 @@ class EndToEndResults:
         elif "lite":
             df_results = df_results[df_results["fold"] == 0].reset_index(drop=True)
 
+        # Handle imputation of names
+        imputed_names = list(df_results["method"][df_results["imputed"] > 0].unique())
+        if len(imputed_names) == 0:
+            imputed_names = None
+        if imputed_names is not None:
+            from tabrepo.paper.paper_utils import get_method_rename_map
+            # remove suffix
+            imputed_names = [n.split(" (")[0] for n in imputed_names]
+            imputed_names = [get_method_rename_map().get(n, n) for n in imputed_names]
+            imputed_names = list(set(imputed_names))
+            if "KNN" in imputed_names:
+                imputed_names.remove("KNN")
+            print(f"Model for which results were imputed: {imputed_names}")
 
         plotter = TabArenaEvaluator(
             output_dir=output_dir,
         )
-        imputed_names = list(df_results["method"][df_results["imputed"] > 0].unique())
-        if len(imputed_names) == 0:
-            imputed_names = None
         leaderboard = plotter.eval(
             df_results=df_results,
             plot_extra_barplots=False,
