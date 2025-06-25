@@ -41,6 +41,9 @@ extras_require = {
     "modernnca": [
         "category_encoders",
     ],
+    "beta": [
+        "category_encoders",
+    ],
 }
 
 benchmark_requires = []
@@ -54,6 +57,7 @@ for extra_package in [
     "tabdpt",
     "tabm",
     "modernnca",
+    "beta",
 ]:
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
