@@ -83,7 +83,15 @@ class EndToEndResults:
         method_metadata = MethodMetadata.from_yaml(method=method, artifact_name=artifact_name)
         return cls(method_metadata=method_metadata)
 
-    def compare_on_tabarena(self, output_dir: str | Path) -> pd.DataFrame:
+    def compare_on_tabarena(self, output_dir: str | Path, *, subset: str | None = None) -> pd.DataFrame:
+        """"Compare results on TabArena leaderboard.
+
+        Args:
+            output_dir (str | Path): Directory to save the results.
+            subset (str | None): Subset of tasks to evaluate on.
+                Options are "classification", "regression", "lite" for TabArena-Lite,
+                or None for all tasks.
+        """
         output_dir = Path(output_dir)
 
         tabarena_context = TabArenaContext()
@@ -102,14 +110,25 @@ class EndToEndResults:
 
         df_results = pd.concat([paper_results, hpo_results], ignore_index=True)
 
+        if subset == "classification":
+            df_results = df_results[df_results["problem_type"].isin(["binary","multiclass"])].reset_index(drop=True)
+        elif subset == "regression":
+            df_results = df_results[df_results["problem_type"] == "regression"].reset_index(drop=True)
+        elif "lite":
+            df_results = df_results[df_results["fold"] == 0].reset_index(drop=True)
+
+
         plotter = TabArenaEvaluator(
             output_dir=output_dir,
         )
-
+        imputed_names = list(df_results["method"][df_results["imputed"] > 0].unique())
+        if len(imputed_names) == 0:
+            imputed_names = None
         leaderboard = plotter.eval(
             df_results=df_results,
             plot_extra_barplots=False,
             plot_times=True,
             plot_other=False,
+            imputed_names=imputed_names,
         )
         return leaderboard
