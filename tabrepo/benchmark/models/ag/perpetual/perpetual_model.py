@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
 
+# TODO: memory limiting of the lib does not work correctly, can this be fixed?
+# TODO: requires memory estimation logic to become useful to switch to sequential fitting
 class PerpetualBoostingModel(AbstractModel):
     ag_key = "PB"
     ag_name = "PerpetualBoosting"
@@ -19,18 +21,19 @@ class PerpetualBoostingModel(AbstractModel):
         super().__init__(**kwargs)
         self._category_features: list[str] = None
 
-    def _preprocess_nonadaptive(self, X, **kwargs):
-        X = super()._preprocess_nonadaptive(X, **kwargs)
+    def _preprocess(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        X = super()._preprocess(X, **kwargs)
 
         if self._category_features is None:
-            self._category_features = list(X.select_dtypes(include="category").columns)
+            self._category_features = X.select_dtypes(
+                include=["category"]
+            ).columns.tolist()
 
         return X
 
-    # TODO: support sample weights
     # TODO: API does not support a random seed, but rust code does (mhm?)
     # TODO: no GPU support (?), add warning.
-    # TODO: no support for passing validation data... problematic
+    # TODO: no support for passing validation data... needs to be added (as callback)
     def _fit(
         self,
         X: pd.DataFrame,
@@ -49,31 +52,51 @@ class PerpetualBoostingModel(AbstractModel):
 
         from perpetual import PerpetualBooster
 
-        # FIXME: get correct number within ray job,
-        #  here we know it is one of 8 folds now.
-        #   -> This is also not correct if not bagged mode is used, or outer
-        #   memory limit is not set on SLURM.
-        # memory_limit = ResourceManager().get_available_virtual_mem(format="GB") / 8
-        # the above does not work as env var is not set in ray job...
-        # need to pass this to the model kwargs as well
-        # future work... hard coding for now.
-        memory_limit = 4
+        # ----- The below is hacky workaround to set the memory limit
+        # TODO: set this in the outer scope or automatically here
+        sequential_fitting = False
+        if sequential_fitting:
+            memory_limit = 32  # all memory for the job, in GB
+            # 1 if sequential fitting is used
+            # otherwise memory limit is not enforced across threads.
+            num_cpus = 1
 
-        # safety as memory limit is not strictly enforced by PB
+        else:
+            #  here we know it is one of 8 folds now.
+            # at this stage, num_cpus == 1 anyhow.
+            memory_limit = 4
+
+            # FIXME: does not work as env var is not set in ray job...
+            #   need to pass this to the model kwargs as well
+            #   future work... hard coding for now.
+            # memory_limit = ResourceManager().get_available_virtual_mem(format="GB") / 8
+
+        # ---- Additional bug
+        # FIXME: with a lot of categorical features, the memory limit is
+        #  not enforced correctly. No way to control this as far as I can tell.
+        # - Example: to make this code run on 363711 (MIC) I set the limit to 32 GB
+        #   but had to give it 64 GB to not OOM. If I set the limit to 64 GB, it uses
+        #   90ish GB and OOMs the job.
+        # memory_limit = 32
+        # Even then, it still hangs on prediction and runs out of time.
+
+        # safety as memory limit should be quicker than cgroups.
         memory_limit = int(memory_limit * 0.95)
-
         self.model = PerpetualBooster(
             objective=get_metric_from_ag_metric(
                 metric=self.eval_metric, problem_type=self.problem_type
             ),
             num_threads=num_cpus,
-            memory_limit=memory_limit,
+            memory_limit=memory_limit,  # TODO: limit per thread?
             categorical_features=self._category_features,
+            # FIXME: time limit is also not strictly enforced, check when the
+            #  loop is stopped and if preprocessing counts towards the limit.
             timeout=time_limit,
             # stopping_rounds - no idea how to set this
             **paras,
         )
 
+        # FIXME: why does the out-of-budget message show up several times?
         self.model.fit(X=X, y=y, sample_weight=sample_weight)
 
     def _set_default_params(self):
