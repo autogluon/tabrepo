@@ -104,10 +104,14 @@ class PaperRunTabArena(PaperRun):
         if len(configs_default) == 1:
             return configs_default[0]
         elif len(configs_default) == 0:
-            raise ValueError(
-                f"Could not find any default config for config_type='{config_type}'"
-                f"\n\tconfigs={configs}"
-            )
+            configs_default = [c for c in configs if "_r1_" in c]
+            if len(configs_default) == 0:
+                raise ValueError(
+                    f"Could not find any default config for config_type='{config_type}'"
+                    f"\n\tconfigs={configs}"
+                )
+            else:
+                return configs_default[0]
         else:  # >1
             raise ValueError(
                 f"Found {len(configs_default)} potential default configs for config_type='{config_type}', but only one should exist."
@@ -134,7 +138,7 @@ class PaperRunTabArena(PaperRun):
         df_results_configs = pd.concat(df_results_configs_lst, ignore_index=True)
         return df_results_configs
 
-    def run_minimal_paper(self, model_types: list[str] | None = None) -> pd.DataFrame:
+    def run_minimal_paper(self, model_types: list[str] | None = None, tune: bool = True) -> pd.DataFrame:
         """
         Run logic that isn't impacted by other methods or other datasets
 
@@ -142,19 +146,27 @@ class PaperRunTabArena(PaperRun):
         -------
 
         """
-        df_results_baselines = self.run_baselines()
-        df_results_configs_default = self.run_configs_default(model_types=model_types)
-        df_results_hpo_all = self.run_hpo_by_family(
-            include_uncapped=True,
-            include_4h=False,
-            model_types=model_types,
-        )
+        if model_types is not None:
+            df_results_configs_default = self.run_configs_default(model_types=model_types)
+        else:
+            df_results_configs_default = None
 
-        df_results_all = pd.concat([
+        if model_types is not None and tune:
+            df_results_hpo_all = self.run_hpo_by_family(
+                include_uncapped=True,
+                include_4h=False,
+                model_types=model_types,
+            )
+        else:
+            df_results_hpo_all = None
+
+        to_concat_lst = [
             df_results_configs_default,
-            df_results_baselines,
             df_results_hpo_all,
-        ], ignore_index=True)
+        ]
+        to_concat_lst = [df for df in to_concat_lst if df is not None]
+
+        df_results_all = pd.concat(to_concat_lst, ignore_index=True)
 
         return df_results_all
 
@@ -243,7 +255,7 @@ class PaperRunTabArena(PaperRun):
         rank_scorer, normalized_scorer_task = make_scorers(self.repo)
 
         df_results_baselines = pd.concat([
-            self.repo._zeroshot_context.df_configs_ranked,
+            self.repo._zeroshot_context.df_configs,
             self.repo._zeroshot_context.df_baselines,
         ], ignore_index=True)
 

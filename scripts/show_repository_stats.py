@@ -41,7 +41,7 @@ def get_stats(expname_outdir: str, context: str = None, repo=None):
 
     n_cpus = 8
 
-    realnumhourstabrepo = int(repo._zeroshot_context.df_configs_ranked['time_train_s'].sum() / 3600)
+    realnumhourstabrepo = int(repo._zeroshot_context.df_configs['time_train_s'].sum() / 3600)
     realnumcpuhourstabrepo = realnumhourstabrepo * n_cpus
 
     save_path_tables = table_path(prefix=expname_outdir)

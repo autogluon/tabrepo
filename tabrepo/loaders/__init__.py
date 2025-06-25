@@ -15,6 +15,16 @@ class Paths:
     data_root_cache: Path = Path.home() / ".cache" / "tabrepo" / "data" if os.getenv("TABREPO_CACHE") is None else Path(os.getenv("TABREPO_CACHE"))
     results_root_cache: Path = data_root_cache / "results"
 
+    #####
+    # TODO: Clean these up and move it to its own class
+    _tabarena_root_cache = Path.home() / ".cache" / "tabarena" if os.getenv("TABARENA_CACHE") is None else Path(os.getenv("TABARENA_CACHE"))
+    _data_root_cache_tabarena = _tabarena_root_cache / "data"
+    data_root_cache_raw: Path = _data_root_cache_tabarena / "raw"
+    data_root_cache_processed: Path = _data_root_cache_tabarena / "processed"
+    results_root_cache_tabarena: Path = _tabarena_root_cache / "results"
+    artifacts_root_cache_tabarena = _tabarena_root_cache / "artifacts"
+    #####
+
     @staticmethod
     def abs_to_rel(path: str, relative_to: Path = project_root) -> str:
         relative_to_split = str(relative_to)

@@ -20,6 +20,26 @@ class ConfigResult(BaselineResult):
         for key in required_keys:
             assert key in self.result, f"Missing {key} in result dict!"
 
+    def update_name(self, name: str = None, name_suffix: str = None):
+        if name is not None:
+            assert name_suffix is None, f"Must only specify one of `name`, `name_suffix`."
+            self.result["framework"] = name
+            return
+        elif name_suffix is not None:
+            og_name_prefix = self.result["method_metadata"]["name_prefix"]
+            og_name = self.framework
+            assert og_name.startswith(og_name_prefix), (f"Tried updating name with `name_suffix='{name_suffix}'`, "
+                                                        f"but name did not contain expected prefix '{og_name_prefix}'!"
+                                                        f"\n\tname: '{og_name}'")
+            new_name = f"{og_name_prefix}{name_suffix}{og_name.removeprefix(og_name_prefix)}"
+            self.result["framework"] = new_name
+            return
+
+    def update_model_type(self, name_suffix: str):
+        ag_key = self.result["method_metadata"]["model_type"]
+        self.result["method_metadata"]["ag_key"] = ag_key
+        self.result["method_metadata"]["model_type"] = f"{ag_key}{name_suffix}"
+
     @property
     def simulation_artifacts(self) -> dict:
         return self.result["simulation_artifacts"]
@@ -222,11 +242,13 @@ class ConfigResult(BaselineResult):
             model_hyperparameters = method_metadata["model_hyperparameters"]
             model_cls = method_metadata.get("model_cls", None)
             model_type = method_metadata.get("model_type", None)
+            ag_key = method_metadata.get("ag_key", model_type)
             name_prefix = method_metadata.get("name_prefix", None)
 
             config_hyperparameters = dict(
                 model_cls=model_cls,
                 model_type=model_type,
+                ag_key=ag_key,
                 name_prefix=name_prefix,
                 hyperparameters=model_hyperparameters,
             )
@@ -234,6 +256,7 @@ class ConfigResult(BaselineResult):
             config_hyperparameters = dict(
                 model_cls=None,
                 model_type=None,
+                ag_key=None,
                 name_prefix=None,
                 hyperparameters={},
             )
