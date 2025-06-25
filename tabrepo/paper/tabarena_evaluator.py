@@ -175,7 +175,7 @@ class TabArenaEvaluator:
         plot_runtimes: bool = False,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
-    ):
+    ) -> pd.DataFrame:
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
         if baselines is None:
@@ -482,6 +482,8 @@ class TabArenaEvaluator:
                     tabarena=tabarena,
                     calibration_framework=calibration_framework,
                 )
+
+        return leaderboard
 
     def run_autogluon_benchmark_logic(self, results_per_task: pd.DataFrame, elo_map: dict, tabarena: TabArena,
                                       calibration_framework: str):

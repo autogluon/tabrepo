@@ -7,7 +7,7 @@ import pandas as pd
 
 from tabrepo import EvaluationRepository
 from tabrepo.utils.pickle_utils import fetch_all_pickles
-from tabrepo.benchmark.result import ExperimentResults
+from tabrepo.benchmark.result import BaselineResult, ExperimentResults
 
 from .load_artifacts import load_all_artifacts
 
@@ -71,7 +71,7 @@ def copy_results_lst_from_paths(
     rename_dict: dict | None = None,
     as_holdout: bool = False,
 ) -> EvaluationRepository:
-    results_lst = load_all_artifacts(file_paths=result_paths, engine=engine, convert_to_holdout=as_holdout)
+    results_lst: list[BaselineResult] = load_all_artifacts(file_paths=result_paths, engine=engine, convert_to_holdout=as_holdout)
     results_lst = [r for r in results_lst if r is not None]
     tids = set(list(task_metadata["tid"].unique()))
     results_lst = [r for r in results_lst if r.result["task_metadata"]["tid"] in tids]

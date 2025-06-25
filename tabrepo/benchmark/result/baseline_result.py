@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 import copy
 from pathlib import Path
@@ -136,7 +137,7 @@ class BaselineResult(AbstractResult):
 
         return df_result
 
-    def to_dir(self, path: str):
+    def to_dir(self, path: str | Path):
         suffix = Path(f"{self.framework}")
         if "tid" in self.result["task_metadata"]:
             suffix = suffix / str(self.result["task_metadata"]["tid"])
@@ -145,4 +146,4 @@ class BaselineResult(AbstractResult):
         suffix = suffix / f"{self.repeat}_{self.fold}"
         path_full = Path(path) / suffix
         path_file = path_full / "results.pkl"
-        save_pkl.save(path=str(path_file), object=self)
+        save_pkl.save(path=str(path_file), object=self.result)

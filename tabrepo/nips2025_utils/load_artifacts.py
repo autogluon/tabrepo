@@ -3,26 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from autogluon.common.loaders import load_pkl
-from tabrepo.benchmark.result import ExperimentResults
+from tabrepo.benchmark.result import AGBagResult, BaselineResult, ExperimentResults
 from tabrepo.utils.parallel_for import parallel_for
-from pickle import UnpicklingError
 import time
 
 
-def load_and_check_if_valid(path) -> bool:
-    try:
-        data = load_pkl.load(path)
-        return True
-    except UnpicklingError as err:
-        return False
-    except EOFError as err:
-        return False
-
-
-def load_and_align(path, convert_to_holdout: bool = False) -> list:
-    data = load_pkl.load(path)
+def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
+    data: dict | BaselineResult = load_pkl.load(path)
     data_aligned = ExperimentResults._align_result_input_format(data)
     if convert_to_holdout:
+        assert isinstance(data_aligned, AGBagResult)
         result_holdout = data_aligned.bag_artifacts(as_baseline=False)
         if len(result_holdout) > 0:
             assert len(result_holdout) == 1
