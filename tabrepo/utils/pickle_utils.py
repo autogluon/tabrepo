@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 
-def fetch_all_pickles(dir_path: str | Path) -> list[Path]:
+def fetch_all_pickles(dir_path: str | Path, suffix: str = ".pkl") -> list[Path]:
     """
     Recursively find every file ending in “.pkl” or “.pickle” under *dir_path*
     and un‑pickle its contents.
@@ -31,7 +31,7 @@ def fetch_all_pickles(dir_path: str | Path) -> list[Path]:
     file_paths: list[Path] = []
 
     # Look for *.pkl, case‑insensitive
-    patterns = ("*.pkl")
+    patterns = (f"*{suffix}")
     i = 0
     for pattern in patterns:
         pattern_suffix = pattern[1:]

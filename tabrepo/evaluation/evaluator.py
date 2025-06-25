@@ -116,6 +116,10 @@ class Evaluator:
             df_fillna = df_fillna.droplevel("framework")
             df = self._fillna_metrics(df_metrics=df, df_fillna=df_fillna)
 
+            df["impute_method"] = np.nan
+            df["impute_method"] = df["impute_method"].astype(object)
+            df.loc[df[df["imputed"]].index, "impute_method"] = self.repo._config_fallback
+
         return df
 
     @classmethod
@@ -154,6 +158,10 @@ class Evaluator:
         a = df_fillna.loc[nan_vals.droplevel(level="framework")]
         a.index = nan_vals
         df_filled.loc[nan_vals] = a
+
+        df_filled["imputed"] = False
+        df_filled.loc[nan_vals, "imputed"] = True
+
         df_metrics = df_filled
 
         return df_metrics

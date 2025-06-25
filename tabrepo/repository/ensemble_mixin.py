@@ -84,8 +84,9 @@ class EnsembleMixin:
 
         """
         task = self.task_name(dataset=dataset, fold=fold)
+        configs_all = self.configs(tasks=[(dataset, fold)])
         if configs is None:
-            configs = self.configs(tasks=[(dataset, fold)])
+            configs = configs_all
 
         if time_limit is not None:
             if fit_order == "random":
@@ -98,18 +99,27 @@ class EnsembleMixin:
             # filter configs to the first N configs whose combined time_limit is less than the provided time_limit
             configs = filter_configs_by_runtime(repo=self, dataset=dataset, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
 
-            if len(configs) == 0:
-                # if not enough time to fit any model, use the fallback config if it exists, even if it would be over the time limit
-                # if no config fallback was specified, then raise an AssertionError
-                if self._config_fallback is None:
-                    if len(configs_fit_order) > 0:
-                        raise AssertionError(
-                            f"Can't fit an ensemble with no configs when self._config_fallback is None "
-                            f"(No configs are trainable in the provided time_limit={time_limit}.)"
-                        )
-                    else:
-                        raise AssertionError(f"Can't fit an ensemble with no configs when self._config_fallback is None.")
-                configs = [self._config_fallback]
+        configs_available = [c for c in configs if c in set(configs_all)]
+
+        if len(configs_available) == 0:
+            # if not enough time to fit any model, use the fallback config if it exists, even if it would be over the time limit
+            # if no config fallback was specified, then raise an AssertionError
+            if self._config_fallback is None:
+                if len(configs_fit_order) > 0:
+                    raise AssertionError(
+                        f"Can't fit an ensemble with no configs when self._config_fallback is None "
+                        f"(No configs are trainable in the provided time_limit={time_limit}.)"
+                    )
+                else:
+                    raise AssertionError(f"Can't fit an ensemble with no configs when self._config_fallback is None.")
+            configs = [self._config_fallback]
+
+        if len(configs_available) == 0:
+            imputed = True
+            impute_method = self._config_fallback
+        else:
+            imputed = False
+            impute_method = np.nan
 
         scorer = self._construct_ensemble_selection_config_scorer(
             tasks=[task],
@@ -164,6 +174,8 @@ class EnsembleMixin:
             "time_infer_s": [time_infer_s],
             "problem_type": [problem_type],
             "metric_error_val": [metric_error_val],
+            "imputed": [imputed],
+            "impute_method": [impute_method],
         }
 
         if rank:
