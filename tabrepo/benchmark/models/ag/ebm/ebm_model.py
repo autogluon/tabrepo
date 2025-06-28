@@ -11,12 +11,21 @@ from autogluon.core.models import AbstractModel
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
+def callback_generator(seconds):
+    class Callback:
+        def __init__(self, seconds):
+            self.seconds = seconds
+        def __call__(self, bag_index, step_index, progress, metric):
+            import time
+            if not hasattr(self, "end_time"):
+                self.end_time = time.monotonic() + self.seconds
+                return False
+            else:
+                return time.monotonic() > self.end_time
+    return Callback(seconds)
 
-# TODO: support time limit
-# TODO: hyperparameters and good defaults
 # TODO: memory usage estimation
 # TODO: fix joblib errors when using EBM
-# TODO: handle interactions for multiclass
 class ExplainableBoostingMachineModel(AbstractModel):
     ag_key = "EBM"
     ag_name = "ExplainableBM"
@@ -51,6 +60,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
         y: pd.Series,
         X_val: pd.DataFrame | None = None,
         y_val: pd.Series | None = None,
+        time_limit: float | None = None, 
         sample_weight: np.ndarray | None = None,
         sample_weight_val: np.ndarray | None = None,
         num_cpus: int | str = "auto",
@@ -98,6 +108,9 @@ class ExplainableBoostingMachineModel(AbstractModel):
             n_jobs=-1 if isinstance(num_cpus, str) else num_cpus,
         )
         extra_kwargs.update(paras)
+
+        if time_limit is not None:
+            extra_kwargs["callback"] = callback_generator(time_limit)
 
         # Init Class
         model_cls = self._get_model_type()
