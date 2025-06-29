@@ -10,8 +10,8 @@ if TYPE_CHECKING:
 
 
 class CustomRandomForestModel(AbstractModel):
-    ag_key = "DPDT"
-    ag_name = "dpdt"
+    ag_key = "BOOSTEDDPDT"
+    ag_name = "boosted_dpdt"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -34,17 +34,14 @@ class CustomRandomForestModel(AbstractModel):
     ):
         # Select model class
         if self.problem_type in ["regression"]:
-            from dpdt import DPDTreeRegressor
-
-            model_cls = DPDTreeRegressor
+            raise AssertionError, "Boosted DPDT does not support regression yet"
         else:
-            from dpdt import DPDTreeClassifier
+            from dpdt import AdaBoostDPDT
 
             # case for 'binary' and 'multiclass',
-            model_cls = DPDTreeClassifier
+            model_cls = AdaBoostDPDT
 
         X = self.preprocess(X)
-        y = self.preprocess(y)
         params = self._get_model_params()
         self.model = model_cls(**params)
         self.model.fit(X, y)
