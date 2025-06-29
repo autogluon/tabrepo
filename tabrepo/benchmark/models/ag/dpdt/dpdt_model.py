@@ -2,120 +2,87 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
+from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
+from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 
 if TYPE_CHECKING:
     import pandas as pd
 
 
-class CustomRandomForestModel(AbstractModel):
-    ag_key = "BOOSTEDDPDT"
-    ag_name = "boosted_dpdt"
+class BoostedDPDT(AbstractModel):
+    ag_key = "ADABOOSTDPDT"
+    ag_name = "adaboost_dpdt"
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._feature_generator = None
+    def get_model_cls(self):
+        from dpdt import AdaBoostDPDT
 
-    def _preprocess(self, X: pd.DataFrame, **kwargs) -> np.ndarray:
-        X = super()._preprocess(X, **kwargs)
-        return X.to_numpy()
-
-    def _fit(
-        self,
-        X: pd.DataFrame,  # training data
-        y: pd.Series,  # training labels
-        # X_val=None,  # val data (unused in RF model)
-        # y_val=None,  # val labels (unused in RF model)
-        # time_limit=None,  # time limit in seconds (ignored in tutorial)
-        num_cpus: int = 1,  # number of CPUs to use for training
-        # num_gpus: int = 0,  # number of GPUs to use for training
-        **kwargs,  # kwargs includes many other potential inputs, refer to AbstractModel documentation for details
-    ):
-        # Select model class
-        if self.problem_type in ["regression"]:
-            raise AssertionError, "Boosted DPDT does not support regression yet"
-        else:
-            from dpdt import AdaBoostDPDT
-
-            # case for 'binary' and 'multiclass',
+        if self.problem_type in ["binary", "multiclass"]:
             model_cls = AdaBoostDPDT
-
+        else:
+            raise AssertionError(f"Unsupported problem_type: {self.problem_type}")
+        return model_cls
+    
+    def _fit(self, X: pd.DataFrame, y: pd.Series, num_cpus: int = 1, **kwargs):
+        model_cls = self.get_model_cls()
+        hyp = self._get_model_params()
+        if num_cpus < 1:
+            num_cpus = 'best'
+        self.model = model_cls(
+            **hyp,
+            n_jobs=num_cpus,
+        )
         X = self.preprocess(X)
-        params = self._get_model_params()
-        self.model = model_cls(**params)
-        self.model.fit(X, y)
+        self.model = self.model.fit(
+            X=X,
+            y=y,
+        )
+    
 
     def _set_default_params(self):
-        """Default parameters for the model."""
         default_params = {
-            "max_depth": 10,
-            "n_jobs": -1,
-            "random_state": 0,
-            "cart_nodes_list": (8,3,)
+            "random_state": 42,
         }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
 
-    def _get_default_auxiliary_params(self) -> dict:
-        """Specifics allowed input data and that all other dtypes should be handled
-        by the model-agnostic preprocessor.
-        """
-        default_auxiliary_params = super()._get_default_auxiliary_params()
-        extra_auxiliary_params = {
-            "valid_raw_types": ["int", "float", "category"],
-        }
-        default_auxiliary_params.update(extra_auxiliary_params)
-        return default_auxiliary_params
+    @classmethod
+    def supported_problem_types(cls) -> list[str] | None:
+        return ["binary", "multiclass"]
+    
+    def _get_default_resources(self) -> tuple[int, int]:
+        import torch
+        # logical=False is faster in training
+        num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
+        num_gpus = 0
+        return num_cpus, num_gpus
 
+    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+        hyperparameters = self._get_model_params()
+        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
 
-# def get_configs_for_custom_rf(
-#     *,
-#     default_config: bool = True,
-#     num_random_configs: int = 1,
-#     sequential_fold_fitting: bool = False,
-# ):
-#     """Generate the hyperparameter configurations to run for our custom random
-#     forest model.
+    @classmethod
+    def _estimate_memory_usage_static(
+        cls,
+        *,
+        X: pd.DataFrame,
+        hyperparameters: dict = None,
+        **kwargs,
+    ) -> int:
+        if hyperparameters is None:
+            hyperparameters = {}
+        
+        dataset_size_mem_est = 5 * hyperparameters.get('n_estimators') * hyperparameters.get('cart_nodes_list')[0] * get_approximate_df_mem_usage(X).sum()
+        baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
 
-#     sequential_fold_fitting: bool = False
-#         If True, the model will be configured to use sequential
-#         fold fitting (better for debugging, but usually slower). This is also a good
-#         idea to use on SLURM or other shared compute clusters where you want to run
-#         multiple jobs on the same  node.
-#         See `tabflow_slurm.run_tabarena_experiment.setup_slurm_job`  for ways to
-#         optimally use sequential_fold_fitting=False on SLURM.
-#     """
-#     from autogluon.common.space import Int
-#     from tabrepo.utils.config_utils import ConfigGenerator
+        mem_estimate = dataset_size_mem_est + baseline_overhead_mem_est
 
-#     manual_configs = [
-#         {},
-#     ]
-#     search_space = {
-#         "n_estimators": Int(4, 50),
-#     }
+        return mem_estimate
 
-#     gen_custom_rf = ConfigGenerator(
-#         model_cls=CustomRandomForestModel,
-#         manual_configs=manual_configs if default_config else None,
-#         search_space=search_space,
-#     )
-#     experiments_lst = gen_custom_rf.generate_all_bag_experiments(
-#         num_random_configs=num_random_configs
-#     )
+    @classmethod
+    def _class_tags(cls):
+        return {"can_estimate_memory_usage_static": True}
 
-#     if sequential_fold_fitting:
-#         for m_i in range(len(experiments_lst)):
-#             if (
-#                 "ag_args_ensemble"
-#                 not in experiments_lst[m_i].method_kwargs["model_hyperparameters"]
-#             ):
-#                 experiments_lst[m_i].method_kwargs["model_hyperparameters"][
-#                     "ag_args_ensemble"
-#                 ] = {}
-#             experiments_lst[m_i].method_kwargs["model_hyperparameters"][
-#                 "ag_args_ensemble"
-#             ]["fold_fitting_strategy"] = "sequential_local"
-
-#     return experiments_lst
+    def _more_tags(self) -> dict:
+        """DPDT does not yet support refit full."""
+        return {"can_refit_full": False}
