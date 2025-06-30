@@ -54,7 +54,9 @@ def generate_configs_realmlp(num_random_configs=200, seed=1234):
 
 
 gen_realmlp = CustomAGConfigGenerator(
-    model_cls=RealMLPModel, search_space_func=generate_configs_realmlp
+    model_cls=RealMLPModel,
+    search_space_func=generate_configs_realmlp,
+    manual_configs=[{}],
 )
 
 

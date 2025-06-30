@@ -13,7 +13,9 @@ manual_configs = [
 
 # Unofficial search space
 search_space = {
-    "norm_methods": Categorical("none", "power", "robust", "quantile_rtdl", ["none", "power"]),
+    "norm_methods": Categorical(
+        "none", "power", "robust", "quantile_rtdl", ["none", "power"]
+    ),
     # just in case, tuning between TabICL and TabPFN defaults
     "outlier_threshold": Real(4.0, 12.0),
     "average_logits": Categorical(False, True),
@@ -23,7 +25,9 @@ search_space = {
     "ag_args_ensemble": Categorical({"refit_folds": True}),
 }
 
-gen_tabicl = ConfigGenerator(model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space)
+gen_tabicl = ConfigGenerator(
+    model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space
+)
 
 if __name__ == "__main__":
     from tabrepo.benchmark.experiment import YamlExperimentSerializer

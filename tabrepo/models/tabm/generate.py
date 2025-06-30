@@ -23,7 +23,9 @@ def generate_single_config_tabm(rng):
         # according to the paper it's not very important but should be a bit better (?)
         "share_training_batches": False,
         "lr": np.exp(rng.uniform(np.log(1e-4), np.log(3e-3))),
-        "weight_decay": rng.choice([0.0, np.exp(rng.uniform(np.log(1e-4), np.log(1e-1)))]),
+        "weight_decay": rng.choice(
+            [0.0, np.exp(rng.uniform(np.log(1e-4), np.log(1e-1)))]
+        ),
         # removed n_blocks=1 according to Yury Gurishniy's advice
         "n_blocks": rng.choice([2, 3, 4, 5]),
         # increased lower limit from 64 to 128 according to Yury Gorishniy's advice
@@ -45,4 +47,6 @@ def generate_configs_tabm(num_random_configs=200, seed=1234):
     return [generate_single_config_tabm(rng) for _ in range(num_random_configs)]
 
 
-gen_tabm = CustomAGConfigGenerator(model_cls=TabMModel, search_space_func=generate_configs_tabm, manual_configs=[{}])
+gen_tabm = CustomAGConfigGenerator(
+    model_cls=TabMModel, search_space_func=generate_configs_tabm, manual_configs=[{}]
+)

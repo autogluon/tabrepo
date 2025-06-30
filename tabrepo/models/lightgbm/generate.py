@@ -41,6 +41,7 @@ def generate_configs_lightgbm(num_random_configs=200) -> list:
 gen_lightgbm = CustomAGConfigGenerator(
     model_cls=LGBModel,
     search_space_func=generate_configs_lightgbm,
+    manual_configs=[{}],
 )
 
 

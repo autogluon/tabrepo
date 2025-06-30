@@ -37,7 +37,9 @@ def generate_configs_xgboost(num_random_configs=200):
 
 
 gen_xgboost = CustomAGConfigGenerator(
-    model_cls=XGBoostModel, search_space_func=generate_configs_xgboost
+    model_cls=XGBoostModel,
+    search_space_func=generate_configs_xgboost,
+    manual_configs=[{}],
 )
 
 if __name__ == "__main__":

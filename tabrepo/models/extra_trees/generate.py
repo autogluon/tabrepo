@@ -52,7 +52,9 @@ def generate_configs_xt(num_random_configs=200):
 
 
 gen_extratrees = CustomAGConfigGenerator(
-    model_cls=XTModel, search_space_func=generate_configs_xt
+    model_cls=XTModel,
+    search_space_func=generate_configs_xt,
+    manual_configs=[{}],
 )
 
 if __name__ == "__main__":

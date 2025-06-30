@@ -43,7 +43,9 @@ def generate_configs_catboost(num_random_configs=200):
 
 
 gen_catboost = CustomAGConfigGenerator(
-    model_cls=CatBoostModel, search_space_func=generate_configs_catboost
+    model_cls=CatBoostModel,
+    search_space_func=generate_configs_catboost,
+    manual_configs=[{}],
 )
 
 

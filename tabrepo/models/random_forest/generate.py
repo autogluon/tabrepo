@@ -47,7 +47,9 @@ def generate_configs_rf(num_random_configs=200):
 
 
 gen_randomforest = CustomAGConfigGenerator(
-    model_cls=RFModel, search_space_func=generate_configs_rf
+    model_cls=RFModel,
+    search_space_func=generate_configs_rf,
+    manual_configs=[{}],
 )
 
 if __name__ == "__main__":
