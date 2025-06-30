@@ -103,7 +103,11 @@ class MitraModel(AbstractModel):
         # cpu_memory_kb = 2420.77*sup + 940.42*qry + 112062.80*feat - 8,391,211.98
         # Take larger cofficient for sup and qry, double the memory usage for a upper bound estimate
         # This is only for CPU-only inference
-        cpu_memory_kb = 2 * (2421*X.shape[0] + 112063*X.shape[1] - 8391211)
+        # cpu_memory_kb = 2 * (2421*X.shape[0] + 112063*X.shape[1] - 8391211)
+        cpu_memory_kb = 0.001 * (X.shape[0]**2) * X.shape[1] + \
+                        0.05 * X.shape[0] * (X.shape[1]**2) + \
+                        20.7125 * X.shape[0] * X.shape[1] + \
+                        2073454
         return int(cpu_memory_kb * 1e3)
 
     def _more_tags(self) -> dict:

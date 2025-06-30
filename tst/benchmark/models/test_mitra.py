@@ -175,14 +175,6 @@ if __name__ == "__main__":
 
     test_reg = [363612]
 
-    # dataset_name, target_dataset, start, end = tabzilla, "tabzilla10fold", 65, 75
-
-    # for did in dataset_name[start:end]:
-
-    #     for fold in range(10):
-
-    #         run_bagging(task_id=did, fold=fold, bagging=True, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  
-
     dataset_name, target_dataset, start, end = tabrepo, "tabrepo10fold", 0, 66
 
     for did in dataset_name[start:end]:
