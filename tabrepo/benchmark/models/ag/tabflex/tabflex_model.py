@@ -8,7 +8,6 @@ from abc import ABC
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import torch
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
 
@@ -27,6 +26,8 @@ sys.modules["gpytorch"] = fake_gyptorch
 
 
 def _elu_activation(x):
+    import torch
+
     return torch.nn.functional.elu(x) + 1
 
 
@@ -52,6 +53,7 @@ class TabFlex:
     ):
         _monkey_patch_ticl_lambda()
 
+        import torch
         from ticl.prediction.tabpfn import TabPFNClassifier
 
         self.base_path = base_path
@@ -183,6 +185,7 @@ class TabFlexModel(AbstractModel):
         return ["binary", "multiclass"]
 
     def _get_default_resources(self) -> tuple[int, int]:
+        import torch
         from autogluon.common.utils.resource_utils import ResourceManager
 
         num_cpus = ResourceManager.get_cpu_count_psutil()
@@ -193,6 +196,8 @@ class TabFlexModel(AbstractModel):
         return {"can_refit_full": True}
 
     def _get_device(self, num_gpus: int) -> str:
+        import torch
+
         device = "cuda" if num_gpus != 0 else "cpu"
         if (device == "cuda") and (not torch.cuda.is_available()):
             # FIXME: warn instead and switch to CPU.
