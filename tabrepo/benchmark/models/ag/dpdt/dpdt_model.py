@@ -72,7 +72,7 @@ class BoostedDPDTModel(AbstractModel):
         if hyperparameters is None:
             hyperparameters = {}
         
-        dataset_size_mem_est = 5 * hyperparameters.get('n_estimators') * hyperparameters.get('cart_nodes_list')[0] * get_approximate_df_mem_usage(X).sum()
+        dataset_size_mem_est = 10 * hyperparameters.get('cart_nodes_list')[0] * get_approximate_df_mem_usage(X).sum()
         baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
 
         mem_estimate = dataset_size_mem_est + baseline_overhead_mem_est

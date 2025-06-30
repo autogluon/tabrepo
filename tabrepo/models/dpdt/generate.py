@@ -43,7 +43,7 @@ search_space = {
     'max_depth': Categorical(2, 2, 2, 2, 3, 3, 3, 3, 3, 3),
     'min_samples_split': Categorical(*np.random.choice([2, 3], size=1000, p=[0.95, 0.05])),
     'min_impurity_decrease': Categorical(*np.random.choice([0, 0.01, 0.02, 0.05], size=1000, p=[0.85, 0.05, 0.05, 0.05])),
-    'cart_nodes_list': Categorical((32,), (8, 4), (4, 8), (16, 2), (4, 4, 2)),
+    'cart_nodes_list': Categorical((8, 4), (4, 8), (16, 2), (4, 4, 2)),
     'min_samples_leaf': Categorical(*min_samples_leaf_samples),  # q_log_uniform equivalent
     'min_weight_fraction_leaf': Categorical(*min_weight_fraction_leaf_samples),
     'max_features': Categorical(*max_features_samples),
