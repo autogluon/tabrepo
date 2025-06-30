@@ -26,11 +26,11 @@ class BoostedDPDTModel(AbstractModel):
     def _fit(self, X: pd.DataFrame, y: pd.Series, num_cpus: int = 1, **kwargs):
         model_cls = self.get_model_cls()
         hyp = self._get_model_params()
-        if num_cpus < 1:
-            num_cpus = 'best'
+
         self.model = model_cls(
             **hyp,
-            n_jobs=num_cpus,
+            n_jobs='best',
+            n_estimators=1000,
         )
         X = self.preprocess(X)
         self.model = self.model.fit(
@@ -51,7 +51,6 @@ class BoostedDPDTModel(AbstractModel):
         return ["binary", "multiclass"]
     
     def _get_default_resources(self) -> tuple[int, int]:
-        import torch
         # logical=False is faster in training
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
         num_gpus = 0

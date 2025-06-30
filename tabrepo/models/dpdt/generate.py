@@ -39,7 +39,6 @@ max_features_samples = np.random.choice(["sqrt", "log2", 10000], size=1000, p=[0
 
 search_space = {
     'learning_rate': Categorical(*samples),  # log_normal distribution equivalent
-    'n_estimators': 1000,  # Fixed value as per old config
     'max_depth': Categorical(2, 2, 2, 2, 3, 3, 3, 3, 3, 3),
     'min_samples_split': Categorical(*np.random.choice([2, 3], size=1000, p=[0.95, 0.05])),
     'min_impurity_decrease': Categorical(*np.random.choice([0, 0.01, 0.02, 0.05], size=1000, p=[0.85, 0.05, 0.05, 0.05])),
