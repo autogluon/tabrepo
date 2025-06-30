@@ -5,10 +5,8 @@ import requests
 
 import pandas as pd
 
-from autogluon.common.loaders import load_pd, load_pkl
+from autogluon.common.loaders import load_pd
 from autogluon.common.savers import save_pd, save_pkl
-from autogluon.common.utils.s3_utils import download_s3_file
-from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 
 BANNED_DATASETS = [
     "ASP-POTASSCO",
@@ -35,6 +33,32 @@ def _load_repo(context_name: str):
     cache_path = f"./{context_name}/repo_cache/tabarena_all.pkl"
     repo = EvaluationRepositoryCollection.load(path=cache_path)
     return repo
+
+
+def load_results(lite: bool = False) -> pd.DataFrame:
+    """
+    Simple function to load the results of the TabArena 2025 paper.
+    The results are at the per-task level (prior to dataset aggregation).
+    For simplicity, the `normalized-error` columns have been removed.
+
+    Parameters
+    ----------
+    lite: bool, default False
+        If True, returns only the first split (fold 0, repeat 0) of the results.
+
+    Returns
+    -------
+    df_results: pd.DataFrame
+        The results on every method benchmarked in the TabArena paper (as present in figure 1)
+        Also includes AutoGluon and the simulated Portfolio.
+
+    """
+    if lite:
+        path = "https://tabarena.s3.us-west-2.amazonaws.com/results/df_results_lite_leaderboard.parquet"
+    else:
+        path = "https://tabarena.s3.us-west-2.amazonaws.com/results/df_results_leaderboard.parquet"
+    df_results = pd.read_parquet(path=path)
+    return df_results
 
 
 def load_paper_results(

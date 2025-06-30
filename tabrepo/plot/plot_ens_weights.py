@@ -67,7 +67,7 @@ def create_heatmap(df: pd.DataFrame, xlabel: str = "Config", ylabel: str = "Task
     # Set labels with specific font sizes
     plt.xlabel(xlabel, fontsize=20)
     plt.ylabel(ylabel, fontsize=20)
-    plt.tight_layout()
+    # plt.tight_layout()
 
     # Adjust tick label font sizes
     plt.xticks(fontsize=15)

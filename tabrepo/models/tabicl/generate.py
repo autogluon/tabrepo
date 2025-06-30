@@ -13,6 +13,7 @@ manual_configs = [
 
 # Unofficial search space
 search_space = {
+    "checkpoint_version": Categorical("tabicl-classifier-v1.1-0506.ckpt", "tabicl-classifier-v1-0208.ckpt"),
     "norm_methods": Categorical("none", "power", "robust", "quantile_rtdl", ["none", "power"]),
     # just in case, tuning between TabICL and TabPFN defaults
     "outlier_threshold": Real(4.0, 12.0),

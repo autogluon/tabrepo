@@ -40,7 +40,7 @@ class Evaluator:
         convert_from_sample_to_batch: bool = False,
         keep_extra_columns: bool = False,
         include_metric_error_val: bool = False,
-        fillna: bool = True,
+        fillna: bool | str = "auto",
     ) -> pd.DataFrame:
         if datasets is None:
             datasets = self.repo.datasets()
@@ -98,6 +98,10 @@ class Evaluator:
         df = pd.concat(dfs_to_concat, axis=0)
         df = df.sort_index()
 
+        if isinstance(fillna, str):
+            assert fillna == "auto"
+            fillna = self.repo._config_fallback is not None
+
         if fillna:
             assert self.repo._config_fallback is not None
             df_fillna = self.compare_metrics(
@@ -111,6 +115,10 @@ class Evaluator:
             )
             df_fillna = df_fillna.droplevel("framework")
             df = self._fillna_metrics(df_metrics=df, df_fillna=df_fillna)
+
+            df["impute_method"] = np.nan
+            df["impute_method"] = df["impute_method"].astype(object)
+            df.loc[df[df["imputed"]].index, "impute_method"] = self.repo._config_fallback
 
         return df
 
@@ -150,6 +158,10 @@ class Evaluator:
         a = df_fillna.loc[nan_vals.droplevel(level="framework")]
         a.index = nan_vals
         df_filled.loc[nan_vals] = a
+
+        df_filled["imputed"] = False
+        df_filled.loc[nan_vals, "imputed"] = True
+
         df_metrics = df_filled
 
         return df_metrics

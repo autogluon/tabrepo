@@ -285,7 +285,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
 
         return repo
 
-    def to_dir(self, path: str):
+    def to_dir(self, path: str | Path):
         from tabrepo.contexts.context import BenchmarkContext, construct_context
 
         path = os.path.abspath(path) + os.path.sep
@@ -332,7 +332,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
     @classmethod
     def from_dir(
         cls,
-        path: str,
+        path: str | Path,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
         update_relative_path: bool = True,
     ) -> Self:

@@ -57,7 +57,7 @@ def sort_by_runtime(
     config_names: List[str],
     ascending: bool = True,
 ) -> List[str]:
-    df_metrics = repo._zeroshot_context.df_configs_ranked
+    df_metrics = repo._zeroshot_context.df_configs
     config_sorted = df_metrics.pivot_table(
         index="framework", columns="tid", values="time_train_s"
     ).median(axis=1).sort_values(ascending=ascending).index.tolist()

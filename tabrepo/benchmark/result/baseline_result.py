@@ -1,7 +1,11 @@
+from __future__ import annotations
 
 import copy
+from pathlib import Path
 
 import pandas as pd
+
+from autogluon.common.savers import save_pkl
 
 from tabrepo.benchmark.result.abstract_result import AbstractResult
 
@@ -32,7 +36,7 @@ class BaselineResult(AbstractResult):
 
     @property
     def dataset(self) -> str:
-        return self.result["task_metadata"]["name"]
+        return self.task_metadata["name"]
 
     @property
     def problem_type(self) -> str:
@@ -40,7 +44,19 @@ class BaselineResult(AbstractResult):
 
     @property
     def split_idx(self) -> int:
-        return self.result["task_metadata"]["split_idx"]
+        return self.task_metadata["split_idx"]
+
+    @property
+    def repeat(self) -> int:
+        return self.task_metadata["repeat"]
+
+    @property
+    def fold(self) -> int:
+        return self.task_metadata["fold"]
+
+    @property
+    def task_metadata(self) -> dict:
+        return self.result["task_metadata"]
 
     def _align_result_input_format(self) -> dict:
         """
@@ -103,6 +119,31 @@ class BaselineResult(AbstractResult):
         if "tid" in self.result["task_metadata"]:
             data.update({"tid": self.result["task_metadata"]["tid"]})
 
+        if "method_metadata" in self.result:
+            method_metadata = self.result["method_metadata"]
+
+            optional_metadata_columns = [
+                "num_cpus",
+                "num_gpus",
+                "disk_usage",
+            ]
+
+            for col in optional_metadata_columns:
+                if col in method_metadata:
+                    assert col not in data.keys()
+                    data.update({col: method_metadata[col]})
+
         df_result = pd.DataFrame([data])
 
         return df_result
+
+    def to_dir(self, path: str | Path):
+        suffix = Path(f"{self.framework}")
+        if "tid" in self.result["task_metadata"]:
+            suffix = suffix / str(self.result["task_metadata"]["tid"])
+        else:
+            suffix = suffix / str(self.dataset)
+        suffix = suffix / f"{self.repeat}_{self.fold}"
+        path_full = Path(path) / suffix
+        path_file = path_full / "results.pkl"
+        save_pkl.save(path=str(path_file), object=self.result)

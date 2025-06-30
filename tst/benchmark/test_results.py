@@ -128,7 +128,7 @@ def test_result_baseline():
     result = _make_result_baseline()
     result_obj = BaselineResult(result=result)
 
-    repo = experiment_batch_runner.repo_from_results(results_lst=[result], convert_time_infer_s_from_batch_to_sample=False)
+    repo = experiment_batch_runner.repo_from_results(results_lst=[result])
     assert repo.baselines() == ["m1"]
     assert repo.configs() == []
 
@@ -137,7 +137,7 @@ def test_result_config():
     result = _make_result_config()
     result_obj = ConfigResult(result=result)
 
-    repo = experiment_batch_runner.repo_from_results(results_lst=[result], convert_time_infer_s_from_batch_to_sample=False)
+    repo = experiment_batch_runner.repo_from_results(results_lst=[result])
     assert repo.baselines() == []
     assert repo.configs() == ["m1"]
     assert repo.config_hyperparameters(config="m1") == {"param1": 10}
@@ -167,7 +167,7 @@ def test_result_ag_bag():
     assert len(result_obj_holdout_lst) == 1
     assert result_obj_holdout_lst[0].framework == "m1_HOLDOUT"
 
-    repo = experiment_batch_runner.repo_from_results(results_lst=[result], convert_time_infer_s_from_batch_to_sample=False)
+    repo = experiment_batch_runner.repo_from_results(results_lst=[result])
     assert repo.baselines() == []
     assert repo.configs() == ["m1"]
     assert repo.config_hyperparameters(config="m1") == {"param1": 10}
