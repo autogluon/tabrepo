@@ -401,6 +401,7 @@ class Evaluator:
         n_ensemble_in_name: bool = True,
         n_max_models_per_type: int | str | None = None,
         fix_fillna: bool = True,
+        n_eval_folds: int | None = None,
     ) -> pd.DataFrame:
         repo = self.repo
 
@@ -412,6 +413,9 @@ class Evaluator:
         if configs is None:
             configs = repo.configs()
 
+        if n_eval_folds is None:
+            n_eval_folds = repo.n_folds()
+
         a = zeroshot_results(
             repo=repo,
             dataset_names=repo.datasets(),
@@ -422,7 +426,7 @@ class Evaluator:
             n_max_models_per_type=[n_max_models_per_type],
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
-            n_eval_folds=repo.n_folds(),
+            n_eval_folds=n_eval_folds,
             fix_fillna=fix_fillna,
             configs=configs,
             engine=engine,
