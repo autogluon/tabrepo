@@ -10,9 +10,9 @@ if TYPE_CHECKING:
     import pandas as pd
 
 
-class BoostedDPDT(AbstractModel):
-    ag_key = "ADABOOSTDPDT"
-    ag_name = "adaboost_dpdt"
+class BoostedDPDTModel(AbstractModel):
+    ag_key = "BOOSTEDDPDT"
+    ag_name = "boosted_dpdt"
 
     def get_model_cls(self):
         from dpdt import AdaBoostDPDT
