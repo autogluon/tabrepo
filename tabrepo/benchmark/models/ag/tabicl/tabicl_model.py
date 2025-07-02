@@ -83,9 +83,6 @@ class TabICLModel(AbstractModel):
         )
         return default_auxiliary_params
 
-    def _ag_params(self) -> set:
-        return {"max_rows", "max_features"}
-
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass"]
