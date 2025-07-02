@@ -281,13 +281,6 @@ class TabPFNV2Model(AbstractModel):
         )
         return default_auxiliary_params
 
-    def _ag_params(self) -> set:
-        return {
-            "max_rows",
-            "max_features",
-            "max_classes",
-        }
-
     @classmethod
     def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
         """
