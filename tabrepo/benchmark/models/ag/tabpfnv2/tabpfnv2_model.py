@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy
+from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
 from sklearn.preprocessing import PowerTransformer
@@ -108,9 +109,11 @@ def _check_inputs(self, X, in_fit, accept_sparse_negative=False, copy=False):
     )
 
 
+# TODO: Satisfy TabPFNv2 License
 class TabPFNV2Model(AbstractModel):
     ag_key = "TABPFNV2"
     ag_name = "TabPFNv2"
+    ag_priority = 105
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -160,16 +163,9 @@ class TabPFNV2Model(AbstractModel):
         from tabpfn.model.loading import resolve_model_path
         from torch.cuda import is_available
 
-        ag_params = self._get_ag_params()
-        max_classes = ag_params.get("max_classes")
         is_classification = self.problem_type in ["binary", "multiclass"]
 
         if is_classification:
-            if max_classes is not None and self.num_classes > max_classes:
-                raise AssertionError(
-                    f"Max allowed classes for the model is {max_classes}, but found {self.num_classes} classes.",
-                )
-
             model_base = TabPFNClassifier
         else:
             model_base = TabPFNRegressor
@@ -187,9 +183,7 @@ class TabPFNV2Model(AbstractModel):
         hps = self._get_model_params()
         hps["device"] = device
         hps["n_jobs"] = num_cpus
-        hps["random_state"] = 42  # TODO: get seed from AutoGluon.
         hps["categorical_features_indices"] = self._cat_indices
-        hps["ignore_pretraining_limits"] = True  # to ignore warnings and size limits
 
         _, model_dir, _, _ = resolve_model_path(
             model_path=None,
@@ -259,40 +253,54 @@ class TabPFNV2Model(AbstractModel):
             y=y,
         )
 
-
     def _get_default_resources(self) -> tuple[int, int]:
-        from autogluon.common.utils.resource_utils import ResourceManager
-        from torch.cuda import is_available
-
         num_cpus = ResourceManager.get_cpu_count_psutil()
-        num_gpus = 1 if is_available() else 0
+        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
         return num_cpus, num_gpus
 
-
     def _set_default_params(self):
-        default_params = {}
+        default_params = {
+            "random_state": 42,
+            "ignore_pretraining_limits": True,  # to ignore warnings and size limits
+        }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
-
 
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass", "regression"]
 
-
     def _get_default_auxiliary_params(self) -> dict:
         default_auxiliary_params = super()._get_default_auxiliary_params()
         default_auxiliary_params.update(
             {
+                "max_rows": 10000,
+                "max_features": 500,
                 "max_classes": 10,
-            },
+            }
         )
         return default_auxiliary_params
 
-
     def _ag_params(self) -> set:
-        return {"max_classes"}
+        return {
+            "max_rows",
+            "max_features",
+            "max_classes",
+        }
 
+    @classmethod
+    def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
+        """
+        Set fold_fitting_strategy to sequential_local,
+        as parallel folding crashes if model weights aren't pre-downloaded.
+        """
+        default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
+        extra_ag_args_ensemble = {
+            # FIXME: Find a work-around to avoid crash if parallel and weights are not downloaded
+            "fold_fitting_strategy": "sequential_local",
+        }
+        default_ag_args_ensemble.update(extra_ag_args_ensemble)
+        return default_ag_args_ensemble
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
