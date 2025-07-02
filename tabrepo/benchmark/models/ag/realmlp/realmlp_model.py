@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from typing import Literal
 
 import pandas as pd
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 class RealMLPModel(AbstractModel):
     ag_key = "REALMLP"
     ag_name = "RealMLP"
+    ag_priority = 75
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -55,7 +57,10 @@ class RealMLPModel(AbstractModel):
         num_gpus: float = 0,
         **kwargs,
     ):
+        start_time = time.time()
+
         import torch
+
         # FIXME: code assume we only see one GPU in the fit process.
         device = "cpu" if num_gpus == 0 else "cuda:0"
         if (device == "cuda:0") and (not torch.cuda.is_available()):
@@ -66,7 +71,7 @@ class RealMLPModel(AbstractModel):
 
         hyp = self._get_model_params()
 
-        default_hyperparameters = hyp.pop("default_hyperparameters")
+        default_hyperparameters = hyp.pop("default_hyperparameters", "td")
 
         model_cls = self.get_model_cls(default_hyperparameters=default_hyperparameters)
 
@@ -129,7 +134,7 @@ class RealMLPModel(AbstractModel):
             y=y,
             X_val=X_val,
             y_val=y_val,
-            time_to_fit_in_seconds=time_limit,
+            time_to_fit_in_seconds=time_limit - (time.time() - start_time) if time_limit is not None else None,
             **extra_fit_kwargs,
         )
 
@@ -214,10 +219,9 @@ class RealMLPModel(AbstractModel):
         return self.eval_metric
 
     def _get_default_resources(self) -> tuple[int, int]:
-        import torch
         # logical=False is faster in training
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = 1 if torch.cuda.is_available() else 0
+        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
