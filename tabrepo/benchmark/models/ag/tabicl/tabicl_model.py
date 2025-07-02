@@ -2,16 +2,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 
 if TYPE_CHECKING:
     import pandas as pd
 
 
+# TODO: Verify if crashes when weights are not yet downloaded and fit in parallel
 # TODO: Needs memory usage estimate method
 class TabICLModel(AbstractModel):
     ag_key = "TABICL"
     ag_name = "TabICL"
+    ag_priority = 65
 
     def get_model_cls(self):
         from tabicl import TabICLClassifier
@@ -70,16 +73,26 @@ class TabICLModel(AbstractModel):
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
 
+    def _get_default_auxiliary_params(self) -> dict:
+        default_auxiliary_params = super()._get_default_auxiliary_params()
+        default_auxiliary_params.update(
+            {
+                "max_rows": 100000,
+                "max_features": 500,
+            }
+        )
+        return default_auxiliary_params
+
+    def _ag_params(self) -> set:
+        return {"max_rows", "max_features"}
+
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass"]
 
     def _get_default_resources(self) -> tuple[int, int]:
-        from autogluon.common.utils.resource_utils import ResourceManager
-        from torch.cuda import is_available
-
         num_cpus = ResourceManager.get_cpu_count_psutil()
-        num_gpus = 1 if is_available() else 0
+        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
         return num_cpus, num_gpus
 
     def _more_tags(self) -> dict:
