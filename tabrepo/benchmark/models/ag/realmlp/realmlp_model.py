@@ -111,6 +111,14 @@ class RealMLPModel(AbstractModel):
         impute_bool = hyp.pop("impute_bool", True)
         name_categories = hyp.pop("name_categories", True)
 
+        n_features = len(X.columns)
+        if "predict_batch_size" in hyp and isinstance(hyp["predict_batch_size"], str) and hyp["predict_batch_size"] == "auto":
+            # simple heuristic to avoid OOM during inference time
+            # note: this isn't fool-proof, and ignores the actual memory availability of the machine.
+            # note: this is based on an assumption of 32 GB of memory available on the instance
+            # default is 1024
+            hyp["predict_batch_size"] = max(min(int(8192 * 200 / n_features), 8192), 64)
+
         self.model = model_cls(
             n_threads=num_cpus,
             device=device,
@@ -207,6 +215,8 @@ class RealMLPModel(AbstractModel):
 
             # verdict: "td" is better than "td_s"
             default_hyperparameters="td",  # options ["td", "td_s"]
+
+            predict_batch_size="auto",  # if auto, uses AutoGluon's heuristic to set a value between 8192 and 64.
         )
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
