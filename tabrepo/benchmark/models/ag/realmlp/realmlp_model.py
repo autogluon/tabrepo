@@ -228,7 +228,6 @@ class RealMLPModel(AbstractModel):
         hyperparameters = self._get_model_params()
         return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
 
-    # FIXME: Find a better estimate for memory usage of RealMLP. Currently borrowed from FASTAI estimate.
     @classmethod
     def _estimate_memory_usage_static(
         cls,
