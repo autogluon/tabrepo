@@ -24,7 +24,9 @@ search_space = {
     "ag_args_ensemble": Categorical({"refit_folds": True}),
 }
 
-gen_tabicl = ConfigGenerator(model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space)
+gen_tabicl = ConfigGenerator(
+    model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space
+)
 
 if __name__ == "__main__":
     from tabrepo.benchmark.experiment import YamlExperimentSerializer
