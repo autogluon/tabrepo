@@ -23,7 +23,7 @@ class BoostedDPDTModel(AbstractModel):
             raise AssertionError(f"Unsupported problem_type: {self.problem_type}")
         return model_cls
     
-    def _fit(self, X: pd.DataFrame, y: pd.Series, num_cpus: int = 1, **kwargs):
+    def _fit(self, X: pd.DataFrame, y: pd.Series, num_cpus: int = 1, time_limit: float = None,**kwargs):
         model_cls = self.get_model_cls()
         hyp = self._get_model_params()
 
@@ -31,6 +31,7 @@ class BoostedDPDTModel(AbstractModel):
             **hyp,
             n_jobs='best',
             n_estimators=1000,
+            time_limit=time_limit,
         )
         X = self.preprocess(X)
         self.model = self.model.fit(
