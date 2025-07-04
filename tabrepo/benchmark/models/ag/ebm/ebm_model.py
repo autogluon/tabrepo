@@ -12,19 +12,20 @@ if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
 
+class Callback:
+    def __init__(self, seconds):
+        self.seconds = seconds
+
+    def __call__(self, bag_index, step_index, progress, metric):
+        import time
+
+        if not hasattr(self, "end_time"):
+            self.end_time = time.monotonic() + self.seconds
+            return False
+        return time.monotonic() > self.end_time
+
+
 def callback_generator(seconds):
-    class Callback:
-        def __init__(self, seconds):
-            self.seconds = seconds
-
-        def __call__(self, bag_index, step_index, progress, metric):
-            import time
-
-            if not hasattr(self, "end_time"):
-                self.end_time = time.monotonic() + self.seconds
-                return False
-            return time.monotonic() > self.end_time
-
     return Callback(seconds)
 
 
