@@ -94,7 +94,11 @@ class EndToEndResults:
         return cls(method_metadata=method_metadata)
 
     def compare_on_tabarena(
-        self, output_dir: str | Path, *, subset: str | None = None
+        self,
+        output_dir: str | Path,
+        *,
+        subset: str | None = None,
+        new_result_prefix: str | None = None,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
 
@@ -103,6 +107,9 @@ class EndToEndResults:
             subset (str | None): Subset of tasks to evaluate on.
                 Options are "classification", "regression", "lite"  for TabArena-Lite,
                 "tabicl", "tabpfn", "tabpfn/tabicl", or None for all tasks.
+            new_result_prefix (str | None): If not None, add a prefix to the new
+                results to distinguish new results from the original TabArena results.
+                Use this, for example, if you re-run a model from TabArena.
         """
         output_dir = Path(output_dir)
 
@@ -110,6 +117,10 @@ class EndToEndResults:
 
         fillna_method = "RF (default)"
         paper_results = tabarena_context.load_results_paper(download_results="auto")
+
+        if new_result_prefix is not None:
+            for col in ["method", "config_type", "ta_name", "ta_suite"]:
+                self.hpo_results[col] = new_result_prefix + self.hpo_results[col]
 
         # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
         #  need to use original, not filled values
