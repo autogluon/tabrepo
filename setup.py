@@ -34,7 +34,7 @@ extras_require = {
         # used hash: 9699d9592b61c5f70fc88f5531cdb87b40cbedf5
     ],
     "tabm": [
-        "pytabkit>=1.3.0",
+        "tabm>=0.0.1",
     ],
     "modernnca": [
         "category_encoders",

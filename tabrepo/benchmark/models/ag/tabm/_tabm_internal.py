@@ -19,8 +19,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from sklearn.utils.validation import check_is_fitted
 
-from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm_reference
-from tabrepo.benchmark.models.ag.tabm.tabm_reference import make_parameter_groups
 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
@@ -292,6 +290,8 @@ class TabMImplementation:
                     f"\ntorch.compile: {compile_model}",
                     )
         # fmt: on
+        import rtdl_num_embeddings
+        import tabm
 
         bins = (
             None
@@ -299,32 +299,26 @@ class TabMImplementation:
             else rtdl_num_embeddings.compute_bins(data["train"]["x_cont"], n_bins=num_emb_n_bins)
         )
 
-        model = tabm_reference.Model(
+        num_embeddings = None if bins is None else rtdl_num_embeddings.PiecewiseLinearEmbeddings(
+            bins=bins,
+            d_embedding=d_embedding,
+            activation=False,
+            version='B',
+        )
+        model = tabm.TabM(
             n_num_features=n_cont_features,
             cat_cardinalities=cat_cardinalities,
-            n_classes=n_classes if n_classes > 0 else None,
-            backbone={
-                "type": "MLP",
-                "n_blocks": n_blocks if n_blocks != "auto" else (3 if bins is None else 2),
-                "d_block": d_block,
-                "dropout": dropout,
-            },
-            bins=bins,
-            num_embeddings=(
-                None
-                if bins is None
-                else {
-                    "type": "PiecewiseLinearEmbeddings",
-                    "d_embedding": d_embedding,
-                    "activation": False,
-                    "version": "B",
-                }
-            ),
+            d_out=n_classes if n_classes > 0 else 1,
+            num_embeddings=num_embeddings,
+            n_blocks=n_blocks if n_blocks != 'auto' else (3 if bins is None else 2),
+            d_block=d_block,
+            dropout=dropout,
             arch_type=arch_type,
             k=tabm_k,
-            share_training_batches=share_training_batches,
+            start_scaling_init="normal",
         ).to(device)
-        optimizer = torch.optim.AdamW(make_parameter_groups(model), lr=lr, weight_decay=weight_decay)
+        # FIXME: make_parameter_groups(model) missing?
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
         if compile_model:
             # NOTE
@@ -353,10 +347,9 @@ class TabMImplementation:
             # TabM produces k predictions per object. Each of them must be trained separately.
             # (regression)     y_pred.shape == (batch_size, k)
             # (classification) y_pred.shape == (batch_size, k, n_classes)
-            k = y_pred.shape[1]
             return base_loss_fn(
                 y_pred.flatten(0, 1),
-                y_true.repeat_interleave(k) if model.share_training_batches else y_true,
+                y_true.repeat_interleave(model.backbone.k) if share_training_batches else y_true.flatten(0, 1),
             )
 
         @evaluation_mode()
@@ -427,11 +420,12 @@ class TabMImplementation:
 
             batches = (
                 torch.randperm(n_train, device=device).split(batch_size)
-                if model.share_training_batches
-                else [
-                    x.transpose(0, 1).flatten()
-                    for x in torch.rand((model.k, n_train), device=device).argsort(dim=1).split(batch_size, dim=1)
-                ]
+                if share_training_batches
+                else (
+                    torch.rand((n_train, model.backbone.k), device=device)
+                    .argsort(dim=0)
+                    .split(batch_size, dim=0)
+                )
             )
 
             for batch_idx in tqdm(batches, desc=f"Epoch {epoch}"):
