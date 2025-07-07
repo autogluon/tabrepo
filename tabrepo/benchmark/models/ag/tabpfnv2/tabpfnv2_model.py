@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
+import pandas as pd
 import scipy
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
@@ -11,9 +12,6 @@ from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
 from sklearn.preprocessing import PowerTransformer
 from sklearn.utils.validation import FLOAT_DTYPES
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 # TODO: merge into TabPFnv2 codebase
@@ -142,8 +140,6 @@ class TabPFNV2Model(AbstractModel):
 
         return X
 
-    # FIXME: What is the minimal model artifact?
-    #  If zeroshot, maybe we don't save weights for each fold in bag and instead load from a single weights file?
     # FIXME: Crashes during model download if bagging with parallel fit.
     #  Consider adopting same download logic as TabPFNMix which doesn't crash during model download.
     # FIXME: Maybe support child_oof somehow with using only one model and being smart about inference time?
