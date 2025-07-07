@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy
+from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
@@ -294,6 +295,36 @@ class TabPFNV2Model(AbstractModel):
         }
         default_ag_args_ensemble.update(extra_ag_args_ensemble)
         return default_ag_args_ensemble
+
+    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+        hyperparameters = self._get_model_params()
+        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
+
+    @classmethod
+    def _estimate_memory_usage_static(
+        cls,
+        *,
+        X: pd.DataFrame,
+        hyperparameters: dict = None,
+        **kwargs,
+    ) -> int:
+        """
+        Heuristic memory estimate that is very primitive.
+        Can be vastly improved.
+        """
+        num_features = len(X.columns)
+        columns_mem_est = num_features * 1e6
+
+        dataset_size_mem_est = 10 * get_approximate_df_mem_usage(X).sum()  # roughly 10x DataFrame memory size
+        baseline_overhead_mem_est = 2e9  # 2 GB generic overhead
+
+        mem_estimate = dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
+
+        return mem_estimate
+
+    @classmethod
+    def _class_tags(cls):
+        return {"can_estimate_memory_usage_static": True}
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
