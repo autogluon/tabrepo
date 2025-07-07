@@ -90,25 +90,53 @@ class MitraModel(AbstractModel):
         num_gpus = 1
         return num_cpus, num_gpus
 
-    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
-        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, **kwargs)
+    # def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+    #     return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, **kwargs)
     
     @classmethod
-    def _estimate_memory_usage_static(
+    def _estimate_memory_usage_static_cpu_icl(
         cls,
         *,
         X: pd.DataFrame,
         **kwargs,
     ) -> int:
-        # cpu_memory_kb = 2420.77*sup + 940.42*qry + 112062.80*feat - 8,391,211.98
-        # Take larger cofficient for sup and qry, double the memory usage for a upper bound estimate
-        # This is only for CPU-only inference
-        # cpu_memory_kb = 2 * (2421*X.shape[0] + 112063*X.shape[1] - 8391211)
-        cpu_memory_kb = 0.001 * (X.shape[0]**2) * X.shape[1] + \
-                        0.05 * X.shape[0] * (X.shape[1]**2) + \
-                        20.7125 * X.shape[0] * X.shape[1] + \
-                        2073454
+        cpu_memory_kb = 1.3 * (0.001748 * (X.shape[0]**2) * X.shape[1] + \
+                        0.001206 * X.shape[0] * (X.shape[1]**2) + \
+                        10.3482 * X.shape[0] * X.shape[1] + \
+                        6409698)
         return int(cpu_memory_kb * 1e3)
+
+    @classmethod
+    def _estimate_memory_usage_static_cpu_ft_icl(
+        cls,
+        *,
+        X: pd.DataFrame,
+        **kwargs,
+    ) -> int:
+        cpu_memory_kb = 1.3 * (0.001 * (X.shape[0]**2) * X.shape[1] + \
+                        0.004541 * X.shape[0] * (X.shape[1]**2) + \
+                        46.2974 * X.shape[0] * X.shape[1] + \
+                        5605681)
+        return int(cpu_memory_kb * 1e3)
+    
+    @classmethod
+    def _estimate_memory_usage_static_gpu_cpu(
+        cls,
+        *,
+        X: pd.DataFrame,
+        **kwargs,
+    ) -> int:
+        return int(5 * 1e9)
+
+    @classmethod
+    def _estimate_memory_usage_static_gpu_gpu(
+        cls,
+        *,
+        X: pd.DataFrame,
+        **kwargs,
+    ) -> int:
+        gpu_memory_mb = 1.3 * (0.05676 * X.shape[0] * X.shape[1] + 3901)
+        return int(gpu_memory_mb * 1e6)
 
     def _more_tags(self) -> dict:
         tags = {"can_refit_full": True}

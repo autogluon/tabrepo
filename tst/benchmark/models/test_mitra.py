@@ -55,7 +55,11 @@ def run_bagging(task_id, fold, bagging=True, target_dataset="tabrepo10fold", fil
     y_test = label_cleaner.transform(y_test).values
 
     # simulate data to test memory usage
-    # sup, qry, feat = 500, 1000, 100
+    # sup = int(os.environ.get("SUP_SIZE", 4))
+    # qry = int(os.environ.get("QRY_SIZE", 1))
+    # feat = int(os.environ.get("FEAT_SIZE", 1))
+    # n_class = 2
+    # problem_type = 'binary' if n_class == 2 else 'multiclass'
     # x_train = np.random.random((sup, feat))
     # x_test = np.random.random((qry, feat))
     # y_train = np.random.randint(0, n_class, size=(sup,))
@@ -181,4 +185,10 @@ if __name__ == "__main__":
 
         for fold in range(10):
 
+            begin_time = time.time()
+
             run_bagging(task_id=did, fold=fold, bagging=False, target_dataset=target_dataset, file_name=f"mitra_bagging_ft_{start}_{end}", t="classification")  
+
+            end_time = time.time()
+
+            print(end_time - begin_time)
