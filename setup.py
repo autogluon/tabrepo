@@ -63,7 +63,6 @@ extras_require["benchmark"] += [
     "seaborn==0.13.2",
     "matplotlib==3.9.2",
     "autorank==1.2.1",
-    "fastparquet",  # FIXME: Without this, parquet loading is inconsistent for list columns
     "tueplots",
 ]
 
