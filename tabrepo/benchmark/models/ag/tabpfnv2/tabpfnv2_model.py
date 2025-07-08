@@ -16,8 +16,7 @@ from sklearn.utils.validation import FLOAT_DTYPES
 
 # TODO: merge into TabPFnv2 codebase
 class FixedSafePowerTransformer(PowerTransformer):
-    """Fixed version of safe power THAT FOLLOWS BASIC SKLEARN STANDARD ANS THUS DOES NOT HAVE A BUG WHEN CLONING
-    WHY IS THIS SO HARD?
+    """Fixed version of safe power
     """
 
     def __init__(
