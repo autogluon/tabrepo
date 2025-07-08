@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import pandas as pd
 
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 
-if TYPE_CHECKING:
-    import pandas as pd
-
 
 # TODO: Verify if crashes when weights are not yet downloaded and fit in parallel
-# TODO: Needs memory usage estimate method
 class TabICLModel(AbstractModel):
     ag_key = "TABICL"
     ag_name = "TabICL"
