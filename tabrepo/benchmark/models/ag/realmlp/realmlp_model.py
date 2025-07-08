@@ -1,18 +1,40 @@
+"""
+Model: RealMLP
+Paper: Better by Default: Strong Pre-Tuned MLPs and Boosted Trees on Tabular Data
+Authors: David Holzmüller, Léo Grinsztajn, Ingo Steinwart
+Codebase: https://github.com/dholzmueller/pytabkit
+License: Apache-2.0
+"""
+
 from __future__ import annotations
 
 import logging
 import math
 import time
+from contextlib import contextmanager
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 from sklearn.impute import SimpleImputer
 
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
+from autogluon.tabular import __version__
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def set_logger_level(logger_name: str, level: int):
+    _logger = logging.getLogger(logger_name)
+    old_level = _logger.level
+    _logger.setLevel(level)
+    try:
+        yield
+    finally:
+        _logger.setLevel(old_level)
 
 
 # pip install pytabkit
@@ -55,11 +77,28 @@ class RealMLPModel(AbstractModel):
         time_limit: float = None,
         num_cpus: int = 1,
         num_gpus: float = 0,
+        verbosity: int = 2,
         **kwargs,
     ):
         start_time = time.time()
 
-        import torch
+        try:
+            import pytabkit
+            import torch
+        except ImportError as err:
+            logger.log(
+                40,
+                f"\tFailed to import pytabkit/torch! To use the ReaLMLP model, "
+                f"do: `pip install autogluon.tabular[realmlp]=={__version__}`.",
+            )
+            raise err
+
+        if verbosity == 0:
+            _lightning_log_level = logging.ERROR
+        elif verbosity <= 2:
+            _lightning_log_level = logging.WARNING
+        else:
+            _lightning_log_level = logging.INFO
 
         # FIXME: code assume we only see one GPU in the fit process.
         device = "cpu" if num_gpus == 0 else "cuda:0"
@@ -137,14 +176,19 @@ class RealMLPModel(AbstractModel):
         if X_val is not None:
             X_val = self.preprocess(X_val)
 
-        self.model = self.model.fit(
-            X=X,
-            y=y,
-            X_val=X_val,
-            y_val=y_val,
-            time_to_fit_in_seconds=time_limit - (time.time() - start_time) if time_limit is not None else None,
-            **extra_fit_kwargs,
-        )
+        with set_logger_level("lightning.pytorch", _lightning_log_level):
+            self.model = self.model.fit(
+                X=X,
+                y=y,
+                X_val=X_val,
+                y_val=y_val,
+                time_to_fit_in_seconds=time_limit - (time.time() - start_time) if time_limit is not None else None,
+                **extra_fit_kwargs,
+            )
+
+    def _predict_proba(self, X, **kwargs) -> np.ndarray:
+        with set_logger_level("lightning.pytorch", logging.WARNING):
+            return super()._predict_proba(X=X, kwargs=kwargs)
 
     # TODO: Move missing indicator + mean fill to a generic preprocess flag available to all models
     # FIXME: bool_to_cat is a hack: Maybe move to abstract model?
@@ -186,11 +230,6 @@ class RealMLPModel(AbstractModel):
     def _set_default_params(self):
         default_params = dict(
             random_state=0,
-            # TODO: predict_batch_size=512,  # Default 1024, runs OOM on robert sometimes. Verify the speed impact.
-            #  And OVA_Prostate
-            #  From David Holzmuller:
-            #  a slightly conservative bound (ignoring the model size, which should be not too large) should be something like
-            #  ram_bytes = 4 * n_features * (plr_hidden_1 + plr_hidden_2) * predict_batch_size. Then one could infer predict_batch_size based on a RAM limit...
 
             # Don't use early stopping by default, seems to work well without
             use_early_stopping=False,
@@ -209,9 +248,6 @@ class RealMLPModel(AbstractModel):
             # verdict: bool_to_cat=True is equivalent to False in terms of quality, but can be slightly faster in training time
             #  and slightly slower in inference time
             bool_to_cat=True,
-
-            # verdict: use_roc_auc_to_stop=True is best
-            # use_roc_auc_to_stop=True,  # Tested and integrated directly, no longer a valid hyperparameter
 
             # verdict: "td" is better than "td_s"
             default_hyperparameters="td",  # options ["td", "td_s"]
@@ -299,7 +335,7 @@ class RealMLPModel(AbstractModel):
         return mem_estimate
 
     @classmethod
-    def _class_tags(cls):
+    def _class_tags(cls) -> dict:
         return {"can_estimate_memory_usage_static": True}
 
     def _more_tags(self) -> dict:
