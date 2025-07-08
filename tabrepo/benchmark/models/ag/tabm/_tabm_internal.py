@@ -287,7 +287,7 @@ class TabMImplementation:
         grad_scaler = torch.cuda.amp.GradScaler() if amp_dtype is torch.float16 else None  # type: ignore
 
         # fmt: off
-        logger.info(f"Device:        {device.type.upper()}"
+        logger.log(15, f"Device:        {device.type.upper()}"
                     f"\nAMP:           {amp_enabled} (dtype: {amp_dtype})"
                     f"\ntorch.compile: {compile_model}",
                     )
@@ -417,7 +417,7 @@ class TabMImplementation:
         except ImportError:
             tqdm = lambda arr, desc: arr
 
-        logger.info("-" * 88 + "\n")
+        logger.log(15, "-" * 88 + "\n")
         for epoch in range(n_epochs):
             # check time limit
             if epoch > 0 and time_to_fit_in_seconds is not None:
@@ -457,10 +457,10 @@ class TabMImplementation:
                     grad_scaler.update()
 
             val_score = evaluate("val")
-            logger.info(f"(val) {val_score:.4f}")
+            logger.log(15, f"(val) {val_score:.4f}")
 
             if val_score > best["val"]:
-                logger.info("🌸 New best epoch! 🌸")
+                logger.log(15, "🌸 New best epoch! 🌸")
                 # best = {'val': val_score, 'test': test_score, 'epoch': epoch}
                 best = {"val": val_score, "epoch": epoch}
                 remaining_patience = patience
@@ -473,12 +473,10 @@ class TabMImplementation:
             if remaining_patience < 0:
                 break
 
-            logger.info("")
+        logger.log(15, "\n\nResult:")
+        logger.log(15, str(best))
 
-        logger.info("\n\nResult:")
-        logger.info(str(best))
-
-        logger.info("Restoring best model")
+        logger.log(15, "Restoring best model")
         with torch.no_grad():
             for bp, p in zip(best_params, model.parameters(), strict=False):
                 p.copy_(bp)
