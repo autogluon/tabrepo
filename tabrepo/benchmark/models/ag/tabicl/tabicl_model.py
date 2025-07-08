@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 
@@ -88,9 +89,63 @@ class TabICLModel(AbstractModel):
         return ["binary", "multiclass"]
 
     def _get_default_resources(self) -> tuple[int, int]:
-        num_cpus = ResourceManager.get_cpu_count_psutil()
+        num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
         num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
         return num_cpus, num_gpus
+
+    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+        hyperparameters = self._get_model_params()
+        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
+
+    # TODO: TabICL scales linearly with respect to # cells
+    @classmethod
+    def _estimate_memory_usage_static(
+        cls,
+        *,
+        X: pd.DataFrame,
+        hyperparameters: dict = None,
+        **kwargs,
+    ) -> int:
+        """
+        Heuristic memory estimate that is very primitive.
+        Can be vastly improved.
+        """
+        dataset_size_mem_est = 3 * get_approximate_df_mem_usage(X).sum()  # roughly 3x DataFrame memory size
+        baseline_overhead_mem_est = 1e9  # 1 GB generic overhead
+
+        n_rows = X.shape[0]
+        n_features = X.shape[1]
+        batch_size = 8
+        embedding_dim = 128
+        bytes_per_float = 4
+        model_mem_estimate = 2 * batch_size * embedding_dim * bytes_per_float * (4 + n_rows) * n_features
+
+        model_mem_estimate *= 1.3  # add 30% buffer
+
+        # TODO: Observing memory spikes above expected values on large datasets, increasing mem estimate to compensate
+        model_mem_estimate *= 2
+
+        mem_estimate = model_mem_estimate + dataset_size_mem_est + baseline_overhead_mem_est
+
+        return mem_estimate
+
+    @classmethod
+    def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
+        """
+        Set fold_fitting_strategy to sequential_local,
+        as parallel folding crashes if model weights aren't pre-downloaded.
+        """
+        default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
+        extra_ag_args_ensemble = {
+            # FIXME: If parallel, uses way more memory, seems to behave incorrectly, so we force sequential.
+            "fold_fitting_strategy": "sequential_local",
+        }
+        default_ag_args_ensemble.update(extra_ag_args_ensemble)
+        return default_ag_args_ensemble
+
+    @classmethod
+    def _class_tags(cls):
+        return {"can_estimate_memory_usage_static": True}
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
