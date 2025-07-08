@@ -1,10 +1,23 @@
+"""
+Model: TabICL
+Paper: TabICL: A Tabular Foundation Model for In-Context Learning on Large Data
+Authors: Jingang Qu, David Holzmüller, Gaël Varoquaux, Marine Le Morvan
+Codebase: https://github.com/soda-inria/tabicl
+License: BSD-3-Clause
+"""
+
 from __future__ import annotations
+
+import logging
 
 import pandas as pd
 
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
+from autogluon.tabular import __version__
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: Verify if crashes when weights are not yet downloaded and fit in parallel
@@ -39,6 +52,16 @@ class TabICLModel(AbstractModel):
         num_gpus: int = 0,
         **kwargs,
     ):
+        try:
+            import tabicl
+        except ImportError as err:
+            logger.log(
+                40,
+                f"\tFailed to import tabicl! To use the TabICL model, "
+                f"do: `pip install autogluon.tabular[tabicl]=={__version__}`.",
+            )
+            raise err
+
         from torch.cuda import is_available
 
         device = "cuda" if num_gpus != 0 else "cpu"
@@ -137,12 +160,13 @@ class TabICLModel(AbstractModel):
         extra_ag_args_ensemble = {
             # FIXME: If parallel, uses way more memory, seems to behave incorrectly, so we force sequential.
             "fold_fitting_strategy": "sequential_local",
+            "refit_folds": True,  # Better to refit the model for faster inference and similar quality as the bag.
         }
         default_ag_args_ensemble.update(extra_ag_args_ensemble)
         return default_ag_args_ensemble
 
     @classmethod
-    def _class_tags(cls):
+    def _class_tags(cls) -> dict:
         return {"can_estimate_memory_usage_static": True}
 
     def _more_tags(self) -> dict:
