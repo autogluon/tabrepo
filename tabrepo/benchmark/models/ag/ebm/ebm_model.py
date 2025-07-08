@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
+from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
@@ -29,8 +30,6 @@ def callback_generator(seconds):
     return Callback(seconds)
 
 
-# TODO: memory usage estimation
-# TODO: fix joblib errors when using EBM
 class ExplainableBoostingMachineModel(AbstractModel):
     ag_key = "EBM"
     ag_name = "ExplainableBM"
@@ -164,6 +163,27 @@ class ExplainableBoostingMachineModel(AbstractModel):
         """EBMs do not yet support refit full."""
         return {"can_refit_full": False}
 
+    @classmethod
+    def _estimate_memory_usage_static(
+        cls,
+        *,
+        X: pd.DataFrame,
+        hyperparameters: dict = None,
+        num_classes: int = 1,
+        **kwargs,
+    ) -> int:
+        """
+        Returns the expected peak memory usage in bytes of the EBM model during fit.
+        """
+        if hyperparameters is None:
+            hyperparameters = {}
+        
+        baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
+        data_mem_usage_bytes = get_approximate_df_mem_usage(X).sum()
+        ebm_memory_bytes = cls(**hyperparameters).estimate_mem(X)
+        approx_mem_size_req = baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
+
+        return approx_mem_size_req
 
 def get_metric_from_ag_metric(*, metric: Scorer, problem_type: str):
     """Map AutoGluon metric to EBM metric for early stopping."""
