@@ -97,7 +97,6 @@ class TabICLModel(AbstractModel):
         hyperparameters = self._get_model_params()
         return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
 
-    # TODO: TabICL scales linearly with respect to # cells
     @classmethod
     def _estimate_memory_usage_static(
         cls,
@@ -110,20 +109,23 @@ class TabICLModel(AbstractModel):
         Heuristic memory estimate that is very primitive.
         Can be vastly improved.
         """
+        if hyperparameters is None:
+            hyperparameters = {}
+
         dataset_size_mem_est = 3 * get_approximate_df_mem_usage(X).sum()  # roughly 3x DataFrame memory size
         baseline_overhead_mem_est = 1e9  # 1 GB generic overhead
 
         n_rows = X.shape[0]
         n_features = X.shape[1]
-        batch_size = 8
+        batch_size = hyperparameters.get("batch_size", cls._get_batch_size(X.shape[0] * X.shape[1]))
         embedding_dim = 128
         bytes_per_float = 4
         model_mem_estimate = 2 * batch_size * embedding_dim * bytes_per_float * (4 + n_rows) * n_features
 
         model_mem_estimate *= 1.3  # add 30% buffer
 
-        # TODO: Observing memory spikes above expected values on large datasets, increasing mem estimate to compensate
-        model_mem_estimate *= 2
+        # TODO: Observed memory spikes above expected values on large datasets, increasing mem estimate to compensate
+        model_mem_estimate *= 1.5
 
         mem_estimate = model_mem_estimate + dataset_size_mem_est + baseline_overhead_mem_est
 
