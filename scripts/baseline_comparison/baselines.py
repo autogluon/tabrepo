@@ -310,17 +310,16 @@ def zeroshot_name(
 
 def filter_configurations_above_budget(repo, test_tid, configs, max_runtime, quantile: float = 0.95):
     # Filter configurations which respects the constrain less than `quantile` fraction of the time
-    assert 0<= quantile <= 1
-    dd = repo._zeroshot_context.df_configs_ranked
+    assert 0 <= quantile <= 1
+    dd = repo._zeroshot_context.df_configs
+    dd = dd[dd["framework"].isin(set(configs))]
     dd = dd[dd.tid != test_tid]
     df_configs_runtime = dd.pivot_table(
         index="framework", columns="tid", values="time_train_s"
     ).quantile(q=quantile, axis=1).sort_values()
 
-    n_initial_configs = len(configs)
     configs_fast_enough = set(df_configs_runtime[df_configs_runtime < max_runtime].index.tolist())
     configs = [c for c in configs if c in configs_fast_enough]
-    # print(f"kept only {len(configs)} from initial {n_initial_configs} for runtime {max_runtime}")
     return configs
 
 

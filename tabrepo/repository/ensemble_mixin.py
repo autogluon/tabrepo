@@ -84,7 +84,15 @@ class EnsembleMixin:
 
         """
         task = self.task_name(dataset=dataset, fold=fold)
-        configs_all = self.configs(tasks=[(dataset, fold)])
+
+        task_tuple = (dataset, fold)
+        config_metrics = self.metrics(
+            tasks=[task_tuple],
+            configs=configs,
+            set_index=False,
+        )
+
+        configs_all = sorted(list(config_metrics["framework"].unique()))
         if configs is None:
             configs = configs_all
 
@@ -97,7 +105,14 @@ class EnsembleMixin:
                 configs_fit_order = configs
 
             # filter configs to the first N configs whose combined time_limit is less than the provided time_limit
-            configs = filter_configs_by_runtime(repo=self, dataset=dataset, fold=fold, config_names=configs_fit_order, max_cumruntime=time_limit)
+            configs = filter_configs_by_runtime(
+                repo=self,
+                dataset=dataset,
+                fold=fold,
+                config_names=configs_fit_order,
+                config_metrics=config_metrics,
+                max_cumruntime=time_limit,
+            )
 
         configs_available = [c for c in configs if c in set(configs_all)]
 
@@ -113,6 +128,13 @@ class EnsembleMixin:
                 else:
                     raise AssertionError(f"Can't fit an ensemble with no configs when self._config_fallback is None.")
             configs = [self._config_fallback]
+            config_metrics = self.metrics(
+                tasks=[task_tuple],
+                configs=configs,
+                set_index=False,
+            )
+        else:
+            config_metrics = config_metrics[config_metrics["framework"].isin(configs)]
 
         if len(configs_available) == 0:
             imputed = True
@@ -148,6 +170,7 @@ class EnsembleMixin:
             dataset=dataset,
             fold=fold,
             config_names=configs,
+            config_metrics=config_metrics,
             runtime_col='time_train_s',
             fail_if_missing=fail_if_missing,
         )
@@ -157,11 +180,15 @@ class EnsembleMixin:
         config_selected_ensemble = [
             config for i, config in enumerate(configs) if ensemble_weights[i] != 0
         ]
+
+        config_metrics_inference = config_metrics[config_metrics["framework"].isin(config_selected_ensemble)]
+
         latencies = get_runtime(
             repo=self,
             dataset=dataset,
             fold=fold,
             config_names=config_selected_ensemble,
+            config_metrics=config_metrics_inference,
             runtime_col='time_infer_s',
             fail_if_missing=fail_if_missing,
         )
