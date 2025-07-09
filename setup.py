@@ -41,6 +41,10 @@ extras_require = {
     "modernnca": [
         "category_encoders",
     ],
+    "tabflex": [
+        # used hash: 3c36d9c1785844d5e983b0baf0ef4116670aa809
+        "ticl @ git+https://github.com/microsoft/ticl.git",
+    ],
 }
 
 benchmark_requires = []
