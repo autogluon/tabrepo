@@ -7,7 +7,6 @@ import time
 from typing import Literal
 
 import pandas as pd
-from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 
@@ -143,15 +142,109 @@ class TabMModel(AbstractModel):
             **kwargs,
         )
 
-    # FIXME: Find a better estimate for memory usage of TabM. Currently borrowed from FASTAI estimate.
     @classmethod
     def _estimate_memory_usage_static(
         cls,
         *,
         X: pd.DataFrame,
+        hyperparameters: dict = None,
+        num_classes: int | None = 1,
         **kwargs,
     ) -> int:
-        return 10 * get_approximate_df_mem_usage(X).sum()
+        """
+        Heuristic memory estimate that correlates strongly with RealMLP
+        """
+        if num_classes is None:
+            num_classes = 1
+        if hyperparameters is None:
+            hyperparameters = {}
+
+        cat_sizes = []
+        for col in X.select_dtypes(include=["category", "object"]):
+            if isinstance(X[col], pd.CategoricalDtype):
+                # Use .cat.codes for category dtype
+                unique_codes = X[col].cat.codes.unique()
+            else:
+                # For object dtype, treat unique strings as codes
+                unique_codes = X[col].astype("category").cat.codes.unique()
+            cat_sizes.append(len(unique_codes))
+
+        n_numerical = len(X.select_dtypes(include=["number"]).columns)
+
+        # TODO: This estimates very high memory usage,
+        #  we probably need to adjust batch size automatically to compensate
+        mem_estimate_bytes = cls._estimate_tabm_ram(
+            hyperparameters=hyperparameters,
+            n_numerical=n_numerical,
+            cat_sizes=cat_sizes,
+            n_classes=num_classes,
+            n_samples=len(X),
+        )
+
+        return mem_estimate_bytes
+
+    @classmethod
+    def _estimate_tabm_ram(
+        cls,
+        hyperparameters: dict,
+        n_numerical: int,
+        cat_sizes: list[int],
+        n_classes: int,
+        n_samples: int,
+    ) -> int:
+        num_emb_n_bins = hyperparameters.get("num_emb_n_bins", 48)
+        d_embedding = hyperparameters.get("d_embedding", 16)
+        d_block = hyperparameters.get("d_block", 512)
+        # not completely sure if this is hidden blocks or all blocks, taking the safe option below
+        n_blocks = hyperparameters.get("n_blocks", "auto")
+        if isinstance(n_blocks, str) and n_blocks == "auto":
+            n_blocks = 3
+        batch_size = hyperparameters.get("batch_size", "auto")
+        if isinstance(batch_size, str) and batch_size == "auto":
+            batch_size = cls.get_tabm_auto_batch_size(n_samples=n_samples)
+        tabm_k = hyperparameters.get("tabm_k", 32)
+        predict_batch_size = hyperparameters.get("eval_batch_size", 1024)
+
+        # not completely sure
+        n_params_num_emb = n_numerical * (num_emb_n_bins + 1) * d_embedding
+        n_params_mlp = (n_numerical + sum(cat_sizes)) * d_embedding * (d_block + tabm_k) \
+                       + (n_blocks - 1) * d_block ** 2 \
+                       + n_blocks * d_block + d_block * (1 + max(1, n_classes))
+        # 4 bytes per float, up to 5 copies of parameters (1 standard, 1 .grad, 2 adam, 1 best_epoch)
+        mem_params = 4 * 5 * (n_params_num_emb + n_params_mlp)
+
+        # compute number of floats in forward pass (per batch element)
+        # todo: numerical embedding layer (not sure if this is entirely correct)
+        n_floats_forward = n_numerical * (num_emb_n_bins + d_embedding)
+        # before and after scale
+        n_floats_forward += 2 * (sum(cat_sizes) + n_numerical * d_embedding)
+        # 2 for pre-act, post-act
+        n_floats_forward += n_blocks * 2 * d_block + 2 * max(1, n_classes)
+        # 2 for forward and backward, 4 bytes per float
+        mem_forward_backward = 4 * max(batch_size * 2, predict_batch_size) * n_floats_forward * tabm_k
+        # * 8 is pessimistic for the long tensors in the forward pass, 4 would probably suffice
+
+        mem_ds = n_samples * (4 * n_numerical + 8 * len(cat_sizes))
+
+        # some safety constants and offsets (the 5 is probably excessive)
+        mem_total = 5 * mem_ds + 1.2 * mem_forward_backward + 1.2 * mem_params + 0.3 * (1024 ** 3)
+
+        return mem_total
+
+    @classmethod
+    def get_tabm_auto_batch_size(cls, n_samples: int) -> int:
+        # by Yury Gorishniy, inferred from the choices in the TabM paper.
+        if n_samples < 2_800:
+            return 32
+        if n_samples < 4_500:
+            return 64
+        if n_samples < 6_400:
+            return 128
+        if n_samples < 32_000:
+            return 256
+        if n_samples < 108_000:
+            return 512
+        return 1024
 
     @classmethod
     def _class_tags(cls):
