@@ -19,8 +19,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 from sklearn.utils.validation import check_is_fitted
 
-from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings, tabm_reference
-from tabrepo.benchmark.models.ag.tabm.tabm_reference import make_parameter_groups
+from . import rtdl_num_embeddings, tabm_reference
+from .tabm_reference import make_parameter_groups
 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
