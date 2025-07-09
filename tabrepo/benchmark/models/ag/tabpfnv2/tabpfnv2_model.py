@@ -287,6 +287,7 @@ class TabPFNV2Model(AbstractModel):
         extra_ag_args_ensemble = {
             # FIXME: Find a work-around to avoid crash if parallel and weights are not downloaded
             "fold_fitting_strategy": "sequential_local",
+            "refit_folds": True,  # Better to refit the model for faster inference and similar quality as the bag.
         }
         default_ag_args_ensemble.update(extra_ag_args_ensemble)
         return default_ag_args_ensemble
@@ -325,7 +326,7 @@ class TabPFNV2Model(AbstractModel):
         baseline_overhead_mem_est = 1e9  # 1 GB generic overhead
 
         # Add some buffer to each term + 1 GB overhead to be safe
-        total_mem_bytes = model_mem + 4 * X_mem + 1.5 * activation_mem + baseline_overhead_mem_est
+        total_mem_bytes = int(model_mem + 4 * X_mem + 1.5 * activation_mem + baseline_overhead_mem_est)
 
         return total_mem_bytes
 
