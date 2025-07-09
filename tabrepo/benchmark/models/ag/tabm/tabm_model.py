@@ -1,16 +1,26 @@
-"""Partially adapted from pytabkit's TabM implementation."""
+"""
+Note: This is a custom implementation of TabM. Because the AutoGluon 1.4 release occurred at nearly
+the same time as TabM became available on PyPi, we chose to use TabArena's implementation
+for the AutoGluon 1.4 release as it has already been benchmarked.
+
+Model: TabM
+Paper: TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling
+Authors: Yury Gorishniy, Akim Kotelnikov, Artem Babenko
+Codebase: https://github.com/yandex-research/tabm
+License: Apache-2.0
+
+Partially adapted from pytabkit's TabM implementation.
+"""
 
 from __future__ import annotations
 
 import logging
 import time
-from typing import Literal
 
 import pandas as pd
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
-
-TaskType = Literal["regression", "binclass", "multiclass"]
+from autogluon.tabular import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +52,17 @@ class TabMModel(AbstractModel):
     ):
         start_time = time.time()
 
-        # imports various dependencies such as torch
-        from tabrepo.benchmark.models.ag.tabm._tabm_internal import TabMImplementation
-        from torch.cuda import is_available
+        try:
+            # imports various dependencies such as torch
+            from ._tabm_internal import TabMImplementation
+            from torch.cuda import is_available
+        except ImportError as err:
+            logger.log(
+                40,
+                f"\tFailed to import tabm! To use the TabM model, "
+                f"do: `pip install autogluon.tabular[tabm]=={__version__}`.",
+            )
+            raise err
 
         device = "cpu" if num_gpus == 0 else "cuda"
         if (device == "cuda") and (not is_available()):
