@@ -1,23 +1,37 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 import scipy
-from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
 from sklearn.preprocessing import PowerTransformer
-from sklearn.utils.validation import FLOAT_DTYPES
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+def _patch_local_kdi_transformer():
+    """Inject our KIDTransformer into the namespace to be used by TabPFNv2."""
+    import sys
+    import types
+
+    from tabrepo.benchmark.models.ag.tabpfnv2.kditransform.kdi_transformer import (
+        KDITransformer,
+    )
+
+    module_name = "kditransform"
+    custom_module = types.ModuleType(module_name)
+    custom_module.KDITransformer = KDITransformer
+    sys.modules[module_name] = custom_module
 
 
 # TODO: merge into TabPFnv2 codebase
 class FixedSafePowerTransformer(PowerTransformer):
-    """Fixed version of safe power
-    """
+    """Fixed version of safe power."""
 
     def __init__(
         self,
@@ -94,19 +108,6 @@ class FixedSafePowerTransformer(PowerTransformer):
         return self._revert_failed_features(transformed_X, X)  # type: ignore
 
 
-# TODO: merge into codebase or remove KDITransformer from search space
-def _check_inputs(self, X, in_fit, accept_sparse_negative=False, copy=False):
-    """Check inputs before fit and transform."""
-    return self._validate_data(
-        X,
-        reset=in_fit,
-        accept_sparse=False,
-        copy=copy,
-        dtype=FLOAT_DTYPES,
-        force_all_finite="allow-nan",
-    )
-
-
 # TODO: Satisfy TabPFNv2 License
 class TabPFNV2Model(AbstractModel):
     ag_key = "TABPFNV2"
@@ -130,7 +131,9 @@ class TabPFNV2Model(AbstractModel):
         # This converts categorical features to numeric via stateful label encoding.
         if self._feature_generator.features_in:
             X = X.copy()
-            X[self._feature_generator.features_in] = self._feature_generator.transform(X=X)
+            X[self._feature_generator.features_in] = self._feature_generator.transform(
+                X=X
+            )
 
             # Detect/set cat features and indices
             if self._cat_features is None:
@@ -150,10 +153,10 @@ class TabPFNV2Model(AbstractModel):
         num_gpus: int = 0,
         **kwargs,
     ):
+        _patch_local_kdi_transformer()
         from tabpfn.model import preprocessing
 
         preprocessing.SafePowerTransformer = FixedSafePowerTransformer
-        preprocessing.KDITransformerWithNaN._check_inputs = _check_inputs
 
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
@@ -161,10 +164,7 @@ class TabPFNV2Model(AbstractModel):
 
         is_classification = self.problem_type in ["binary", "multiclass"]
 
-        if is_classification:
-            model_base = TabPFNClassifier
-        else:
-            model_base = TabPFNRegressor
+        model_base = TabPFNClassifier if is_classification else TabPFNRegressor
 
         device = "cuda" if num_gpus != 0 else "cpu"
         if (device == "cuda") and (not is_available()):
@@ -198,7 +198,9 @@ class TabPFNV2Model(AbstractModel):
 
         # Resolve inference_config
         inference_config = {
-            _k: v for k, v in hps.items() if k.startswith("inference_config/") and (_k := k.split("/")[-1])
+            _k: v
+            for k, v in hps.items()
+            if k.startswith("inference_config/") and (_k := k.split("/")[-1])
         }
         if inference_config:
             hps["inference_config"] = inference_config
@@ -217,7 +219,9 @@ class TabPFNV2Model(AbstractModel):
             inference_config["PREPROCESS_TRANSFORMS"] = safe_config
         if "REGRESSION_Y_PREPROCESS_TRANSFORMS" in inference_config:
             safe_config = []
-            for preprocessing_name in inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"]:
+            for preprocessing_name in inference_config[
+                "REGRESSION_Y_PREPROCESS_TRANSFORMS"
+            ]:
                 if preprocessing_name == "power":
                     preprocessing_name = "safepower"
                 safe_config.append(preprocessing_name)
@@ -233,7 +237,11 @@ class TabPFNV2Model(AbstractModel):
             )
 
             hps["n_estimators"] = 1
-            rf_model_base = RandomForestTabPFNClassifier if is_classification else RandomForestTabPFNRegressor
+            rf_model_base = (
+                RandomForestTabPFNClassifier
+                if is_classification
+                else RandomForestTabPFNRegressor
+            )
             self.model = rf_model_base(
                 tabpfn=model_base(**hps),
                 categorical_features=self._cat_indices,
@@ -279,8 +287,7 @@ class TabPFNV2Model(AbstractModel):
 
     @classmethod
     def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
-        """
-        Set fold_fitting_strategy to sequential_local,
+        """Set fold_fitting_strategy to sequential_local,
         as parallel folding crashes if model weights aren't pre-downloaded.
         """
         default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
@@ -294,19 +301,24 @@ class TabPFNV2Model(AbstractModel):
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
         hyperparameters = self._get_model_params()
-        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
+        return self.estimate_memory_usage_static(
+            X=X,
+            problem_type=self.problem_type,
+            num_classes=self.num_classes,
+            hyperparameters=hyperparameters,
+            **kwargs,
+        )
 
     @classmethod
     def _estimate_memory_usage_static(
         cls,
         *,
         X: pd.DataFrame,
-        hyperparameters: dict = None,
+        hyperparameters: dict | None = None,
         **kwargs,
     ) -> int:
-        """
-        Heuristic memory estimate based on TabPFN's memory estimate logic in:
-        https://github.com/PriorLabs/TabPFN/blob/57a2efd3ebdb3886245e4d097cefa73a5261a969/src/tabpfn/model/memory.py#L147
+        """Heuristic memory estimate based on TabPFN's memory estimate logic in:
+        https://github.com/PriorLabs/TabPFN/blob/57a2efd3ebdb3886245e4d097cefa73a5261a969/src/tabpfn/model/memory.py#L147.
 
         This is based on GPU memory usage, but hopefully with overheads it also approximates CPU memory usage.
         """
@@ -321,14 +333,16 @@ class TabPFNV2Model(AbstractModel):
         n_feature_groups = n_features + 1  # TODO: Unsure how to calculate this
 
         X_mem = n_samples * n_feature_groups * dtype_byte_size
-        activation_mem = n_samples * n_feature_groups * embedding_size * n_layers * dtype_byte_size
+        activation_mem = (
+            n_samples * n_feature_groups * embedding_size * n_layers * dtype_byte_size
+        )
 
         baseline_overhead_mem_est = 1e9  # 1 GB generic overhead
 
         # Add some buffer to each term + 1 GB overhead to be safe
-        total_mem_bytes = int(model_mem + 4 * X_mem + 1.5 * activation_mem + baseline_overhead_mem_est)
-
-        return total_mem_bytes
+        return int(
+            model_mem + 4 * X_mem + 1.5 * activation_mem + baseline_overhead_mem_est
+        )
 
     @classmethod
     def _class_tags(cls):
