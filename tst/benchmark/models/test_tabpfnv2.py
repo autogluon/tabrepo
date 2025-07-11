@@ -26,6 +26,13 @@ def test_tabpfnv2():
         FitHelper.verify_model(
             model_cls=model_cls, model_hyperparameters=model_hyperparameters
         )
+
+        # Check DT-PFN version
+        model_hyperparameters["model_type"] = "dt_pfn"
+        model_hyperparameters["n_ensemble_repeats"] = 4
+        FitHelper.verify_model(
+            model_cls=model_cls, model_hyperparameters=model_hyperparameters
+        )
     except ImportError as err:
         pytest.skip(
             f"Import Error, skipping test... "
