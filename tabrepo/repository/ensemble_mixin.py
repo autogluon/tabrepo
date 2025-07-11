@@ -322,6 +322,8 @@ class EnsembleMixin:
             inputs=inputs,
             context=context,
             engine=backend,
+            # To reduce log spam in outer parallel mode.
+            progress_bar=backend != "sequential",
         )
 
         df_out = pd.concat([l[0] for l in list_rows], axis=0)
