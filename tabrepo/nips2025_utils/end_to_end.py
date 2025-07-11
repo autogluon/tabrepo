@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 import pandas as pd
 from autogluon.common.savers import save_pd
-from tabflow_slurm.ray_utils import ray_map_list
+from tabflow_slurm.ray_utils import ray_map_list  # TODO: merge function into tabrepo
 
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
