@@ -29,13 +29,10 @@ def create_and_cache_end_to_end_results(
 
     print("Get results paths...")
     all_file_paths_method = fetch_all_pickles(dir_path=path_raw, suffix="results.pkl")
-
     print("Get task metadata...")
     # TODO: get logic for any task that is not slow...
-
     task_metadata = load_task_metadata()
-    # tids = list({r.split("/")[0] for r in all_file_paths_method})
-    # self.task_metadata = generate_task_metadata(tids=tids)
+    # task_metadata = generate_task_metadata(tids=list({r.split("/")[0] for r in all_file_paths_method}))
 
     results = ray_map_list(
         list_to_map=list(all_file_paths_method.values()),
@@ -50,7 +47,6 @@ def create_and_cache_end_to_end_results(
         tqdm_kwargs={"desc": "Processing Results"},
         ray_remote_kwargs={"max_calls": 10},
     )
-
     # Backup results to disk
     with open("end_to_end_results.pkl", "wb") as f:
         pickle.dump(results, f)
@@ -59,10 +55,16 @@ def create_and_cache_end_to_end_results(
     method_metadata, hpo_results, model_results = results[0]
     for results_method in results[1:]:
         method_metadata_other, hpo_results_other, model_results_other = results_method
+
+        # Capture the any() in metadata creation.
+        if method_metadata.is_bag or method_metadata_other.is_bag:
+            method_metadata.is_bag = True
+            method_metadata_other.is_bag = True
+
         if method_metadata.__dict__ != method_metadata_other.__dict__:
             raise ValueError(
                 "Method metadata mismatch! "
-                f"{method_metadata} != {method_metadata_other}"
+                f"{method_metadata.__dict__} != {method_metadata_other.__dict__}"
             )
 
         # merge results
