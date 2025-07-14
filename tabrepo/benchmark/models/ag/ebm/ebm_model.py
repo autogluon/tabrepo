@@ -129,8 +129,8 @@ class ExplainableBoostingMachineModel(AbstractModel):
         # Handle validation data format for EBM
         fit_X = pd.concat([X, X_val], ignore_index=True)
         fit_y = pd.concat([y, y_val], ignore_index=True)
-        bag = np.full(len(fit_X), 1)
-        bag[len(X) :] = -1
+        bags = np.full((len(fit_X), 1), 1, np.int8)
+        bags[len(X) :, 0] = -1
 
         # Sample Weights
         fit_sample_weight = (
@@ -145,7 +145,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
                 category=UserWarning,
                 message=".*resource_tracker: process died.*",
             )
-            self.model.fit(fit_X, fit_y, sample_weight=fit_sample_weight, bags=[bag])
+            self.model.fit(fit_X, fit_y, sample_weight=fit_sample_weight, bags=bags)
 
     def _get_default_auxiliary_params(self) -> dict:
         default_auxiliary_params = super()._get_default_auxiliary_params()
