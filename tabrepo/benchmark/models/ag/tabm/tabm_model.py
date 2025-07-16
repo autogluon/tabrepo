@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class TabMModel(AbstractModel):
-    ag_key = "TABM"
-    ag_name = "TabM"
+    ag_key = "TA-TABM"
+    ag_name = "TA-TabM"
     ag_priority = 85
 
     def __init__(self, **kwargs):

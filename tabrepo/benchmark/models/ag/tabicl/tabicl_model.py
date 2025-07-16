@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 # TODO: Verify if crashes when weights are not yet downloaded and fit in parallel
 class TabICLModel(AbstractModel):
-    ag_key = "TABICL"
-    ag_name = "TabICL"
+    ag_key = "TA-TABICL"
+    ag_name = "TA-TabICL"
     ag_priority = 65
 
     def get_model_cls(self):
