@@ -38,10 +38,11 @@ def loss_fn(_loss_fn, y_pred, y_true):
 
 
 class BetaMethod(Method):
-    def __init__(self, args, is_regression):
+    def __init__(self, args, is_regression, max_context_size: int = 1000):
         super().__init__(args, is_regression)
         assert args.num_policy == "none"
         assert not is_regression
+        self.max_context_size = max_context_size
 
     def construct_model(self, model_config=None):
         from tabrepo.benchmark.models.ag.beta.talent_beta_model import Beta
@@ -52,6 +53,7 @@ class BetaMethod(Method):
             d_num=self.n_num_features,
             cat_cardinalities=self.categories,
             d_out=self.d_out,
+            max_context_size=self.max_context_size,
             **model_config,
         ).to(self.args.device)
         self.trlog["best_res"] = float("-inf")

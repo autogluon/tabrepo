@@ -72,24 +72,24 @@ class BetaModel(AbstractModel):
         )
         self.has_num_cols = bool(set(X.columns) - set(self.cat_col_names_))
         ds_parts = {}
-        for part, _X, _y in [("train", X, y), ("val", X_val, y_val)]:
+        for part, X_data, y_data in [("train", X, y), ("val", X_val, y_val)]:
             tensors = {}
 
-            tensors["x_cat"] = X[self.cat_col_names_].to_numpy()
+            tensors["x_cat"] = X_data[self.cat_col_names_].to_numpy()
             if self.has_num_cols:
-                x_cont_np = X.drop(columns=self.cat_col_names_).to_numpy(
+                x_cont_np = X_data.drop(columns=self.cat_col_names_).to_numpy(
                     dtype=np.float32
                 )
                 if part == "train":
                     self.num_prep_.fit(x_cont_np)
                 tensors["x_cont"] = self.num_prep_.transform(x_cont_np)
             else:
-                tensors["x_cont"] = np.empty((len(X), 0), dtype=np.float32)
+                tensors["x_cont"] = np.empty((len(X_data), 0), dtype=np.float32)
 
             if self.problem_type == "regression":
-                tensors["y"] = y.to_numpy(np.float32)
+                tensors["y"] = y_data.to_numpy(np.float32)
             else:
-                tensors["y"] = y.to_numpy(np.int32)
+                tensors["y"] = y_data.to_numpy(np.int32)
             ds_parts[part] = tensors
 
         data = [
@@ -116,6 +116,8 @@ class BetaModel(AbstractModel):
         args.device = device
         args.max_epoch = hyp["max_epoch"]
         args.batch_size = hyp["batch_size"]
+        # TODO: come up with solution to set this based on dataset size
+        max_context_size = hyp.get("max_context_size", 1000)
 
         if info["n_num_features"] > 200:
             # Use less K as otherwise exploding memory constraints
@@ -128,7 +130,7 @@ class BetaModel(AbstractModel):
         Path(save_path).mkdir(parents=True, exist_ok=True)
         args.save_path = str(save_path)
 
-        self.model = BetaMethod(args, self.problem_type == "regression")
+        self.model = BetaMethod(args, self.problem_type == "regression", max_context_size=max_context_size)
         self.model.fit(data=data, info=info, train=True, model_name="best-val")
         shutil.rmtree(save_path, ignore_errors=True)
 

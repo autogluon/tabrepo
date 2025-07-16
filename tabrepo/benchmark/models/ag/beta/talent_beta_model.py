@@ -52,6 +52,7 @@ class Beta(nn.Module):
         device="cuda:0",
         base_path=pathlib.Path(__file__).parent.resolve(),
         model_string="",
+        max_context_size=1000,
     ) -> None:
         super().__init__()
         self.d_out = d_out
@@ -59,7 +60,7 @@ class Beta(nn.Module):
         if cat_cardinalities is None:
             cat_cardinalities = []
         scaling_init_sections = []
-
+        self.max_context_size = max_context_size
         if d_num == 0:
             # assert bins is None
             self.num_module = None
@@ -295,7 +296,7 @@ class Beta(nn.Module):
             for k in range(self.k):
                 if indexs is None:
                     indices = np.random.randint(
-                        0, candidate_size, (min(1000, candidate_size),)
+                        0, candidate_size, (min(self.max_context_size, candidate_size),)
                     )
                     index_val.append(indices)
                 else:
