@@ -22,15 +22,21 @@ class BoostedDPDTModel(AbstractModel):
         else:
             raise AssertionError(f"Unsupported problem_type: {self.problem_type}")
         return model_cls
-    
-    def _fit(self, X: pd.DataFrame, y: pd.Series, num_cpus: int = 1, time_limit: float = None,**kwargs):
+
+    def _fit(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        num_cpus: int = 1,
+        time_limit: float | None = None,
+        **kwargs,
+    ):
         model_cls = self.get_model_cls()
         hyp = self._get_model_params()
 
         self.model = model_cls(
             **hyp,
-            n_jobs='best',
-            n_estimators=1000,
+            n_jobs="best" if num_cpus > 1 else num_cpus,
             time_limit=time_limit,
         )
         X = self.preprocess(X)
@@ -38,11 +44,11 @@ class BoostedDPDTModel(AbstractModel):
             X=X,
             y=y,
         )
-    
 
     def _set_default_params(self):
         default_params = {
             "random_state": 42,
+            "n_estimators": 1000,
         }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
@@ -50,7 +56,7 @@ class BoostedDPDTModel(AbstractModel):
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass"]
-    
+
     def _get_default_resources(self) -> tuple[int, int]:
         # logical=False is faster in training
         num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
@@ -59,25 +65,33 @@ class BoostedDPDTModel(AbstractModel):
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
         hyperparameters = self._get_model_params()
-        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
+        return self.estimate_memory_usage_static(
+            X=X,
+            problem_type=self.problem_type,
+            num_classes=self.num_classes,
+            hyperparameters=hyperparameters,
+            **kwargs,
+        )
 
     @classmethod
     def _estimate_memory_usage_static(
         cls,
         *,
         X: pd.DataFrame,
-        hyperparameters: dict = None,
+        hyperparameters: dict | None = None,
         **kwargs,
     ) -> int:
         if hyperparameters is None:
             hyperparameters = {}
-        
-        dataset_size_mem_est = 10 * hyperparameters.get('cart_nodes_list')[0] * get_approximate_df_mem_usage(X).sum()
+
+        dataset_size_mem_est = (
+            10
+            * hyperparameters.get("cart_nodes_list")[0]
+            * get_approximate_df_mem_usage(X).sum()
+        )
         baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
 
-        mem_estimate = dataset_size_mem_est + baseline_overhead_mem_est
-
-        return mem_estimate
+        return dataset_size_mem_est + baseline_overhead_mem_est
 
     @classmethod
     def _class_tags(cls):

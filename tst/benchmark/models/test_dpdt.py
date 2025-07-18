@@ -6,7 +6,7 @@ def test_dpdt():
 
     try:
         from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.tabicl.tabicl_model import BoostedDPDTModel
+        from tabrepo.benchmark.models.ag import BoostedDPDTModel
         model_cls = BoostedDPDTModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:

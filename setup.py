@@ -44,6 +44,7 @@ extras_require = {
     "dpdt": [
         # TODO: pypi package is not available yet
         "git+https://github.com/KohlerHECTOR/DPDTreeEstimator.git",
+        # used hash: a74791d2190da27b43accd4da9e7d141380326ea
     ],
 }
 
