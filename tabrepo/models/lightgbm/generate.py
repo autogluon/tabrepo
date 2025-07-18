@@ -1,38 +1,52 @@
-from autogluon.common.space import Real, Int, Categorical
+from __future__ import annotations
+
 from autogluon.tabular.models import LGBModel
+from ConfigSpace import Categorical, ConfigurationSpace, Float, Integer
 
-from ...utils.config_utils import ConfigGenerator
-
-
-name = 'LightGBM'
-manual_configs = [
-    {},
-    {'extra_trees': True},
-    {'learning_rate': 0.03, 'num_leaves': 128, 'feature_fraction': 0.9, 'min_data_in_leaf': 5},
-    {'extra_trees': True, 'learning_rate': 0.03, 'num_leaves': 128, 'feature_fraction': 0.9, 'min_data_in_leaf': 5},
-]
-search_space = {
-    'learning_rate': Real(lower=5e-3, upper=0.1, default=0.05, log=True),
-    'feature_fraction': Real(lower=0.4, upper=1.0, default=1.0),
-    'min_data_in_leaf': Int(lower=2, upper=60, default=20),
-    'num_leaves': Int(lower=16, upper=255, default=31),
-    'extra_trees': Categorical(False, True),
-}
+from tabrepo.benchmark.experiment import YamlExperimentSerializer
+from tabrepo.models.utils import convert_numpy_dtypes
+from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 
-def generate_configs_lightgbm(num_random_configs=200):
-    from autogluon.tabular.models import LGBModel
-    config_generator = ConfigGenerator(name=name, model_cls=LGBModel, manual_configs=manual_configs, search_space=search_space)
-    return config_generator.generate_all_configs(num_random_configs=num_random_configs)
+def generate_configs_lightgbm(num_random_configs=200) -> list:
+    search_space = ConfigurationSpace(
+        space=[
+            Float("learning_rate", (5e-3, 1e-1), log=True),
+            Float("feature_fraction", (0.4, 1.0)),
+            Float("bagging_fraction", (0.7, 1.0)),
+            Categorical("bagging_freq", [1]),
+            Integer("num_leaves", (2, 200), log=True),
+            Integer("min_data_in_leaf", (1, 64), log=True),
+            Categorical("extra_trees", [False, True]),
+            # categorical hyperparameters
+            Integer("min_data_per_group", (2, 100), log=True),
+            Float("cat_l2", (5e-3, 2), log=True),
+            Float("cat_smooth", (1e-3, 100), log=True),
+            Integer("max_cat_to_onehot", (8, 100), log=True),
+            # these seem to help a little bit but can also make things slower
+            Float("lambda_l1", (1e-4, 1.0)),
+            Float("lambda_l2", (1e-4, 2.0)),
+            # could search max_bin but this is expensive
+        ],
+        seed=1234,
+    )
+
+    configs = search_space.sample_configuration(num_random_configs)
+    if num_random_configs == 1:
+        configs = [configs]
+    configs = [dict(config) for config in configs]
+    return [convert_numpy_dtypes(config) for config in configs]
 
 
-def generate_experiments_lightgbm(num_random_configs=200):
-    _manual_configs = [
-        {},
-    ]
-    from autogluon.tabular.models import LGBModel
-    config_generator = ConfigGenerator(name=name, model_cls=LGBModel, manual_configs=_manual_configs, search_space=search_space)
-    return config_generator.generate_all_bag_experiments(num_random_configs=num_random_configs)
+gen_lightgbm = CustomAGConfigGenerator(
+    model_cls=LGBModel,
+    search_space_func=generate_configs_lightgbm,
+    manual_configs=[{}],
+)
 
 
-gen_lightgbm = ConfigGenerator(search_space=search_space, model_cls=LGBModel, manual_configs=[{}])
+if __name__ == "__main__":
+    experiments = gen_lightgbm.generate_all_bag_experiments(num_random_configs=200)
+    YamlExperimentSerializer.to_yaml(
+        experiments=experiments, path="configs_lightgbm_alt.yaml"
+    )

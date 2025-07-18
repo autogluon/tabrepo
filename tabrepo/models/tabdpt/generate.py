@@ -9,7 +9,9 @@ manual_configs = [
     {"ag_args_ensemble": {"refit_folds": True}},
 ]
 
-gen_tabdpt = ConfigGenerator(model_cls=TabDPTModel, manual_configs=manual_configs, search_space={})
+gen_tabdpt = ConfigGenerator(
+    model_cls=TabDPTModel, manual_configs=manual_configs, search_space={}
+)
 
 if __name__ == "__main__":
     from tabrepo.benchmark.experiment import YamlExperimentSerializer

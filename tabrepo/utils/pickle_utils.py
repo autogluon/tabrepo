@@ -31,7 +31,7 @@ def fetch_all_pickles(dir_path: str | Path, suffix: str = ".pkl") -> list[Path]:
     file_paths: list[Path] = []
 
     # Look for *.pkl, case‑insensitive
-    patterns = (f"*{suffix}")
+    patterns = (f"*{suffix}",)
     i = 0
     for pattern in patterns:
         pattern_suffix = pattern[1:]
