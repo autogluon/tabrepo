@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List, Optional, Dict
 import numpy as np
 import pandas as pd
@@ -10,6 +12,7 @@ def get_runtime(
         repo: AbstractRepository,
         dataset: str,
         fold: int,
+        config_metrics: pd.DataFrame | None = None,
         config_names: Optional[List[str]] = None,
         runtime_col: str = 'time_train_s',
         fail_if_missing: bool = True
@@ -23,12 +26,19 @@ def get_runtime(
     :return: a dictionary with keys are elements in `config_names` and the values are runtimes of the configuration
     on the task `tid`_`fold`.
     """
-    task = repo.task_name(dataset=dataset, fold=fold)
+    task = (dataset, fold)
+    if config_metrics is None:
+        config_metrics = repo.metrics(
+            tasks=[task],
+            configs=config_names,
+            set_index=False,
+        )
+
     if not config_names:
         config_names = repo.configs()
-    config_metrics = repo.metrics(datasets=[dataset], folds=[fold], configs=config_names)
+
+    config_metrics = config_metrics.set_index("framework", drop=True)
     runtime_series = config_metrics[runtime_col]
-    runtime_series.index = runtime_series.index.get_level_values("framework")
     runtime_configs = runtime_series.to_dict()
 
     missing_configurations = set(config_names).difference(runtime_configs.keys())
@@ -42,7 +52,7 @@ def get_runtime(
         else:
             # todo take mean of framework
             if repo._config_fallback is not None:
-                config_metrics_fallback = repo.metrics(datasets=[dataset], folds=[fold], configs=[repo._config_fallback])
+                config_metrics_fallback = repo.metrics(tasks=[task], configs=[repo._config_fallback])
                 fill_value = config_metrics_fallback.loc[(dataset, fold, repo._config_fallback), runtime_col]
             else:
                 fill_value = np.mean(list(runtime_configs.values()))
@@ -69,6 +79,7 @@ def filter_configs_by_runtime(
         dataset: str,
         fold: int,
         config_names: List[str],
+        config_metrics: pd.DataFrame = None,
         max_cumruntime: Optional[float] = None
 ) -> List[str]:
     """
@@ -85,7 +96,7 @@ def filter_configs_by_runtime(
     else:
         assert dataset in repo.datasets()
         assert fold in repo.dataset_to_folds(dataset=dataset)
-        runtime_configs = get_runtime(repo=repo, dataset=dataset, fold=fold, config_names=config_names, fail_if_missing=False)
+        runtime_configs = get_runtime(repo=repo, dataset=dataset, fold=fold, config_names=config_names, config_metrics=config_metrics, fail_if_missing=False)
         cumruntime = np.cumsum([runtime_configs[config] for config in config_names])
         # str_runtimes = ", ".join([f"{name}: {time}" for name, time in zip(runtime_configs.keys(), cumruntime)])
         # print(f"Cumulative runtime:\n {str_runtimes}")

@@ -1,40 +1,90 @@
-from pathlib import Path
-from autogluon.common.savers import save_json
+from autogluon.core.models import DummyModel
 
-from tabrepo.models.lightgbm.generate import generate_configs_lightgbm
-from tabrepo.models.catboost.generate import generate_configs_catboost
-from tabrepo.models.xgboost.generate import generate_configs_xgboost
-from tabrepo.models.fastai.generate import generate_configs_fastai
-from tabrepo.models.nn_torch.generate import generate_configs_nn_torch
-from tabrepo.models.knn.generate import generate_configs_knn
-from tabrepo.models.random_forest.generate import generate_configs_random_forest
-from tabrepo.models.extra_trees.generate import generate_configs_extra_trees
-from tabrepo.models.lr.generate import generate_configs_lr
-from tabrepo.models.tabpfn.generate import generate_configs_tabpfn
-from tabrepo.models.ftt.generate import generate_configs_ftt
+from tabrepo.benchmark.experiment import AGModelBagExperiment, YamlExperimentSerializer
+from tabrepo.utils.config_utils import ConfigGenerator
+from tabrepo.models.lightgbm.generate import gen_lightgbm
+from tabrepo.models.tabicl.generate import gen_tabicl
+from tabrepo.models.tabdpt.generate import gen_tabdpt
+from tabrepo.models.knn.generate import gen_knn
+from tabrepo.models.fastai.generate import gen_fastai
+from tabrepo.models.extra_trees.generate import gen_extratrees
+from tabrepo.models.catboost.generate import gen_catboost
+from tabrepo.models.xgboost.generate import gen_xgboost
+from tabrepo.models.nn_torch.generate import gen_nn_torch
+from tabrepo.models.random_forest.generate import gen_randomforest
+from tabrepo.models.lr.generate import gen_linear
+from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
+from tabrepo.models.realmlp.generate import gen_realmlp
+from tabrepo.models.ebm.generate import gen_ebm
+from tabrepo.models.tabm.generate import gen_tabm
+from tabrepo.models.modernnca.generate import gen_modernnca
 
 
 if __name__ == '__main__':
-    configs_lightgbm = generate_configs_lightgbm()
-    configs_catboost = generate_configs_catboost()
-    configs_xgboost = generate_configs_xgboost()
-    configs_fastai = generate_configs_fastai()
-    configs_nn_torch = generate_configs_nn_torch()
-    configs_knn = generate_configs_knn()
-    configs_rf = generate_configs_random_forest()
-    configs_xt = generate_configs_extra_trees()
-    configs_lr = generate_configs_lr()
-    configs_tabpfn = generate_configs_tabpfn()
-    configs_ftt = generate_configs_ftt()
-    json_root = Path(__file__).parent.parent / 'data' / 'configs'
-    save_json.save(path=str(json_root / 'configs_lightgbm.json'), obj=configs_lightgbm)
-    save_json.save(path=str(json_root / 'configs_catboost.json'), obj=configs_catboost)
-    save_json.save(path=str(json_root / 'configs_xgboost.json'), obj=configs_xgboost)
-    save_json.save(path=str(json_root / 'configs_fastai.json'), obj=configs_fastai)
-    save_json.save(path=str(json_root / 'configs_nn_torch.json'), obj=configs_nn_torch)
-    save_json.save(path=str(json_root / 'configs_knn.json'), obj=configs_knn)
-    save_json.save(path=str(json_root / 'configs_rf.json'), obj=configs_rf)
-    save_json.save(path=str(json_root / 'configs_xt.json'), obj=configs_xt)
-    save_json.save(path=str(json_root / 'configs_lr.json'), obj=configs_lr)
-    save_json.save(path=str(json_root / 'configs_tabpfn.json'), obj=configs_tabpfn)
-    save_json.save(path=str(json_root / 'configs_ftt.json'), obj=configs_ftt)
+    n_random_configs = 200
+    n_random_configs_baselines = 50
+
+    # Original Search Space
+    experiments_linear = gen_linear.generate_all_bag_experiments(num_random_configs=n_random_configs_baselines)
+    experiments_knn = gen_knn.generate_all_bag_experiments(num_random_configs=n_random_configs_baselines)
+    experiments_nn_torch = gen_nn_torch.generate_all_bag_experiments(num_random_configs=n_random_configs)
+
+    # New Search Space
+    experiments_randomforest = gen_randomforest.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_extratrees = gen_extratrees.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_lightgbm = gen_lightgbm.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_xgboost = gen_xgboost.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_catboost = gen_catboost.generate_all_bag_experiments(num_random_configs=n_random_configs)
+
+    # New methods
+    experiments_fastai = gen_fastai.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_ebm = gen_ebm.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_realmlp = gen_realmlp.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_tabm = gen_tabm.generate_all_bag_experiments(num_random_configs=n_random_configs)
+
+    experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=0)
+    experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=n_random_configs)
+    experiments_tabdpt = gen_tabdpt.generate_all_bag_experiments(num_random_configs=0)
+    experiments_modernnca = gen_modernnca.generate_all_bag_experiments(num_random_configs=n_random_configs)
+
+    # Dummy (constant predictor)
+    experiments_dummy = ConfigGenerator(model_cls=DummyModel, search_space={}, manual_configs=[{}]).generate_all_bag_experiments(num_random_configs=0)
+
+    experiments_lst = [
+        experiments_linear,
+        experiments_knn,
+        experiments_randomforest,
+        experiments_extratrees,
+        experiments_lightgbm,
+        experiments_xgboost,
+        experiments_catboost,
+        experiments_nn_torch,
+
+        experiments_fastai,
+        experiments_ebm,
+        experiments_realmlp,
+        experiments_tabicl,
+        experiments_tabpfnv2,
+        experiments_tabdpt,
+        experiments_tabm,
+        experiments_modernnca,
+
+        experiments_dummy,
+    ]
+
+    experiments_all: list[AGModelBagExperiment] = [exp for exp_family_lst in experiments_lst for exp in exp_family_lst]
+
+    # Verify no duplicate names
+    experiment_names = set()
+    for experiment in experiments_all:
+        if experiment.name not in experiment_names:
+            experiment_names.add(experiment.name)
+        else:
+            raise AssertionError(f"Found multiple instances of experiment named {experiment.name}. All experiment names must be unique!")
+
+    YamlExperimentSerializer.to_yaml(experiments=experiments_all, path="configs_all.yaml")
+
+    from tabrepo.models.automl import generate_autogluon_experiments
+    experiments_autogluon = generate_autogluon_experiments()
+
+    YamlExperimentSerializer.to_yaml(experiments=experiments_autogluon, path="configs_autogluon.yaml")

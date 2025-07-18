@@ -754,7 +754,9 @@ class ZeroshotSimulatorContext:
         df = self._filter_df_by_datasets(df=df, datasets=datasets, tasks=tasks)
         return self._get_configs_from_df(df=df, union=union)
 
-    def _filter_df_by_datasets(self, df: pd.DataFrame, datasets: list[str] = None, tasks: list[tuple[str, int]] = None) -> pd.DataFrame:
+    def _filter_df_by_datasets(self, df: pd.DataFrame, configs: list[str] = None, datasets: list[str] = None, tasks: list[tuple[str, int]] = None) -> pd.DataFrame:
+        if configs is not None:
+            df = df[df["framework"].isin(configs)]
         if datasets is not None:
             datasets_all = set(self.get_datasets())
             datasets_invalid = set(datasets).difference(datasets_all)
@@ -766,7 +768,10 @@ class ZeroshotSimulatorContext:
             tasks_invalid = set(tasks).difference(tasks_all)
             if len(tasks_invalid) != 0:
                 raise ValueError(f"Invalid tasks specified: {sorted(list(tasks_invalid))}")
-            df = df[df.set_index(["dataset", "fold"]).index.isin(tasks)]
+
+            tasks_df = pd.DataFrame(tasks, columns=["dataset", "fold"])
+            df = df.merge(tasks_df, on=["dataset", "fold"])
+
         return df
 
     def get_configs_hyperparameters(self, configs: List[str] | None = None, include_ag_args: bool = True) -> dict[str, dict | None]:

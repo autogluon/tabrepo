@@ -231,7 +231,14 @@ class AbstractRepository(ABC, SaveLoadMixin):
     def tid_to_dataset(self, tid: int) -> str:
         return self._tid_to_dataset_dict[tid]
 
-    def metrics(self, datasets: List[str] = None, folds: List[int] = None, configs: List[str] = None) -> pd.DataFrame:
+    def metrics(
+        self,
+        datasets: List[str] = None,
+        folds: List[int] = None,
+        tasks: list[tuple[str, int]] = None,
+        configs: List[str] = None,
+        set_index: bool = True,
+    ) -> pd.DataFrame:
         """
         :param datasets:
         :param folds:
@@ -248,18 +255,25 @@ class AbstractRepository(ABC, SaveLoadMixin):
             time_infer_s : Inference time of the config
             rank : Rank of the config
         """
-        df = self._zeroshot_context.df_configs_ranked.set_index(["dataset", "fold", "framework"], drop=True)[
-            ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank"]
-        ]
-        if datasets is None:
-            datasets = self.datasets()
+        df = self._zeroshot_context.df_configs_ranked
+        if tasks is not None or configs is not None:
+            df = self._zeroshot_context._filter_df_by_datasets(df=df, tasks=tasks, configs=configs)
 
-        mask = df.index.get_level_values("dataset").isin(datasets)
+        masks = []
+        if datasets is not None:
+            masks.append(df["dataset"].isin(datasets))
         if folds is not None:
-            mask = mask & df.index.get_level_values("fold").isin(folds)
-        if configs is not None:
-            mask = mask & df.index.get_level_values("framework").isin(configs)
-        df = df[mask]
+            masks.append(df["fold"].isin(folds))
+        if masks:
+            mask = masks[0]
+            for m in masks[1:]:
+                mask &= m
+            df = df[mask]
+
+        if set_index:
+            df = df.set_index(["dataset", "fold", "framework"], drop=True)[
+                ["metric_error", "metric_error_val", "time_train_s", "time_infer_s", "rank"]
+            ]
 
         return df
 
