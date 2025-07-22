@@ -39,8 +39,8 @@ def set_logger_level(logger_name: str, level: int):
 
 # pip install pytabkit
 class RealMLPModel(AbstractModel):
-    ag_key = "REALMLP"
-    ag_name = "RealMLP"
+    ag_key = "TA-REALMLP"
+    ag_name = "TA-RealMLP"
     ag_priority = 75
 
     def __init__(self, **kwargs):
