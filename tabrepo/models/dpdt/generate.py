@@ -67,6 +67,10 @@ def generate_configs_bdpdt(num_random_configs=200):
 
     configs = []
     for i in range(num_random_configs):
+        try:
+            max_features = int(max_features_samples[i])
+        except Exception:
+            max_features = max_features_samples[i]
         config = {
             "learning_rate": samples[i],
             "max_depth": max_depth_samples[i],
@@ -75,7 +79,7 @@ def generate_configs_bdpdt(num_random_configs=200):
             "cart_nodes_list": cart_nodes_list[i],
             "min_samples_leaf": min_samples_leaf_samples[i],
             "min_weight_fraction_leaf": min_weight_fraction_leaf_samples[i],
-            "max_features": max_features_samples[i],
+            "max_features": max_features,
         }
         configs.append(config)
 

@@ -138,12 +138,14 @@ class BoostedDPDTModel(AbstractModel):
         hyperparameters: dict | None = None,
         **kwargs,
     ) -> int:
+        # TODO: add a callback that stops when running out of memory.
         if hyperparameters is None:
             hyperparameters = {}
 
         dataset_size_mem_est = (
-            10
+            40
             * hyperparameters.get("cart_nodes_list", [2.5])[0]
+            * hyperparameters.get("cart_nodes_list", [0, 1])[1]
             * get_approximate_df_mem_usage(X).sum()
         )
         baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
