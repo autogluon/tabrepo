@@ -97,16 +97,17 @@ class EndToEndResults:
         self,
         output_dir: str | Path,
         *,
-        subset: str | None = None,
+        subset: str | None | list = None,
         new_result_prefix: str | None = None,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
 
         Args:
             output_dir (str | Path): Directory to save the results.
-            subset (str | None): Subset of tasks to evaluate on.
+            subset (str | None | list): Subset of tasks to evaluate on.
                 Options are "classification", "regression", "lite"  for TabArena-Lite,
                 "tabicl", "tabpfn", "tabpfn/tabicl", or None for all tasks.
+                Or a list of subset names to filter for.
             new_result_prefix (str | None): If not None, add a prefix to the new
                 results to distinguish new results from the original TabArena results.
                 Use this, for example, if you re-run a model from TabArena.
@@ -136,32 +137,36 @@ class EndToEndResults:
         if subset is not None:
             from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 
-            if subset == "classification":
-                df_results = df_results[
-                    df_results["problem_type"].isin(["binary", "multiclass"])
-                ]
-            elif subset == "regression":
-                df_results = df_results[df_results["problem_type"] == "regression"]
-            elif subset == "lite":
-                df_results = df_results[df_results["fold"] == 0]
-            elif subset == "tabicl":
-                allowed_dataset = load_task_metadata(subset="TabICL")[
-                    "dataset"
-                ].tolist()
-                df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
-            elif subset == "tabpfn":
-                allowed_dataset = load_task_metadata(subset="TabPFNv2")[
-                    "dataset"
-                ].tolist()
-                df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
-            elif subset == "tabpfn/tabicl":
-                ad_tabicl = load_task_metadata(subset="TabICL")["dataset"].tolist()
-                ad_tabpfn = load_task_metadata(subset="TabPFNv2")["dataset"].tolist()
-                allowed_dataset = list(set(ad_tabicl).intersection(set(ad_tabpfn)))
-                df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
-            else:
-                raise ValueError(f"Invalid subset {subset} name!")
-            df_results = df_results.reset_index(drop=True)
+            if isinstance(subset, str):
+                subset = [subset]
+
+            for filter_subset in subset:
+                if filter_subset == "classification":
+                    df_results = df_results[
+                        df_results["problem_type"].isin(["binary", "multiclass"])
+                    ]
+                elif filter_subset == "regression":
+                    df_results = df_results[df_results["problem_type"] == "regression"]
+                elif filter_subset == "lite":
+                    df_results = df_results[df_results["fold"] == 0]
+                elif filter_subset == "tabicl":
+                    allowed_dataset = load_task_metadata(subset="TabICL")[
+                        "dataset"
+                    ].tolist()
+                    df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
+                elif filter_subset == "tabpfn":
+                    allowed_dataset = load_task_metadata(subset="TabPFNv2")[
+                        "dataset"
+                    ].tolist()
+                    df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
+                elif filter_subset == "tabpfn/tabicl":
+                    ad_tabicl = load_task_metadata(subset="TabICL")["dataset"].tolist()
+                    ad_tabpfn = load_task_metadata(subset="TabPFNv2")["dataset"].tolist()
+                    allowed_dataset = list(set(ad_tabicl).intersection(set(ad_tabpfn)))
+                    df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
+                else:
+                    raise ValueError(f"Invalid subset {subset} name!")
+                df_results = df_results.reset_index(drop=True)
 
         # Handle imputation of names
         imputed_names = list(df_results["method"][df_results["imputed"] > 0].unique())
