@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
 
-class Callback:
+class EbmCallback:
     def __init__(self, seconds):
         self.seconds = seconds
 
@@ -26,10 +26,6 @@ class Callback:
         return time.monotonic() > self.end_time
 
 
-def callback_generator(seconds):
-    return Callback(seconds)
-
-
 class ExplainableBoostingMachineModel(AbstractModel):
     ag_key = "EBM"
     ag_name = "ExplainableBM"
@@ -37,18 +33,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
     _category_features: list[str] = None
 
     def _get_model_type(self):
-        match self.problem_type:
-            case _ if self.problem_type in (BINARY, MULTICLASS):
-                from interpret.glassbox import ExplainableBoostingClassifier
-
-                model_cls = ExplainableBoostingClassifier
-            case _ if self.problem_type == REGRESSION:
-                from interpret.glassbox import ExplainableBoostingRegressor
-
-                model_cls = ExplainableBoostingRegressor
-            case _:
-                raise ValueError(f"Unsupported problem type: {self.problem_type}")
-        return model_cls
+        return get_class_from_problem_type(self.problem_type)
 
     def _preprocess_nonadaptive(self, X, **kwargs):
         X = super()._preprocess_nonadaptive(X, **kwargs)
@@ -120,7 +105,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
         extra_kwargs.update(paras)
 
         if time_limit is not None:
-            extra_kwargs["callback"] = callback_generator(time_limit)
+            extra_kwargs["callback"] = EbmCallback(time_limit)
 
         # Init Class
         model_cls = self._get_model_type()
@@ -164,10 +149,25 @@ class ExplainableBoostingMachineModel(AbstractModel):
         return {"can_refit_full": False}
 
     @classmethod
+    def _class_tags(cls):
+        return {"can_estimate_memory_usage_static": True}
+
+    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+        hyperparameters = self._get_model_params()
+        return self.estimate_memory_usage_static(
+            X=X,
+            problem_type=self.problem_type,
+            num_classes=self.num_classes,
+            hyperparameters=hyperparameters,
+            **kwargs,
+        )
+    
+    @classmethod
     def _estimate_memory_usage_static(
         cls,
         *,
         X: pd.DataFrame,
+        problem_type: str,
         hyperparameters: dict = None,
         num_classes: int = 1,
         **kwargs,
@@ -177,13 +177,29 @@ class ExplainableBoostingMachineModel(AbstractModel):
         """
         if hyperparameters is None:
             hyperparameters = {}
+
+        model_cls = get_class_from_problem_type(problem_type)
         
         baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
         data_mem_usage_bytes = get_approximate_df_mem_usage(X).sum()
-        ebm_memory_bytes = cls(**hyperparameters).estimate_mem(X)
+        ebm_memory_bytes = model_cls(**hyperparameters).estimate_mem(X)
         approx_mem_size_req = baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
 
-        return approx_mem_size_req
+        return int(approx_mem_size_req)
+
+def get_class_from_problem_type(problem_type: str):
+    match problem_type:
+        case _ if problem_type in (BINARY, MULTICLASS):
+            from interpret.glassbox import ExplainableBoostingClassifier
+
+            model_cls = ExplainableBoostingClassifier
+        case _ if problem_type == REGRESSION:
+            from interpret.glassbox import ExplainableBoostingRegressor
+
+            model_cls = ExplainableBoostingRegressor
+        case _:
+            raise ValueError(f"Unsupported problem type: {problem_type}")
+    return model_cls
 
 def get_metric_from_ag_metric(*, metric: Scorer, problem_type: str):
     """Map AutoGluon metric to EBM metric for early stopping."""
