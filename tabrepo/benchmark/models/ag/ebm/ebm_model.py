@@ -111,7 +111,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
         *,
         X: pd.DataFrame,
         problem_type: str,
-        hyperparameters: dict = None,
+        hyperparameters: dict,
         num_classes: int = 1,
         features = None,
         **kwargs,
@@ -120,7 +120,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
         Returns the expected peak memory usage in bytes of the EBM model during fit.
         """
 
-        extra_kwargs = construct_ebm_params(problem_type, hyperparameters, features)
+        hyperparameters = construct_ebm_params(problem_type, hyperparameters, features)
         
         model_cls = get_class_from_problem_type(problem_type)
         
@@ -158,7 +158,7 @@ def construct_ebm_params(problem_type, paras, features=None, stopping_metric=Non
         "feature_names": features,
         "feature_types": feature_types,
         "n_jobs": -1 if isinstance(num_cpus, str) else num_cpus,
-        "random_state": None  # ensure outer bags are different each time an EBM is fit 
+        "random_state": None  # ensure outer bags are different each time an EBM is fit
     }
     if stopping_metric is not None:
         extra_kwargs["objective"] = get_metric_from_ag_metric(
