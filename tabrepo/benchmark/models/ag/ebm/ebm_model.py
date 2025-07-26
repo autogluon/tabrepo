@@ -158,7 +158,6 @@ def construct_ebm_params(problem_type, paras, features=None, stopping_metric=Non
         "feature_names": features,
         "feature_types": feature_types,
         "n_jobs": -1 if isinstance(num_cpus, str) else num_cpus,
-        "random_state": None  # ensure outer bags are different each time an EBM is fit
     }
     if stopping_metric is not None:
         extra_kwargs["objective"] = get_metric_from_ag_metric(
