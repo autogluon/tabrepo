@@ -46,48 +46,18 @@ class ExplainableBoostingMachineModel(AbstractModel):
         X = self.preprocess(X)
         if X_val is not None:
             X_val = self.preprocess(X_val)
-        paras = self._get_model_params()
 
-        # Handle categorical column types ordinal and nominal columns.
-        continuous_columns = paras.pop(
-            "continuous_columns", []
-        )  # The user can specify continuous columns.
-        nominal_columns = paras.pop(
-            "nominal_columns", []
-        )  # The user can specify nominal columns.
-        feature_types = []
-        for c in self._features:
-            if c in continuous_columns:
-                f_type = "continuous"
-            elif c in nominal_columns:
-                f_type = "nominal"
-            else:
-                f_type = "auto"
-            feature_types.append(f_type)
-
-        # Default parameters for EBM
-        extra_kwargs = {
-            "outer_bags": 1,  # AutoGluon ensemble creates outer bags, no need for this overhead.
-            "objective": get_metric_from_ag_metric(
-                metric=self.stopping_metric, problem_type=self.problem_type
-            ),
-            "feature_names": self._features,
-            "n_jobs": -1 if isinstance(num_cpus, str) else num_cpus,
-        }
-        extra_kwargs.update(paras)
-
-        if time_limit is not None:
-            extra_kwargs["callback"] = EbmCallback(time_limit)
+        extra_kwargs = construct_ebm_params(self.problem_type, self._get_model_params(), self._features, self.stopping_metric, time_limit)
 
         # Init Class
         model_cls = get_class_from_problem_type(self.problem_type)
         self.model = model_cls(**extra_kwargs)
 
         # Handle validation data format for EBM
-        bags = None
         fit_X = X
         fit_y = y
         fit_sample_weight = sample_weight
+        bags = None
         if X_val is not None:
             fit_X = pd.concat([X, X_val], ignore_index=True)
             fit_y = pd.concat([y, y_val], ignore_index=True)
@@ -131,6 +101,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
             problem_type=self.problem_type,
             num_classes=self.num_classes,
             hyperparameters=hyperparameters,
+            features=self._features,
             **kwargs,
         )
     
@@ -142,14 +113,15 @@ class ExplainableBoostingMachineModel(AbstractModel):
         problem_type: str,
         hyperparameters: dict = None,
         num_classes: int = 1,
+        features = None,
         **kwargs,
     ) -> int:
         """
         Returns the expected peak memory usage in bytes of the EBM model during fit.
         """
-        if hyperparameters is None:
-            hyperparameters = {}
 
+        extra_kwargs = construct_ebm_params(problem_type, hyperparameters, features)
+        
         model_cls = get_class_from_problem_type(problem_type)
         
         baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
@@ -160,6 +132,43 @@ class ExplainableBoostingMachineModel(AbstractModel):
         approx_mem_size_req = baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
 
         return int(approx_mem_size_req)
+
+def construct_ebm_params(problem_type, paras, features=None, stopping_metric=None, time_limit=None):
+    paras = paras.copy()  # we pop values below, so copy.
+    
+    # The user can specify nominal and continuous columns.
+    continuous_columns = paras.pop("continuous_columns", [])
+    nominal_columns = paras.pop("nominal_columns", [])
+
+    feature_types = None
+    if features is not None:
+        feature_types = []
+        for c in features:
+            if c in continuous_columns:
+                f_type = "continuous"
+            elif c in nominal_columns:
+                f_type = "nominal"
+            else:
+                f_type = "auto"
+            feature_types.append(f_type)
+
+    # Default parameters for EBM
+    extra_kwargs = {
+        "outer_bags": 1,  # AutoGluon ensemble creates outer bags, no need for this overhead.
+        "feature_names": features,
+        "feature_types": feature_types,
+        "n_jobs": -1 if isinstance(num_cpus, str) else num_cpus,
+        "random_state": None  # ensure outer bags are different each time an EBM is fit 
+    }
+    if stopping_metric is not None:
+        extra_kwargs["objective"] = get_metric_from_ag_metric(
+            metric=stopping_metric, problem_type=problem_type
+        )
+    if time_limit is not None:
+        extra_kwargs["callback"] = EbmCallback(time_limit)
+
+    extra_kwargs.update(paras)
+    return extra_kwargs
 
 def get_class_from_problem_type(problem_type: str):
     match problem_type:
