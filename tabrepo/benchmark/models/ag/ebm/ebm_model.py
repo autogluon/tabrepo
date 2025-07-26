@@ -51,7 +51,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
         if features is None:
             features = X.columns
         
-        params = construct_ebm_params(self.problem_type, self._get_model_params(), features, self.stopping_metric, time_limit)
+        params = construct_ebm_params(self.problem_type, self._get_model_params(), features, self.stopping_metric, num_cpus, time_limit)
 
         # Init Class
         model_cls = get_class_from_problem_type(self.problem_type)
@@ -141,7 +141,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
 
         return int(approx_mem_size_req)
 
-def construct_ebm_params(problem_type, hyperparameters=None, features=None, stopping_metric=None, time_limit=None):
+def construct_ebm_params(problem_type, hyperparameters=None, features=None, stopping_metric=None, num_cpus=-1, time_limit=None):
     if hyperparameters is None:
         hyperparameters = {}
     
