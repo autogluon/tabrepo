@@ -47,7 +47,11 @@ class ExplainableBoostingMachineModel(AbstractModel):
         if X_val is not None:
             X_val = self.preprocess(X_val)
 
-        extra_kwargs = construct_ebm_params(self.problem_type, self._get_model_params(), self._features, self.stopping_metric, time_limit)
+        features = self._features
+        if features is None:
+            features = X.columns
+        
+        extra_kwargs = construct_ebm_params(self.problem_type, self._get_model_params(), features, self.stopping_metric, time_limit)
 
         # Init Class
         model_cls = get_class_from_problem_type(self.problem_type)
@@ -95,12 +99,11 @@ class ExplainableBoostingMachineModel(AbstractModel):
         return {"can_estimate_memory_usage_static": True}
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
-        hyperparameters = self._get_model_params()
         return self.estimate_memory_usage_static(
             X=X,
             problem_type=self.problem_type,
             num_classes=self.num_classes,
-            hyperparameters=hyperparameters,
+            hyperparameters=self._get_model_params(),
             features=self._features,
             **kwargs,
         )
@@ -111,7 +114,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
         *,
         X: pd.DataFrame,
         problem_type: str,
-        hyperparameters: dict,
+        hyperparameters: dict | None = None,
         num_classes: int = 1,
         features = None,
         **kwargs,
@@ -120,7 +123,12 @@ class ExplainableBoostingMachineModel(AbstractModel):
         Returns the expected peak memory usage in bytes of the EBM model during fit.
         """
 
-        hyperparameters = construct_ebm_params(problem_type, hyperparameters, features)
+        # TODO: we can improve the memory estimate slightly by using num_classes
+        
+        if features is None:
+            features = X.columns
+        
+        params = construct_ebm_params(problem_type, hyperparameters, features)
         
         model_cls = get_class_from_problem_type(problem_type)
         
@@ -128,17 +136,20 @@ class ExplainableBoostingMachineModel(AbstractModel):
         data_mem_usage_bytes = get_approximate_df_mem_usage(X).sum()
         # assuming we call pd.concat([X, X_val], ignore_index=True) above, then it will be doubled
         data_mem_usage_bytes *= 2
-        ebm_memory_bytes = model_cls(**hyperparameters).estimate_mem(X)
+        ebm_memory_bytes = model_cls(**params).estimate_mem(X)
         approx_mem_size_req = baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
 
         return int(approx_mem_size_req)
 
-def construct_ebm_params(problem_type, paras, features=None, stopping_metric=None, time_limit=None):
-    paras = paras.copy()  # we pop values below, so copy.
+def construct_ebm_params(problem_type, hyperparameters=None, features=None, stopping_metric=None, time_limit=None):
+    if hyperparameters is None:
+        hyperparameters = {}
+    
+    hyperparameters = hyperparameters.copy()  # we pop values below, so copy.
     
     # The user can specify nominal and continuous columns.
-    continuous_columns = paras.pop("continuous_columns", [])
-    nominal_columns = paras.pop("nominal_columns", [])
+    continuous_columns = hyperparameters.pop("continuous_columns", [])
+    nominal_columns = hyperparameters.pop("nominal_columns", [])
 
     feature_types = None
     if features is not None:
@@ -153,21 +164,20 @@ def construct_ebm_params(problem_type, paras, features=None, stopping_metric=Non
             feature_types.append(f_type)
 
     # Default parameters for EBM
-    extra_kwargs = {
+    params = {
         "outer_bags": 1,  # AutoGluon ensemble creates outer bags, no need for this overhead.
         "feature_names": features,
         "feature_types": feature_types,
         "n_jobs": -1 if isinstance(num_cpus, str) else num_cpus,
     }
     if stopping_metric is not None:
-        extra_kwargs["objective"] = get_metric_from_ag_metric(
+        params["objective"] = get_metric_from_ag_metric(
             metric=stopping_metric, problem_type=problem_type
         )
     if time_limit is not None:
-        extra_kwargs["callback"] = EbmCallback(time_limit)
+        params["callback"] = EbmCallback(time_limit)
 
-    extra_kwargs.update(paras)
-    return extra_kwargs
+    return params.update(hyperparameters)
 
 def get_class_from_problem_type(problem_type: str):
     match problem_type:
