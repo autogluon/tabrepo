@@ -51,11 +51,11 @@ class ExplainableBoostingMachineModel(AbstractModel):
         if features is None:
             features = X.columns
         
-        extra_kwargs = construct_ebm_params(self.problem_type, self._get_model_params(), features, self.stopping_metric, time_limit)
+        params = construct_ebm_params(self.problem_type, self._get_model_params(), features, self.stopping_metric, time_limit)
 
         # Init Class
         model_cls = get_class_from_problem_type(self.problem_type)
-        self.model = model_cls(**extra_kwargs)
+        self.model = model_cls(**params)
 
         # Handle validation data format for EBM
         fit_X = X
@@ -177,7 +177,8 @@ def construct_ebm_params(problem_type, hyperparameters=None, features=None, stop
     if time_limit is not None:
         params["callback"] = EbmCallback(time_limit)
 
-    return params.update(hyperparameters)
+    params.update(hyperparameters)
+    return params
 
 def get_class_from_problem_type(problem_type: str):
     match problem_type:
