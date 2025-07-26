@@ -30,19 +30,6 @@ class ExplainableBoostingMachineModel(AbstractModel):
     ag_key = "EBM"
     ag_name = "ExplainableBM"
 
-    _category_features: list[str] = None
-
-    def _get_model_type(self):
-        return get_class_from_problem_type(self.problem_type)
-
-    def _preprocess_nonadaptive(self, X, **kwargs):
-        X = super()._preprocess_nonadaptive(X, **kwargs)
-
-        if self._category_features is None:
-            self._category_features = list(X.select_dtypes(include="category").columns)
-
-        return X
-
     def _fit(
         self,
         X: pd.DataFrame,
@@ -55,38 +42,24 @@ class ExplainableBoostingMachineModel(AbstractModel):
         num_cpus: int | str = "auto",
         **kwargs,
     ):
-        # Create validation set if not provided to enable early stopping.
-        if X_val is None:
-            from autogluon.core.utils import generate_train_test_split
-
-            X, X_val, y, y_val = generate_train_test_split(
-                X=X,
-                y=y,
-                problem_type=self.problem_type,
-                test_size=0.2,
-                random_state=0,
-            )
-
         # Preprocess data.
-        X = self.preprocess(X, is_train=True)
-        X_val = self.preprocess(X_val, is_train=False)
+        X = self.preprocess(X)
+        if X_val is not None:
+            X_val = self.preprocess(X_val)
         paras = self._get_model_params()
 
         # Handle categorical column types ordinal and nominal columns.
-        ordinal_columns = paras.pop(
-            "ordinal_columns", []
-        )  # The user can specify ordinal columns.
+        continuous_columns = paras.pop(
+            "continuous_columns", []
+        )  # The user can specify continuous columns.
         nominal_columns = paras.pop(
             "nominal_columns", []
         )  # The user can specify nominal columns.
         feature_types = []
         for c in self._features:
-            if c in ordinal_columns:
-                f_type = "ordinal"
+            if c in continuous_columns:
+                f_type = "continuous"
             elif c in nominal_columns:
-                f_type = "nominal"
-            elif c in self._category_features:
-                # Fallback if user did not specify column type.
                 f_type = "nominal"
             else:
                 f_type = "auto"
@@ -95,7 +68,6 @@ class ExplainableBoostingMachineModel(AbstractModel):
         # Default parameters for EBM
         extra_kwargs = {
             "outer_bags": 1,  # AutoGluon ensemble creates outer bags, no need for this overhead.
-            "inner_bags": 0,  # We supply the validation set, no need for inner bags.
             "objective": get_metric_from_ag_metric(
                 metric=self.stopping_metric, problem_type=self.problem_type
             ),
@@ -108,21 +80,21 @@ class ExplainableBoostingMachineModel(AbstractModel):
             extra_kwargs["callback"] = EbmCallback(time_limit)
 
         # Init Class
-        model_cls = self._get_model_type()
+        model_cls = get_class_from_problem_type(self.problem_type)
         self.model = model_cls(**extra_kwargs)
 
         # Handle validation data format for EBM
-        fit_X = pd.concat([X, X_val], ignore_index=True)
-        fit_y = pd.concat([y, y_val], ignore_index=True)
-        bags = np.full((len(fit_X), 1), 1, np.int8)
-        bags[len(X) :, 0] = -1
-
-        # Sample Weights
-        fit_sample_weight = (
-            np.hstack([sample_weight, sample_weight_val])
-            if sample_weight is not None
-            else None
-        )
+        bags = None
+        fit_X = X
+        fit_y = y
+        fit_sample_weight = sample_weight
+        if X_val is not None:
+            fit_X = pd.concat([X, X_val], ignore_index=True)
+            fit_y = pd.concat([y, y_val], ignore_index=True)
+            if sample_weight is not None:
+                fit_sample_weight = np.hstack([sample_weight, sample_weight_val])
+            bags = np.full((len(fit_X), 1), 1, np.int8)
+            bags[len(X) :, 0] = -1
 
         with warnings.catch_warnings():  # try to filter joblib warnings
             warnings.filterwarnings(
@@ -182,6 +154,8 @@ class ExplainableBoostingMachineModel(AbstractModel):
         
         baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
         data_mem_usage_bytes = get_approximate_df_mem_usage(X).sum()
+        # assuming we call pd.concat([X, X_val], ignore_index=True) above, then it will be doubled
+        data_mem_usage_bytes *= 2
         ebm_memory_bytes = model_cls(**hyperparameters).estimate_mem(X)
         approx_mem_size_req = baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
 
