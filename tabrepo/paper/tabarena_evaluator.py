@@ -514,7 +514,8 @@ class TabArenaEvaluator:
         plotter = Plotter(
             results_ranked_df=results_per_task_rename,
             results_ranked_fillna_df=results_per_task_rename,
-            save_dir=f"{self.output_dir}/figures/plotter"
+            save_dir=f"{self.output_dir}/figures/plotter",
+            show=False,
         )
 
         # FIXME: Nick: This isn't yet merged, as I haven't made it nice yet
