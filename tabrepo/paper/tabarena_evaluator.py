@@ -204,7 +204,7 @@ class TabArenaEvaluator:
             df_results["seed"] = 0
         if "imputed" not in df_results:
             df_results["imputed"] = False
-        df_results["imputed"] = df_results["imputed"].fillna(False).astype(bool)
+        df_results["imputed"] = df_results["imputed"].astype("boolean").fillna(False).astype(bool)
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
         df_results = df_results.drop_duplicates(subset=[
             "dataset", "fold", self.method_col, "seed"
@@ -774,8 +774,9 @@ class TabArenaEvaluator:
             ]
         )
 
-        df["framework_type"] = df[self.method_col].map(f_map_type).fillna(df[self.method_col])
-        df["tune_method"] = df[self.method_col].map(f_map_inverse).fillna("default")
+        df = df.copy()
+        df.loc[:, "framework_type"] = df[self.method_col].map(f_map_type).fillna(df[self.method_col])
+        df.loc[:, "tune_method"] = df[self.method_col].map(f_map_inverse).fillna("default")
 
         if baselines is None:
             baselines = []
@@ -1194,7 +1195,7 @@ class TabArenaEvaluator:
         df["tune_method"] = df[self.method_col].map(f_map_inverse).fillna("default")
         df = df[df["tune_method"].isin(["default", "tuned_ensembled"])]
         df = df[df['framework_type'].isin(framework_types)]
-        df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
+        df.loc[:, "framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
 
         gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2', "ModernNCA", "TabM"]
 
