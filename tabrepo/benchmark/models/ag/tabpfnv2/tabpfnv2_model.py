@@ -110,8 +110,8 @@ class FixedSafePowerTransformer(PowerTransformer):
 
 # TODO: Satisfy TabPFNv2 License
 class TabPFNV2Model(AbstractModel):
-    ag_key = "TABPFNV2"
-    ag_name = "TabPFNv2"
+    ag_key = "TA-TABPFNV2"
+    ag_name = "TA-TabPFNv2"
     ag_priority = 105
 
     def __init__(self, **kwargs):
