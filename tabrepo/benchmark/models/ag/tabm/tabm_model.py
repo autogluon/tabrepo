@@ -1,15 +1,7 @@
 """
-Note: This is a custom implementation of TabM. Because the AutoGluon 1.4 release occurred at nearly
+Note: This is a custom implementation of TabM based on TabArena. Because the AutoGluon 1.4 release occurred at nearly
 the same time as TabM became available on PyPi, we chose to use TabArena's implementation
 for the AutoGluon 1.4 release as it has already been benchmarked.
-
-Model: TabM
-Paper: TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling
-Authors: Yury Gorishniy, Akim Kotelnikov, Artem Babenko
-Codebase: https://github.com/yandex-research/tabm
-License: Apache-2.0
-
-Partially adapted from pytabkit's TabM implementation.
 """
 
 from __future__ import annotations
@@ -18,6 +10,7 @@ import logging
 import time
 
 import pandas as pd
+
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.tabular import __version__
@@ -26,6 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 class TabMModel(AbstractModel):
+    """
+    TabM is an efficient ensemble of MLPs that is trained simultaneously with mostly shared parameters.
+
+    TabM is one of the top performing methods overall on TabArena-v0.1: https://tabarena.ai
+
+    Paper: TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling
+    Authors: Yury Gorishniy, Akim Kotelnikov, Artem Babenko
+    Codebase: https://github.com/yandex-research/tabm
+    License: Apache-2.0
+
+    Partially adapted from pytabkit's TabM implementation.
+    """
     ag_key = "TA-TABM"
     ag_name = "TA-TabM"
     ag_priority = 85
@@ -54,8 +59,9 @@ class TabMModel(AbstractModel):
 
         try:
             # imports various dependencies such as torch
-            from ._tabm_internal import TabMImplementation
             from torch.cuda import is_available
+
+            from ._tabm_internal import TabMImplementation
         except ImportError as err:
             logger.log(
                 40,
@@ -145,9 +151,10 @@ class TabMModel(AbstractModel):
         return self.eval_metric
 
     def _get_default_resources(self) -> tuple[int, int]:
-        # logical=False is faster in training
-        num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
+        # Use only physical cores for better performance based on benchmarks
+        num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
+
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
