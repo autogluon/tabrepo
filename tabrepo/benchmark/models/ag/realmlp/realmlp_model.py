@@ -1,11 +1,3 @@
-"""
-Model: RealMLP
-Paper: Better by Default: Strong Pre-Tuned MLPs and Boosted Trees on Tabular Data
-Authors: David Holzmüller, Léo Grinsztajn, Ingo Steinwart
-Codebase: https://github.com/dholzmueller/pytabkit
-License: Apache-2.0
-"""
-
 from __future__ import annotations
 
 import logging
@@ -39,6 +31,17 @@ def set_logger_level(logger_name: str, level: int):
 
 # pip install pytabkit
 class RealMLPModel(AbstractModel):
+    """
+    RealMLP is an improved multilayer perception (MLP) model
+    through a bag of tricks and better default hyperparameters.
+
+    RealMLP is the top performing method overall on TabArena-v0.1: https://tabarena.ai
+
+    Paper: Better by Default: Strong Pre-Tuned MLPs and Boosted Trees on Tabular Data
+    Authors: David Holzmüller, Léo Grinsztajn, Ingo Steinwart
+    Codebase: https://github.com/dholzmueller/pytabkit
+    License: Apache-2.0
+    """
     ag_key = "TA-REALMLP"
     ag_name = "TA-RealMLP"
     ag_priority = 75
@@ -53,7 +56,12 @@ class RealMLPModel(AbstractModel):
         self._bool_to_cat = None
 
     def get_model_cls(self, default_hyperparameters: Literal["td", "td_s"] = "td"):
-        from pytabkit import RealMLP_TD_Classifier, RealMLP_TD_Regressor, RealMLP_TD_S_Classifier, RealMLP_TD_S_Regressor
+        from pytabkit import (
+            RealMLP_TD_Classifier,
+            RealMLP_TD_Regressor,
+            RealMLP_TD_S_Classifier,
+            RealMLP_TD_S_Regressor,
+        )
 
         assert default_hyperparameters in ["td", "td_s"]
         if self.problem_type in ['binary', 'multiclass']:
@@ -265,9 +273,11 @@ class RealMLPModel(AbstractModel):
         return self.eval_metric
 
     def _get_default_resources(self) -> tuple[int, int]:
-        # logical=False is faster in training
-        num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
+        # Use only physical cores for better performance based on benchmarks
+        num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
+
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
+
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
