@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy
+from sklearn.preprocessing import PowerTransformer
+
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
-from sklearn.preprocessing import PowerTransformer
+from autogluon.tabular import __version__
 
 if TYPE_CHECKING:
     import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+_HAS_LOGGED_TABPFN_LICENSE: bool = False
 
 
 def _patch_local_kdi_transformer():
@@ -19,7 +26,7 @@ def _patch_local_kdi_transformer():
     import sys
     import types
 
-    from tabrepo.benchmark.models.ag.tabpfnv2.kditransform.kdi_transformer import (
+    from .kditransform.kdi_transformer import (
         KDITransformer,
     )
 
@@ -108,8 +115,19 @@ class FixedSafePowerTransformer(PowerTransformer):
         return self._revert_failed_features(transformed_X, X)  # type: ignore
 
 
-# TODO: Satisfy TabPFNv2 License
 class TabPFNV2Model(AbstractModel):
+    """
+    TabPFNv2 is a tabular foundation model pre-trained purely on synthetic data that achieves
+    state-of-the-art results with in-context learning on small datasets with <=10000 samples and <=500 features.
+    TabPFNv2 is developed and maintained by PriorLabs: https://priorlabs.ai/
+
+    TabPFNv2 is the top performing method for small datasets on TabArena-v0.1: https://tabarena.ai
+
+    Paper: Accurate predictions on small data with a tabular foundation model
+    Authors: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister & Frank Hutter
+    Codebase: https://github.com/PriorLabs/TabPFN
+    License: https://github.com/PriorLabs/TabPFN/blob/main/LICENSE
+    """
     ag_key = "TA-TABPFNV2"
     ag_name = "TA-TabPFNv2"
     ag_priority = 105
@@ -118,12 +136,14 @@ class TabPFNV2Model(AbstractModel):
         super().__init__(**kwargs)
         self._feature_generator = None
         self._cat_features = None
+        self._cat_indices = None
 
     def _preprocess(self, X: pd.DataFrame, is_train=False, **kwargs) -> pd.DataFrame:
         X = super()._preprocess(X, **kwargs)
-        self._cat_indices = []
 
         if is_train:
+            self._cat_indices = []
+
             # X will be the training data.
             self._feature_generator = LabelEncoderFeatureGenerator(verbosity=0)
             self._feature_generator.fit(X=X)
@@ -135,10 +155,11 @@ class TabPFNV2Model(AbstractModel):
                 X=X
             )
 
-            # Detect/set cat features and indices
-            if self._cat_features is None:
-                self._cat_features = self._feature_generator.features_in[:]
-            self._cat_indices = [X.columns.get_loc(col) for col in self._cat_features]
+            if is_train:
+                # Detect/set cat features and indices
+                if self._cat_features is None:
+                    self._cat_features = self._feature_generator.features_in[:]
+                self._cat_indices = [X.columns.get_loc(col) for col in self._cat_features]
 
         return X
 
@@ -151,6 +172,7 @@ class TabPFNV2Model(AbstractModel):
         y: pd.Series,
         num_cpus: int = 1,
         num_gpus: int = 0,
+        verbosity: int = 2,
         **kwargs,
     ):
         _patch_local_kdi_transformer()
@@ -231,7 +253,7 @@ class TabPFNV2Model(AbstractModel):
         n_ensemble_repeats = hps.pop("n_ensemble_repeats", None)
         model_is_rf_pfn = hps.pop("model_type", "no") == "dt_pfn"
         if model_is_rf_pfn:
-            from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn import (
+            from .rfpfn import (
                 RandomForestTabPFNClassifier,
                 RandomForestTabPFNRegressor,
             )
@@ -258,8 +280,11 @@ class TabPFNV2Model(AbstractModel):
         )
 
     def _get_default_resources(self) -> tuple[int, int]:
+        # Use only physical cores for better performance based on benchmarks
         num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
-        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
+
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
+
         return num_cpus, num_gpus
 
     def _set_default_params(self):
@@ -341,7 +366,7 @@ class TabPFNV2Model(AbstractModel):
 
         # Add some buffer to each term + 1 GB overhead to be safe
         return int(
-            model_mem + 4 * X_mem + 1.5 * activation_mem + baseline_overhead_mem_est
+            model_mem + 4 * X_mem + 2 * activation_mem + baseline_overhead_mem_est
         )
 
     @classmethod
