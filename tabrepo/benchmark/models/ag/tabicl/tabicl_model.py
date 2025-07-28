@@ -1,11 +1,3 @@
-"""
-Model: TabICL
-Paper: TabICL: A Tabular Foundation Model for In-Context Learning on Large Data
-Authors: Jingang Qu, David Holzmüller, Gaël Varoquaux, Marine Le Morvan
-Codebase: https://github.com/soda-inria/tabicl
-License: BSD-3-Clause
-"""
-
 from __future__ import annotations
 
 import logging
@@ -22,6 +14,18 @@ logger = logging.getLogger(__name__)
 
 # TODO: Verify if crashes when weights are not yet downloaded and fit in parallel
 class TabICLModel(AbstractModel):
+    """
+    TabICL is a foundation model for tabular data using in-context learning
+    that is scalable to larger datasets than TabPFNv2. It is pretrained purely on synthetic data.
+    TabICL currently only supports classification tasks.
+
+    TabICL is one of the top performing methods overall on TabArena-v0.1: https://tabarena.ai
+
+    Paper: TabICL: A Tabular Foundation Model for In-Context Learning on Large Data
+    Authors: Jingang Qu, David Holzmüller, Gaël Varoquaux, Marine Le Morvan
+    Codebase: https://github.com/soda-inria/tabicl
+    License: BSD-3-Clause
+    """
     ag_key = "TA-TABICL"
     ag_name = "TA-TabICL"
     ag_priority = 65
@@ -93,23 +97,15 @@ class TabICLModel(AbstractModel):
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
 
-    def _get_default_auxiliary_params(self) -> dict:
-        default_auxiliary_params = super()._get_default_auxiliary_params()
-        default_auxiliary_params.update(
-            {
-                "max_rows": 100000,
-                "max_features": 500,
-            }
-        )
-        return default_auxiliary_params
-
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass"]
 
     def _get_default_resources(self) -> tuple[int, int]:
-        num_cpus = ResourceManager.get_cpu_count_psutil(logical=False)
-        num_gpus = min(ResourceManager.get_gpu_count_torch(), 1)
+        # Use only physical cores for better performance based on benchmarks
+        num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
+
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
         return num_cpus, num_gpus
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
@@ -144,7 +140,7 @@ class TabICLModel(AbstractModel):
         model_mem_estimate *= 1.3  # add 30% buffer
 
         # TODO: Observed memory spikes above expected values on large datasets, increasing mem estimate to compensate
-        model_mem_estimate *= 1.5
+        model_mem_estimate *= 2.0  # Note: 1.5 is not large enough, still gets OOM
 
         mem_estimate = model_mem_estimate + dataset_size_mem_est + baseline_overhead_mem_est
 
