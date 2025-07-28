@@ -53,7 +53,7 @@ pip install -e tabrepo/[benchmark]
 If you use TabArena in a scientific publication, we would appreciate a reference to the following paper:
 
 **TabArena: A Living Benchmark for Machine Learning on Tabular Data**, 
-ick Erickson, Lennart Purucker, Andrej Tschalzev, David Holzmüller, Prateek Mutalik Desai, David Salinas, Frank Hutter, Preprint., 2025
+Nick Erickson, Lennart Purucker, Andrej Tschalzev, David Holzmüller, Prateek Mutalik Desai, David Salinas, Frank Hutter, Preprint., 2025
 
 Link to publication: [arXiv](https://arxiv.org/abs/2506.16791)
 
