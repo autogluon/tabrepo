@@ -119,8 +119,13 @@ class EloHelper:
             results_df = results_df[results_df[self.task_col].isin(datasets)]
         if frameworks is not None:
             results_df = results_df[results_df[self.method_col].isin(frameworks)]
+
+        # Pair each method with every other method on the same task
         results_pairs_df = pd.merge(results_df, results_df, on=self.task_col, suffixes=('_1', '_2'))
-        results_pairs_df = results_pairs_df[results_pairs_df[self.method_1] != results_pairs_df[self.method_2]]
+
+        # Keep only pairs with different methods
+        mask_diff_method = results_pairs_df[self.method_1] != results_pairs_df[self.method_2]
+        results_pairs_df = results_pairs_df.loc[mask_diff_method].copy()
         results_pairs_df["winner"] = [
             self.calc_battle_outcome(
                 error_1=error_1,
