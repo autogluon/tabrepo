@@ -29,12 +29,12 @@ from sklearn.utils.validation import (
     check_is_fitted,
 )
 
-from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn.sklearn_compat import validate_data
-from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn.scoring_utils import (
+from .sklearn_compat import validate_data
+from .scoring_utils import (
     score_classification,
     score_regression,
 )
-from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn.utils import softmax
+from .utils import softmax
 
 ###############################################################################
 #                             BASE DECISION TREE                              #
@@ -482,7 +482,7 @@ class DecisionTreeTabPFNBase(BaseDecisionTree, BaseEstimator):
             A copy of X with NaNs replaced by default value.
         """
         # Use check_array from sklearn_compat to handle different input types
-        from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn.sklearn_compat import check_array
+        from .sklearn_compat import check_array
 
         # Handle torch tensor
         if torch.is_tensor(X):

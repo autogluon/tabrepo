@@ -54,8 +54,11 @@ class EndToEnd:
         )
 
     @classmethod
-    def from_path_raw(cls, path_raw: str | Path) -> Self:
+    def from_path_raw(cls, path_raw: str | Path, name: str = None) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
+        if name is not None:
+            for r in results_lst:
+                r.rename(name=name)
         return cls(results_lst=results_lst)
 
     @classmethod
@@ -77,7 +80,7 @@ class EndToEndResults:
         model_results: pd.DataFrame = None,
     ):
         self.method_metadata = method_metadata
-        if hpo_results is None:
+        if hpo_results is None and self.method_metadata.method_type == "config":
             hpo_results = self.method_metadata.load_hpo_results()
         if model_results is None:
             model_results = self.method_metadata.load_model_results()

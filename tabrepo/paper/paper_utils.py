@@ -54,6 +54,8 @@ def get_method_rename_map() -> dict:
         'MNCA': 'ModernNCA (CPU)',
         'TABM': 'TabM (CPU)',
         'REALMLP': 'RealMLP',
+
+        "MITRA_GPU": "Mitra",
     }
 
 

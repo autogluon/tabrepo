@@ -237,7 +237,7 @@ class AGExperiment(Experiment):
         items = list(locals.items())
         for k, v in items:
             if k == "fit_kwargs":
-                if "hyperparameters" in v:
+                if "hyperparameters" in v and isinstance(v["hyperparameters"], dict):
                     hyperparameters = v["hyperparameters"]
                     keys = list(hyperparameters.keys())
                     for model in keys:
@@ -257,12 +257,13 @@ class AGExperiment(Experiment):
             kwargs["experiment_cls"] = eval(kwargs["experiment_cls"], _context)
         if "fit_kwargs" in kwargs:
             if "hyperparameters" in kwargs["fit_kwargs"]:
-                hyperparameters = kwargs["fit_kwargs"]["hyperparameters"]
-                keys = list(hyperparameters.keys())
-                for model in keys:
-                    if model in tabrepo_model_keys:
-                        val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
-                        kwargs["fit_kwargs"]["hyperparameters"][tabrepo_model_register.key_to_cls(model)] = val
+                if isinstance("hyperparameters", dict):
+                    hyperparameters = kwargs["fit_kwargs"]["hyperparameters"]
+                    keys = list(hyperparameters.keys())
+                    for model in keys:
+                        if model in tabrepo_model_keys:
+                            val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
+                            kwargs["fit_kwargs"]["hyperparameters"][tabrepo_model_register.key_to_cls(model)] = val
         obj = cls(**kwargs)
         return obj
 
