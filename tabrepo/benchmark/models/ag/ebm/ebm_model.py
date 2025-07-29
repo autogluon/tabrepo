@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
-from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
@@ -50,8 +50,15 @@ class ExplainableBoostingMachineModel(AbstractModel):
         features = self._features
         if features is None:
             features = X.columns
-        
-        params = construct_ebm_params(self.problem_type, self._get_model_params(), features, self.stopping_metric, num_cpus, time_limit)
+
+        params = construct_ebm_params(
+            self.problem_type,
+            self._get_model_params(),
+            features,
+            self.stopping_metric,
+            num_cpus,
+            time_limit,
+        )
 
         # Init Class
         model_cls = get_class_from_problem_type(self.problem_type)
@@ -107,7 +114,7 @@ class ExplainableBoostingMachineModel(AbstractModel):
             features=self._features,
             **kwargs,
         )
-    
+
     @classmethod
     def _estimate_memory_usage_static(
         cls,
@@ -116,37 +123,44 @@ class ExplainableBoostingMachineModel(AbstractModel):
         problem_type: str,
         hyperparameters: dict | None = None,
         num_classes: int = 1,
-        features = None,
+        features=None,
         **kwargs,
     ) -> int:
-        """
-        Returns the expected peak memory usage in bytes of the EBM model during fit.
-        """
-
+        """Returns the expected peak memory usage in bytes of the EBM model during fit."""
         # TODO: we can improve the memory estimate slightly by using num_classes
-        
+
         if features is None:
             features = X.columns
-        
+
         params = construct_ebm_params(problem_type, hyperparameters, features)
-        
+
         model_cls = get_class_from_problem_type(problem_type)
-        
+
         baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
         data_mem_usage_bytes = get_approximate_df_mem_usage(X).sum()
         # assuming we call pd.concat([X, X_val], ignore_index=True) above, then it will be doubled
         data_mem_usage_bytes *= 2
         ebm_memory_bytes = model_cls(**params).estimate_mem(X)
-        approx_mem_size_req = baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
+        approx_mem_size_req = (
+            baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
+        )
 
         return int(approx_mem_size_req)
 
-def construct_ebm_params(problem_type, hyperparameters=None, features=None, stopping_metric=None, num_cpus=-1, time_limit=None):
+
+def construct_ebm_params(
+    problem_type,
+    hyperparameters=None,
+    features=None,
+    stopping_metric=None,
+    num_cpus=-1,
+    time_limit=None,
+):
     if hyperparameters is None:
         hyperparameters = {}
-    
+
     hyperparameters = hyperparameters.copy()  # we pop values below, so copy.
-    
+
     # The user can specify nominal and continuous columns.
     continuous_columns = hyperparameters.pop("continuous_columns", [])
     nominal_columns = hyperparameters.pop("nominal_columns", [])
@@ -180,6 +194,7 @@ def construct_ebm_params(problem_type, hyperparameters=None, features=None, stop
     params.update(hyperparameters)
     return params
 
+
 def get_class_from_problem_type(problem_type: str):
     match problem_type:
         case _ if problem_type in (BINARY, MULTICLASS):
@@ -193,6 +208,7 @@ def get_class_from_problem_type(problem_type: str):
         case _:
             raise ValueError(f"Unsupported problem type: {problem_type}")
     return model_cls
+
 
 def get_metric_from_ag_metric(*, metric: Scorer, problem_type: str):
     """Map AutoGluon metric to EBM metric for early stopping."""
