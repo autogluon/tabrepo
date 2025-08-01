@@ -23,6 +23,7 @@ from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
 from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map
 from tabrepo.plot.plot_ens_weights import create_heatmap
+from tabrepo.plot.plot_pareto_frontier import plot_pareto as _plot_pareto, plot_pareto_aggregated
 
 matplotlib.rcParams.update(fontsizes.neurips2024())
 matplotlib.rcParams.update({
@@ -173,6 +174,7 @@ class TabArenaEvaluator:
         plot_extra_barplots: bool = False,
         plot_cdd: bool = True,
         plot_runtimes: bool = False,
+        plot_pareto: bool = True,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
     ) -> pd.DataFrame:
@@ -204,7 +206,7 @@ class TabArenaEvaluator:
             df_results["seed"] = 0
         if "imputed" not in df_results:
             df_results["imputed"] = False
-        df_results["imputed"] = df_results["imputed"].fillna(False).astype(bool)
+        df_results["imputed"] = df_results["imputed"].astype("boolean").fillna(False).astype(bool)
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
         df_results = df_results.drop_duplicates(subset=[
             "dataset", "fold", self.method_col, "seed"
@@ -467,6 +469,12 @@ class TabArenaEvaluator:
         if plot_runtimes:
             self.generate_runtime_plot(df_results=df_results_rank_compare)
 
+        if plot_pareto:
+            self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard)
+            self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard)
+            self.plot_pareto_improvability_vs_time_infer(results_per_task=results_per_task)
+            self.plot_pareto_improvability_vs_time_train(results_per_task=results_per_task)
+
         if plot_other:
             try:
                 import autogluon_benchmark
@@ -514,7 +522,8 @@ class TabArenaEvaluator:
         plotter = Plotter(
             results_ranked_df=results_per_task_rename,
             results_ranked_fillna_df=results_per_task_rename,
-            save_dir=f"{self.output_dir}/figures/plotter"
+            save_dir=f"{self.output_dir}/figures/plotter",
+            show=False,
         )
 
         # FIXME: Nick: This isn't yet merged, as I haven't made it nice yet
@@ -525,6 +534,118 @@ class TabArenaEvaluator:
             calibration_framework=calibration_framework,
             calibration_elo=1000,
             BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
+        )
+
+    def plot_pareto_elo_vs_time_train(
+        self,
+        leaderboard: pd.DataFrame,
+    ):
+        save_prefix = Path(self.output_dir)
+        save_path = str(save_prefix / "pareto_front_elo_vs_time_train.png")
+        y_name = "Elo"
+        x_name = "Train time per 1K samples (s) (median)"
+        title = f"Elo vs Train Time"
+        data = leaderboard.copy()
+        data[x_name] = data["median_time_train_s_per_1K"]
+        data[y_name] = data["elo"]
+        data["Method"] = data["method"]
+        _plot_pareto(
+            data=data,
+            x_name=x_name,
+            y_name=y_name,
+            max_X=False,
+            max_Y=True,
+            sort_y=True,
+            hue="Method",
+            # ylim=(0, None),
+            title=title,
+            save_path=save_path,
+            show=False,
+        )
+
+    def plot_pareto_elo_vs_time_infer(
+        self,
+        leaderboard: pd.DataFrame,
+    ):
+        save_prefix = Path(self.output_dir)
+        save_path = str(save_prefix / "pareto_front_elo_vs_time_infer.png")
+        y_name = "Elo"
+        x_name = "Inference time per 1K samples (s) (median)"
+        title = f"Elo vs Inference Time"
+        data = leaderboard.copy()
+        data[x_name] = data["median_time_infer_s_per_1K"]
+        data[y_name] = data["elo"]
+        data["Method"] = data["method"]
+        _plot_pareto(
+            data=data,
+            x_name=x_name,
+            y_name=y_name,
+            max_X=False,
+            max_Y=True,
+            sort_y=True,
+            hue="Method",
+            # ylim=(0, None),
+            title=title,
+            save_path=save_path,
+            show=False,
+        )
+
+    def plot_pareto_improvability_vs_time_infer(
+        self,
+        results_per_task: pd.DataFrame,
+    ):
+        save_prefix = Path(self.output_dir)
+        save_path = str(save_prefix / "pareto_front_improvability_vs_time_infer.png")
+        y_name = "Improvability (%)"
+        x_name = "Inference time per 1K samples (s)"
+        title = f"Improvability vs Inference Time"
+        data_x = results_per_task.copy()
+        data_x[x_name] = data_x["time_infer_s_per_1K"]
+        data = results_per_task.copy()
+        data[y_name] = data["champ_delta"] * 100
+        plot_pareto_aggregated(
+            data=data,
+            data_x=data_x,
+            x_name=x_name,
+            y_name=y_name,
+            x_method="median",
+            y_method="mean",
+            max_X=False,
+            max_Y=False,
+            sort_y=True,
+            ylim=(0, None),
+            title=title,
+            save_path=save_path,
+            show=False,
+        )
+
+    def plot_pareto_improvability_vs_time_train(
+        self,
+        results_per_task: pd.DataFrame,
+    ):
+        save_prefix = Path(self.output_dir)
+        save_path = str(save_prefix / "pareto_front_improvability_vs_time_train.png")
+        y_name = "Improvability (%)"
+        x_name = "Train time per 1K samples (s)"
+        title = f"Improvability vs Train Time"
+        data_x = results_per_task.copy()
+        data_x[x_name] = data_x["time_train_s_per_1K"]
+        data = results_per_task.copy()
+        data[y_name] = data["champ_delta"] * 100
+        plot_pareto_aggregated(
+            data=data,
+            data_x=data_x,
+            x_name=x_name,
+            y_name=y_name,
+            x_method="median",
+            y_method="mean",
+            max_X=False,
+            max_Y=False,
+            sort_y=True,
+            ylim=(0, None),
+            title=title,
+            save_path=save_path,
+            show=False,
         )
 
     def get_method_rename_map(self) -> dict[str, str]:
@@ -774,8 +895,9 @@ class TabArenaEvaluator:
             ]
         )
 
-        df["framework_type"] = df[self.method_col].map(f_map_type).fillna(df[self.method_col])
-        df["tune_method"] = df[self.method_col].map(f_map_inverse).fillna("default")
+        df = df.copy()
+        df.loc[:, "framework_type"] = df[self.method_col].map(f_map_type).fillna(df[self.method_col])
+        df.loc[:, "tune_method"] = df[self.method_col].map(f_map_inverse).fillna("default")
 
         if baselines is None:
             baselines = []
@@ -1194,7 +1316,7 @@ class TabArenaEvaluator:
         df["tune_method"] = df[self.method_col].map(f_map_inverse).fillna("default")
         df = df[df["tune_method"].isin(["default", "tuned_ensembled"])]
         df = df[df['framework_type'].isin(framework_types)]
-        df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
+        df.loc[:, "framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
 
         gpu_methods = ['TabICL', 'TabDPT', 'TabPFNv2', "ModernNCA", "TabM"]
 

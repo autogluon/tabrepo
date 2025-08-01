@@ -1,24 +1,44 @@
 from __future__ import annotations
 
+import logging
 import warnings
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import scipy
+from sklearn.preprocessing import PowerTransformer
+
+from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
-from sklearn.preprocessing import PowerTransformer
-from sklearn.utils.validation import FLOAT_DTYPES
+from autogluon.tabular import __version__
 
 if TYPE_CHECKING:
     import pandas as pd
 
+logger = logging.getLogger(__name__)
+
+_HAS_LOGGED_TABPFN_LICENSE: bool = False
+
+
+def _patch_local_kdi_transformer():
+    """Inject our KIDTransformer into the namespace to be used by TabPFNv2."""
+    import sys
+    import types
+
+    from .kditransform.kdi_transformer import (
+        KDITransformer,
+    )
+
+    module_name = "kditransform"
+    custom_module = types.ModuleType(module_name)
+    custom_module.KDITransformer = KDITransformer
+    sys.modules[module_name] = custom_module
+
 
 # TODO: merge into TabPFnv2 codebase
 class FixedSafePowerTransformer(PowerTransformer):
-    """Fixed version of safe power THAT FOLLOWS BASIC SKLEARN STANDARD ANS THUS DOES NOT HAVE A BUG WHEN CLONING
-    WHY IS THIS SO HARD?
-    """
+    """Fixed version of safe power."""
 
     def __init__(
         self,
@@ -95,33 +115,35 @@ class FixedSafePowerTransformer(PowerTransformer):
         return self._revert_failed_features(transformed_X, X)  # type: ignore
 
 
-# TODO: merge into codebase or remove KDITransformer from search space
-def _check_inputs(self, X, in_fit, accept_sparse_negative=False, copy=False):
-    """Check inputs before fit and transform."""
-    return self._validate_data(
-        X,
-        reset=in_fit,
-        accept_sparse=False,
-        copy=copy,
-        dtype=FLOAT_DTYPES,
-        force_all_finite="allow-nan",
-    )
-
-
 class TabPFNV2Model(AbstractModel):
-    ag_key = "TABPFNV2"
-    ag_name = "TabPFNv2"
+    """
+    TabPFNv2 is a tabular foundation model pre-trained purely on synthetic data that achieves
+    state-of-the-art results with in-context learning on small datasets with <=10000 samples and <=500 features.
+    TabPFNv2 is developed and maintained by PriorLabs: https://priorlabs.ai/
+
+    TabPFNv2 is the top performing method for small datasets on TabArena-v0.1: https://tabarena.ai
+
+    Paper: Accurate predictions on small data with a tabular foundation model
+    Authors: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister & Frank Hutter
+    Codebase: https://github.com/PriorLabs/TabPFN
+    License: https://github.com/PriorLabs/TabPFN/blob/main/LICENSE
+    """
+    ag_key = "TA-TABPFNV2"
+    ag_name = "TA-TabPFNv2"
+    ag_priority = 105
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._feature_generator = None
         self._cat_features = None
+        self._cat_indices = None
 
     def _preprocess(self, X: pd.DataFrame, is_train=False, **kwargs) -> pd.DataFrame:
         X = super()._preprocess(X, **kwargs)
-        self._cat_indices = []
 
         if is_train:
+            self._cat_indices = []
+
             # X will be the training data.
             self._feature_generator = LabelEncoderFeatureGenerator(verbosity=0)
             self._feature_generator.fit(X=X)
@@ -129,17 +151,18 @@ class TabPFNV2Model(AbstractModel):
         # This converts categorical features to numeric via stateful label encoding.
         if self._feature_generator.features_in:
             X = X.copy()
-            X[self._feature_generator.features_in] = self._feature_generator.transform(X=X)
+            X[self._feature_generator.features_in] = self._feature_generator.transform(
+                X=X
+            )
 
-            # Detect/set cat features and indices
-            if self._cat_features is None:
-                self._cat_features = self._feature_generator.features_in[:]
-            self._cat_indices = [X.columns.get_loc(col) for col in self._cat_features]
+            if is_train:
+                # Detect/set cat features and indices
+                if self._cat_features is None:
+                    self._cat_features = self._feature_generator.features_in[:]
+                self._cat_indices = [X.columns.get_loc(col) for col in self._cat_features]
 
         return X
 
-    # FIXME: What is the minimal model artifact?
-    #  If zeroshot, maybe we don't save weights for each fold in bag and instead load from a single weights file?
     # FIXME: Crashes during model download if bagging with parallel fit.
     #  Consider adopting same download logic as TabPFNMix which doesn't crash during model download.
     # FIXME: Maybe support child_oof somehow with using only one model and being smart about inference time?
@@ -149,30 +172,21 @@ class TabPFNV2Model(AbstractModel):
         y: pd.Series,
         num_cpus: int = 1,
         num_gpus: int = 0,
+        verbosity: int = 2,
         **kwargs,
     ):
+        _patch_local_kdi_transformer()
         from tabpfn.model import preprocessing
 
         preprocessing.SafePowerTransformer = FixedSafePowerTransformer
-        preprocessing.KDITransformerWithNaN._check_inputs = _check_inputs
 
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
         from torch.cuda import is_available
 
-        ag_params = self._get_ag_params()
-        max_classes = ag_params.get("max_classes")
         is_classification = self.problem_type in ["binary", "multiclass"]
 
-        if is_classification:
-            if max_classes is not None and self.num_classes > max_classes:
-                raise AssertionError(
-                    f"Max allowed classes for the model is {max_classes}, but found {self.num_classes} classes.",
-                )
-
-            model_base = TabPFNClassifier
-        else:
-            model_base = TabPFNRegressor
+        model_base = TabPFNClassifier if is_classification else TabPFNRegressor
 
         device = "cuda" if num_gpus != 0 else "cpu"
         if (device == "cuda") and (not is_available()):
@@ -187,9 +201,7 @@ class TabPFNV2Model(AbstractModel):
         hps = self._get_model_params()
         hps["device"] = device
         hps["n_jobs"] = num_cpus
-        hps["random_state"] = 42  # TODO: get seed from AutoGluon.
         hps["categorical_features_indices"] = self._cat_indices
-        hps["ignore_pretraining_limits"] = True  # to ignore warnings and size limits
 
         _, model_dir, _, _ = resolve_model_path(
             model_path=None,
@@ -208,7 +220,9 @@ class TabPFNV2Model(AbstractModel):
 
         # Resolve inference_config
         inference_config = {
-            _k: v for k, v in hps.items() if k.startswith("inference_config/") and (_k := k.split("/")[-1])
+            _k: v
+            for k, v in hps.items()
+            if k.startswith("inference_config/") and (_k := k.split("/")[-1])
         }
         if inference_config:
             hps["inference_config"] = inference_config
@@ -227,7 +241,9 @@ class TabPFNV2Model(AbstractModel):
             inference_config["PREPROCESS_TRANSFORMS"] = safe_config
         if "REGRESSION_Y_PREPROCESS_TRANSFORMS" in inference_config:
             safe_config = []
-            for preprocessing_name in inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"]:
+            for preprocessing_name in inference_config[
+                "REGRESSION_Y_PREPROCESS_TRANSFORMS"
+            ]:
                 if preprocessing_name == "power":
                     preprocessing_name = "safepower"
                 safe_config.append(preprocessing_name)
@@ -237,13 +253,17 @@ class TabPFNV2Model(AbstractModel):
         n_ensemble_repeats = hps.pop("n_ensemble_repeats", None)
         model_is_rf_pfn = hps.pop("model_type", "no") == "dt_pfn"
         if model_is_rf_pfn:
-            from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn import (
+            from .rfpfn import (
                 RandomForestTabPFNClassifier,
                 RandomForestTabPFNRegressor,
             )
 
             hps["n_estimators"] = 1
-            rf_model_base = RandomForestTabPFNClassifier if is_classification else RandomForestTabPFNRegressor
+            rf_model_base = (
+                RandomForestTabPFNClassifier
+                if is_classification
+                else RandomForestTabPFNRegressor
+            )
             self.model = rf_model_base(
                 tabpfn=model_base(**hps),
                 categorical_features=self._cat_indices,
@@ -259,40 +279,99 @@ class TabPFNV2Model(AbstractModel):
             y=y,
         )
 
-
     def _get_default_resources(self) -> tuple[int, int]:
-        from autogluon.common.utils.resource_utils import ResourceManager
-        from torch.cuda import is_available
+        # Use only physical cores for better performance based on benchmarks
+        num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
 
-        num_cpus = ResourceManager.get_cpu_count_psutil()
-        num_gpus = 1 if is_available() else 0
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
+
         return num_cpus, num_gpus
 
-
     def _set_default_params(self):
-        default_params = {}
+        default_params = {
+            "random_state": 42,
+            "ignore_pretraining_limits": True,  # to ignore warnings and size limits
+        }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
-
 
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass", "regression"]
 
-
     def _get_default_auxiliary_params(self) -> dict:
         default_auxiliary_params = super()._get_default_auxiliary_params()
         default_auxiliary_params.update(
             {
+                "max_rows": 10000,
+                "max_features": 500,
                 "max_classes": 10,
-            },
+            }
         )
         return default_auxiliary_params
 
+    @classmethod
+    def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
+        """Set fold_fitting_strategy to sequential_local,
+        as parallel folding crashes if model weights aren't pre-downloaded.
+        """
+        default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
+        extra_ag_args_ensemble = {
+            # FIXME: Find a work-around to avoid crash if parallel and weights are not downloaded
+            "fold_fitting_strategy": "sequential_local",
+            "refit_folds": True,  # Better to refit the model for faster inference and similar quality as the bag.
+        }
+        default_ag_args_ensemble.update(extra_ag_args_ensemble)
+        return default_ag_args_ensemble
 
-    def _ag_params(self) -> set:
-        return {"max_classes"}
+    def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
+        hyperparameters = self._get_model_params()
+        return self.estimate_memory_usage_static(
+            X=X,
+            problem_type=self.problem_type,
+            num_classes=self.num_classes,
+            hyperparameters=hyperparameters,
+            **kwargs,
+        )
 
+    @classmethod
+    def _estimate_memory_usage_static(
+        cls,
+        *,
+        X: pd.DataFrame,
+        hyperparameters: dict | None = None,
+        **kwargs,
+    ) -> int:
+        """Heuristic memory estimate based on TabPFN's memory estimate logic in:
+        https://github.com/PriorLabs/TabPFN/blob/57a2efd3ebdb3886245e4d097cefa73a5261a969/src/tabpfn/model/memory.py#L147.
+
+        This is based on GPU memory usage, but hopefully with overheads it also approximates CPU memory usage.
+        """
+        # features_per_group = 2  # Based on TabPFNv2 default (unused)
+        n_layers = 12  # Based on TabPFNv2 default
+        embedding_size = 192  # Based on TabPFNv2 default
+        dtype_byte_size = 2  # Based on TabPFNv2 default
+
+        model_mem = 14489108  # Based on TabPFNv2 default
+
+        n_samples, n_features = X.shape[0], X.shape[1]
+        n_feature_groups = n_features + 1  # TODO: Unsure how to calculate this
+
+        X_mem = n_samples * n_feature_groups * dtype_byte_size
+        activation_mem = (
+            n_samples * n_feature_groups * embedding_size * n_layers * dtype_byte_size
+        )
+
+        baseline_overhead_mem_est = 1e9  # 1 GB generic overhead
+
+        # Add some buffer to each term + 1 GB overhead to be safe
+        return int(
+            model_mem + 4 * X_mem + 2 * activation_mem + baseline_overhead_mem_est
+        )
+
+    @classmethod
+    def _class_tags(cls):
+        return {"can_estimate_memory_usage_static": True}
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}

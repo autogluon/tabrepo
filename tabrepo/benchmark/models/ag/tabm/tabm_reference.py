@@ -3,13 +3,17 @@
 # NOTE
 # The minimum required versions of the dependencies are specified in README.md.
 
-import itertools
-from typing import Any, Literal
+from __future__ import annotations
 
-from tabrepo.benchmark.models.ag.tabm import rtdl_num_embeddings
+import itertools
+from typing import Any, Literal, Union
+
 import torch
 import torch.nn as nn
 from torch import Tensor
+
+from . import rtdl_num_embeddings
+from .rtdl_num_embeddings import _Periodic
 
 
 # ======================================================================================
@@ -157,9 +161,9 @@ class LinearEfficientEnsemble(nn.Module):
     avoids the term "adapter".
     """
 
-    r: None | Tensor
-    s: None | Tensor
-    bias: None | Tensor
+    r: Union[None, Tensor]
+    s: Union[None, Tensor]
+    bias: Union[None, Tensor]
 
     def __init__(
         self,
@@ -257,8 +261,8 @@ class MLP(nn.Module):
     def __init__(
         self,
         *,
-        d_in: None | int = None,
-        d_out: None | int = None,
+        d_in: Union[None, int] = None,
+        d_out: Union[None, int] = None,
         n_blocks: int,
         d_block: int,
         dropout: float,
@@ -381,24 +385,24 @@ def make_module(type: str, *args, **kwargs) -> nn.Module:
 def default_zero_weight_decay_condition(
     module_name: str, module: nn.Module, parameter_name: str, parameter: nn.Parameter
 ):
-    from tabrepo.benchmark.models.ag.tabm.rtdl_num_embeddings import _Periodic
-
     del module_name, parameter
     return parameter_name.endswith('bias') or isinstance(
         module,
-        nn.BatchNorm1d
-        | nn.LayerNorm
-        | nn.InstanceNorm1d
-        | rtdl_num_embeddings.LinearEmbeddings
-        | rtdl_num_embeddings.LinearReLUEmbeddings
-        | _Periodic,
+        (
+            nn.BatchNorm1d,
+            nn.LayerNorm,
+            nn.InstanceNorm1d,
+            rtdl_num_embeddings.LinearEmbeddings,
+            rtdl_num_embeddings.LinearReLUEmbeddings,
+            _Periodic,
+        ),
     )
 
 
 def make_parameter_groups(
     module: nn.Module,
     zero_weight_decay_condition=default_zero_weight_decay_condition,
-    custom_groups: None | list[dict[str, Any]] = None,
+    custom_groups: Union[None, list[dict[str, Any]]] = None,
 ) -> list[dict[str, Any]]:
     if custom_groups is None:
         custom_groups = []
@@ -439,10 +443,10 @@ class Model(nn.Module):
         *,
         n_num_features: int,
         cat_cardinalities: list[int],
-        n_classes: None | int,
+        n_classes: Union[None, int],
         backbone: dict,
-        bins: None | list[Tensor],  # For piecewise-linear encoding/embeddings.
-        num_embeddings: None | dict = None,
+        bins: Union[None, list[Tensor]],  # For piecewise-linear encoding/embeddings.
+        num_embeddings: Union[None, dict] = None,
         arch_type: Literal[
             # Plain feed-forward network without any kind of ensembling.
             'plain',
@@ -464,7 +468,7 @@ class Model(nn.Module):
             # This variant was not used in the paper.
             'tabm-mini-normal',
         ],
-        k: None | int = None,
+        k: Union[None, int] = None,
         share_training_batches: bool = True,
     ) -> None:
         # >>> Validate arguments.
@@ -529,7 +533,7 @@ class Model(nn.Module):
                 else 'normal'
                 if arch_type in ('tabm-mini-normal', 'tabm-normal')
                 # For other arch_types, the initialization depends
-                # on the presense of num_embeddings.
+                # on the presence of num_embeddings.
                 else 'random-signs'
                 if num_embeddings is None
                 else 'normal'
@@ -593,7 +597,7 @@ class Model(nn.Module):
         self.share_training_batches = share_training_batches
 
     def forward(
-        self, x_num: None | Tensor = None, x_cat: None | Tensor = None
+        self, x_num: Union[None, Tensor] = None, x_cat: Union[None, Tensor] = None
     ) -> Tensor:
         x = []
         if x_num is not None:

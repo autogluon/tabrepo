@@ -93,6 +93,8 @@ class Experiment:
     ):
         if experiment_kwargs is None:
             experiment_kwargs = {}
+        method_kwargs = copy.deepcopy(method_kwargs)
+        experiment_kwargs = copy.deepcopy(experiment_kwargs)
         assert isinstance(name, str)
         assert len(name) > 0, "Name cannot be empty!"
         assert isinstance(method_kwargs, dict)
@@ -237,7 +239,7 @@ class AGExperiment(Experiment):
         items = list(locals.items())
         for k, v in items:
             if k == "fit_kwargs":
-                if "hyperparameters" in v:
+                if "hyperparameters" in v and isinstance(v["hyperparameters"], dict):
                     hyperparameters = v["hyperparameters"]
                     keys = list(hyperparameters.keys())
                     for model in keys:
@@ -257,12 +259,13 @@ class AGExperiment(Experiment):
             kwargs["experiment_cls"] = eval(kwargs["experiment_cls"], _context)
         if "fit_kwargs" in kwargs:
             if "hyperparameters" in kwargs["fit_kwargs"]:
-                hyperparameters = kwargs["fit_kwargs"]["hyperparameters"]
-                keys = list(hyperparameters.keys())
-                for model in keys:
-                    if model in tabrepo_model_keys:
-                        val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
-                        kwargs["fit_kwargs"]["hyperparameters"][tabrepo_model_register.key_to_cls(model)] = val
+                if isinstance("hyperparameters", dict):
+                    hyperparameters = kwargs["fit_kwargs"]["hyperparameters"]
+                    keys = list(hyperparameters.keys())
+                    for model in keys:
+                        if model in tabrepo_model_keys:
+                            val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
+                            kwargs["fit_kwargs"]["hyperparameters"][tabrepo_model_register.key_to_cls(model)] = val
         obj = cls(**kwargs)
         return obj
 
@@ -312,6 +315,7 @@ class AGModelExperiment(Experiment):
     ):
         if method_kwargs is None:
             method_kwargs = {}
+        method_kwargs = copy.deepcopy(method_kwargs)
         if time_limit is not None:
             assert isinstance(time_limit, (float, int))
             assert time_limit > 0
@@ -323,7 +327,6 @@ class AGModelExperiment(Experiment):
             model_hyperparameters = self._insert_time_limit(model_hyperparameters=model_hyperparameters, time_limit=time_limit, method_kwargs=method_kwargs)
         if "fit_kwargs" not in method_kwargs:
             method_kwargs["fit_kwargs"] = {}
-        method_kwargs["fit_kwargs"] = copy.deepcopy(method_kwargs["fit_kwargs"])
         assert "raise_on_model_failure" not in method_kwargs["fit_kwargs"], \
             f"Set `raise_on_model_failure` directly in {self.__class__.__name__} rather than in `fit_kwargs`"
         method_kwargs["fit_kwargs"]["raise_on_model_failure"] = raise_on_model_failure
@@ -423,6 +426,7 @@ class AGModelBagExperiment(AGModelExperiment):
     ):
         if method_kwargs is None:
             method_kwargs = {}
+        method_kwargs = copy.deepcopy(method_kwargs)
         assert isinstance(num_bag_folds, int)
         assert isinstance(num_bag_sets, int)
         assert isinstance(method_kwargs, dict)
