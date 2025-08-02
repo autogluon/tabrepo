@@ -100,16 +100,6 @@ class ExplainableBoostingMachineModel(AbstractModel):
     def supported_problem_types(cls) -> list[str] | None:
         return ["binary", "multiclass", "regression"]
 
-    # FIXME: Find a better estimate for memory usage of EBM.
-    @classmethod
-    def _estimate_memory_usage_static(
-        cls,
-        *,
-        X: pd.DataFrame,
-        **kwargs,
-    ) -> int:
-        return 5 * get_approximate_df_mem_usage(X).sum()
-
     @classmethod
     def _class_tags(cls) -> dict:
         return {"can_estimate_memory_usage_static": True}
@@ -117,10 +107,6 @@ class ExplainableBoostingMachineModel(AbstractModel):
     def _more_tags(self) -> dict:
         """EBMs do not yet support refit full."""
         return {"can_refit_full": False}
-
-    @classmethod
-    def _class_tags(cls):
-        return {"can_estimate_memory_usage_static": True}
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
         return self.estimate_memory_usage_static(
