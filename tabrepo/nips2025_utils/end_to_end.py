@@ -13,18 +13,21 @@ from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.nips2025_utils.method_processor import (
     fetch_all_pickles,
+    generate_task_metadata,
     load_all_artifacts,
+    load_raw,
 )
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
 from tabrepo.utils.ray_utils import ray_map_list
 
 if TYPE_CHECKING:
+    from tabrepo.benchmark.result import BaselineResult
     from tabrepo.repository import EvaluationRepository
 
 
 def create_and_cache_end_to_end_results(
-    path_raw: str | Path, num_cpus: int | None = None
+    path_raw: str | Path, num_cpus: int | None = None, artifact_name: str | None = None
 ) -> None:
     """Create and cache end-to-end results for all methods in the given directory.
 
@@ -51,6 +54,7 @@ def create_and_cache_end_to_end_results(
         num_cpus_per_worker=1,
         func_put_kwargs={
             "task_metadata": task_metadata,
+            "artifact_name": artifact_name,
         },
         track_progress=True,
         tqdm_kwargs={"desc": "Processing Results"},
@@ -82,20 +86,25 @@ def create_and_cache_end_to_end_results(
             [model_results, model_results_other], ignore_index=True
         )
 
-    print("Save metadata and results...")
+    print(f"Save metadata and results to {method_metadata.path}...")
     method_metadata.to_yaml()
     save_pd.save(path=str(method_metadata.path_results_hpo()), df=hpo_results)
     save_pd.save(path=str(method_metadata.path_results_model()), df=model_results)
 
 
 def _process_result_list(
-    *, file_paths_method: list[Path], task_metadata: pd.DataFrame
-) -> [MethodMetadata, pd.DataFrame, pd.DataFrame]:
+    *,
+    file_paths_method: list[Path],
+    task_metadata: pd.DataFrame,
+    artifact_name: str | None,
+) -> tuple[MethodMetadata, pd.DataFrame, pd.DataFrame]:
     results_lst = load_all_artifacts(
         file_paths=file_paths_method, engine="sequential", progress_bar=False
     )
     # Get metadata
-    method_metadata: MethodMetadata = MethodMetadata.from_raw(results_lst=results_lst)
+    method_metadata: MethodMetadata = MethodMetadata.from_raw(
+        results_lst=results_lst, artifact_name=artifact_name
+    )
 
     # Get evaluation repository
     repo: EvaluationRepository = method_metadata.generate_repo(
@@ -114,20 +123,7 @@ def _process_result_list(
         cache=False,
     )
 
-    @classmethod
-    def from_path_raw(cls, path_raw: str | Path) -> Self:
-        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
-        return cls(results_lst=results_lst)
-
-    @classmethod
-    def from_cache(cls, method: str, artifact_name: str | None = None) -> Self:
-        if artifact_name is None:
-            artifact_name = method
-        method_metadata = MethodMetadata.from_yaml(
-            method=method, artifact_name=artifact_name
-        )
-        results_lst = method_metadata.load_raw()
-        return cls(results_lst=results_lst)
+    return method_metadata, hpo_results, model_results
 
 
 class EndToEnd:
@@ -168,7 +164,7 @@ class EndToEnd:
         )
 
     @classmethod
-    def from_path_raw(cls, path_raw: str | Path, name: str = None) -> Self:
+    def from_path_raw(cls, path_raw: str | Path, name: str | None = None) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
         if name is not None:
             for r in results_lst:
@@ -331,7 +327,9 @@ class EndToEndResults:
 
         if new_result_prefix is not None:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
-                self.hpo_results[col] = new_result_prefix + self.hpo_results[col]
+                self.hpo_results[col] = (
+                    "[" + new_result_prefix + "] " + self.hpo_results[col]
+                )
 
         # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
         #  need to use original, not filled values
@@ -341,7 +339,6 @@ class EndToEndResults:
             df_metrics=self.hpo_results,
             df_fillna=paper_results[paper_results["method"] == fillna_method],
         )
-
 
 
 def compare_on_tabarena(
