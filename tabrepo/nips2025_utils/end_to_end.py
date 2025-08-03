@@ -114,7 +114,76 @@ def _process_result_list(
         cache=False,
     )
 
-    return method_metadata, hpo_results, model_results
+    @classmethod
+    def from_path_raw(cls, path_raw: str | Path) -> Self:
+        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
+        return cls(results_lst=results_lst)
+
+    @classmethod
+    def from_cache(cls, method: str, artifact_name: str | None = None) -> Self:
+        if artifact_name is None:
+            artifact_name = method
+        method_metadata = MethodMetadata.from_yaml(
+            method=method, artifact_name=artifact_name
+        )
+        results_lst = method_metadata.load_raw()
+        return cls(results_lst=results_lst)
+
+
+class EndToEnd:
+    def __init__(self, results_lst: list[BaselineResult]):
+        cache = True
+
+        # raw
+        self.results_lst: list[BaselineResult] = results_lst
+        self.method_metadata: MethodMetadata = MethodMetadata.from_raw(
+            results_lst=self.results_lst
+        )
+
+        if cache:
+            print(
+                f'Artifacts for method {self.method_metadata.method} will be saved in: "{self.method_metadata.path}"'
+            )
+
+        if cache:
+            self.method_metadata.to_yaml()
+            self.method_metadata.cache_raw(results_lst=self.results_lst)
+
+        tids = list({r.task_metadata["tid"] for r in self.results_lst})
+        self.task_metadata = generate_task_metadata(tids=tids)
+
+        # processed
+        self.repo: EvaluationRepository = self.method_metadata.generate_repo(
+            results_lst=self.results_lst,
+            task_metadata=self.task_metadata,
+            cache=cache,
+        )
+
+        # results
+        tabarena_context = TabArenaContext()
+        self.hpo_results, self.model_results = tabarena_context.simulate_repo(
+            method=self.method_metadata,
+            use_rf_config_fallback=False,
+            cache=cache,
+        )
+
+    @classmethod
+    def from_path_raw(cls, path_raw: str | Path, name: str = None) -> Self:
+        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
+        if name is not None:
+            for r in results_lst:
+                r.rename(name=name)
+        return cls(results_lst=results_lst)
+
+    @classmethod
+    def from_cache(cls, method: str, artifact_name: str | None = None) -> Self:
+        if artifact_name is None:
+            artifact_name = method
+        method_metadata = MethodMetadata.from_yaml(
+            method=method, artifact_name=artifact_name
+        )
+        results_lst = method_metadata.load_raw()
+        return cls(results_lst=results_lst)
 
 
 class EndToEndResults:
@@ -125,7 +194,7 @@ class EndToEndResults:
         model_results: pd.DataFrame = None,
     ):
         self.method_metadata = method_metadata
-        if hpo_results is None:
+        if hpo_results is None and self.method_metadata.method_type == "config":
             hpo_results = self.method_metadata.load_hpo_results()
         if model_results is None:
             model_results = self.method_metadata.load_model_results()

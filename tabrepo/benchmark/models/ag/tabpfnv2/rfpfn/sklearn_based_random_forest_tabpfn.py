@@ -13,8 +13,8 @@ import torch
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.utils.multiclass import unique_labels
 
-from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn.sklearn_compat import validate_data
-from tabrepo.benchmark.models.ag.tabpfnv2.rfpfn.sklearn_based_decision_tree_tabpfn import (
+from .sklearn_compat import validate_data
+from .sklearn_based_decision_tree_tabpfn import (
     DecisionTreeTabPFNClassifier,
     DecisionTreeTabPFNRegressor,
 )

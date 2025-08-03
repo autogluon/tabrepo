@@ -3,7 +3,7 @@ from __future__ import annotations
 from setuptools import find_packages, setup
 
 requirements = [
-    "autogluon>=1.3",  # TODO: Remove after moving `benchmark` code elsewhere
+    "autogluon>=1.4,<1.5",  # TODO: Remove after moving `benchmark` code elsewhere
     "openml>=0.14.1",  # consider making optional
     "pyyaml",
     "pytest",
@@ -14,7 +14,7 @@ requirements = [
 extras_require = {
     "tabpfn": [
         "tabpfn>=2.0.9",  # We used version 2.0.9
-        "kditransform",
+        "numba>=0.57,<1.0",  # Required by kditransform
     ],
     "tabicl": [
         "tabicl>=0.1.1",
@@ -23,10 +23,10 @@ extras_require = {
         "interpret-core>=0.6.1",
     ],
     "search_spaces": [
-        "configspace",
+        "configspace>=1.2,<2.0",
     ],
     "realmlp": [
-        "pytabkit>=1.3.0",
+        "pytabkit>=1.5.0,<2.0",
     ],
     "tabdpt": [
         # TODO: pypi package is not available yet
@@ -36,7 +36,7 @@ extras_require = {
         # used hash: 9699d9592b61c5f70fc88f5531cdb87b40cbedf5
     ],
     "tabm": [
-        "pytabkit>=1.3.0",
+        "torch",
     ],
     "modernnca": [
         "category_encoders",
@@ -48,7 +48,7 @@ for extra_package in [
     "tabpfn",
     "tabicl",
     "ebm",
-    "search_spaces",
+    # "search_spaces",
     "realmlp",
     "tabdpt",
     "tabm",
@@ -63,7 +63,6 @@ extras_require["benchmark"] += [
     "seaborn==0.13.2",
     "matplotlib==3.9.2",
     "autorank==1.2.1",
-    "fastparquet",  # FIXME: Without this, parquet loading is inconsistent for list columns
     "tueplots",
 ]
 

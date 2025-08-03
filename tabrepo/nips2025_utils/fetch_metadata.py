@@ -28,7 +28,7 @@ def _get_n_repeats(n_instances: int) -> int:
     return n_repeats
 
 
-def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
+def load_task_metadata(paper: bool = True, subset: str = None, path: str = None) -> pd.DataFrame:
     """
     Load the task metadata for all datasets in the TabArena benchmark.
 
@@ -52,11 +52,12 @@ def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
         Metadata about each dataset in the benchmark.
 
     """
-    tabrepo_root = str(Path(tabrepo.__file__).parent.parent)
-    if paper:
-        path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena51.csv"
-    else:
-        path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena61.csv"
+    if path is None:
+        tabrepo_root = str(Path(tabrepo.__file__).parent.parent)
+        if paper:
+            path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena51.csv"
+        else:
+            path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena61.csv"
     task_metadata = load_pd.load(path=path)
 
     task_metadata["n_folds"] = 3
@@ -64,6 +65,7 @@ def load_task_metadata(paper: bool = True, subset: str = None) -> pd.DataFrame:
     task_metadata["n_features"] = (task_metadata["NumberOfFeatures"] - 1).astype(int)
     task_metadata["n_samples_test_per_fold"] = (task_metadata["NumberOfInstances"] / task_metadata["n_folds"]).astype(int)
     task_metadata["n_samples_train_per_fold"] = (task_metadata["NumberOfInstances"] - task_metadata["n_samples_test_per_fold"]).astype(int)
+    task_metadata["n_classes"] = task_metadata["NumberOfClasses"].astype(int)
 
     task_metadata["dataset"] = task_metadata["name"]
 

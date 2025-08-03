@@ -30,6 +30,9 @@ class BaselineResult(AbstractResult):
         for key in required_keys:
             assert key in self.result, f"Missing {key} in result dict!"
 
+    def rename(self, name: str):
+        self.result["framework"] = name
+
     @property
     def framework(self) -> str:
         return self.result["framework"]
