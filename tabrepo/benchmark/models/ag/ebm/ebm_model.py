@@ -150,6 +150,13 @@ class ExplainableBoostingMachineModel(AbstractModel):
 
         return int(approx_mem_size_req)
 
+    def _validate_fit_memory_usage(self, mem_error_threshold: float = 1, **kwargs):
+        # Given the good mem estimates with overhead, we set the threshold to 1.
+        return super()._validate_fit_memory_usage(
+            mem_error_threshold=mem_error_threshold, **kwargs
+        )
+
+
 
 def construct_ebm_params(
     problem_type,
