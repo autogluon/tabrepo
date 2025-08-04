@@ -150,14 +150,6 @@ class ExplainableBoostingMachineModel(AbstractModel):
 
         return int(approx_mem_size_req)
 
-    # Overwrite threshold to avoid false positives in memory usage validation
-    #   with too good mem estimates
-    def _validate_fit_memory_usage(self, mem_error_threshold: float = 0.98, **kwargs):
-        return super()._validate_fit_memory_usage(
-            mem_error_threshold=mem_error_threshold, **kwargs
-        )
-
-
 
 def construct_ebm_params(
     problem_type,
