@@ -140,15 +140,9 @@ class ExplainableBoostingMachineModel(AbstractModel):
         model_cls = get_class_from_problem_type(problem_type)
 
         baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
-        data_mem_usage_bytes = get_approximate_df_mem_usage(X).sum()
+        
         # assuming we call pd.concat([X, X_val], ignore_index=True) above, then it will be doubled
-        data_mem_usage_bytes *= 2
-        ebm_memory_bytes = model_cls(**params).estimate_mem(X)
-        approx_mem_size_req = (
-            baseline_memory_bytes + data_mem_usage_bytes + ebm_memory_bytes
-        )
-
-        return int(approx_mem_size_req)
+        return baseline_memory_bytes + model_cls(**params).estimate_mem(X, data_multiplier=2.0)
 
     def _validate_fit_memory_usage(self, mem_error_threshold: float = 1, **kwargs):
         # Given the good mem estimates with overhead, we set the threshold to 1.
