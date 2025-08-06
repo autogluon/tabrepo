@@ -8,6 +8,7 @@ def load_results(
     path_metadata: str = None,
     metadata_join_column: str = "dataset",
     require_tid_in_metadata: bool = False,
+    fix_tabrepo_dataset_names: bool = True,
 ) -> (pd.DataFrame, pd.DataFrame):
     print(f'Loading input files...\n'
           f'\tconfigs :           {path_configs}\n'
@@ -53,8 +54,22 @@ def load_results(
                                                                                                   f"Counts post-join (should always be 1):\n"
                                                                                                   f"{unique_metadata_join_column_vals['dataset'].value_counts()}")
             df_metadata = df_metadata.drop(columns=["dataset"], errors="ignore")
-        metadata_column_order = ["dataset"] + [c for c in df_metadata.columns if c != "dataset"]
-        df_metadata = df_metadata[metadata_column_order]  # make dataset first
+        else:
+            metadata_column_order = ["dataset"] + [c for c in df_metadata.columns if c != "dataset"]
+            df_metadata = df_metadata[metadata_column_order]  # make dataset first
+
+    if fix_tabrepo_dataset_names:
+        # Fix for TabRepo v1 datasets
+        rename_dict = {
+           'GAMETES_Epistasis_2-Way_1000atts_0.4H_EDM-1_EDM-1_1': 'GAMETES_Epistasis_2-Way_1000atts_0_4H_EDM-1_EDM-1_1',
+           'GAMETES_Epistasis_2-Way_20atts_0.1H_EDM-1_1': 'GAMETES_Epistasis_2-Way_20atts_0_1H_EDM-1_1',
+           'GAMETES_Epistasis_2-Way_20atts_0.4H_EDM-1_1': 'GAMETES_Epistasis_2-Way_20atts_0_4H_EDM-1_1',
+           'GAMETES_Epistasis_3-Way_20atts_0.2H_EDM-1_1': 'GAMETES_Epistasis_3-Way_20atts_0_2H_EDM-1_1',
+           'GAMETES_Heterogeneity_20atts_1600_Het_0.4_0.2_50_EDM-2_001': 'GAMETES_Heterogeneity_20atts_1600_Het_0_4_0_2_50_EDM-2_001',
+           'GAMETES_Heterogeneity_20atts_1600_Het_0.4_0.2_75_EDM-2_001': 'GAMETES_Heterogeneity_20atts_1600_Het_0_4_0_2_75_EDM-2_001',
+           'numerai28.6': 'numerai28_6',
+        }
+        df_metadata["name"] = df_metadata["name"].map(rename_dict).fillna(df_metadata["name"])
 
     return df_configs, df_metadata
 
