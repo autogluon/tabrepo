@@ -7,6 +7,7 @@ from autogluon.tabular.registry import ModelRegistry, ag_model_registry
 from tabrepo.benchmark.models.ag import (
     ExplainableBoostingMachineModel,
     ModernNCAModel,
+    PerpetualBoostingModel,
     RealMLPModel,
     TabDPTModel,
     TabICLModel,
@@ -26,6 +27,7 @@ _models_to_add = [
     TabDPTModel,
     TabMModel,
     ModernNCAModel,
+    PerpetualBoostingModel,
 ]
 
 for _model_cls in _models_to_add:
@@ -43,7 +45,10 @@ def infer_model_cls(model_cls: str, model_register: ModelRegistry = None):
                 if real_model_cls.ag_name == model_cls:
                     model_cls = real_model_cls
                     break
-        elif model_cls in [str(real_model_cls.__name__) for real_model_cls in model_register.model_cls_list]:
+        elif model_cls in [
+            str(real_model_cls.__name__)
+            for real_model_cls in model_register.model_cls_list
+        ]:
             for real_model_cls in model_register.model_cls_list:
                 if model_cls == str(real_model_cls.__name__):
                     model_cls = real_model_cls
