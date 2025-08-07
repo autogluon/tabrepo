@@ -1,6 +1,14 @@
 # We do not use AG DLC as we may need to benchmark against any specific version of AG
 # This saves space when pulling a smaller sized image
+
+# Select either the CPU or GPU Image depending on if you are running GPU experiments or not.
+# While CPU experiments can be ran on the GPU Image, it will be more cumbersome due to the much larger image size.
+
+# CPU Image (Small, w/o cuda)
 FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-cpu-py311-ubuntu22.04-sagemaker
+
+# GPU Image (Large, w/ cuda)
+# FROM 763104351884.dkr.ecr.us-west-2.amazonaws.com/pytorch-training:2.5.1-gpu-py311-cu124-ubuntu22.04-sagemaker
 
 # Source install Autogluon mainline or any branch that the user wants to benchmark against
 # User can also source install tabrepo or any other libraries, if required
@@ -10,27 +18,18 @@ RUN mkdir workspace
 RUN cd workspace && git clone https://github.com/autogluon/autogluon
 RUN ./workspace/autogluon/full_install.sh
 
-# COPY ../../../autogluon-bench /autogluon-bench  # - bench is not required at the moment
-# COPY autogluon-benchmark /workspace/autogluon-benchmark  # - autogluon-benchmark is not required at the moment
 # Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
 COPY tabrepo /workspace/tabrepo
 COPY ./tabrepo/tabflow/tabflow/cli/evaluate.py .
 
 # Install the required packages
-RUN pip install -e workspace/tabrepo/ \
-    # && pip install -e autogluon-bench \
-    # && pip install -e workspace/autogluon-benchmark/ \
-    && pip install -e workspace/tabrepo/tabflow/
+RUN pip install -e workspace/tabrepo/[benchmark]
+RUN pip install -e workspace/tabrepo/tabflow/
 
-# Install pytabkit and seaborn for RealMLP models
-# User can add any more dependencies here
-RUN pip install pytabkit seaborn
-RUN pip install "interpret-core>=0.6.1" \
-    && pip install "tabpfn>=2" \
-    && pip install "tabicl>=0.1.1"  # V2 checkpoint added in v0.1.1
-
+# GPU images can come pre-installed with flash-attn, uncomment this to ensure it isn't installed
+# RUN pip uninstall flash-attn -y
 
 # Generate tabrepo configs and give permissions
-RUN chmod +x ./workspace/tabrepo/scripts/run_generate_all_configs.py
-RUN python ./workspace/tabrepo/scripts/run_generate_all_configs.py
+# RUN chmod +x ./workspace/tabrepo/scripts/run_generate_all_configs.py
+# RUN python ./workspace/tabrepo/scripts/run_generate_all_configs.py
 RUN chmod +x ./evaluate.py
