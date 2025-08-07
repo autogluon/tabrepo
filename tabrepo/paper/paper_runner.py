@@ -111,6 +111,7 @@ class PaperRun:
         self,
         config_type: str,
         n_iterations: int,
+        n_configs: int = None,
         time_limit: float | None = None,
         fit_order: Literal["original", "random"] = "original",
         seed: int = 0,
@@ -118,6 +119,8 @@ class PaperRun:
         # FIXME: Don't recompute this each call, implement `self.repo.configs(config_types=[config_type])`
         config_type_groups = self.get_config_type_groups()
         configs = config_type_groups[config_type]
+        if n_configs is not None:
+            configs = configs[:n_configs]
         df_results_family_hpo, _ = self.repo.evaluate_ensembles(
             configs=configs,
             fit_order=fit_order,
@@ -138,6 +141,7 @@ class PaperRun:
 
         method_metadata = dict(
             n_iterations=n_iterations,
+            n_configs=n_configs,
             time_limit=time_limit,
             config_type=config_type,
             fit_order=fit_order,
