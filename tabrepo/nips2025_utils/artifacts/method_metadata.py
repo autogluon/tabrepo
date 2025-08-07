@@ -60,6 +60,15 @@ class MethodMetadata:
         assert self.method_type in ["config", "baseline", "portfolio"]
         assert self.compute in ["cpu", "gpu"]
 
+    @property
+    def config_type(self) -> str | None:
+        if self.method_type != "config":
+            return None
+        elif self.name_suffix is not None:
+            return f"{self.ag_key}{self.name_suffix}"
+        else:
+            return self.ag_key
+
     # TODO: Also support baseline methods
     @classmethod
     def from_raw(
