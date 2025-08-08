@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -49,11 +50,13 @@ _methods_paper = [
 
 
 class TabArenaContext:
-    def __init__(self):
+    def __init__(
+        self,
+        backend: Literal["ray", "native"] = "ray",
+    ):
         self.name = "tabarena-2025-06-12"
         self.method_metadata_map: dict[str, MethodMetadata] = tabarena_method_metadata_map
         self.root_cache = Paths.artifacts_root_cache_tabarena
-        self.s3_cache_root = "s3://tabarena/cache"
         self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
         self.backend = "ray"
@@ -169,7 +172,7 @@ class TabArenaContext:
 
         return hpo_results, model_results
 
-    def simulate_portfolio(self, methods: list[str | tuple[str, str]], config_fallback: str):
+    def simulate_portfolio(self, methods: list[str], config_fallback: str):
         repos = []
         for method in methods:
             metadata = self._method_metadata(method=method)
