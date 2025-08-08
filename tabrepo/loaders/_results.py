@@ -58,7 +58,7 @@ def load_results(
             metadata_column_order = ["dataset"] + [c for c in df_metadata.columns if c != "dataset"]
             df_metadata = df_metadata[metadata_column_order]  # make dataset first
 
-    if fix_tabrepo_dataset_names:
+    if fix_tabrepo_dataset_names and "name" in df_metadata:
         # Fix for TabRepo v1 datasets
         rename_dict = {
            'GAMETES_Epistasis_2-Way_1000atts_0.4H_EDM-1_EDM-1_1': 'GAMETES_Epistasis_2-Way_1000atts_0_4H_EDM-1_EDM-1_1',
