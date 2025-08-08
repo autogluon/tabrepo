@@ -460,11 +460,17 @@ class TabArenaEvaluator:
         results_te_per_task.loc[:, self.method_col] = results_te_per_task[self.method_col].map(rename_model)
 
         if plot_cdd:
-            tabarena.plot_critical_diagrams(
-                results_per_task=results_te_per_task,
-                save_path=f"{self.output_dir}/figures/critical-diagram.{self.figure_file_type}",
-                show=False,
-            )
+            try:
+                tabarena.plot_critical_diagrams(
+                    results_per_task=results_te_per_task,
+                    save_path=f"{self.output_dir}/figures/critical-diagram.{self.figure_file_type}",
+                    show=False,
+                )
+            except ValueError as e:
+                print(
+                    f"Warning: ValueError encountered during critical diagram plotting. "
+                    f"This likely means there is too little data to compute critical diagrams. Skipping ..."
+                )
 
         if plot_runtimes:
             self.generate_runtime_plot(df_results=df_results_rank_compare)
