@@ -59,8 +59,8 @@ class TabArenaContext:
         self.root_cache = Paths.artifacts_root_cache_tabarena
         self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
-        self.backend = "ray"
-        assert self.backend in ["ray", "native"]
+        assert backend in ["ray", "native"]
+        self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
 
     def _method_metadata(self, method: str) -> MethodMetadata:
