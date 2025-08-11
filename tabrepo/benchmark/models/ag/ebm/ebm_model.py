@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import time
 import warnings
 from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
 
@@ -14,13 +14,14 @@ if TYPE_CHECKING:
 
 
 class EbmCallback:
-    def __init__(self, seconds):
+    """Time limit callback for EBM."""
+
+    def __init__(self, seconds: int):
         self.seconds = seconds
+        self.end_time: int | None = None
 
-    def __call__(self, bag_index, step_index, progress, metric):
-        import time
-
-        if not hasattr(self, "end_time"):
+    def __call__(self, **kwargs):
+        if self.end_time is None:
             self.end_time = time.monotonic() + self.seconds
             return False
         return time.monotonic() > self.end_time
@@ -85,7 +86,9 @@ class ExplainableBoostingMachineModel(AbstractModel):
             )
             self.model.fit(fit_X, fit_y, sample_weight=fit_sample_weight, bags=bags)
 
-    def _get_random_seed_from_hyperparameters(self, hyperparameters: dict) -> int | None | str:
+    def _get_random_seed_from_hyperparameters(
+        self, hyperparameters: dict
+    ) -> int | None | str:
         return hyperparameters.get("random_state", "N/A")
 
     def _get_default_auxiliary_params(self) -> dict:
@@ -140,16 +143,17 @@ class ExplainableBoostingMachineModel(AbstractModel):
         model_cls = get_class_from_problem_type(problem_type)
 
         baseline_memory_bytes = 400_000_000  # 400 MB baseline memory
-        
+
         # assuming we call pd.concat([X, X_val], ignore_index=True) above, then it will be doubled
-        return baseline_memory_bytes + model_cls(**params).estimate_mem(X, data_multiplier=2.0)
+        return baseline_memory_bytes + model_cls(**params).estimate_mem(
+            X, data_multiplier=2.0
+        )
 
     def _validate_fit_memory_usage(self, mem_error_threshold: float = 1, **kwargs):
         # Given the good mem estimates with overhead, we set the threshold to 1.
         return super()._validate_fit_memory_usage(
             mem_error_threshold=mem_error_threshold, **kwargs
         )
-
 
 
 def construct_ebm_params(
@@ -200,58 +204,25 @@ def construct_ebm_params(
 
 
 def get_class_from_problem_type(problem_type: str):
-    match problem_type:
-        case _ if problem_type in (BINARY, MULTICLASS):
-            from interpret.glassbox import ExplainableBoostingClassifier
+    if problem_type in [BINARY, MULTICLASS]:
+        from interpret.glassbox import ExplainableBoostingClassifier
 
-            model_cls = ExplainableBoostingClassifier
-        case _ if problem_type == REGRESSION:
-            from interpret.glassbox import ExplainableBoostingRegressor
+        model_cls = ExplainableBoostingClassifier
+    elif problem_type == REGRESSION:
+        from interpret.glassbox import ExplainableBoostingRegressor
 
-            model_cls = ExplainableBoostingRegressor
-        case _:
-            raise ValueError(f"Unsupported problem type: {problem_type}")
+        model_cls = ExplainableBoostingRegressor
+    else:
+        raise ValueError(f"Unsupported problem type: {problem_type}")
     return model_cls
 
 
 def get_metric_from_ag_metric(*, metric: Scorer, problem_type: str):
     """Map AutoGluon metric to EBM metric for early stopping."""
-    if problem_type == BINARY:
-        metric_map = {
-            "log_loss": "log_loss",
-            "accuracy": "log_loss",
-            "roc_auc": "log_loss",
-            "f1": "log_loss",
-            "f1_macro": "log_loss",
-            "f1_micro": "log_loss",
-            "f1_weighted": "log_loss",
-            "balanced_accuracy": "log_loss",
-            "recall": "log_loss",
-            "recall_macro": "log_loss",
-            "recall_micro": "log_loss",
-            "recall_weighted": "log_loss",
-            "precision": "log_loss",
-            "precision_macro": "log_loss",
-            "precision_micro": "log_loss",
-            "precision_weighted": "log_loss",
-        }
-        metric_class = metric_map.get(metric.name, "log_loss")
-    elif problem_type == MULTICLASS:
-        metric_map = {
-            "log_loss": "log_loss",
-            "accuracy": "log_loss",
-            "roc_auc_ovo_macro": "log_loss",
-        }
-        metric_class = metric_map.get(metric.name, "log_loss")
+    if problem_type in [BINARY, MULTICLASS]:
+        metric_class = "log_loss"
     elif problem_type == REGRESSION:
-        metric_map = {
-            "mean_squared_error": "rmse",
-            "root_mean_squared_error": "rmse",
-            "mean_absolute_error": "rmse",
-            "median_absolute_error": "rmse",
-            "r2": "rmse",  # rmse_log maybe?
-        }
-        metric_class = metric_map.get(metric.name, "rmse")
+        metric_class = "rmse"
     else:
         raise AssertionError(f"EBM does not support {problem_type} problem type.")
 
