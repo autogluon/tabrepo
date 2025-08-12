@@ -6,15 +6,47 @@ from typing import Any
 import pandas as pd
 
 from tabrepo import EvaluationRepository, Evaluator
-from tabrepo.benchmark.experiment import AGModelBagExperiment, ExperimentBatchRunner
+from tabrepo.benchmark.experiment import ExperimentBatchRunner, Experiment
+from tabrepo.benchmark.models.wrapper import AGWrapper
 from tabrepo.benchmark.result import ExperimentResults
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 
 
+class MyCustomAGWrapper(AGWrapper):
+    """
+    Edit this however you like to alter the functionality of AutoGluon,
+    or replace AutoGluon entirely by instead subclassing `AbstractExecModel` instead of `AGWrapper.
+    """
+    def _fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame = None, y_val: pd.Series = None, **kwargs):
+        from autogluon.tabular import TabularPredictor
+
+        train_data = X.copy()
+        train_data[self.label] = y
+
+        fit_kwargs = self.fit_kwargs.copy()
+
+        if X_val is not None:
+            tuning_data = X_val.copy()
+            tuning_data[self.label] = y_val
+            fit_kwargs["tuning_data"] = tuning_data
+
+        self.predictor = TabularPredictor(label=self.label, problem_type=self.problem_type, eval_metric=self.eval_metric, **self.init_kwargs)
+        self.predictor.fit(train_data=train_data, **fit_kwargs)
+        return self
+
+    def _predict(self, X: pd.DataFrame) -> pd.Series:
+        y_pred = self.predictor.predict(X)
+        return y_pred
+
+    def _predict_proba(self, X: pd.DataFrame) -> pd.DataFrame:
+        y_pred_proba = self.predictor.predict_proba(X)
+        return y_pred_proba
+
+
 if __name__ == '__main__':
-    expname = str(Path(__file__).parent / "experiments" / "quickstart")  # folder location to save all experiment artifacts
-    repo_dir = str(Path(__file__).parent / "repos" / "quickstart")  # Load the repo later via `EvaluationRepository.from_dir(repo_dir)`
+    expname = str(Path(__file__).parent / "experiments" / "quickstart_custom_ag")  # folder location to save all experiment artifacts
+    repo_dir = str(Path(__file__).parent / "repos" / "quickstart_custom_ag")  # Load the repo later via `EvaluationRepository.from_dir(repo_dir)`
     ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
     task_metadata = load_task_metadata()
@@ -23,24 +55,18 @@ if __name__ == '__main__':
     datasets = ["anneal", "credit-g", "diabetes"]  # datasets = list(task_metadata["name"])
     folds = [0]
 
-    # import your model classes
-    from tabrepo.benchmark.models.ag import RealMLPModel
-
-    # This list of methods will be fit sequentially on each task (dataset x fold)
     methods = [
-        # This will be a `config` in EvaluationRepository, because it computes out-of-fold predictions and thus can be used for post-hoc ensemble.
-        AGModelBagExperiment(  # Wrapper for fitting a single bagged model via AutoGluon
-            # The name you want the config to have
-            name="RealMLP_c1_BAG_L1_Reproduced",
-
-            # The class of the model. Can also be a string if AutoGluon recognizes it, such as `"GBM"`
-            # Supports any model that inherits from `autogluon.core.models.AbstractModel`
-            model_cls=RealMLPModel,
-            model_hyperparameters={
-                # "ag_args_ensemble": {"fold_fitting_strategy": "sequential_local"},  # uncomment to fit folds sequentially, allowing for use of a debugger
-            },  # The non-default model hyperparameters.
-            num_bag_folds=8,  # num_bag_folds=8 was used in the TabArena 2025 paper
-            time_limit=3600,  # time_limit=3600 was used in the TabArena 2025 paper
+        # Should match `GBM (default)` on the leaderboard
+        Experiment(
+            name="MyCustomAutoGluon",
+            method_cls=MyCustomAGWrapper,
+            method_kwargs={
+                "fit_kwargs": dict(
+                    time_limit=3600,
+                    hyperparameters={"GBM": [{}]},
+                    num_bag_folds=8,
+                )
+            }
         ),
     ]
 

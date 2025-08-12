@@ -1,9 +1,12 @@
-# Exclude specific directories to avoid copying downlaoded repos
+# Exclude specific directories to avoid copying downloaded repos
+tabrepo/venv/
 tabrepo/data/
 tabrepo/docs/
 tabrepo/examples/
 
 # Common files to ignore
+.git
+*.ipynb
 **/__pycache__/
 **/*.py[cod]
 **/*.so

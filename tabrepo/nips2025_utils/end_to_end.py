@@ -6,13 +6,13 @@ from typing_extensions import Self
 
 import pandas as pd
 
+from tabrepo.benchmark.result import BaselineResult, ConfigResult
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 from tabrepo.nips2025_utils.method_processor import generate_task_metadata, load_raw
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
 
 if TYPE_CHECKING:
-    from tabrepo.benchmark.result import BaselineResult
     from tabrepo.repository import EvaluationRepository
 
 
@@ -54,11 +54,13 @@ class EndToEnd:
         )
 
     @classmethod
-    def from_path_raw(cls, path_raw: str | Path, name: str = None) -> Self:
+    def from_path_raw(cls, path_raw: str | Path, name: str = None, name_suffix: str = None) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
-        if name is not None:
+        if name is not None or name_suffix is not None:
             for r in results_lst:
-                r.rename(name=name)
+                r.update_name(name=name, name_suffix=name_suffix)
+                if isinstance(r, ConfigResult):
+                    r.update_model_type(name=name, name_suffix=name_suffix)
         return cls(results_lst=results_lst)
 
     @classmethod

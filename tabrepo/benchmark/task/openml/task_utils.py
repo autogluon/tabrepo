@@ -42,9 +42,9 @@ def get_task_with_retry(task_id: int, max_delay_exp: int = 8) -> OpenMLSupervise
     delay_exp = 0
     while True:
         try:
-            print(f'Getting task {task_id}')
+            # print(f'Getting task {task_id}')
             task = get_task(task_id=task_id)
-            print(f'Got task {task_id}')
+            # print(f'Got task {task_id}')
             return task
         except OpenMLServerException as e:
             delay = 2 ** delay_exp

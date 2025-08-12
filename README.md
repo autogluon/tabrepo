@@ -34,7 +34,7 @@ Please refer to our [dataset curation repository](https://github.com/TabArena/ta
 ### Evaluation & Reproducing Results
 To locally reproduce individual configurations and compare with the TabArena results of those configurations, refer to [examples/tabarena/run_quickstart_tabarena.py](examples/tabarena/run_quickstart_tabarena.py).
 
-To locally reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_tabarena_eval.py](examples/tabarena/run_tabarena_eval.py)
+To locally reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_generate_paper_figures.py](examples/tabarena/run_generate_paper_figures.py)
 
 ### More Documentation
 TabArena code is currently being polished. Documentation for TabArena will be available soon.

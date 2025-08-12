@@ -60,6 +60,15 @@ class MethodMetadata:
         assert self.method_type in ["config", "baseline", "portfolio"]
         assert self.compute in ["cpu", "gpu"]
 
+    @property
+    def config_type(self) -> str | None:
+        if self.method_type != "config":
+            return None
+        elif self.name_suffix is not None:
+            return f"{self.ag_key}{self.name_suffix}"
+        else:
+            return self.ag_key
+
     # TODO: Also support baseline methods
     @classmethod
     def from_raw(
@@ -77,6 +86,83 @@ class MethodMetadata:
             result_lst_dict.append(cur_result)
         result_df = pd.DataFrame(result_lst_dict)
 
+        unique_method_types = result_df["method_type"].unique()
+        assert len(unique_method_types) == 1
+        method_type = unique_method_types[0]
+
+        if method_type == "config":
+            method_metadata = cls._from_raw_config(
+                result_df=result_df,
+                method=method,
+                artifact_name=artifact_name,
+                config_default=config_default,
+                compute=compute,
+            )
+        elif method_type == "baseline":
+            method_metadata = cls._from_raw_baseline(
+                result_df=result_df,
+                method=method,
+                artifact_name=artifact_name,
+                compute=compute,
+            )
+        else:
+            raise ValueError(f"Unknown method_type: {method_type}")
+
+        return method_metadata
+
+    @classmethod
+    def _from_raw_baseline(
+        cls,
+        result_df: pd.DataFrame,
+        method: str | None = None,
+        artifact_name: str | None = None,
+        compute: Literal["cpu", "gpu"] | None = None,
+    ) -> Self:
+        unique_method_types = result_df["method_type"].unique()
+        assert len(unique_method_types) == 1
+        method_type = unique_method_types[0]
+
+        assert method_type == "baseline"
+
+        unique_methods = result_df["framework"].unique()
+        assert len(unique_methods) == 1
+        if method is None:
+            method = unique_methods[0]
+
+        unique_num_gpus = result_df["num_gpus"].unique()
+        assert len(unique_num_gpus) == 1
+        num_gpus = unique_num_gpus[0]
+
+        if compute is None:
+            compute: Literal["cpu", "gpu"] = "cpu" if num_gpus == 0 else "gpu"
+
+        if artifact_name is None:
+            artifact_name = method
+
+        _method_metadata = cls(
+            method=method,
+            artifact_name=artifact_name,
+            method_type=method_type,
+            compute=compute,
+            config_default=None,
+            can_hpo=False,
+            is_bag=False,
+            has_raw=True,
+            has_processed=True,
+            has_results=True,
+        )
+
+        return _method_metadata
+
+    @classmethod
+    def _from_raw_config(
+        cls,
+        result_df: pd.DataFrame,
+        method: str | None = None,
+        artifact_name: str | None = None,
+        config_default: str | None = None,
+        compute: Literal["cpu", "gpu"] | None = None,
+    ) -> Self:
         unique_method_types = result_df["method_type"].unique()
         assert len(unique_method_types) == 1
         method_type = unique_method_types[0]
