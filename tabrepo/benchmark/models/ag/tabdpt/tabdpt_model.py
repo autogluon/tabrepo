@@ -141,6 +141,14 @@ class TabDPTModel(AbstractModel):
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
 
+    @classmethod
+    def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
+        default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
+        extra_ag_args_ensemble = {
+            "fold_fitting_strategy": "sequential_local",
+        }
+        default_ag_args_ensemble.update(extra_ag_args_ensemble)
+        return default_ag_args_ensemble
 
 # Vendored from TabPFNv2 Code
 def _user_cache_dir(platform: str, appname: str = "tabpfn") -> Path:
@@ -189,3 +197,4 @@ def _user_cache_dir(platform: str, appname: str = "tabpfn") -> Path:
         stacklevel=2,
     )
     return use_instead_path
+
