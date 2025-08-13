@@ -146,6 +146,7 @@ class TabDPTModel(AbstractModel):
         default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
         extra_ag_args_ensemble = {
             "fold_fitting_strategy": "sequential_local",
+            "refit_folds": True,
         }
         default_ag_args_ensemble.update(extra_ag_args_ensemble)
         return default_ag_args_ensemble
