@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
@@ -91,6 +92,20 @@ class TabDPTModel(AbstractModel):
             shutil.copy(model_path, final_model_path)  # copy to user cache dir
 
         return str(final_model_path)
+
+    def _get_default_resources(self) -> tuple[int, int]:
+        # Use only physical cores for better performance based on benchmarks
+        num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
+
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
+
+        return num_cpus, num_gpus
+
+    def get_minimum_resources(self, is_gpu_available: bool = False) -> dict[str, int | float]:
+        return {
+            "num_cpus": 1,
+            "num_gpus": 1 if is_gpu_available else 0,
+        }
 
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
         X = self.preprocess(X, **kwargs)

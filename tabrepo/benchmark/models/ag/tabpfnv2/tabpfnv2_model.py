@@ -287,6 +287,12 @@ class TabPFNV2Model(AbstractModel):
 
         return num_cpus, num_gpus
 
+    def get_minimum_resources(self, is_gpu_available: bool = False) -> dict[str, int | float]:
+        return {
+            "num_cpus": 1,
+            "num_gpus": 1 if is_gpu_available else 0,
+        }
+
     def _set_default_params(self):
         default_params = {
             "random_state": 42,
