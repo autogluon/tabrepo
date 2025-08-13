@@ -1,12 +1,14 @@
 from collections import defaultdict
 from typing import List
-
+import logging
 import math
 
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 class EloHelper:
@@ -34,7 +36,8 @@ class EloHelper:
         INIT_RATING: int = 1000,
         calibration_framework: str = None,
         calibration_elo: float = None,
-        force_recursive_elo: bool = False,
+        force_iterative_elo: bool = False,
+        K_factor: int = 32,
     ) -> pd.Series:
         """
         Adapted from ChatBot Arena: https://colab.research.google.com/drive/1KdwokPjirkTmpO_P1WByFNFiqxWQquwH#scrollTo=4_x-vXL4yxvC
@@ -47,7 +50,8 @@ class EloHelper:
         INIT_RATING
         calibration_framework
         calibration_elo
-        force_recursive_elo
+        force_iterative_elo
+        K_factor
 
         Returns
         -------
@@ -55,6 +59,7 @@ class EloHelper:
         """
         models = pd.concat([df[self.method_1], df[self.method_2]]).unique()
         models = pd.Series(np.arange(len(models)), index=models)
+        df_original = df
 
         # duplicate battles
         df = pd.concat([df, df], ignore_index=True)
@@ -75,9 +80,10 @@ class EloHelper:
         tie_idx[len(tie_idx)//2:] = False
         Y[tie_idx] = 1.0
 
-        if len(np.unique(Y)) == 1 or force_recursive_elo:
-            # The input dataframe only contain wins, preventing lr fit; default to the recursive ELO formula
-            elo_scores = self.compute_recursive_elo_scores(df, INIT_RATING, models)
+        if len(np.unique(Y)) == 1 or force_iterative_elo:
+            # The input dataframe only contain wins, preventing lr fit; default to the iterative ELO formula
+            logger.warning(f"compute_mle_elo failed due to one framework dominating the other. Defaulting to iterative calculation...")
+            elo_scores = self.compute_iterative_elo_scores(df_original, INIT_RATING=INIT_RATING, SCALE=SCALE, K_factor=K_factor, models=models)
         else:
             # Obtain ELO through ChatBot Arena-style fit
             lr = LogisticRegression(fit_intercept=False)
@@ -91,8 +97,8 @@ class EloHelper:
             elo_scores += (calibration_elo-elo_scores[models[calibration_framework]])
         return pd.Series(elo_scores, index=models.index).sort_values(ascending=False)
 
-    def compute_recursive_elo_scores(self, df: pd.DataFrame, INIT_RATING: int = 1000, K_factor: int = 256,
-                                     models: pd.Series = None, **kwargs):
+    def compute_iterative_elo_scores(self, df: pd.DataFrame, INIT_RATING: int = 1000, SCALE: int = 400,
+                                     K_factor: int = 32, models: pd.Series = None, **kwargs):
         """
         Default K_factor was manually tuned to be similar to LR ELO under default configurations.
         """
@@ -100,7 +106,7 @@ class EloHelper:
             models = pd.concat([df[self.method_1], df[self.method_2]]).unique()
             models = pd.Series(np.arange(len(models)), index=models)
 
-        expected_result = lambda r1, r2: 1/(1+10**((r2-r1)/400))
+        expected_result = lambda r1, r2: 1/(1+10**((r2-r1)/SCALE))
         elo_scores = np.ones(len(models.index)) * INIT_RATING
 
         for _, row in df.iterrows():

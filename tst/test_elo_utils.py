@@ -24,10 +24,10 @@ class TestEloHelper:
             "dataset": ["dataset1", "dataset2"],
         }), 1),
     ])
-    def test_compute_recursive_elo_scores(self, battles, outcome):
+    def test_compute_iterative_elo_scores(self, battles, outcome):
         elo_helper = EloHelper()
 
-        elo_scores = elo_helper.compute_recursive_elo_scores(battles)
+        elo_scores = elo_helper.compute_iterative_elo_scores(battles)
         if outcome == -1:
             assert elo_scores[0] > elo_scores[1]
         elif outcome == 1:
