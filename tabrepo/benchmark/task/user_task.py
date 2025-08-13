@@ -47,6 +47,22 @@ class UserTask:
         ).hexdigest()
         self.task_cache_path = task_cache_path
 
+    @staticmethod
+    def from_task_id_str(task_id_str: str) -> UserTask:
+        """Create a UserTask from a task ID string."""
+        parts = task_id_str.split("|")
+        if len(parts) != 4 or parts[0] != "UserTask":
+            raise ValueError(f"Invalid task ID string: {task_id_str}")
+        task_name = parts[2]
+        task_cache_path = Path(parts[3])
+        return UserTask(task_name=task_name, task_cache_path=task_cache_path)
+
+    @property
+    def task_id_str(self) -> str:
+        """Task ID used for the task."""
+        return f"UserTask|{self.task_id}|{self.task_name}|{self.task_cache_path}"
+
+
     @property
     def tabarena_task_name(self) -> str:
         """Task/Dataset Name used for the task/dataset."""
