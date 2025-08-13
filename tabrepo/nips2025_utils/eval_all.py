@@ -41,6 +41,7 @@ def evaluate_all(
 
     tabicl_type = "TABICL_GPU"
     tabpfn_type = "TABPFNV2_GPU"
+    mitra_type = "MITRA_GPU"
 
     portfolio_name = "TabArena ensemble (4h)"
 
@@ -158,6 +159,8 @@ def evaluate_all(
         if not use_tabpfn:
             banned_model_types.add(tabpfn_type)
             imputed_models.append("TabPFNv2")
+            banned_model_types.add(mitra_type)
+            imputed_models.append("Mitra")
 
         datasets = (
             list(set(datasets_tabpfn).intersection(datasets_tabicl)) if use_tabpfn else datasets_tabicl) \
@@ -205,7 +208,7 @@ def evaluate_all(
             baselines=baselines,
             baseline_colors=baseline_colors,
             imputed_names=imputed_models,
-            only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
+            only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl, "Mitra": datasets_tabpfn},
             plot_extra_barplots=False,
             include_norm_score=not include_portfolio,
             plot_times=True,

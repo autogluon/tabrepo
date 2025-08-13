@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import itertools
 from typing import Literal, Tuple, Type
 
@@ -127,14 +128,15 @@ class EnsembleMixin:
                     )
                 else:
                     raise AssertionError(f"Can't fit an ensemble with no configs when self._config_fallback is None.")
-            configs = [self._config_fallback]
+            configs_to_use = [self._config_fallback]
             config_metrics = self.metrics(
                 tasks=[task_tuple],
-                configs=configs,
+                configs=configs_to_use,
                 set_index=False,
             )
         else:
-            config_metrics = config_metrics[config_metrics["framework"].isin(configs)]
+            configs_to_use = copy.deepcopy(configs_available)
+            config_metrics = config_metrics[config_metrics["framework"].isin(configs_to_use)]
 
         if len(configs_available) == 0:
             imputed = True
@@ -152,7 +154,7 @@ class EnsembleMixin:
         )
 
         # fit the ensemble and retrieve the metric error and ensemble weights
-        results = scorer.compute_errors(configs=configs)
+        results = scorer.compute_errors(configs=configs_to_use)
         metric_error = results[task]["metric_error"]
         ensemble_weights = results[task]["ensemble_weights"]
         metric_error_val = results[task]["metric_error_val"]
@@ -169,7 +171,7 @@ class EnsembleMixin:
             repo=self,
             dataset=dataset,
             fold=fold,
-            config_names=configs,
+            config_names=configs_to_use,
             config_metrics=config_metrics,
             runtime_col='time_train_s',
             fail_if_missing=fail_if_missing,
@@ -178,7 +180,7 @@ class EnsembleMixin:
 
         # compute the ensemble time_infer_s by summing all considered config's time_infer_s that have non-zero weight
         config_selected_ensemble = [
-            config for i, config in enumerate(configs) if ensemble_weights[i] != 0
+            config for i, config in enumerate(configs_to_use) if ensemble_weights[i] != 0
         ]
 
         config_metrics_inference = config_metrics[config_metrics["framework"].isin(config_selected_ensemble)]
@@ -211,7 +213,7 @@ class EnsembleMixin:
             output_dict["rank"] = [rank_list]
 
         multiindex = pd.MultiIndex.from_tuples([(dataset, fold)], names=["dataset", "fold"])
-        df_ensemble_weights = pd.DataFrame(data=[ensemble_weights], index=multiindex, columns=configs)
+        df_ensemble_weights = pd.DataFrame(data=[ensemble_weights], index=multiindex, columns=configs_to_use)
         df_out = pd.DataFrame(data=output_dict, index=multiindex)
 
         return df_out, df_ensemble_weights

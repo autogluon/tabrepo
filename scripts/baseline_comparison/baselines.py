@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import itertools
 from typing import List
@@ -361,9 +363,24 @@ def zeroshot_results(
     :return: evaluation obtained on all combinations
     """
 
-    def evaluate_dataset(test_dataset, n_portfolio, n_ensemble, n_training_dataset, n_training_fold, n_training_config,
-                         max_runtime, max_models, max_models_per_type, seed: int, repo: EvaluationRepository, df_rank, rank_scorer, normalized_scorer,
-                         model_frameworks) -> list[ResultRow]:
+    def evaluate_dataset(
+        test_dataset,
+        n_portfolio,
+        n_ensemble,
+        n_training_dataset,
+        n_training_fold,
+        n_training_config,
+        max_runtime,
+        max_models,
+        max_models_per_type,
+        seed: int,
+        test_folds: list[int] | None,
+        repo: EvaluationRepository,
+        df_rank,
+        rank_scorer,
+        normalized_scorer,
+        model_frameworks,
+    ) -> list[ResultRow]:
         method_name = zeroshot_name(
             n_portfolio=n_portfolio,
             n_ensemble=n_ensemble,
@@ -442,7 +459,8 @@ def zeroshot_results(
             "max_models_per_type": max_models_per_type,
         }
 
-        test_folds = repo.dataset_to_folds(dataset=test_dataset)
+        if test_folds is None:
+            test_folds = repo.dataset_to_folds(dataset=test_dataset)
         if n_eval_folds is not None:
             test_folds = test_folds[:n_eval_folds]
 
@@ -493,10 +511,27 @@ def zeroshot_results(
             for framework in framework_types
         }
 
+    tasks = repo.tasks()
+    if n_eval_folds is not None:
+        tasks = [t for t in tasks if t[1] < n_eval_folds]
+    if dataset_names is not None:
+        dataset_names_set = set(dataset_names)
+        tasks = [t for t in tasks if t[0] in dataset_names_set]
+
+    batch_folds = True  # It is debatable whether True or False is faster.
+    if batch_folds:
+        inputs = list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds,
+                                          n_training_configs, max_runtimes, n_max_models, n_max_models_per_type, seeds, [None]))
+    else:
+        inputs = list(itertools.product(tasks, n_portfolios, n_ensembles, n_training_datasets, n_training_folds,
+                                          n_training_configs, max_runtimes, n_max_models, n_max_models_per_type, seeds))
+        n_inputs = len(inputs)
+        for i in range(n_inputs):
+            inputs[i] = (inputs[i][0][0], *inputs[i][1:], [inputs[i][0][1]],)
+
     list_rows = parallel_for(
         evaluate_dataset,
-        inputs=list(itertools.product(dataset_names, n_portfolios, n_ensembles, n_training_datasets, n_training_folds,
-                                      n_training_configs, max_runtimes, n_max_models, n_max_models_per_type, seeds)),
+        inputs=inputs,
         context=dict(repo=repo, df_rank=df_rank, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer,
                      model_frameworks=model_frameworks),
         engine=engine,

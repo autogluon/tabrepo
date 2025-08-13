@@ -71,7 +71,7 @@ methods_ag_key_map = {
     "LightGBM": "GBM",
     "LinearModel": "LR",
     "ModernNCA": "MNCA",
-    "NeuralNetFastAI": "FASTAI_NN",
+    "NeuralNetFastAI": "FASTAI",
     "NeuralNetTorch": "NN_TORCH",
     "RandomForest": "RF",
     "RealMLP": "REALMLP",

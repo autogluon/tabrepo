@@ -30,8 +30,15 @@ class BaselineResult(AbstractResult):
         for key in required_keys:
             assert key in self.result, f"Missing {key} in result dict!"
 
-    def rename(self, name: str):
-        self.result["framework"] = name
+    def update_name(self, name: str = None, name_suffix: str = None):
+        assert name is not None or name_suffix is not None, f"Must specify one of `name`, `name_suffix`."
+        assert name is None or name_suffix is None, f"Must only specify one of `name`, `name_suffix`."
+        if name is not None:
+            self.result["framework"] = name
+        elif name_suffix is not None:
+            og_name = self.result["framework"]
+            new_name = f"{og_name}{name_suffix}"
+            self.result["framework"] = new_name
 
     @property
     def framework(self) -> str:
