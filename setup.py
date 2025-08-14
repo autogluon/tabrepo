@@ -41,6 +41,11 @@ extras_require = {
     "modernnca": [
         "category_encoders",
     ],
+    "dpdt": [
+        # TODO: pypi package is not available yet
+        "git+https://github.com/KohlerHECTOR/DPDTreeEstimator.git",
+        # used hash: a74791d2190da27b43accd4da9e7d141380326ea
+    ],
 }
 
 benchmark_requires = []
@@ -53,6 +58,7 @@ for extra_package in [
     "tabdpt",
     "tabm",
     "modernnca",
+    "dpdt",
 ]:
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
