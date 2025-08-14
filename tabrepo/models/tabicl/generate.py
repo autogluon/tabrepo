@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from autogluon.common.space import Categorical, Real
 
-from tabrepo.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
+from tabrepo.benchmark.models.ag.tabicl.tabicl_model import TabArenaTabICLModel
 from tabrepo.utils.config_utils import ConfigGenerator
 
 name = "TabICL"
@@ -25,7 +25,7 @@ search_space = {
 }
 
 gen_tabicl = ConfigGenerator(
-    model_cls=TabICLModel, manual_configs=manual_configs, search_space=search_space
+    model_cls=TabArenaTabICLModel, manual_configs=manual_configs, search_space=search_space
 )
 
 if __name__ == "__main__":

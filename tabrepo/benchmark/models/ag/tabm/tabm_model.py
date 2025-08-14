@@ -18,7 +18,7 @@ from autogluon.tabular import __version__
 logger = logging.getLogger(__name__)
 
 
-class TabMModel(AbstractModel):
+class TabArenaTabMModel(AbstractModel):
     """
     TabM is an efficient ensemble of MLPs that is trained simultaneously with mostly shared parameters.
 

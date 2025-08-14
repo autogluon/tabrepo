@@ -30,7 +30,7 @@ def set_logger_level(logger_name: str, level: int):
 
 
 # pip install pytabkit
-class RealMLPModel(AbstractModel):
+class TabArenaRealMLPModel(AbstractModel):
     """
     RealMLP is an improved multilayer perception (MLP) model
     through a bag of tricks and better default hyperparameters.

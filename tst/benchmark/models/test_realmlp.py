@@ -7,8 +7,8 @@ def test_realmlp():
 
     try:
         from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
-        model_cls = RealMLPModel
+        from tabrepo.benchmark.models.ag.realmlp.realmlp_model import TabArenaRealMLPModel
+        model_cls = TabArenaRealMLPModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:
         pytest.skip(

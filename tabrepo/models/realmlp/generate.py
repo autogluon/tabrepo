@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from tabrepo.benchmark.experiment import YamlExperimentSerializer
-from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
+from tabrepo.benchmark.models.ag.realmlp.realmlp_model import TabArenaRealMLPModel
 from tabrepo.models.utils import convert_numpy_dtypes
 from tabrepo.utils.config_utils import CustomAGConfigGenerator, generate_bag_experiments
 
@@ -54,7 +54,7 @@ def generate_configs_realmlp(num_random_configs=200, seed=1234):
 
 
 gen_realmlp = CustomAGConfigGenerator(
-    model_cls=RealMLPModel,
+    model_cls=TabArenaRealMLPModel,
     search_space_func=generate_configs_realmlp,
     manual_configs=[{}],
 )
@@ -68,13 +68,13 @@ if __name__ == "__main__":
     experiments_realmlp_streamlined = gen_realmlp.generate_all_bag_experiments(100)
 
     experiments_default = generate_bag_experiments(
-        model_cls=RealMLPModel,
+        model_cls=TabArenaRealMLPModel,
         configs=config_defaults,
         time_limit=3600,
         name_id_prefix="c",
     )
     experiments_random = generate_bag_experiments(
-        model_cls=RealMLPModel, configs=configs, time_limit=3600
+        model_cls=TabArenaRealMLPModel, configs=configs, time_limit=3600
     )
     experiments = experiments_default + experiments_random
     YamlExperimentSerializer.to_yaml(

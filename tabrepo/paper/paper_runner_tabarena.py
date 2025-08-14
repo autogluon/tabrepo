@@ -568,7 +568,20 @@ class PaperRunTabArena(PaperRun):
         # plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
         #                        method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
         #                        show=False)
-
+        self.plot_tuning_impact(
+            df=df_results_rank_compare,
+            framework_types=framework_types,
+            save_prefix=f"{self.output_dir}",
+            use_gmean=use_gmean,
+            baselines=baselines,
+            baseline_colors=baseline_colors,
+            use_score=False,
+            name_suffix="-rawmetric-dataset",
+            imputed_names=imputed_names,
+            plot_tune_types=plot_tune_types,
+            show=False,
+            use_y=False,
+        )
         self.plot_tuning_impact(
             df=df_results_rank_compare,
             framework_types=framework_types,

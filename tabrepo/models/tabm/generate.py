@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from tabrepo.benchmark.models.ag.tabm.tabm_model import TabMModel
+from tabrepo.benchmark.models.ag.tabm.tabm_model import TabArenaTabMModel
 from tabrepo.models.utils import convert_numpy_dtypes
 from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
@@ -48,5 +48,5 @@ def generate_configs_tabm(num_random_configs=200, seed=1234):
 
 
 gen_tabm = CustomAGConfigGenerator(
-    model_cls=TabMModel, search_space_func=generate_configs_tabm, manual_configs=[{}]
+    model_cls=TabArenaTabMModel, search_space_func=generate_configs_tabm, manual_configs=[{}]
 )

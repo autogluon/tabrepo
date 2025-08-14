@@ -115,7 +115,7 @@ class FixedSafePowerTransformer(PowerTransformer):
         return self._revert_failed_features(transformed_X, X)  # type: ignore
 
 
-class TabPFNV2Model(AbstractModel):
+class TabArenaTabPFNV2Model(AbstractModel):
     """
     TabPFNv2 is a tabular foundation model pre-trained purely on synthetic data that achieves
     state-of-the-art results with in-context learning on small datasets with <=10000 samples and <=500 features.

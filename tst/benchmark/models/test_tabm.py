@@ -7,8 +7,8 @@ def test_tabm():
 
     try:
         from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.tabm.tabm_model import TabMModel
-        model_cls = TabMModel
+        from tabrepo.benchmark.models.ag.tabm.tabm_model import TabArenaTabMModel
+        model_cls = TabArenaTabMModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:
         pytest.skip(

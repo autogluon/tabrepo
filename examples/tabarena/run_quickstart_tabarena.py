@@ -24,7 +24,7 @@ if __name__ == '__main__':
     folds = [0]
 
     # import your model classes
-    from tabrepo.benchmark.models.ag import RealMLPModel
+    from tabrepo.benchmark.models.ag import TabArenaRealMLPModel
 
     # This list of methods will be fit sequentially on each task (dataset x fold)
     methods = [
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
             # The class of the model. Can also be a string if AutoGluon recognizes it, such as `"GBM"`
             # Supports any model that inherits from `autogluon.core.models.AbstractModel`
-            model_cls=RealMLPModel,
+            model_cls=TabArenaRealMLPModel,
             model_hyperparameters={
                 # "ag_args_ensemble": {"fold_fitting_strategy": "sequential_local"},  # uncomment to fit folds sequentially, allowing for use of a debugger
             },  # The non-default model hyperparameters.

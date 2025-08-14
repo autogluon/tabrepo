@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: Verify if crashes when weights are not yet downloaded and fit in parallel
-class TabICLModel(AbstractModel):
+class TabArenaTabICLModel(AbstractModel):
     """
     TabICL is a foundation model for tabular data using in-context learning
     that is scalable to larger datasets than TabPFNv2. It is pretrained purely on synthetic data.
