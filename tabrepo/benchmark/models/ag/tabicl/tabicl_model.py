@@ -108,6 +108,12 @@ class TabICLModel(AbstractModel):
         num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
         return num_cpus, num_gpus
 
+    def get_minimum_resources(self, is_gpu_available: bool = False) -> dict[str, int | float]:
+        return {
+            "num_cpus": 1,
+            "num_gpus": 1 if is_gpu_available else 0,
+        }
+
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
         hyperparameters = self._get_model_params()
         return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
