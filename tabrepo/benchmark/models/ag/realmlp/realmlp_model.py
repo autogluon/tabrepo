@@ -364,6 +364,7 @@ class RealMLPModel(AbstractModel):
         plr_hidden_1 = hyperparameters.get("plr_hidden_1", 16)
         plr_hidden_2 = hyperparameters.get("plr_hidden_2", 4)
         hidden_width = hyperparameters.get("hidden_width", 256)
+        n_ens = hyperparameters.get("n_ens", 8)
 
         num_features = len(X.columns)
         columns_mem_est = num_features * 8e5
@@ -379,6 +380,12 @@ class RealMLPModel(AbstractModel):
             columns_mem_est * hidden_2_weight * plr_hidden_2 / 16 * width_factor
         )
         columns_mem_est = columns_mem_est_hidden_1 + columns_mem_est_hidden_2
+
+        # TODO: this is added here to use RAM estimation as a VRAM proxy.
+        #  In the future, we need another function and logic via `get_minimum_resources`
+        #  to estimate VRAM usage directly.
+        # Linear overhead per ensemble member
+        columns_mem_est *= n_ens
 
         dataset_size_mem_est = (
             5 * get_approximate_df_mem_usage(X).sum()
