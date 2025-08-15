@@ -378,9 +378,8 @@ def run_experiments_new(
                         else:
                             tabarena_task_name = task_id_or_object.tabarena_task_name
                             task = OpenMLTaskWrapper(
-                                task=task_id_or_object.to_openml_task()
+                                task=task_id_or_object.load_local_openml_task()
                             )
-
                     try:
                         out = model_experiment.run(
                             task=task,

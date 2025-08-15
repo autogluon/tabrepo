@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import pickle
 from collections import OrderedDict
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -23,19 +25,12 @@ if TYPE_CHECKING:
 def _get_dataset(self, **kwargs) -> openml.datasets.OpenMLDataset:
     return self.local_dataset
 
+
 # TODO: support split constructor for common split use cases
 class UserTask:
     """A user-defined task to run on custom datasets or tasks."""
 
-    def __init__(
-        self,
-        *,
-        task_name: str,
-        dataset: pd.DataFrame,
-        target_feature: str,
-        problem_type: Literal["classification", "regression"],
-        splits: dict[int, dict[int, tuple[list, list]]],
-    ):
+    def __init__(self, *, task_name: str, task_cache_path: Path):
         """Initialize a user-defined task.
 
         Parameters
@@ -43,6 +38,73 @@ class UserTask:
         task_name: str
             The name of the task. Make sure this is a unique name on your system,
             as we create the cache based on this name.
+        task_cache_path: Path
+            Path to use for caching the local OpenML tasks.
+        """
+        self.task_name = task_name
+        self._task_name_hash = hashlib.sha256(
+            self.task_name.encode("utf-8")
+        ).hexdigest()
+        self.task_cache_path = task_cache_path
+
+    @staticmethod
+    def from_task_id_str(task_id_str: str) -> UserTask:
+        """Create a UserTask from a task ID string."""
+        parts = task_id_str.split("|")
+        if len(parts) != 4 or parts[0] != "UserTask":
+            raise ValueError(f"Invalid task ID string: {task_id_str}")
+        task_name = parts[2]
+        task_cache_path = Path(parts[3])
+        return UserTask(task_name=task_name, task_cache_path=task_cache_path)
+
+    @property
+    def task_id_str(self) -> str:
+        """Task ID used for the task."""
+        return f"UserTask|{self.task_id}|{self.task_name}|{self.task_cache_path}"
+
+
+    @property
+    def tabarena_task_name(self) -> str:
+        """Task/Dataset Name used for the task/dataset."""
+        return f"Task-{self.task_id}"
+
+    @property
+    def task_id(self) -> int:
+        """Generate a unique task ID based on the task name and a UUID.
+        This is used to identify the task, for example, when caching results.
+        """
+        return int(self._task_name_hash, 16) % 10**10
+
+    @property
+    def _local_dataset_id(self) -> str:
+        return self._task_name_hash
+
+    @property
+    def _local_cache_path(self) -> Path:
+        return (
+            Path(openml.config._root_cache_directory)
+            / "local"
+            / "datasets"
+            / self._local_dataset_id
+        )
+
+    @property
+    def dataset_name(self) -> str:
+        """The name of the dataset used in the task."""
+        return f"LocalDataset-{self.task_name}"
+
+    # TODO: support local OpenML tasks inside of OpenML code...
+    def create_local_openml_task(
+        self,
+        target_feature: str,
+        problem_type: Literal["classification", "regression"],
+        dataset: pd.DataFrame,
+        splits: dict[int, dict[int, tuple[list, list]]],
+    ) -> OpenMLSupervisedTask:
+        """Convert the user-defined task to a local (unpublished) OpenMLSupervisedTask.
+
+        Parameters
+        ----------
         dataset: pd.DataFrame
             The dataset to be used for the task. It should be a pandas DataFrame
             with features and target variable. Moreover, make sure the DataFrame
@@ -83,16 +145,84 @@ class UserTask:
                   there is only one split in repeat_id 0, there should be only one split
                   in all other repeat_ids).
         """
-        self.task_name = task_name
-        self._dataset = dataset.copy()
-        self.target_feature = target_feature
-        self.problem_type = problem_type
-        self.splits = splits
-        self._task_name_hash = hashlib.sha256(
-            self.task_name.encode("utf-8")
-        ).hexdigest()
-
+        dataset = deepcopy(dataset)
         self._validate_splits(splits=splits, n_samples=len(dataset))
+
+        task_type = (
+            TaskType.SUPERVISED_CLASSIFICATION
+            if problem_type == "classification"
+            else TaskType.SUPERVISED_REGRESSION
+        )
+        extra_kwargs = {}
+        if task_type == TaskType.SUPERVISED_CLASSIFICATION:
+            task_cls = OpenMLClassificationTask  # type: ignore
+            extra_kwargs["class_labels"] = list(np.unique(dataset[target_feature]))
+        elif task_type == TaskType.SUPERVISED_REGRESSION:
+            task_cls = OpenMLRegressionTask  # type: ignore
+        else:
+            raise NotImplementedError(f"Task type {task_type:d} not supported.")
+
+        local_dataset = create_dataset(
+            name=self.dataset_name,
+            description=None,
+            creator=None,
+            contributor=None,
+            collection_date=None,
+            language=None,
+            licence=None,
+            attributes="auto",
+            data=dataset,
+            default_target_attribute=target_feature,
+            ignore_attribute=None,
+            citation="N/A",
+            row_id_attribute=None,
+            original_data_url=None,
+            paper_url=None,
+            version_label=None,
+            update_comment=None,
+        )
+        # Cache data to disk
+        parquet_file = self._local_cache_path / "data.pq"
+        parquet_file.parent.mkdir(parents=True, exist_ok=True)
+        dataset.to_parquet(parquet_file)
+        del dataset  # Free memory
+
+        # We only need local_dataset.get_data() from the OpenMLDataset, thus, we make
+        # sure with the code below that get_data() returns the data.
+        local_dataset.parquet_file = parquet_file
+        local_dataset.data_file = "ignored"  # not used for local datasets
+
+        # Create the task
+        task = task_cls(
+            task_id=self.task_id,
+            task_type_id=task_type,
+            task_type="None",  # Placeholder, not used for local tasks
+            data_set_id=-1,  # Placeholder, not used for local tasks
+            target_name=target_feature,
+            **extra_kwargs,
+        )
+        task.local_dataset = local_dataset
+        task.get_dataset = _get_dataset.__get__(task, OpenMLSupervisedTask)
+
+        # Transform TabArena splits to OpenMLSplit format
+        openml_splits = {}
+        for repeat in splits:
+            openml_splits[repeat] = OrderedDict()
+            for fold in splits[repeat]:
+                openml_splits[repeat][fold] = OrderedDict()
+                # We do not support learning curves tasks, so no need for samples.
+                openml_splits[repeat][fold][0] = (
+                    np.array(splits[repeat][fold][0], dtype=int),
+                    np.array(splits[repeat][fold][1], dtype=int),
+                )
+
+        task.split = openml.tasks.split.OpenMLSplit(
+            name="User-Splits",
+            description="User-defined splits for a custom task.",
+            split=openml_splits,
+        )
+
+        return task
 
     @staticmethod
     def _validate_splits(
@@ -146,112 +276,26 @@ class UserTask:
                 raise ValueError("All repeats must have the same number of splits.")
 
     @property
-    def tabarena_task_name(self) -> str:
-        """Task/Dataset Name used for the task/dataset."""
-        return f"Task-{self.task_id}"
+    def openml_task_path(self) -> Path:
+        return self.task_cache_path / f"{self.task_id}.pkl"
 
-    @property
-    def task_id(self) -> int:
-        """Generate a unique task ID based on the task name and a UUID.
-        This is used to identify the task, for example, when caching results.
-        """
-        return int(self._task_name_hash, 16) % 10**10
+    def save_local_openml_task(self, task: OpenMLSupervisedTask) -> None:
+        """Safe the OpenML task to be usable by loading from disk later."""
+        self.task_cache_path.mkdir(parents=True, exist_ok=True)
+        # Remove monkey patch to avoid pickle issues.
+        del task.get_dataset
+        with self.openml_task_path.open("wb") as f:
+            pickle.dump(task, f)
 
-    @property
-    def _local_dataset_id(self) -> str:
-        return self._task_name_hash
 
-    @property
-    def _local_cache_path(self) -> Path:
-        return (
-            Path(openml.config._root_cache_directory)
-            / "local"
-            / "datasets"
-            / self._local_dataset_id
-        )
+    def load_local_openml_task(self) -> OpenMLSupervisedTask:
+        """Load a local OpenML task from disk."""
+        if not self.openml_task_path.exists():
+            raise FileNotFoundError(f"Cached task file {self.openml_task_path} does not exist!")
 
-    @property
-    def dataset_name(self) -> str:
-        """The name of the dataset used in the task."""
-        return f"LocalDataset-{self.task_name}"
-
-    # TODO: support local OpenML tasks inside of OpenML code...
-    def to_openml_task(self) -> OpenMLSupervisedTask:
-        """Convert the user-defined task to a local (unpublished) OpenMLSupervisedTask."""
-        task_type = (
-            TaskType.SUPERVISED_CLASSIFICATION
-            if self.problem_type == "classification"
-            else TaskType.SUPERVISED_REGRESSION
-        )
-        extra_kwargs = {}
-        if task_type == TaskType.SUPERVISED_CLASSIFICATION:
-            task_cls = OpenMLClassificationTask  # type: ignore
-            extra_kwargs["class_labels"] = list(
-                np.unique(self._dataset[self.target_feature])
-            )
-        elif task_type == TaskType.SUPERVISED_REGRESSION:
-            task_cls = OpenMLRegressionTask  # type: ignore
-        else:
-            raise NotImplementedError(f"Task type {task_type:d} not supported.")
-
-        local_dataset = create_dataset(
-            name=self.dataset_name,
-            description=None,
-            creator=None,
-            contributor=None,
-            collection_date=None,
-            language=None,
-            licence=None,
-            attributes="auto",
-            data=self._dataset,
-            default_target_attribute=self.target_feature,
-            ignore_attribute=None,
-            citation="N/A",
-            row_id_attribute=None,
-            original_data_url=None,
-            paper_url=None,
-            version_label=None,
-            update_comment=None,
-        )
-        # Cache data to disk
-        parquet_file = self._local_cache_path / "data.pq"
-        parquet_file.parent.mkdir(parents=True, exist_ok=True)
-        self._dataset.to_parquet(parquet_file)
-        del self._dataset  # Free memory
-
-        # We only need local_dataset.get_data() from the OpenMLDataset, thus, we make
-        # sure with the code below that get_data() returns the data.
-        local_dataset.parquet_file = parquet_file
-        local_dataset.data_file = "ignored"  # not used for local datasets
-
-        # Create the task
-        task = task_cls(
-            task_id=self.task_id,
-            task_type_id=task_type,
-            task_type="None",  # Placeholder, not used for local tasks
-            data_set_id=-1,  # Placeholder, not used for local tasks
-            target_name=self.target_feature,
-            **extra_kwargs,
-        )
-        task.local_dataset = local_dataset
+        with self.openml_task_path.open("rb") as f:
+            task : OpenMLSupervisedTask = pickle.load(f)
+        # Add monkey patch again.
         task.get_dataset = _get_dataset.__get__(task, OpenMLSupervisedTask)
-
-        # Transform TabArena splits to OpenMLSplit format
-        openml_splits = {}
-        for repeat in self.splits:
-            openml_splits[repeat] = OrderedDict()
-            for fold in self.splits[repeat]:
-                openml_splits[repeat][fold] = OrderedDict()
-                # We do not support learning curves tasks, so no need for samples.
-                openml_splits[repeat][fold][0] = (
-                    np.array(self.splits[repeat][fold][0], dtype=int),
-                    np.array(self.splits[repeat][fold][1], dtype=int),
-                )
-
-        task.split = openml.tasks.split.OpenMLSplit(
-            name="User-Splits",
-            description="User-defined splits for a custom task.",
-            split=openml_splits,
-        )
 
         return task

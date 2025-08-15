@@ -93,9 +93,34 @@ class AGConfigGenerator(AbstractConfigGenerator):
         configs = combine_manual_and_random_configs(manual_configs=self.manual_configs, random_configs=random_configs, name_id_suffix=name_id_suffix)
         return configs
 
-    def generate_all_bag_experiments(self, num_random_configs: int, name_id_suffix: str = "", add_seed: Literal["static", "fold-wise", "fold-config-wise"] = "static") -> list:
+    def generate_all_bag_experiments(
+        self,
+        num_random_configs: int,
+        name_id_suffix: str = "",
+        add_seed: Literal["static", "fold-wise", "fold-config-wise"] = "static",
+        method_kwargs: dict | None = None,
+    ) -> list:
+        """Generate experiments with bagging models for the search space.
+
+        Parameters
+        ----------
+        num_random_configs : int
+            The number of random configurations to generate.
+        name_id_suffix: str
+            A suffix to append to the names of the configuration. Use this to
+            distinguish between different runs or configurations of the same model.
+        add_seed: {"static", "fold-wise", "fold-config-wise"}
+            How to handle random seeds in the configurations.
+                - "static": Use a fixed seed across all folds.
+                - "fold-wise": Vary the side acros folds
+                - "fold-config-wise": Vary the seed across folds and configurations.
+        method_kwargs: dict | None
+            Additional keyword arguments to pass to the `generate_bag_experiments`
+            function. For example, you can modify the init kwargs of TabularPredictor
+            runner by `method_kwargs=dict(init_kwargs=dict(path="./my_custom_path"))`
+        """
         configs = self.generate_all_configs_lst(num_random_configs=num_random_configs, name_id_suffix=name_id_suffix)
-        experiments = generate_bag_experiments(model_cls=self.model_cls, configs=configs, name_suffix_from_ag_args=True, add_seed=add_seed)
+        experiments = generate_bag_experiments(model_cls=self.model_cls, configs=configs, name_suffix_from_ag_args=True, add_seed=add_seed, method_kwargs=method_kwargs)
         return experiments
 
 
