@@ -58,16 +58,30 @@ class Experiment:
         instance._locals = {**_kwargs}
         return instance
 
-    def to_yaml(self):
+    def to_yaml_dict(self) -> dict:
         locals = self._locals
-        out = dict()
-        out["type"] = self.__class__.__name__
+        locals_new = self._to_yaml_dict(locals=locals)
+        assert "type" not in locals_new, f"The `type` key is reserved for the class name."
+        locals_new = dict(
+            type=self.__class__.__name__,
+            **locals_new
+        )
+        return locals_new
+
+    def to_yaml(self, path: str):
+        assert path.endswith(".yaml")
+
+        yaml_out = self.to_yaml_dict()
+        with open(path, 'w') as outfile:
+            yaml.dump(yaml_out, outfile, default_flow_style=False)
+
+    def _to_yaml_dict(self, locals: dict) -> dict:
         locals_new = {}
         for k, v in locals.items():
             if inspect.isclass(v):
                 v = v.__name__
             locals_new[k] = v
-        return self.__class__.__name__, locals_new
+        return locals_new
 
     @classmethod
     def from_yaml(cls, method_cls, _context=None, **kwargs) -> Self:
@@ -232,8 +246,8 @@ class AGExperiment(Experiment):
             experiment_kwargs=_experiment_kwargs,
         )
 
-    def to_yaml(self):
-        class_name, locals = super().to_yaml()
+    def to_yaml_dict(self) -> dict:
+        locals = super().to_yaml_dict()
 
         locals = copy.deepcopy(locals)
         items = list(locals.items())
@@ -246,7 +260,7 @@ class AGExperiment(Experiment):
                         if inspect.isclass(model):
                             val = locals["fit_kwargs"]["hyperparameters"].pop(model)
                             locals["fit_kwargs"]["hyperparameters"][model.ag_key] = val
-        return class_name, locals
+        return locals
 
     @classmethod
     def from_yaml(cls, _context=None, **kwargs) -> Self:
@@ -341,6 +355,15 @@ class AGModelExperiment(Experiment):
             experiment_cls=OOFExperimentRunner,
             experiment_kwargs=experiment_kwargs,
         )
+
+    def _to_yaml_dict(self, locals: dict) -> dict:
+        """
+        Convert model_cls to ag_key, since ag_key is a unique identifier, whereas model_cls is not necessarily unique.
+        """
+        ag_key = locals["model_cls"].ag_key
+        locals = copy.deepcopy(locals)
+        locals["model_cls"] = ag_key
+        return super()._to_yaml_dict(locals=locals)
 
     @classmethod
     def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
@@ -451,7 +474,7 @@ class AGModelBagExperiment(AGModelExperiment):
         )
 
 
-class YamlExperimentSerializer:
+class YamlSingleExperimentSerializer:
     @classmethod
     def parse_method(cls, method_config: dict, context=None) -> Experiment:
         """
@@ -470,12 +493,43 @@ class YamlExperimentSerializer:
         return method_obj
 
     @classmethod
+    def from_yaml(cls, path: str, context=None) -> Experiment:
+        yaml_out = cls.load_yaml(path=path)
+        experiment = cls.parse_method(yaml_out, context=context)
+        return experiment
+
+    @classmethod
+    def load_yaml(cls, path: str) -> dict:
+        assert path.endswith(".yaml")
+        with open(path, 'r') as file:
+            yaml_out = yaml.safe_load(file)
+        return yaml_out
+
+    @classmethod
+    def to_yaml(cls, experiment: Experiment, path: str):
+        assert path.endswith(".yaml")
+        yaml_out = cls._to_yaml_format(experiment=experiment)
+        with open(path, 'w') as outfile:
+            yaml.dump(yaml_out, outfile, default_flow_style=False)
+
+    @classmethod
+    def to_yaml_str(cls, experiment: Experiment) -> str:
+        yaml_out = cls._to_yaml_format(experiment=experiment)
+        return yaml.dump(yaml_out)
+
+    @classmethod
+    def _to_yaml_format(cls, experiment: Experiment) -> dict:
+        return experiment.to_yaml_dict()
+
+
+class YamlExperimentSerializer:
+    @classmethod
     def from_yaml(cls, path: str, context=None) -> list[Experiment]:
         yaml_out = cls.load_yaml(path=path)
 
         experiments = []
         for experiment in yaml_out:
-            experiments.append(cls.parse_method(experiment, context=context))
+            experiments.append(YamlSingleExperimentSerializer.parse_method(experiment, context=context))
 
         return experiments
 
@@ -490,9 +544,7 @@ class YamlExperimentSerializer:
     @classmethod
     def to_yaml(cls, experiments: list[Experiment], path: str):
         assert path.endswith(".yaml")
-
         yaml_out = cls._to_yaml_format(experiments=experiments)
-
         with open(path, 'w') as outfile:
             yaml.dump(yaml_out, outfile, default_flow_style=False)
 
@@ -502,14 +554,10 @@ class YamlExperimentSerializer:
         return yaml.dump(yaml_out)
 
     @classmethod
-    def _to_yaml_format(cls, experiments: list[Experiment]) -> dict[list[dict]]:
+    def _to_yaml_format(cls, experiments: list[Experiment]) -> dict[str, list[dict]]:
         yaml_lst = []
         for experiment in experiments:
-            cls_name, cls_kwargs = experiment.to_yaml()
-            yaml_dict = dict(
-                type=cls_name,
-                **cls_kwargs,
-            )
+            yaml_dict = experiment.to_yaml_dict()
             yaml_lst.append(yaml_dict)
         yaml_out = {"methods": yaml_lst}
         return yaml_out
