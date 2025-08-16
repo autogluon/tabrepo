@@ -386,6 +386,8 @@ class RealMLPModel(AbstractModel):
         #  to estimate VRAM usage directly.
         # Linear overhead per ensemble member
         columns_mem_est *= n_ens
+        # add sample size factor into the estimate
+        columns_mem_est *= max(0.33, len(X) / 8192) # 8192 from batch size heuristic
 
         dataset_size_mem_est = (
             5 * get_approximate_df_mem_usage(X).sum()
@@ -396,6 +398,10 @@ class RealMLPModel(AbstractModel):
             dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
         )
 
+    def _validate_fit_memory_usage(self, mem_error_threshold: float = 1, **kwargs):
+        return super()._validate_fit_memory_usage(
+            mem_error_threshold=mem_error_threshold, **kwargs
+        )
 
     @classmethod
     def _class_tags(cls) -> dict:
