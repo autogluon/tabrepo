@@ -27,8 +27,12 @@ def generate_single_config_realmlp(rng):
         "lr": np.exp(rng.uniform(np.log(2e-2), np.log(3e-1))),
         "wd": np.exp(rng.uniform(np.log(1e-3), np.log(5e-2))),
         "use_ls": rng.choice(
-            ["auto", True]
+            [False, True]  # changed "auto" to False, to have it equal for all metrics
         ),  # use label smoothing (will be ignored for regression)
+        "max_one_hot_cat_size": np.floor(np.exp(rng.uniform(np.log(4.0), np.log(33.0)))).item(),
+        "embedding_size": rng.choice([4, 8, 16]),
+        "n_ens": 8,  # 16 might still be feasible
+        "ens_av_before_softmax": False,
     }
 
     if rng.uniform(0.0, 1.0) > 0.5:

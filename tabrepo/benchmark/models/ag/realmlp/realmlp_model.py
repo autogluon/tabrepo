@@ -4,16 +4,17 @@ import logging
 import math
 import time
 from contextlib import contextmanager
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-import numpy as np
 import pandas as pd
-from sklearn.impute import SimpleImputer
-
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.tabular import __version__
+from sklearn.impute import SimpleImputer
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,7 @@ def set_logger_level(logger_name: str, level: int):
 
 # pip install pytabkit
 class RealMLPModel(AbstractModel):
-    """
-    RealMLP is an improved multilayer perception (MLP) model
+    """RealMLP is an improved multilayer perception (MLP) model
     through a bag of tricks and better default hyperparameters.
 
     RealMLP is the top performing method overall on TabArena-v0.1: https://tabarena.ai
@@ -42,6 +42,7 @@ class RealMLPModel(AbstractModel):
     Codebase: https://github.com/dholzmueller/pytabkit
     License: Apache-2.0
     """
+
     ag_key = "TA-REALMLP"
     ag_name = "TA-RealMLP"
     ag_priority = 75
@@ -64,19 +65,20 @@ class RealMLPModel(AbstractModel):
         )
 
         assert default_hyperparameters in ["td", "td_s"]
-        if self.problem_type in ['binary', 'multiclass']:
+        if self.problem_type in ["binary", "multiclass"]:
             if default_hyperparameters == "td":
                 model_cls = RealMLP_TD_Classifier
             else:
                 model_cls = RealMLP_TD_S_Classifier
+        elif default_hyperparameters == "td":
+            model_cls = RealMLP_TD_Regressor
         else:
-            if default_hyperparameters == "td":
-                model_cls = RealMLP_TD_Regressor
-            else:
-                model_cls = RealMLP_TD_S_Regressor
+            model_cls = RealMLP_TD_S_Regressor
         return model_cls
 
-    def _get_random_seed_from_hyperparameters(self, hyperparameters: dict) -> int | None | str:
+    def _get_random_seed_from_hyperparameters(
+        self, hyperparameters: dict
+    ) -> int | None | str:
         return hyperparameters.get("random_state", "N/A")
 
     def _fit(
@@ -85,7 +87,7 @@ class RealMLPModel(AbstractModel):
         y: pd.Series,
         X_val: pd.DataFrame = None,
         y_val: pd.Series = None,
-        time_limit: float = None,
+        time_limit: float | None = None,
         num_cpus: int = 1,
         num_gpus: float = 0,
         verbosity: int = 2,
@@ -139,16 +141,18 @@ class RealMLPModel(AbstractModel):
 
         val_metric_name = metric_map.get(self.stopping_metric.name, None)
 
-        init_kwargs = dict()
+        init_kwargs = {}
 
         if val_metric_name is not None:
             init_kwargs["val_metric_name"] = val_metric_name
 
         # TODO: Make this smarter? Maybe use `eval_metric.needs_pred`
-        if hyp["use_ls"] is not None and isinstance(hyp["use_ls"], str) and hyp["use_ls"] == "auto":
-            if val_metric_name is None:
-                hyp["use_ls"] = False
-            elif val_metric_name in ["cross_entropy", "1-auc_ovr_alt"]:
+        if (
+            hyp["use_ls"] is not None
+            and isinstance(hyp["use_ls"], str)
+            and hyp["use_ls"] == "auto"
+        ):
+            if val_metric_name is None or val_metric_name in ["cross_entropy", "1-auc_ovr_alt"]:
                 hyp["use_ls"] = False
             else:
                 hyp["use_ls"] = None
@@ -162,7 +166,11 @@ class RealMLPModel(AbstractModel):
         name_categories = hyp.pop("name_categories", True)
 
         n_features = len(X.columns)
-        if "predict_batch_size" in hyp and isinstance(hyp["predict_batch_size"], str) and hyp["predict_batch_size"] == "auto":
+        if (
+            "predict_batch_size" in hyp
+            and isinstance(hyp["predict_batch_size"], str)
+            and hyp["predict_batch_size"] == "auto"
+        ):
             # simple heuristic to avoid OOM during inference time
             # note: this isn't fool-proof, and ignores the actual memory availability of the machine.
             # note: this is based on an assumption of 32 GB of memory available on the instance
@@ -177,12 +185,14 @@ class RealMLPModel(AbstractModel):
             **hyp,
         )
 
-        X = self.preprocess(X, is_train=True, bool_to_cat=bool_to_cat, impute_bool=impute_bool)
+        X = self.preprocess(
+            X, is_train=True, bool_to_cat=bool_to_cat, impute_bool=impute_bool
+        )
 
         # FIXME: In rare cases can cause exceptions if name_categories=False, unknown why
         extra_fit_kwargs = {}
         if name_categories:
-            cat_col_names = X.select_dtypes(include='category').columns.tolist()
+            cat_col_names = X.select_dtypes(include="category").columns.tolist()
             extra_fit_kwargs["cat_col_names"] = cat_col_names
 
         if X_val is not None:
@@ -194,7 +204,9 @@ class RealMLPModel(AbstractModel):
                 y=y,
                 X_val=X_val,
                 y_val=y_val,
-                time_to_fit_in_seconds=time_limit - (time.time() - start_time) if time_limit is not None else None,
+                time_to_fit_in_seconds=time_limit - (time.time() - start_time)
+                if time_limit is not None
+                else None,
                 **extra_fit_kwargs,
             )
 
@@ -204,9 +216,15 @@ class RealMLPModel(AbstractModel):
 
     # TODO: Move missing indicator + mean fill to a generic preprocess flag available to all models
     # FIXME: bool_to_cat is a hack: Maybe move to abstract model?
-    def _preprocess(self, X: pd.DataFrame, is_train: bool = False, bool_to_cat: bool = False, impute_bool: bool = True, **kwargs) -> pd.DataFrame:
-        """
-        Imputes missing values via the mean and adds indicator columns for numerical features.
+    def _preprocess(
+        self,
+        X: pd.DataFrame,
+        is_train: bool = False,
+        bool_to_cat: bool = False,
+        impute_bool: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Imputes missing values via the mean and adds indicator columns for numerical features.
         Converts indicator columns to categorical features to avoid them being treated as numerical by RealMLP.
         """
         X = super()._preprocess(X, **kwargs)
@@ -215,24 +233,44 @@ class RealMLPModel(AbstractModel):
         X = X.copy(deep=True)
         if is_train:
             self._bool_to_cat = bool_to_cat
-            self._features_bool = self._feature_metadata.get_features(required_special_types=["bool"])
+            self._features_bool = self._feature_metadata.get_features(
+                required_special_types=["bool"]
+            )
             if impute_bool:  # Technically this should do nothing useful because bools will never have NaN
-                self._features_to_impute = self._feature_metadata.get_features(valid_raw_types=["int", "float"])
-                self._features_to_keep = self._feature_metadata.get_features(invalid_raw_types=["int", "float"])
+                self._features_to_impute = self._feature_metadata.get_features(
+                    valid_raw_types=["int", "float"]
+                )
+                self._features_to_keep = self._feature_metadata.get_features(
+                    invalid_raw_types=["int", "float"]
+                )
             else:
-                self._features_to_impute = self._feature_metadata.get_features(valid_raw_types=["int", "float"], invalid_special_types=["bool"])
-                self._features_to_keep = [f for f in self._feature_metadata.get_features() if f not in self._features_to_impute]
+                self._features_to_impute = self._feature_metadata.get_features(
+                    valid_raw_types=["int", "float"], invalid_special_types=["bool"]
+                )
+                self._features_to_keep = [
+                    f
+                    for f in self._feature_metadata.get_features()
+                    if f not in self._features_to_impute
+                ]
             if self._features_to_impute:
                 self._imputer = SimpleImputer(strategy="mean", add_indicator=True)
                 self._imputer.fit(X=X[self._features_to_impute])
-                self._indicator_columns = [c for c in self._imputer.get_feature_names_out() if c not in self._features_to_impute]
+                self._indicator_columns = [
+                    c
+                    for c in self._imputer.get_feature_names_out()
+                    if c not in self._features_to_impute
+                ]
         if self._imputer is not None:
             X_impute = self._imputer.transform(X=X[self._features_to_impute])
-            X_impute = pd.DataFrame(X_impute, index=X.index, columns=self._imputer.get_feature_names_out())
+            X_impute = pd.DataFrame(
+                X_impute, index=X.index, columns=self._imputer.get_feature_names_out()
+            )
             if self._indicator_columns:
                 # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
                 # TODO: Add to features_bool?
-                X_impute[self._indicator_columns] = X_impute[self._indicator_columns].astype("category")
+                X_impute[self._indicator_columns] = X_impute[
+                    self._indicator_columns
+                ].astype("category")
             X = pd.concat([X[self._features_to_keep], X_impute], axis=1)
         if self._bool_to_cat and self._features_bool:
             # FIXME: Use CategoryFeatureGenerator? Or tell the model which is category
@@ -240,30 +278,24 @@ class RealMLPModel(AbstractModel):
         return X
 
     def _set_default_params(self):
-        default_params = dict(
+        default_params = {
             # Don't use early stopping by default, seems to work well without
-            use_early_stopping=False,
-            early_stopping_additive_patience=40,
-            early_stopping_multiplicative_patience=3,
-
+            "use_early_stopping": False,
+            "early_stopping_additive_patience": 40,
+            "early_stopping_multiplicative_patience": 3,
             # verdict: use_ls="auto" is much better than None.
-            use_ls="auto",
-
+            "use_ls": "auto",
             # verdict: no impact, but makes more sense to be False.
-            impute_bool=False,
-
+            "impute_bool": False,
             # verdict: name_categories=True avoids random exceptions being raised in rare cases
-            name_categories=True,
-
+            "name_categories": True,
             # verdict: bool_to_cat=True is equivalent to False in terms of quality, but can be slightly faster in training time
             #  and slightly slower in inference time
-            bool_to_cat=True,
-
+            "bool_to_cat": True,
             # verdict: "td" is better than "td_s"
-            default_hyperparameters="td",  # options ["td", "td_s"]
-
-            predict_batch_size="auto",  # if auto, uses AutoGluon's heuristic to set a value between 8192 and 64.
-        )
+            "default_hyperparameters": "td",  # options ["td", "td_s"]
+            "predict_batch_size": "auto",  # if auto, uses AutoGluon's heuristic to set a value between 8192 and 64.
+        }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
 
@@ -284,18 +316,23 @@ class RealMLPModel(AbstractModel):
 
     def _estimate_memory_usage(self, X: pd.DataFrame, **kwargs) -> int:
         hyperparameters = self._get_model_params()
-        return self.estimate_memory_usage_static(X=X, problem_type=self.problem_type, num_classes=self.num_classes, hyperparameters=hyperparameters, **kwargs)
+        return self.estimate_memory_usage_static(
+            X=X,
+            problem_type=self.problem_type,
+            num_classes=self.num_classes,
+            hyperparameters=hyperparameters,
+            **kwargs,
+        )
 
     @classmethod
     def _estimate_memory_usage_static(
         cls,
         *,
         X: pd.DataFrame,
-        hyperparameters: dict = None,
+        hyperparameters: dict | None = None,
         **kwargs,
     ) -> int:
-        """
-        Heuristic memory estimate that correlates strongly with RealMLP's more sophisticated method
+        """Heuristic memory estimate that correlates strongly with RealMLP's more sophisticated method.
 
         More comprehensive memory estimate logic:
 
@@ -327,6 +364,7 @@ class RealMLPModel(AbstractModel):
         plr_hidden_1 = hyperparameters.get("plr_hidden_1", 16)
         plr_hidden_2 = hyperparameters.get("plr_hidden_2", 4)
         hidden_width = hyperparameters.get("hidden_width", 256)
+        n_ens = hyperparameters.get("n_ens", 8)
 
         num_features = len(X.columns)
         columns_mem_est = num_features * 8e5
@@ -335,16 +373,35 @@ class RealMLPModel(AbstractModel):
         hidden_2_weight = 0.42
         width_factor = math.sqrt(hidden_width / 256 + 0.6)
 
-        columns_mem_est_hidden_1 = columns_mem_est * hidden_1_weight * plr_hidden_1 / 16 * width_factor
-        columns_mem_est_hidden_2 = columns_mem_est * hidden_2_weight * plr_hidden_2 / 16 * width_factor
+        columns_mem_est_hidden_1 = (
+            columns_mem_est * hidden_1_weight * plr_hidden_1 / 16 * width_factor
+        )
+        columns_mem_est_hidden_2 = (
+            columns_mem_est * hidden_2_weight * plr_hidden_2 / 16 * width_factor
+        )
         columns_mem_est = columns_mem_est_hidden_1 + columns_mem_est_hidden_2
 
-        dataset_size_mem_est = 5 * get_approximate_df_mem_usage(X).sum()  # roughly 5x DataFrame memory size
+        # TODO: this is added here to use RAM estimation as a VRAM proxy.
+        #  In the future, we need another function and logic via `get_minimum_resources`
+        #  to estimate VRAM usage directly.
+        # Linear overhead per ensemble member
+        columns_mem_est *= n_ens
+        # add sample size factor into the estimate
+        columns_mem_est *= max(0.33, len(X) / 8192) # 8192 from batch size heuristic
+
+        dataset_size_mem_est = (
+            5 * get_approximate_df_mem_usage(X).sum()
+        )  # roughly 5x DataFrame memory size
         baseline_overhead_mem_est = 3e8  # 300 MB generic overhead
 
-        mem_estimate = dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
+        return (
+            dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
+        )
 
-        return mem_estimate
+    def _validate_fit_memory_usage(self, mem_error_threshold: float = 1, **kwargs):
+        return super()._validate_fit_memory_usage(
+            mem_error_threshold=mem_error_threshold, **kwargs
+        )
 
     @classmethod
     def _class_tags(cls) -> dict:
@@ -353,5 +410,4 @@ class RealMLPModel(AbstractModel):
     def _more_tags(self) -> dict:
         # TODO: Need to add train params support, track best epoch
         #  How to mirror RealMLP learning rate scheduler while forcing stopping at a specific epoch?
-        tags = {"can_refit_full": False}
-        return tags
+        return {"can_refit_full": False}
