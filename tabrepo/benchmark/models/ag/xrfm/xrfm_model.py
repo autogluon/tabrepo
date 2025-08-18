@@ -223,6 +223,7 @@ class xRFMModel(AbstractModel):
             problem_type=self.problem_type,
             n_threads=num_cpus,
             device=device,
+            random_state=self.random_seed,
             time_limit_s=time_limit - (time.time() - start_time) if time_limit is not None else None,
             **init_kwargs,
         )
@@ -278,10 +279,11 @@ class xRFMModel(AbstractModel):
 
         return X
 
+    def _get_random_seed_from_hyperparameters(self, hyperparameters: dict) -> int | None | str:
+        return hyperparameters.get("random_state", "N/A")
+
     def _set_default_params(self):
         default_params = dict(
-            random_state=0,
-
             # copied from RealMLP
             impute_bool=False,
             name_categories=True,
