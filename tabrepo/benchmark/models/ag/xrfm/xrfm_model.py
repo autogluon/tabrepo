@@ -20,6 +20,9 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 logger = logging.getLogger(__name__)
 
+def my_print(msg):
+    with open("xrfm_model.log", "a") as f:
+        f.write(msg + "\n")
 
 @contextmanager
 def set_logger_level(logger_name: str, level: int):
@@ -54,31 +57,29 @@ class xRFMImplementation:
         self.cat_cols_ = X.select_dtypes(include="category").columns.tolist()
         self.num_cols_ = X.select_dtypes(exclude="category").columns.tolist()
         # todo: 'ignore' may be problematic for the automatic categorical handling of xRFM?
-        self.ohe_ = OneHotEncoder(handle_unknown='ignore')
-        self.std_ = StandardScaler()
+        self.ohe_ = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+        self.scaler_ = StandardScaler()
+
         x_cat_enc = self.ohe_.fit_transform(X.loc[:, self.cat_cols_])
         x_num_enc = X.loc[:, self.num_cols_].to_numpy().astype(np.float32)
-        X = np.concatenate([x_cat_enc, x_num_enc], axis=1)
-        X = self.std_.fit_transform(X)
 
-        # compute categorical info
-        idx = 0
-        categorical_indices = []
-        categorical_vectors = []
-        for cat in self.ohe_.categories_:
-            cat_idxs = torch.tensor(range(idx, idx + len(cat)))
-            categorical_indices.append(cat_idxs)
-            cat_vectors = (np.asarray(self.std_.scale_)[None, cat_idxs.numpy()] *
-                           (np.eye(len(cat)) - np.asarray(self.std_.mean_)[None, cat_idxs.numpy()]))
-            categorical_vectors.append(torch.tensor(cat_vectors, dtype=torch.float32))
-            idx += len(cat)
-        # numerical indices are after the categoricals
-        numerical_indices = idx + torch.arange(x_num_enc.shape[1])
-        self.categorical_info_ = dict(
-            categorical_indices=categorical_indices,
-            categorical_vectors=categorical_vectors,
-            numerical_indices=numerical_indices,
-        )
+        x_val_cat_enc = self.ohe_.transform(X_val.loc[:, self.cat_cols_])
+        x_val_num_enc = X_val.loc[:, self.num_cols_].to_numpy().astype(np.float32)
+
+        if len(self.cat_cols_) == 0:
+            X = x_num_enc
+            X_val = x_val_num_enc
+        elif len(self.num_cols_) == 0:
+            X = x_cat_enc
+            X_val = x_val_cat_enc
+        else:
+            X = np.concatenate([x_cat_enc, x_num_enc], axis=1)
+            X_val = np.concatenate([x_val_cat_enc, x_val_num_enc], axis=1)
+        X = self.scaler_.fit_transform(X)
+        X_val = self.scaler_.transform(X_val)
+
+        X = torch.from_numpy(X).float()
+        X_val = torch.from_numpy(X_val).float()
 
         if self.problem_type == REGRESSION:
             # standardize regression target (may not be necessary)
@@ -90,8 +91,11 @@ class xRFMImplementation:
                 y_val = np.asarray(y_val)
                 y_val = (y_val - self.mean_) / self.std_
 
+        y = torch.from_numpy(y).float()
+        y_val = torch.from_numpy(y_val).float()
+
         self.model = xrfm.xRFM(
-            categorical_info=self.categorical_info_,  # set in preprocess()
+            # categorical_info=self.categorical_info_,  # set in preprocess()
             **self.kwargs,
         )
 
@@ -106,12 +110,12 @@ class xRFMImplementation:
         x_cat_enc = self.ohe_.transform(X.loc[:, self.cat_cols_])
         x_num_enc = X.loc[:, self.num_cols_].to_numpy().astype(np.float32)
         X = np.concatenate([x_cat_enc, x_num_enc], axis=1)
-        X = self.std_.transform(X)
+        X = self.scaler_.transform(X)
         return X
 
     def predict(self, X):
-        y_pred = self.model.predict(self.preprocess_transform(X))
-        if self.task_type == REGRESSION:
+        y_pred = np.squeeze(self.model.predict(self.preprocess_transform(X)), axis=1)
+        if self.problem_type == REGRESSION:
             y_pred = y_pred * self.std_ + self.mean_
         return y_pred
 
@@ -216,13 +220,16 @@ class xRFMModel(AbstractModel):
             X_val = self.preprocess(X_val)
 
         self.model = xRFMImplementation(
+            problem_type=self.problem_type,
             n_threads=num_cpus,
             device=device,
             time_limit_s=time_limit - (time.time() - start_time) if time_limit is not None else None,
             **init_kwargs,
         )
 
-        self.model = self.model.fit(
+        my_print(f"_fit:self.model: {self.model}")
+
+        self.model.fit(
             X=X,
             y=y,
             X_val=X_val,
@@ -230,6 +237,7 @@ class xRFMModel(AbstractModel):
         )
 
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
+        my_print(f"self.model: {self.model}")
         return super()._predict_proba(X=X, kwargs=kwargs)
 
     # TODO: Move missing indicator + mean fill to a generic preprocess flag available to all models

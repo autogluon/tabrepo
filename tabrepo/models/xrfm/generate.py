@@ -18,7 +18,7 @@ def generate_configs_xrfm(num_random_configs=200) -> list:
             Categorical("diag", [False, True]),
             Categorical("early_stop_multiplier", [1.06]),
             Float("exponent", (0.7, 1.4)),
-            Categorical("kernel", ['l1', 'l2']),
+            Categorical("kernel", ['l1_kermac', 'l2']),
             Float("reg", (1e-6, 1e1), log=True),
             # todo: refill size?
             Categorical("classification_mode", ['prevalence']),  # this differs from the paper
