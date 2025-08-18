@@ -6,6 +6,7 @@ from tabrepo.benchmark.experiment.experiment_constructor import (
     AGModelExperiment,
     Experiment,
     YamlExperimentSerializer,
+    YamlSingleExperimentSerializer,
 )
 from tabrepo.benchmark.experiment.experiment_runner import (
     ExperimentRunner,

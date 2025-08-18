@@ -8,7 +8,7 @@ from tabflow.utils.utils import find_method_by_name
 from tabflow.utils.s3_utils import download_from_s3
 from tabflow.utils.logging_utils import setup_logging
 from tabrepo import EvaluationRepository
-from tabrepo.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer, AGExperiment
+from tabrepo.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer, YamlSingleExperimentSerializer, AGExperiment
 from tabrepo.benchmark.models.simple import SimpleLightGBM
 from autogluon.tabular.models import *
 from tabrepo.benchmark.models.ag import *
@@ -35,7 +35,7 @@ def load_tasks(
         fold = task["fold"]
         method_name = task["method_name"]
         method_kwargs = find_method_by_name(methods_config, method_name)
-        method: Experiment = YamlExperimentSerializer.parse_method(method_kwargs, globals())
+        method: Experiment = YamlSingleExperimentSerializer.parse_method(method_kwargs, globals())
 
         task_dict = dict(
             method=method,

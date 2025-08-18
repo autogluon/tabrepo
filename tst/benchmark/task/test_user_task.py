@@ -57,12 +57,14 @@ def test_user_task_as_openml_task(problem_type, expected_cls, tmp_path):
 
     ut = UserTask(
         task_name=f"unit-test-{problem_type}",
+        task_cache_path=tmp_path,
+    )
+    oml_task = ut.create_local_openml_task(
         dataset=df_original,
         target_feature=target_feature,
         problem_type=problem_type,
         splits=splits,
     )
-    oml_task = ut.to_openml_task()
 
     # Check Task Metadata
     assert isinstance(oml_task, expected_cls), (
