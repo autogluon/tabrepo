@@ -54,8 +54,8 @@ class xRFMImplementation:
 
         # preprocessing
 
-        self.cat_cols_ = X.select_dtypes(include="category").columns.tolist()
-        self.num_cols_ = X.select_dtypes(exclude="category").columns.tolist()
+        self.cat_cols_ = X.select_dtypes(include=["category", "string", "object"]).columns.tolist()
+        self.num_cols_ = X.select_dtypes(exclude=["category", "string", "object"]).columns.tolist()
         # todo: 'ignore' may be problematic for the automatic categorical handling of xRFM?
         self.ohe_ = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
         self.scaler_ = StandardScaler()
