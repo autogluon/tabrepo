@@ -41,16 +41,8 @@ class xRFMImplementation:
         self.kwargs = kwargs
 
     def fit(self, X, y, X_val, y_val):
-        try:
-            import xrfm
-            import torch
-        except ImportError as err:
-            logger.log(
-                40,
-                f"\tFailed to import xrfm/torch! To use the xRFM model, "
-                f"do: `pip install autogluon.tabular[xrfm]=={__version__}`.",
-            )
-            raise err
+        import xrfm
+        import torch
 
         # preprocessing
 
@@ -150,15 +142,7 @@ class xRFMModel(AbstractModel):
     ):
         start_time = time.time()
 
-        try:
-            import torch
-        except ImportError as err:
-            logger.log(
-                40,
-                f"\tFailed to import torch! To use the xRFM model, "
-                f"do: `pip install autogluon.tabular[xrfm]=={__version__}`.",
-            )
-            raise err
+        import torch
 
         # FIXME: code assume we only see one GPU in the fit process.
         device = "cpu" if num_gpus == 0 else "cuda:0"
@@ -336,8 +320,9 @@ class xRFMModel(AbstractModel):
         dataset_size_mem_est = 5 * get_approximate_df_mem_usage(X).sum()  # roughly 5x DataFrame memory size
         baseline_overhead_mem_est = 2e8  # 200 MB generic overhead
 
-        mem_estimate = dataset_size_mem_est + columns_mem_est + baseline_overhead_mem_est
-        mem_estimate = min(mem_estimate, 3.8e10)  # using the tree strategy caps at <40 GB
+        model_mem_estimate = columns_mem_est + baseline_overhead_mem_est
+        model_mem_estimate = min(model_mem_estimate, 3.8e10)  # using the tree strategy caps at <40 GB
+        mem_estimate = model_mem_estimate + dataset_size_mem_est
 
         return mem_estimate
 
