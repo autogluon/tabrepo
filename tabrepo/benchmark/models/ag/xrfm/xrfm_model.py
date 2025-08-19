@@ -20,10 +20,6 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 logger = logging.getLogger(__name__)
 
-def my_print(msg):
-    with open("xrfm_model.log", "a") as f:
-        f.write(msg + "\n")
-
 @contextmanager
 def set_logger_level(logger_name: str, level: int):
     _logger = logging.getLogger(logger_name)
@@ -145,8 +141,8 @@ class xRFMModel(AbstractModel):
         import torch
 
         # FIXME: code assume we only see one GPU in the fit process.
-        device = "cpu" if num_gpus == 0 else "cuda:0"
-        if (device == "cuda:0") and (not torch.cuda.is_available()):
+        device = "cpu" if num_gpus == 0 else "cuda"
+        if (device == "cuda") and (not torch.cuda.is_available()):
             raise AssertionError(
                 "Fit specified to use GPU, but CUDA is not available on this machine. "
                 "Please switch to CPU usage instead.",
@@ -212,8 +208,6 @@ class xRFMModel(AbstractModel):
             **init_kwargs,
         )
 
-        my_print(f"_fit:self.model: {self.model}")
-
         self.model.fit(
             X=X,
             y=y,
@@ -222,7 +216,6 @@ class xRFMModel(AbstractModel):
         )
 
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
-        my_print(f"self.model: {self.model}")
         return super()._predict_proba(X=X, kwargs=kwargs)
 
     # TODO: Move missing indicator + mean fill to a generic preprocess flag available to all models
