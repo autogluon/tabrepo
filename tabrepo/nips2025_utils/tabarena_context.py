@@ -65,6 +65,10 @@ class TabArenaContext:
         self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
 
+    @property
+    def methods(self) -> list[str]:
+        return list(self.method_metadata_map.keys())
+
     def method_metadata(self, method: str) -> MethodMetadata:
         return self._method_metadata(method=method)
 
