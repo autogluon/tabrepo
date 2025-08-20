@@ -23,7 +23,11 @@ def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
     return data_aligned
 
 
-def load_all_artifacts(file_paths: list[str | Path], engine: str = "sequential", convert_to_holdout: bool = False) -> list:
+def load_all_artifacts(
+    file_paths: list[str | Path],
+    engine: str = "sequential",
+    convert_to_holdout: bool = False,
+) -> list[BaselineResult]:
     file_paths_lst = []
     for file_path in file_paths:
         file_paths_lst.append(
@@ -34,7 +38,7 @@ def load_all_artifacts(file_paths: list[str | Path], engine: str = "sequential",
         )
 
     ts = time.time()
-    results_lst = parallel_for(
+    results_lst: list[BaselineResult] = parallel_for(
         f=load_and_align,
         inputs=file_paths_lst,
         engine=engine,

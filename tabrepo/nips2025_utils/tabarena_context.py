@@ -8,9 +8,11 @@ import pandas as pd
 
 from autogluon.common.savers import save_pd
 
+from tabrepo.benchmark.result import BaselineResult
 from tabrepo.utils.pickle_utils import fetch_all_pickles
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
+from tabrepo.repository.abstract_repository import AbstractRepository
 from tabrepo.nips2025_utils.generate_repo import generate_repo_from_paths
 from tabrepo.loaders import Paths
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
@@ -63,8 +65,34 @@ class TabArenaContext:
         self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
 
+    @property
+    def methods(self) -> list[str]:
+        return list(self.method_metadata_map.keys())
+
+    def method_metadata(self, method: str) -> MethodMetadata:
+        return self._method_metadata(method=method)
+
     def _method_metadata(self, method: str) -> MethodMetadata:
         return self.method_metadata_map[method]
+
+    def load_raw(self, method: str, as_holdout: bool = False) -> list[BaselineResult]:
+        metadata: MethodMetadata = self.method_metadata(method=method)
+        results_lst = metadata.load_raw(engine=self.engine, as_holdout=as_holdout)
+        return results_lst
+
+    def load_repo(self, methods: list[str | MethodMetadata], config_fallback: str | None = None) -> EvaluationRepositoryCollection:
+        repos = []
+        for method in methods:
+            if isinstance(method, MethodMetadata):
+                metadata = method
+            else:
+                metadata = self.method_metadata(method=method)
+            cur_repo = EvaluationRepository.from_dir(
+                path=metadata.path_processed,
+            )
+            repos.append(cur_repo)
+        repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
+        return repo
 
     def generate_repo(self, method: str) -> Path:
         metadata = self._method_metadata(method=method)
