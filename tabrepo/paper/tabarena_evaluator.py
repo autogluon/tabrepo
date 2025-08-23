@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 import math
 from pathlib import Path
@@ -184,21 +185,18 @@ class TabArenaEvaluator:
             baselines = []
         elif baselines == "auto":
             baselines = [
-                # "AutoGluon 1.3 (5m)",
-                # "AutoGluon 1.3 (1h)",
                 "AutoGluon 1.3 (4h)",
-                # "Portfolio-N200 (ensemble) (4h)",
-                # "Portfolio-N200 (ensemble, holdout) (4h)",
             ]
-            if baseline_colors is None:
-                baseline_colors = [
-                    # "darkgray",
-                    "black",
-                    # "blue",
-                    # "red",
-                ]
         if baseline_colors is None:
-            baseline_colors = []
+            default_baseline_colors = [
+                "black",
+                "purple",
+                "darkgray",
+                "blue",
+                "red",
+            ]
+            # Assign colors dynamically, cycling if baselines > baseline_colors
+            baseline_colors = list(itertools.islice(itertools.cycle(default_baseline_colors), len(baselines)))
         assert len(baselines) == len(baseline_colors)
         method_col = self.method_col
         df_results = df_results.copy(deep=True)
