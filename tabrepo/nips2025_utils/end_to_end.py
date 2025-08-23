@@ -17,11 +17,16 @@ if TYPE_CHECKING:
 
 
 class EndToEnd:
-    def __init__(self, results_lst: list[BaselineResult]):
-        cache = True
-
+    def __init__(
+        self,
+        results_lst: list[BaselineResult | dict],
+        task_metadata: pd.DataFrame | None = None,
+        cache: bool = True,
+    ):
         # raw
-        self.results_lst: list[BaselineResult] = results_lst
+        self.results_lst: list[BaselineResult] = [
+            r if not isinstance(r, dict) else BaselineResult.from_dict(result=r) for r in results_lst
+        ]
         self.method_metadata: MethodMetadata = MethodMetadata.from_raw(
             results_lst=self.results_lst
         )
@@ -35,8 +40,10 @@ class EndToEnd:
             self.method_metadata.to_yaml()
             self.method_metadata.cache_raw(results_lst=self.results_lst)
 
-        tids = list({r.task_metadata["tid"] for r in self.results_lst})
-        self.task_metadata = generate_task_metadata(tids=tids)
+        if task_metadata is None:
+            tids = list({r.task_metadata["tid"] for r in self.results_lst})
+            task_metadata = generate_task_metadata(tids=tids)
+        self.task_metadata = task_metadata
 
         # processed
         self.repo: EvaluationRepository = self.method_metadata.generate_repo(
@@ -49,6 +56,7 @@ class EndToEnd:
         tabarena_context = TabArenaContext()
         self.hpo_results, self.model_results = tabarena_context.simulate_repo(
             method=self.method_metadata,
+            repo=self.repo,
             use_rf_config_fallback=False,
             cache=cache,
         )
@@ -72,6 +80,13 @@ class EndToEnd:
         )
         results_lst = method_metadata.load_raw()
         return cls(results_lst=results_lst)
+
+    def to_results(self) -> EndToEndResults:
+        return EndToEndResults(
+            method_metadata=self.method_metadata,
+            hpo_results=self.hpo_results,
+            model_results=self.model_results,
+        )
 
 
 class EndToEndResults:
@@ -106,6 +121,7 @@ class EndToEndResults:
         df_results_extra: pd.DataFrame = None,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
+        use_model_results: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
 
@@ -121,8 +137,12 @@ class EndToEndResults:
         """
 
         if self.method_metadata.method_type == "config":
-            df_metrics = self.hpo_results
-            baselines_extra = []
+            if use_model_results:
+                df_metrics = self.model_results
+                baselines_extra = list(df_metrics["method"].unique())
+            else:
+                df_metrics = self.hpo_results
+                baselines_extra = []
         else:
             df_metrics = self.model_results
             baselines_extra = list(df_metrics["method"].unique())
@@ -225,17 +245,7 @@ class EndToEndResults:
         baselines = [
             "AutoGluon 1.3 (4h)",
         ]
-
-        baseline_colors = [
-            "black",
-            "purple",
-            "darkgray",
-            "blue",
-            "red",
-        ]
-
         baselines += baselines_extra
-        baseline_colors = baseline_colors[:len(baselines)]
 
         plotter = TabArenaEvaluator(
             output_dir=output_dir,
@@ -243,7 +253,6 @@ class EndToEndResults:
         return plotter.eval(
             df_results=df_results,
             baselines=baselines,
-            baseline_colors=baseline_colors,
             plot_extra_barplots=False,
             plot_times=True,
             plot_other=False,
