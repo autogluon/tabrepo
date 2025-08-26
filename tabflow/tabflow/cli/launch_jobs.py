@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import boto3
 import sagemaker
 import argparse
@@ -214,13 +216,54 @@ class JobManager:
         repeats: list[int],
         folds: list[int],
         methods: list[dict],
-    ):
+    ) -> list[tuple[str, int, int, dict]]:
         for dataset in datasets:
             assert dataset in self.datasets_to_tids
         tasks = [(dataset, repeat, fold, method) for dataset in datasets for repeat in repeats for fold in folds for method in methods]
         return tasks
 
-    def run_tasks(self, tasks: list[tuple], check_cache: bool = False, batch_size: int | None = None):
+    def get_tasks_batched(
+        self,
+        datasets: list[str],
+        methods: list[dict],
+        batch_size: int | None = None,
+        ignore_cache: bool = False,
+    ) -> list[list[tuple[str, int, int, dict]]]:
+        if batch_size is None:
+            batch_size = self.batch_size
+        for dataset in datasets:
+            assert dataset in self.datasets_to_tids
+        repeats_fold_dict = {}
+        for dataset in datasets:
+            cur_repeats = self.task_metadata[self.task_metadata["name"] == dataset].iloc[0]["n_repeats"]
+            cur_folds = self.task_metadata[self.task_metadata["name"] == dataset].iloc[0]["n_folds"]
+            if (cur_repeats, cur_folds) not in repeats_fold_dict.keys():
+                repeats_fold_dict[(cur_repeats, cur_folds)] = []
+            repeats_fold_dict[(cur_repeats, cur_folds)].append(dataset)
+
+        repeats_folds_tasks_dict = dict()
+        for (cur_repeats, cur_folds), cur_datasets in repeats_fold_dict.items():
+            repeats = [i for i in range(cur_repeats)]
+            folds = [i for i in range(cur_folds)]
+            cur_tasks_dense = self.get_tasks_dense(
+                datasets=cur_datasets,
+                repeats=repeats,
+                folds=folds,
+                methods=methods,
+            )
+            repeats_folds_tasks_dict[(cur_repeats, cur_folds)] = cur_tasks_dense
+
+        tasks_batch_lst = []
+
+        for (cur_repeats, cur_folds), cur_tasks_dense in repeats_folds_tasks_dict.items():
+            if not ignore_cache:
+                cur_tasks_dense = self.filter_to_only_uncached_tasks(tasks=cur_tasks_dense, verbose=True)
+            cur_tasks_batch = self.batch_tasks(tasks=cur_tasks_dense, batch_size=batch_size)
+            tasks_batch_lst.append(cur_tasks_batch)
+        tasks_batch_combined = [task_batch for tasks_batch in tasks_batch_lst for task_batch in tasks_batch]
+        return tasks_batch_combined
+
+    def run_tasks(self, tasks: list[tuple[str, int, int, dict]], check_cache: bool = False, batch_size: int | None = None):
         if batch_size is None:
             batch_size = self.batch_size
         if len(tasks) == 0:
@@ -235,7 +278,7 @@ class JobManager:
 
         self.run_tasks_batched(task_batch_lst=task_batch_lst, check_cache=check_cache)
 
-    def run_tasks_batched(self, task_batch_lst: list[list[tuple]], check_cache: bool = False):
+    def run_tasks_batched(self, task_batch_lst: list[list[tuple[str, int, int, dict]]], check_cache: bool = False):
         total_jobs = len(task_batch_lst)
         self.resource_manager.total_jobs = total_jobs
 
@@ -253,8 +296,11 @@ class JobManager:
         if self.wait:
             self.resource_manager.wait_for_all_jobs(s3_client=self.s3_client, s3_bucket=self.s3_bucket)
 
-
-    def batch_tasks(self, tasks: list[tuple], batch_size: int) -> list[list[tuple]]:
+    def batch_tasks(
+        self,
+        tasks: list[tuple[str, int, int, dict]],
+        batch_size: int,
+    ) -> list[list[tuple[str, int, int, dict]]]:
         task_batch_lst = list(create_batch(tasks, batch_size))
         return task_batch_lst
 

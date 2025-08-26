@@ -45,8 +45,9 @@ WORKDIR /workspace
 RUN set -ex && \
     git clone --depth 1 https://github.com/autogluon/autogluon && \
     ./autogluon/full_install.sh && \
-    uv cache prune --all && \
-    uv pip uninstall -y uv && \
+    uv cache clean && \
+    uv cache prune && \
+    pip uninstall -y uv && \
     rm -rf ~/.cache/uv
 
 # Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
