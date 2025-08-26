@@ -36,7 +36,7 @@ e.g: https://us-west-2.console.aws.amazon.com/s3/buckets/prateek-ag?prefix=tabar
 aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-lightgbm-demo/ --exclude "*.log"
 
 # 8. Aggregate the local artifacts and evaluate them
-TODO
+Refer to `run_evaluate_lightgbm_demo.py`
 """
 
 # TODO: Don't require yaml methods file, allow to specify directly
