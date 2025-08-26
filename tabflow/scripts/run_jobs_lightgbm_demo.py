@@ -13,6 +13,8 @@ less ~/.aws/config
 
 # Download the artifacts to local
 aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-lightgbm-demo/ --exclude "*.log"
+
+# View the jobs and check their logs
 https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs
 """
 
