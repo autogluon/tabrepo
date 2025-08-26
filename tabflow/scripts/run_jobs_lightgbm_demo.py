@@ -2,33 +2,42 @@ from tabflow.cli.launch_jobs import JobManager
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 
 """
-# 1. Build the docker
+# 1. Build the docker (ensure you use your own docker name to avoid overwriting other user's docker containers
 bash ./tabrepo/tabflow/docker/build_docker.sh tabarena tabarena-neerick 763104351884 097403188315 us-west-2
+"""
+docker_image_uri = "097403188315.dkr.ecr.us-west-2.amazonaws.com/tabarena:tabarena-neerick"
 
+"""
 # 2. Need to set aws default region to us-west-2
 aws configure
 Default region name [None]: us-west-2
 less ~/.aws/config
 # delete config to revert
+TODO: Make this not be required
+"""
 
-# 3. Run this script
+"""
+# 3. Create a sagemaker role (only for fresh AWS account)
+TODO
+"""
+sagemaker_role = "arn:aws:iam::097403188315:role/service-role/AmazonSageMaker-ExecutionRole-20250128T153145"
 
-# 4. View the jobs and check their logs
+"""
+# 4. Run this script (working directory should be one level above the root of `tabrepo`)
+
+# 5. View the jobs and check their logs
 https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs
 
-# 5. View the result artifacts
+# 6. View the result artifacts
 https://us-west-2.console.aws.amazon.com/s3/buckets/{s3_bucket}?prefix={experiment_name}/
 e.g: https://us-west-2.console.aws.amazon.com/s3/buckets/prateek-ag?prefix=tabarena-lightgbm-demo/
 
-# 6. Download the artifacts to local
+# 7. Download the artifacts to local
 aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-lightgbm-demo/ --exclude "*.log"
 
-# 7. Aggregate the local artifacts and evaluate them
+# 8. Aggregate the local artifacts and evaluate them
 TODO
 """
-
-docker_image_uri = "097403188315.dkr.ecr.us-west-2.amazonaws.com/tabarena:tabarena-neerick"
-sagemaker_role = "arn:aws:iam::097403188315:role/service-role/AmazonSageMaker-ExecutionRole-20250128T153145"
 
 
 if __name__ == "__main__":
