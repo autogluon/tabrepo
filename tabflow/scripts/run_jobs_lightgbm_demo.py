@@ -39,7 +39,9 @@ aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-
 TODO
 """
 
-
+# TODO: Don't require yaml methods file, allow to specify directly
+# TODO: Add final result evaluation instructions
+# TODO: Add example for custom model / non-AG model
 if __name__ == "__main__":
     tabarena_context = TabArenaContext()
     task_metadata = tabarena_context.task_metadata.copy()  # metadata about the available datasets
@@ -55,19 +57,20 @@ if __name__ == "__main__":
     region_name = "us-west-2"  # AWS region to create instances. Keep as us-west-2.
     instance_type = "ml.m6i.2xlarge"  # options: ml.m6i.2xlarge (cpu, 15k cap), ml.g6.2xlarge (gpu, 400 cap)
 
-    methods_file = "./tabrepo/tabflow/configs/configs_lightgbm_demo.yaml"
+    methods_file = "./tabrepo/tabflow/configs/configs_lightgbm_demo.yaml"  # 2 lightgbm configs
     methods = JobManager.load_methods_from_yaml(methods_file=methods_file)
 
-    datasets = list(task_metadata["name"])
     toy_run = True
 
     # toy run
     if toy_run:
-        # only run 1 dataset
+        # only run 3 small datasets
         # only run 1 fold and 1 repeat per dataset
-        datasets = datasets[:1]
+        datasets = ["anneal", "credit-g", "diabetes"]
         task_metadata["n_folds"] = 1
         task_metadata["n_repeats"] = 1
+    else:
+        datasets = list(task_metadata["name"])
 
     job_manager = JobManager(
         experiment_name=experiment_name,
