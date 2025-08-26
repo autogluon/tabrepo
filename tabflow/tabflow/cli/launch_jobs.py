@@ -37,7 +37,6 @@ class JobManager:
     def __init__(
         self,
         experiment_name: str,
-        methods_file: str,
         task_metadata: pd.DataFrame,
         s3_bucket: str,
         docker_image_uri: str,
@@ -50,6 +49,8 @@ class JobManager:
         max_concurrent_jobs: int = 30,
         max_retry_attempts: int = 20,
         batch_size: int = 1,
+        methods_content: str | None = None,
+        methods_file: str | None = None,
         aws_profile: str | None = None,
         hyperparameters: dict = None,
         add_timestamp: bool = False,
@@ -84,6 +85,8 @@ class JobManager:
             Maximum running time in seconds
         methods_file:
             Path to the YAML file containing methods
+        methods_content:
+            The YAML str content for methods. Alternative input to `methods_file` which avoids needing a YAML file.
         max_concurrent_jobs:
             Maximum number of concurrent jobs, based on account limit
         S3 bucket:
@@ -114,6 +117,11 @@ class JobManager:
         self.datasets_to_tids = self.task_metadata.set_index("dataset")["tid"].to_dict()
 
         self.experiment_name = experiment_name
+        if methods_content is not None:
+            assert methods_file is None, f"Only one of `methods_file`, `methods_content` can be specified."
+        elif methods_file is None:
+            raise AssertionError(f"Must specify one of `methods_file`, `methods_content`.")
+        self.methods_content = methods_content
         self.methods_file = methods_file
         self.s3_bucket = s3_bucket
         self.docker_image_uri = docker_image_uri
@@ -199,7 +207,15 @@ class JobManager:
 
     def upload_methods_file_to_s3(self):
         self._is_methods_file_uploaded = True
-        self.s3_client.upload_file(self.methods_file, self.s3_bucket, self.methods_s3_key)
+        if self.methods_file is not None:
+            self.s3_client.upload_file(self.methods_file, self.s3_bucket, self.methods_s3_key)
+        else:
+            assert self.methods_content is not None
+            self.s3_client.put_object(
+                Bucket=self.s3_bucket,
+                Key=self.methods_s3_key,
+                Body=self.methods_content.encode("utf-8"),
+            )
 
     def upload_task_metadata_file_to_s3(self):
         self._is_task_metadata_file_uploaded = True

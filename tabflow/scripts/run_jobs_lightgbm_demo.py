@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 from tabflow.cli.launch_jobs import JobManager
+from tabrepo.models.lightgbm.generate import gen_lightgbm
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
+from tabrepo.benchmark.experiment.experiment_constructor import Experiment, YamlExperimentSerializer
 
 """
 # 1. Build the docker (ensure you use your own docker name to avoid overwriting other user's docker containers
@@ -39,8 +43,6 @@ aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-
 Refer to `run_evaluate_lightgbm_demo.py`
 """
 
-# TODO: Don't require yaml methods file, allow to specify directly
-# TODO: Add final result evaluation instructions
 # TODO: Add example for custom model / non-AG model
 if __name__ == "__main__":
     tabarena_context = TabArenaContext()
@@ -51,14 +53,20 @@ if __name__ == "__main__":
 
     max_concurrent_jobs = 10  # the max number of instances running jobs at the same time (values 1 - 15000)
     batch_size = 1  # The number of jobs to give to a single instance to run sequentially.
-    wait = True  # If True, will keep the process alive until all jobs are finished launching.
+    wait = True  # If True, will only return when all jobs are finished running.
     ignore_cache = False  # If True, will overwrite prior results in s3. If False, will skip runs for finished jobs.
 
     region_name = "us-west-2"  # AWS region to create instances. Keep as us-west-2.
     instance_type = "ml.m6i.2xlarge"  # options: ml.m6i.2xlarge (cpu, 15k cap), ml.g6.2xlarge (gpu, 400 cap)
 
-    methods_file = "./tabrepo/tabflow/configs/configs_lightgbm_demo.yaml"  # 2 lightgbm configs
-    methods = JobManager.load_methods_from_yaml(methods_file=methods_file)
+    use_yaml_file = False  # two alternative ways of getting the methods info
+    if use_yaml_file:
+        methods_file = "./tabrepo/tabflow/configs/configs_lightgbm_demo.yaml"  # 2 lightgbm configs
+        methods: list[Experiment] = YamlExperimentSerializer.from_yaml(path=methods_file)
+    else:
+        methods: list[Experiment] = gen_lightgbm.generate_all_bag_experiments(num_random_configs=1)
+    methods_content = YamlExperimentSerializer.to_yaml_str(methods)
+    methods_as_dict: list[dict] = [m.to_yaml_dict() for m in methods]
 
     toy_run = True
 
@@ -75,7 +83,7 @@ if __name__ == "__main__":
     job_manager = JobManager(
         experiment_name=experiment_name,
         task_metadata=task_metadata,
-        methods_file=methods_file,
+        methods_content=methods_content,
         max_concurrent_jobs=max_concurrent_jobs,
         s3_bucket=s3_bucket,
         wait=wait,
@@ -88,7 +96,7 @@ if __name__ == "__main__":
     # get the list of jobs to execute
     tasks_batched = job_manager.get_tasks_batched(
         datasets=datasets,
-        methods=methods,
+        methods=methods_as_dict,
         batch_size=batch_size,
         ignore_cache=ignore_cache,
     )

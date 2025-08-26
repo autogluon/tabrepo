@@ -75,6 +75,10 @@ class Experiment:
         with open(path, 'w') as outfile:
             yaml.dump(yaml_out, outfile, default_flow_style=False)
 
+    def to_yaml_str(self) -> str:
+        yaml_out = self.to_yaml_dict()
+        return yaml.safe_dump(yaml_out, sort_keys=False, allow_unicode=True)
+
     def _to_yaml_dict(self, locals: dict) -> dict:
         locals_new = {}
         for k, v in locals.items():
