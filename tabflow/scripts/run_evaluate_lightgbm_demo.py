@@ -1,8 +1,16 @@
 from pathlib import Path
 
+import pandas as pd
+
 from tabrepo.nips2025_utils.end_to_end import EndToEnd, EndToEndResults
 
 
+"""
+First refer to `run_jobs_lightgbm_demo.py
+
+# Get required input files
+aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-lightgbm-demo/ --exclude "*.log"
+"""
 if __name__ == '__main__':
     method = "LightGBM_demo"
     name_suffix = "_demo"
@@ -39,7 +47,7 @@ if __name__ == '__main__':
     """
     end_to_end_results = EndToEndResults.from_cache(method=method)
 
-    leaderboard = end_to_end_results.compare_on_tabarena(
+    leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=fig_output_dir,
         filter_dataset_fold=True,
     )
