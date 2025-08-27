@@ -154,30 +154,25 @@ class EndToEndResultsMulti:
                 Use this, for example, if you re-run a model from TabArena.
         """
 
-        df_metrics, baselines_extra = self.get_results(use_model_results=use_model_results, new_result_prefix=new_result_prefix)
+        df_metrics = self.get_results(use_model_results=use_model_results, new_result_prefix=new_result_prefix)
 
         return compare_on_tabarena(
             output_dir=output_dir,
             df_metrics=df_metrics,
             filter_dataset_fold=filter_dataset_fold,
-            baselines_extra=baselines_extra,
             df_results_extra=df_results_extra,
             subset=subset,
         )
 
-    def get_results(self, use_model_results: bool, new_result_prefix: str | None = None) -> tuple[pd.DataFrame, list[str]]:
+    def get_results(self, use_model_results: bool, new_result_prefix: str | None = None) -> pd.DataFrame:
         df_metrics_lst = []
-        baselines_extra_lst = []
         for result in self.end_to_end_results_lst:
-            df_metrics, baselines_extra = result.get_results(
+            df_metrics_lst.append(result.get_results(
                 use_model_results=use_model_results,
                 new_result_prefix=new_result_prefix,
-            )
-            df_metrics_lst.append(df_metrics)
-            baselines_extra_lst.append(baselines_extra)
+            ))
         df_metrics = pd.concat(df_metrics_lst, ignore_index=True)
-        baselines_extra = [b for baselines_extra in baselines_extra_lst for b in baselines_extra]
-        return df_metrics, baselines_extra
+        return df_metrics
 
 
 class EndToEndResults:
@@ -227,7 +222,7 @@ class EndToEndResults:
                 Use this, for example, if you re-run a model from TabArena.
         """
 
-        df_metrics, baselines_extra = self.get_results(
+        df_metrics = self.get_results(
             use_model_results=use_model_results,
             new_result_prefix=new_result_prefix,
         )
@@ -236,12 +231,11 @@ class EndToEndResults:
             output_dir=output_dir,
             df_metrics=df_metrics,
             filter_dataset_fold=filter_dataset_fold,
-            baselines_extra=baselines_extra,
             df_results_extra=df_results_extra,
             subset=subset,
         )
 
-    def get_results(self, use_model_results: bool, new_result_prefix: str | None = None) -> tuple[pd.DataFrame, list[str]]:
+    def get_results(self, use_model_results: bool, new_result_prefix: str | None = None) -> pd.DataFrame:
         use_model_results = self.method_metadata.method_type != "config" or use_model_results
 
         if use_model_results:
@@ -253,8 +247,4 @@ class EndToEndResults:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
                 df_metrics[col] = new_result_prefix + df_metrics[col]
 
-        if use_model_results:
-            baselines_extra = list(df_metrics["method"].unique())
-        else:
-            baselines_extra = []
-        return df_metrics, baselines_extra
+        return df_metrics

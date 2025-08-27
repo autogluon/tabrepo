@@ -11,7 +11,6 @@ from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
 def compare_on_tabarena(
     output_dir: str | Path,
     df_metrics: pd.DataFrame,
-    baselines_extra: list[str] = None,
     *,
     filter_dataset_fold: bool = False,
     df_results_extra: pd.DataFrame = None,
@@ -26,7 +25,10 @@ def compare_on_tabarena(
     tabarena_context = TabArenaContext()
 
     fillna_method = "RF (default)"
-    paper_results = tabarena_context.load_results_paper(download_results="auto")
+    paper_results = tabarena_context.load_results_paper(
+        download_results="auto",
+        methods_drop=["Portfolio-N200-4h"],  # TODO: Clean this up by not including by default
+    )
 
     if filter_dataset_fold:
         paper_results = filter_to_valid_tasks(
@@ -63,7 +65,6 @@ def compare_on_tabarena(
         )
 
         df_results = pd.concat([df_results, df_results_extra], ignore_index=True)
-        baselines_extra += list(df_results_extra[df_results_extra["method_type"].isin(['baseline', 'portfolio'])]["method"].unique())
 
     if subset is not None:
         if isinstance(subset, str):
@@ -85,10 +86,12 @@ def compare_on_tabarena(
             imputed_names.remove("KNN")
         print(f"Model for which results were imputed: {imputed_names}")
 
-    baselines = [
-        "AutoGluon 1.3 (4h)",
-    ]
-    baselines += baselines_extra
+    baselines = list(
+        df_results[
+            df_results["method_type"].isin(['baseline', 'portfolio']) |
+            ((df_results["method_type"] == "config") & df_results["method_subtype"].isna())
+        ]["method"].unique()
+    )
 
     plotter = TabArenaEvaluator(
         output_dir=output_dir,
