@@ -41,7 +41,6 @@ def compare_on_tabarena(
         df_to_fill=new_results,
         df_fillna=paper_results[paper_results["method"] == fillna_method],
     )
-
     df_results = pd.concat([paper_results, new_results], ignore_index=True)
 
     if subset is not None:
@@ -49,20 +48,7 @@ def compare_on_tabarena(
             subset = [subset]
         df_results = subset_tasks(df_results=df_results, subset=subset)
 
-    # Handle imputation of names
-    imputed_names = list(df_results["method"][df_results["imputed"] > 0].unique())
-    if len(imputed_names) == 0:
-        imputed_names = None
-    if imputed_names is not None:
-        from tabrepo.paper.paper_utils import get_method_rename_map
-
-        # remove suffix
-        imputed_names = [n.split(" (")[0] for n in imputed_names]
-        imputed_names = [get_method_rename_map().get(n, n) for n in imputed_names]
-        imputed_names = list(set(imputed_names))
-        if "KNN" in imputed_names:
-            imputed_names.remove("KNN")
-        print(f"Model for which results were imputed: {imputed_names}")
+    imputed_names = get_imputed_names(df_results=df_results)
 
     baselines = list(
         df_results[
@@ -77,10 +63,10 @@ def compare_on_tabarena(
     return plotter.eval(
         df_results=df_results,
         baselines=baselines,
+        imputed_names=imputed_names,
         plot_extra_barplots=False,
         plot_times=True,
         plot_other=False,
-        imputed_names=imputed_names,
     )
 
 
@@ -142,3 +128,21 @@ def subset_tasks(df_results: pd.DataFrame, subset: list[str]) -> pd.DataFrame:
             raise ValueError(f"Invalid subset {subset} name!")
         df_results = df_results.reset_index(drop=True)
     return df_results
+
+
+def get_imputed_names(df_results: pd.DataFrame) -> list[str]:
+    # Handle imputation of names
+    imputed_names = list(df_results["method"][df_results["imputed"] > 0].unique())
+    if len(imputed_names) == 0:
+        return []
+
+    from tabrepo.paper.paper_utils import get_method_rename_map
+
+    # remove suffix
+    imputed_names = [n.split(" (")[0] for n in imputed_names]
+    imputed_names = [get_method_rename_map().get(n, n) for n in imputed_names]
+    imputed_names = list(set(imputed_names))
+    if "KNN" in imputed_names:
+        imputed_names.remove("KNN")
+    print(f"Model for which results were imputed: {imputed_names}")
+    return imputed_names

@@ -152,8 +152,11 @@ class EndToEndResultsMulti:
                 results to distinguish new results from the original TabArena results.
                 Use this, for example, if you re-run a model from TabArena.
         """
-
-        results = self.get_results(use_model_results=use_model_results, new_result_prefix=new_result_prefix)
+        results = self.get_results(
+            new_result_prefix=new_result_prefix,
+            use_model_results=use_model_results,
+            fillna=not filter_dataset_fold,
+        )
 
         return compare_on_tabarena(
             new_results=results,
@@ -162,15 +165,21 @@ class EndToEndResultsMulti:
             subset=subset,
         )
 
-    def get_results(self, use_model_results: bool, new_result_prefix: str | None = None) -> pd.DataFrame:
-        df_metrics_lst = []
+    def get_results(
+        self,
+        new_result_prefix: str | None = None,
+        use_model_results: bool = False,
+        fillna: bool = False,
+    ) -> pd.DataFrame:
+        df_results_lst = []
         for result in self.end_to_end_results_lst:
-            df_metrics_lst.append(result.get_results(
-                use_model_results=use_model_results,
+            df_results_lst.append(result.get_results(
                 new_result_prefix=new_result_prefix,
+                use_model_results=use_model_results,
+                fillna=fillna,
             ))
-        df_metrics = pd.concat(df_metrics_lst, ignore_index=True)
-        return df_metrics
+        df_results = pd.concat(df_results_lst, ignore_index=True)
+        return df_results
 
 
 class EndToEndResults:
@@ -218,10 +227,10 @@ class EndToEndResults:
                 results to distinguish new results from the original TabArena results.
                 Use this, for example, if you re-run a model from TabArena.
         """
-
         results = self.get_results(
-            use_model_results=use_model_results,
             new_result_prefix=new_result_prefix,
+            use_model_results=use_model_results,
+            fillna=not filter_dataset_fold,
         )
 
         return compare_on_tabarena(
@@ -231,16 +240,50 @@ class EndToEndResults:
             subset=subset,
         )
 
-    def get_results(self, use_model_results: bool, new_result_prefix: str | None = None) -> pd.DataFrame:
+    def get_results(
+        self,
+        new_result_prefix: str | None = None,
+        use_model_results: bool = False,
+        fillna: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Get data to compare results on TabArena leaderboard.
+            Args:
+                new_result_prefix (str | None): If not None, add a prefix to the new
+                    results to distinguish new results from the original TabArena results.
+                    Use this, for example, if you re-run a model from TabArena.
+        """
         use_model_results = self.method_metadata.method_type != "config" or use_model_results
 
         if use_model_results:
-            df_metrics = self.model_results
+            df_results = self.model_results
         else:
-            df_metrics = self.hpo_results
+            df_results = self.hpo_results
 
         if new_result_prefix is not None:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
-                df_metrics[col] = new_result_prefix + df_metrics[col]
+                df_results[col] = new_result_prefix + df_results[col]
 
-        return df_metrics
+        if fillna:
+            df_results = self.fillna_results_on_tabarena(df_results=df_results)
+
+        return df_results
+
+    @classmethod
+    def fillna_results_on_tabarena(cls, df_results: pd.DataFrame) -> pd.DataFrame:
+        tabarena_context = TabArenaContext()
+        fillna_method = "RF (default)"
+        fillna_method_name = "RandomForest"
+
+        df_fillna = tabarena_context.load_results_paper(methods=[fillna_method_name])
+        df_fillna = df_fillna[df_fillna["method"] == fillna_method]
+        assert not df_fillna.empty
+
+        # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
+        #  need to use original, not filled values
+        #  This doesn't impact the evaluation, but could introduce bugs in future if we use these columns
+        #  Fixing this is do-able, but requires some complex pandas tricks, so I haven't had time to implement it yet
+        return TabArenaContext.fillna_metrics(
+            df_to_fill=df_results,
+            df_fillna=df_fillna,
+        )
