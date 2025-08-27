@@ -16,7 +16,6 @@ def compare_on_tabarena(
     filter_dataset_fold: bool = False,
     df_results_extra: pd.DataFrame = None,
     subset: str | list[str] | None = None,
-    new_result_prefix: str | None = None,
 ) -> pd.DataFrame:
     df_metrics = df_metrics.copy(deep=True)
     if df_results_extra is not None:
@@ -28,10 +27,6 @@ def compare_on_tabarena(
 
     fillna_method = "RF (default)"
     paper_results = tabarena_context.load_results_paper(download_results="auto")
-
-    if new_result_prefix is not None:
-        for col in ["method", "config_type", "ta_name", "ta_suite"]:
-            df_metrics[col] = new_result_prefix + df_metrics[col]
 
     if filter_dataset_fold:
         paper_results = filter_to_valid_tasks(
