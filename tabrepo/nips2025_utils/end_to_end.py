@@ -10,7 +10,7 @@ from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndRes
 from tabrepo.nips2025_utils.method_processor import get_info_from_result
 
 
-class EndToEndMulti:
+class EndToEnd:
     def __init__(
         self,
         results_lst: list[BaselineResult | dict],
@@ -37,13 +37,13 @@ class EndToEndMulti:
             cur_end_to_end = EndToEndSingle(results_lst=cur_results_lst, task_metadata=task_metadata, cache=cache)
             self.end_to_end_lst.append(cur_end_to_end)
 
-    def to_results(self) -> EndToEndResultsMulti:
-        return EndToEndResultsMulti(
+    def to_results(self) -> EndToEndResults:
+        return EndToEndResults(
             end_to_end_results_lst=[end_to_end.to_results() for end_to_end in self.end_to_end_lst],
         )
 
 
-class EndToEndResultsMulti:
+class EndToEndResults:
     def __init__(
         self,
         end_to_end_results_lst: list[EndToEndResultsSingle],
