@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 
 from tabrepo.benchmark.experiment import AGModelBagExperiment, ExperimentBatchRunner
-from tabrepo.nips2025_utils.end_to_end import EndToEnd
+from tabrepo.nips2025_utils.end_to_end import EndToEndMulti
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 from tabrepo.tabarena.website_format import format_leaderboard
 
@@ -25,6 +25,7 @@ if __name__ == '__main__':
 
     # import your model classes
     from tabrepo.benchmark.models.ag import RealMLPModel
+    from autogluon.tabular.models import LGBModel
 
     # This list of methods will be fit sequentially on each task (dataset x fold)
     methods = [
@@ -36,6 +37,19 @@ if __name__ == '__main__':
             # The class of the model. Can also be a string if AutoGluon recognizes it, such as `"GBM"`
             # Supports any model that inherits from `autogluon.core.models.AbstractModel`
             model_cls=RealMLPModel,
+            model_hyperparameters={
+                # "ag_args_ensemble": {"fold_fitting_strategy": "sequential_local"},  # uncomment to fit folds sequentially, allowing for use of a debugger
+            },  # The non-default model hyperparameters.
+            num_bag_folds=8,  # num_bag_folds=8 was used in the TabArena 2025 paper
+            time_limit=3600,  # time_limit=3600 was used in the TabArena 2025 paper
+        ),        # This will be a `config` in EvaluationRepository, because it computes out-of-fold predictions and thus can be used for post-hoc ensemble.
+        AGModelBagExperiment(  # Wrapper for fitting a single bagged model via AutoGluon
+            # The name you want the config to have
+            name="LightGBM_c1_BAG_L1_Reproduced",
+
+            # The class of the model. Can also be a string if AutoGluon recognizes it, such as `"GBM"`
+            # Supports any model that inherits from `autogluon.core.models.AbstractModel`
+            model_cls=LGBModel,
             model_hyperparameters={
                 # "ag_args_ensemble": {"fold_fitting_strategy": "sequential_local"},  # uncomment to fit folds sequentially, allowing for use of a debugger
             },  # The non-default model hyperparameters.
@@ -57,17 +71,18 @@ if __name__ == '__main__':
 
     # FIXME: Support multiple different methods in EndToEnd
     # compute results
-    end_to_end = EndToEnd(results_lst=results_lst, task_metadata=task_metadata, cache=False)
+    end_to_end = EndToEndMulti(results_lst=results_lst, task_metadata=task_metadata, cache=False)
     end_to_end_results = end_to_end.to_results()
 
-    print(f"New Configs Hyperparameters: {end_to_end.repo.configs_hyperparameters()}")
-    with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
-        print(f"Results:\n{end_to_end_results.model_results.head(100)}")
+    # print(f"New Configs Hyperparameters: {end_to_end.repo.configs_hyperparameters()}")
+    # with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
+    #     print(f"Results:\n{end_to_end_results.model_results.head(100)}")
 
     leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=eval_dir,
         filter_dataset_fold=True,  # True: only compare on tasks ran in `results_lst`
         use_model_results=True,  # If False: Will instead use the ensemble/HPO results
+        new_result_prefix="Demo_",
     )
     leaderboard_website = format_leaderboard(df_leaderboard=leaderboard)
     print(leaderboard_website.to_markdown(index=False))
