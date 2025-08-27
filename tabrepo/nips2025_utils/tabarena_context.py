@@ -456,7 +456,8 @@ class TabArenaContext:
         a.index = nan_vals
         df_filled.loc[nan_vals] = a
 
-        df_filled["imputed"] = False
+        if "imputed" not in df_filled.columns:
+            df_filled["imputed"] = False
         df_filled.loc[nan_vals, "imputed"] = True
 
         df_to_fill = df_filled
