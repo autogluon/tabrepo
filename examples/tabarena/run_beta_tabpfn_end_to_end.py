@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from tabrepo.nips2025_utils.artifacts.download_utils import download_and_extract_zip
-from tabrepo.nips2025_utils.end_to_end import EndToEndSingle, EndToEndResultsSingle
+from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
 
 
 if __name__ == '__main__':
@@ -18,7 +18,6 @@ if __name__ == '__main__':
     Run logic end-to-end and cache all results:
     1. load raw artifacts
         path_raw should be a directory containing `results.pkl` files for each run.
-        In the current code, we require `path_raw` to contain the results of only 1 type of method.
     2. infer method_metadata
     3. cache method_metadata
     4. cache raw artifacts
@@ -36,8 +35,7 @@ if __name__ == '__main__':
     """
     Load cached results and compare on TabArena
     1. Generates figures and leaderboard using the TabArena methods and the user's method
-    2. Currently compares on all datasets, does not compare on subsets.
-    3. Missing values are imputed to default RandomForest.
+    2. Missing values are imputed to default RandomForest.
     """
     end_to_end_results = EndToEndResultsSingle.from_cache(method=method)
     leaderboard = end_to_end_results.compare_on_tabarena(output_dir=fig_output_dir)

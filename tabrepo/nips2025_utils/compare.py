@@ -12,7 +12,7 @@ def compare_on_tabarena(
     new_results: pd.DataFrame,
     output_dir: str | Path,
     *,
-    filter_dataset_fold: bool = False,
+    only_valid_tasks: bool = False,
     subset: str | list[str] | None = None,
 ) -> pd.DataFrame:
     new_results = new_results.copy(deep=True)
@@ -27,7 +27,7 @@ def compare_on_tabarena(
         methods_drop=["Portfolio-N200-4h"],  # TODO: Clean this up by not including by default
     )
 
-    if filter_dataset_fold:
+    if only_valid_tasks:
         paper_results = filter_to_valid_tasks(
             df_to_filter=paper_results,
             df_filter=new_results,

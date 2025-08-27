@@ -64,7 +64,7 @@ if __name__ == '__main__':
     )
 
     # compute results
-    end_to_end = EndToEnd(results_lst=results_lst, task_metadata=task_metadata, cache=False)
+    end_to_end = EndToEnd.from_raw(results_lst=results_lst, task_metadata=task_metadata, cache=False)
     end_to_end_results = end_to_end.to_results()
 
     # print(f"New Configs Hyperparameters: {end_to_end.repo.configs_hyperparameters()}")
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=eval_dir,
-        filter_dataset_fold=True,  # True: only compare on tasks ran in `results_lst`
+        only_valid_tasks=True,  # True: only compare on tasks ran in `results_lst`
         use_model_results=True,  # If False: Will instead use the ensemble/HPO results
         new_result_prefix="Demo_",
     )

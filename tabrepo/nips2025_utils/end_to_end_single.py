@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing_extensions import Self
@@ -20,58 +21,103 @@ class EndToEndSingle:
     def __init__(
         self,
         results_lst: list[BaselineResult | dict],
-        task_metadata: pd.DataFrame | None = None,
-        cache: bool = True,
+        method_metadata: MethodMetadata,
+        task_metadata: pd.DataFrame,
+        repo: EvaluationRepository,
+        hpo_results: pd.DataFrame | None,
+        model_results: pd.DataFrame | None,
     ):
-        # raw
-        self.results_lst: list[BaselineResult] = self.clean_raw(results_lst=results_lst)
-        self.method_metadata: MethodMetadata = MethodMetadata.from_raw(
-            results_lst=self.results_lst
-        )
-
-        if cache:
-            print(
-                f'Artifacts for method {self.method_metadata.method} will be saved in: "{self.method_metadata.path}"'
-            )
-
-        if cache:
-            self.method_metadata.to_yaml()
-            self.method_metadata.cache_raw(results_lst=self.results_lst)
-
-        if task_metadata is None:
-            tids = list({r.task_metadata["tid"] for r in self.results_lst})
-            task_metadata = generate_task_metadata(tids=tids)
+        self.results_lst = results_lst
+        self.method_metadata = method_metadata
         self.task_metadata = task_metadata
-
-        # processed
-        self.repo: EvaluationRepository = self.method_metadata.generate_repo(
-            results_lst=self.results_lst,
-            task_metadata=self.task_metadata,
-            cache=cache,
-        )
-
-        # results
-        tabarena_context = TabArenaContext()
-        self.hpo_results, self.model_results = tabarena_context.simulate_repo(
-            method=self.method_metadata,
-            repo=self.repo,
-            use_rf_config_fallback=False,
-            cache=cache,
-        )
+        self.repo = repo
+        self.hpo_results = hpo_results
+        self.model_results = model_results
 
     @classmethod
     def clean_raw(cls, results_lst: list[BaselineResult | dict]) -> list[BaselineResult]:
         return [r if not isinstance(r, dict) else BaselineResult.from_dict(result=r) for r in results_lst]
 
     @classmethod
-    def from_path_raw(cls, path_raw: str | Path, name: str = None, name_suffix: str = None) -> Self:
+    def from_raw(
+        cls,
+        results_lst: list[BaselineResult | dict],
+        task_metadata: pd.DataFrame | None = None,
+        cache: bool = True,
+        name: str | None = None,
+        name_suffix: str | None = None,
+    ) -> Self:
+        # raw
+        results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
+        results_lst = cls._rename(results_lst=results_lst, name=name, name_suffix=name_suffix)
+        method_metadata: MethodMetadata = MethodMetadata.from_raw(
+            results_lst=results_lst
+        )
+
+        if cache:
+            print(
+                f'Artifacts for method {method_metadata.method} will be saved in: "{method_metadata.path}"'
+            )
+
+        if cache:
+            method_metadata.to_yaml()
+            method_metadata.cache_raw(results_lst=results_lst)
+
+        if task_metadata is None:
+            tids = list({r.task_metadata["tid"] for r in self.results_lst})
+            task_metadata = generate_task_metadata(tids=tids)
+
+        # processed
+        repo: EvaluationRepository = method_metadata.generate_repo(
+            results_lst=results_lst,
+            task_metadata=task_metadata,
+            cache=cache,
+        )
+
+        # results
+        tabarena_context = TabArenaContext()
+        hpo_results, model_results = tabarena_context.simulate_repo(
+            method=method_metadata,
+            repo=repo,
+            use_rf_config_fallback=False,
+            cache=cache,
+        )
+
+        return cls(
+            results_lst=results_lst,
+            method_metadata=method_metadata,
+            task_metadata=task_metadata,
+            repo=repo,
+            hpo_results=hpo_results,
+            model_results=model_results,
+        )
+
+    @classmethod
+    def from_path_raw(
+        cls,
+        path_raw: str | Path,
+        name: str = None,
+        name_suffix: str = None,
+    ) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
+        return cls.from_raw(results_lst=results_lst, name=name, name_suffix=name_suffix)
+
+    @classmethod
+    def _rename(
+        cls,
+        results_lst: list[BaselineResult],
+        name: str = None,
+        name_suffix: str = None,
+        inplace: bool = True
+    ) -> list[BaselineResult]:
+        if not inplace:
+            results_lst = copy.deepcopy(results_lst)
         if name is not None or name_suffix is not None:
             for r in results_lst:
                 r.update_name(name=name, name_suffix=name_suffix)
                 if isinstance(r, ConfigResult):
                     r.update_model_type(name=name, name_suffix=name_suffix)
-        return cls(results_lst=results_lst)
+        return results_lst
 
     @classmethod
     def from_cache(cls, method: str, artifact_name: str | None = None) -> Self:
@@ -119,7 +165,7 @@ class EndToEndResultsSingle:
         self,
         output_dir: str | Path,
         *,
-        filter_dataset_fold: bool = False,
+        only_valid_tasks: bool = False,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
         use_model_results: bool = False,
@@ -139,13 +185,13 @@ class EndToEndResultsSingle:
         results = self.get_results(
             new_result_prefix=new_result_prefix,
             use_model_results=use_model_results,
-            fillna=not filter_dataset_fold,
+            fillna=not only_valid_tasks,
         )
 
         return compare_on_tabarena(
             new_results=results,
             output_dir=output_dir,
-            filter_dataset_fold=filter_dataset_fold,
+            only_valid_tasks=only_valid_tasks,
             subset=subset,
         )
 

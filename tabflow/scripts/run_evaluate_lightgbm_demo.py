@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from tabrepo.nips2025_utils.end_to_end import EndToEndSingle, EndToEndResultsSingle
+from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
 
 
 """
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=fig_output_dir,
-        filter_dataset_fold=True,
+        only_valid_tasks=True,
     )
 
     print(leaderboard.to_markdown())
