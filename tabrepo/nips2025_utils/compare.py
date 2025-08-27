@@ -9,16 +9,13 @@ from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
 
 
 def compare_on_tabarena(
+    new_results: pd.DataFrame,
     output_dir: str | Path,
-    df_metrics: pd.DataFrame,
     *,
     filter_dataset_fold: bool = False,
-    df_results_extra: pd.DataFrame = None,
     subset: str | list[str] | None = None,
 ) -> pd.DataFrame:
-    df_metrics = df_metrics.copy(deep=True)
-    if df_results_extra is not None:
-        df_results_extra = df_results_extra.copy(deep=True)
+    new_results = new_results.copy(deep=True)
 
     output_dir = Path(output_dir)
 
@@ -33,38 +30,19 @@ def compare_on_tabarena(
     if filter_dataset_fold:
         paper_results = filter_to_valid_tasks(
             df_to_filter=paper_results,
-            df_filter=df_metrics,
+            df_filter=new_results,
         )
-        if df_results_extra is not None:
-            df_results_extra = filter_to_valid_tasks(
-                df_to_filter=df_results_extra,
-                df_filter=df_metrics,
-            )
 
     # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
     #  need to use original, not filled values
     #  This doesn't impact the evaluation, but could introduce bugs in future if we use these columns
     #  Fixing this is do-able, but requires some complex pandas tricks, so I haven't had time to implement it yet
-    df_metrics = TabArenaContext.fillna_metrics(
-        df_metrics=df_metrics,
+    new_results = TabArenaContext.fillna_metrics(
+        df_to_fill=new_results,
         df_fillna=paper_results[paper_results["method"] == fillna_method],
     )
 
-    df_results = pd.concat([paper_results, df_metrics], ignore_index=True)
-
-    if df_results_extra is not None:
-        if filter_dataset_fold:
-            df_results = filter_to_valid_tasks(
-                df_to_filter=df_results,
-                df_filter=df_results_extra,
-            )
-
-        df_results_extra = TabArenaContext.fillna_metrics(
-            df_metrics=df_results_extra,
-            df_fillna=df_results[df_results["method"] == fillna_method],
-        )
-
-        df_results = pd.concat([df_results, df_results_extra], ignore_index=True)
+    df_results = pd.concat([paper_results, new_results], ignore_index=True)
 
     if subset is not None:
         if isinstance(subset, str):

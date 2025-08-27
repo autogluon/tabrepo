@@ -136,7 +136,6 @@ class EndToEndResultsMulti:
         output_dir: str | Path,
         *,
         filter_dataset_fold: bool = False,
-        df_results_extra: pd.DataFrame = None,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
         use_model_results: bool = False,
@@ -154,13 +153,12 @@ class EndToEndResultsMulti:
                 Use this, for example, if you re-run a model from TabArena.
         """
 
-        df_metrics = self.get_results(use_model_results=use_model_results, new_result_prefix=new_result_prefix)
+        results = self.get_results(use_model_results=use_model_results, new_result_prefix=new_result_prefix)
 
         return compare_on_tabarena(
+            new_results=results,
             output_dir=output_dir,
-            df_metrics=df_metrics,
             filter_dataset_fold=filter_dataset_fold,
-            df_results_extra=df_results_extra,
             subset=subset,
         )
 
@@ -204,7 +202,6 @@ class EndToEndResults:
         output_dir: str | Path,
         *,
         filter_dataset_fold: bool = False,
-        df_results_extra: pd.DataFrame = None,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
         use_model_results: bool = False,
@@ -222,16 +219,15 @@ class EndToEndResults:
                 Use this, for example, if you re-run a model from TabArena.
         """
 
-        df_metrics = self.get_results(
+        results = self.get_results(
             use_model_results=use_model_results,
             new_result_prefix=new_result_prefix,
         )
 
         return compare_on_tabarena(
+            new_results=results,
             output_dir=output_dir,
-            df_metrics=df_metrics,
             filter_dataset_fold=filter_dataset_fold,
-            df_results_extra=df_results_extra,
             subset=subset,
         )
 
