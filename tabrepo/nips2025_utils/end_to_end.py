@@ -46,7 +46,6 @@ class EndToEnd:
 
         end_to_end_lst = []
         for cur_type in unique_types:
-            # TODO: Avoid fetching task_metadata repeatedly from OpenML in each iteration
             cur_results_lst = result_types_dict[cur_type]
             cur_end_to_end = EndToEndSingle.from_raw(
                 results_lst=cur_results_lst,

@@ -57,7 +57,6 @@ def end_to_end_new_results(
 
 
 if __name__ == '__main__':
-    method = "BetaTabPFN"
     url_prefix = "https://data.lennart-purucker.com/tabarena/"
     local_path_prefix = Path("local_data")
     cache = True
