@@ -206,9 +206,26 @@ class TabArenaEvaluator:
             df_results["imputed"] = False
         df_results["imputed"] = df_results["imputed"].astype("boolean").fillna(False).astype(bool)
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
-        df_results = df_results.drop_duplicates(subset=[
-            "dataset", "fold", self.method_col, "seed"
-        ], keep="first")
+
+        # don't allow duplicate results
+        dupes = df_results[df_results.duplicated(
+            subset=["dataset", "fold", self.method_col, "seed"],
+            keep=False,
+        )]
+        if not dupes.empty:
+            dupes = dupes.sort_values(by=[self.method_col, "dataset", "fold", "seed"])
+            duplicated_methods = dupes["method"].value_counts()
+            raise ValueError(
+                "Duplicate rows detected on keys [dataset, fold, "
+                f"{self.method_col}, seed].\n"
+                f"The following {len(duplicated_methods)} methods were duplicated (w/ counts):\n"
+                f"{duplicated_methods.to_string()}\n"
+                f"The following {len(dupes)} rows are duplicates:\n"
+                f"{dupes.to_string(index=False)}"
+            )
+        # df_results = df_results.drop_duplicates(subset=[
+        #     "dataset", "fold", self.method_col, "seed"
+        # ], keep="first")
 
         if "normalized-error-dataset" not in df_results:
             df_results = self.compute_normalized_error_dynamic(df_results=df_results)
