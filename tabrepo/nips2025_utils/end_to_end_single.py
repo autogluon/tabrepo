@@ -127,7 +127,7 @@ class EndToEndSingle:
             method=method, artifact_name=artifact_name
         )
         results_lst = method_metadata.load_raw()
-        return cls(results_lst=results_lst)
+        return cls.from_raw(results_lst=results_lst)
 
     def to_results(self) -> EndToEndResultsSingle:
         return EndToEndResultsSingle(
