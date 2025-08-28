@@ -30,6 +30,40 @@ class BaselineResult(AbstractResult):
         for key in required_keys:
             assert key in self.result, f"Missing {key} in result dict!"
 
+    @classmethod
+    def from_dict(cls, result: dict | BaselineResult) -> BaselineResult:
+        """
+        Converts results in old format to new format
+        Keeps results in new format as-is.
+
+        This enables the use of results in the old format alongside results in the new format.
+        """
+        from tabrepo.benchmark.result.ag_bag_result import AGBagResult
+        from tabrepo.benchmark.result.config_result import ConfigResult
+
+        if isinstance(result, BaselineResult):
+            return result
+        assert isinstance(result, dict)
+        result_cls = BaselineResult
+        sim_artifacts = result.get("simulation_artifacts", None)
+        if sim_artifacts is not None:
+            assert isinstance(sim_artifacts, dict)
+            if "task_metadata" in result:
+                dataset = result["task_metadata"]["name"]
+                split_idx = result["task_metadata"]["split_idx"]
+            else:
+                dataset = result["dataset"]
+                split_idx = result["fold"]
+            result_cls = ConfigResult
+            if list(sim_artifacts.keys()) == [dataset]:
+                sim_artifacts = sim_artifacts[dataset][split_idx]
+            bag_info = sim_artifacts.get("bag_info", None)
+            if bag_info is not None:
+                assert isinstance(bag_info, dict)
+                result_cls = AGBagResult
+        result_obj = result_cls(result=result, convert_format=True, inplace=False)
+        return result_obj
+
     def update_name(self, name: str = None, name_suffix: str = None):
         assert name is not None or name_suffix is not None, f"Must specify one of `name`, `name_suffix`."
         assert name is None or name_suffix is None, f"Must only specify one of `name`, `name_suffix`."

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from tabrepo.nips2025_utils.end_to_end import EndToEnd, EndToEndResults
+from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
 
 
 """
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     Once this is executed once, it does not need to be ran again.
     """
     if cache:
-        end_to_end = EndToEnd.from_path_raw(path_raw=path_raw, name_suffix=name_suffix)
+        end_to_end = EndToEndSingle.from_path_raw(path_raw=path_raw, name_suffix=name_suffix)
 
     """
     Load cached results and compare on TabArena
@@ -45,11 +45,11 @@ if __name__ == '__main__':
     2. Compares on all datasets if `filter_dataset_fold=False`, else only tasks from the user's method if `filter_dataset_fold=True`.
     3. Missing values are imputed to default RandomForest.
     """
-    end_to_end_results = EndToEndResults.from_cache(method=method)
+    end_to_end_results = EndToEndResultsSingle.from_cache(method=method)
 
     leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=fig_output_dir,
-        filter_dataset_fold=True,
+        only_valid_tasks=True,
     )
 
     print(leaderboard.to_markdown())
