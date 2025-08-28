@@ -55,10 +55,7 @@ def generate_repo_from_results_lst(
 
     exp_results = ExperimentResults(task_metadata=task_metadata)
 
-    ts = time.time()
     repo: EvaluationRepository = exp_results.repo_from_results(results_lst=results_lst)
-    te = time.time()
-    print(f"{te-ts:.2f}s ExperimentResults.repo_from_results")
     return repo
 
 

@@ -6,6 +6,7 @@ import pandas as pd
 from typing_extensions import Self
 
 from tabrepo.benchmark.result import BaselineResult
+from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 from tabrepo.nips2025_utils.compare import compare_on_tabarena
 from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
 from tabrepo.nips2025_utils.method_processor import generate_task_metadata, get_info_from_result, load_raw
@@ -24,9 +25,13 @@ class EndToEnd:
         results_lst: list[BaselineResult | dict],
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
+        cache_raw: bool = True,
         name: str | None = None,
         name_suffix: str | None = None,
+        verbose: bool = True,
     ) -> Self:
+        log = print if verbose else (lambda *a, **k: None)
+
         # raw
         results_lst: list[BaselineResult] = EndToEndSingle.clean_raw(results_lst=results_lst)
 
@@ -44,6 +49,7 @@ class EndToEnd:
 
         unique_types = list(result_types_dict.keys())
 
+        log(f"Constructing EndToEnd from raw results... Found {len(unique_types)} unique methods: {unique_types}")
         end_to_end_lst = []
         for cur_type in unique_types:
             cur_results_lst = result_types_dict[cur_type]
@@ -51,8 +57,10 @@ class EndToEnd:
                 results_lst=cur_results_lst,
                 task_metadata=task_metadata,
                 cache=cache,
+                cache_raw=cache_raw,
                 name=name,
                 name_suffix=name_suffix,
+                verbose=verbose,
             )
             end_to_end_lst.append(cur_end_to_end)
         return cls(end_to_end_lst=end_to_end_lst)
@@ -63,20 +71,24 @@ class EndToEnd:
         path_raw: str | Path,
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
+        cache_raw: bool = True,
         name: str = None,
         name_suffix: str = None,
+        verbose: bool = True,
     ) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
         return cls.from_raw(
             results_lst=results_lst,
             task_metadata=task_metadata,
             cache=cache,
+            cache_raw=cache_raw,
             name=name,
             name_suffix=name_suffix,
+            verbose=verbose,
         )
 
     @classmethod
-    def from_cache(cls, methods: list[str | tuple[str, str]]) -> Self:
+    def from_cache(cls, methods: list[str | MethodMetadata | tuple[str, str]]) -> Self:
         end_to_end_lst = []
         for method in methods:
             if isinstance(method, tuple):
@@ -151,7 +163,7 @@ class EndToEndResults:
         return df_results
 
     @classmethod
-    def from_cache(cls, methods: list[str | tuple[str, str]]) -> Self:
+    def from_cache(cls, methods: list[str | MethodMetadata | tuple[str, str]]) -> Self:
         end_to_end_results_lst = []
         for method in methods:
             if isinstance(method, tuple):

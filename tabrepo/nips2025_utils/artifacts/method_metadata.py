@@ -362,6 +362,23 @@ class MethodMetadata:
             path_raw = self.path_raw
         return load_raw(path_raw=path_raw, engine=engine, as_holdout=as_holdout)
 
+    def load_processed(
+        self,
+        path_processed: str | Path = None,
+        prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
+        as_holdout: bool = False,
+    ) -> EvaluationRepository:
+        if path_processed is None:
+            if as_holdout:
+                path_processed = self.path_processed_holdout
+            else:
+                path_processed = self.path_processed
+        repo = EvaluationRepository.from_dir(
+            path=path_processed,
+            prediction_format=prediction_format,
+        )
+        return repo
+
     def generate_repo(
         self,
         results_lst: list = None,
@@ -418,8 +435,8 @@ class MethodMetadata:
         results_lst: list[BaselineResult],
     ):
         path = self.path_raw
-        n_results = len(results_lst)
-        for i, result in enumerate(results_lst):
-            if i % 100 == 0:
-                print(f"{i + 1}/{n_results}")
+        for result in results_lst:
             result.to_dir(path=path)
+
+    def cache_processed(self, repo: EvaluationRepository):
+        repo.to_dir(self.path_processed)

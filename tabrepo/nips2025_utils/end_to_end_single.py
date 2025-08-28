@@ -20,19 +20,19 @@ if TYPE_CHECKING:
 class EndToEndSingle:
     def __init__(
         self,
-        results_lst: list[BaselineResult | dict],
         method_metadata: MethodMetadata,
-        task_metadata: pd.DataFrame,
         repo: EvaluationRepository,
         hpo_results: pd.DataFrame | None,
         model_results: pd.DataFrame | None,
     ):
-        self.results_lst = results_lst
         self.method_metadata = method_metadata
-        self.task_metadata = task_metadata
         self.repo = repo
         self.hpo_results = hpo_results
         self.model_results = model_results
+
+    @property
+    def task_metadata(self) -> pd.DataFrame:
+        return self.repo.task_metadata
 
     @classmethod
     def clean_raw(cls, results_lst: list[BaselineResult | dict]) -> list[BaselineResult]:
@@ -44,9 +44,13 @@ class EndToEndSingle:
         results_lst: list[BaselineResult | dict],
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
+        cache_raw: bool = True,
         name: str | None = None,
         name_suffix: str | None = None,
+        verbose: bool = True,
     ) -> Self:
+        log = print if verbose else (lambda *a, **k: None)
+
         # raw
         results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
         results_lst = cls._rename(results_lst=results_lst, name=name, name_suffix=name_suffix)
@@ -54,19 +58,26 @@ class EndToEndSingle:
             results_lst=results_lst
         )
 
-        if cache:
-            print(
-                f'Artifacts for method {method_metadata.method} will be saved in: "{method_metadata.path}"'
-            )
+        log(
+            f"{method_metadata.method}: Creating EndToEndSingle from raw results... "
+            f"(cache={cache}, cache_raw={cache_raw})"
+        )
 
+        if cache or cache_raw:
+            log(f'\tArtifacts will be saved to "{method_metadata.path}"')
         if cache:
             method_metadata.to_yaml()
+
+        if cache_raw:
+            log(f'\tCaching raw results to "{method_metadata.path_raw}" ({len(results_lst)} task results)')
             method_metadata.cache_raw(results_lst=results_lst)
 
         if task_metadata is None:
+            log(f"\tFetching task_metadata from OpenML...")
             tids = list({r.task_metadata["tid"] for r in results_lst})
             task_metadata = generate_task_metadata(tids=tids)
 
+        log(f"\tConverting raw results into an EvaluationRepository...")
         # processed
         repo: EvaluationRepository = method_metadata.generate_repo(
             results_lst=results_lst,
@@ -74,6 +85,7 @@ class EndToEndSingle:
             cache=cache,
         )
 
+        log(f"\tSimulating HPO...")
         # results
         tabarena_context = TabArenaContext()
         hpo_results, model_results = tabarena_context.simulate_repo(
@@ -83,10 +95,9 @@ class EndToEndSingle:
             cache=cache,
         )
 
+        log(f"\tComplete!")
         return cls(
-            results_lst=results_lst,
             method_metadata=method_metadata,
-            task_metadata=task_metadata,
             repo=repo,
             hpo_results=hpo_results,
             model_results=model_results,
@@ -96,11 +107,21 @@ class EndToEndSingle:
     def from_path_raw(
         cls,
         path_raw: str | Path,
+        cache: bool = True,
+        cache_raw: bool = True,
         name: str = None,
         name_suffix: str = None,
+        verbose: bool = True,
     ) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
-        return cls.from_raw(results_lst=results_lst, name=name, name_suffix=name_suffix)
+        return cls.from_raw(
+            results_lst=results_lst,
+            cache=cache,
+            cache_raw=cache_raw,
+            name=name,
+            name_suffix=name_suffix,
+            verbose=verbose,
+        )
 
     @classmethod
     def _rename(
@@ -120,14 +141,23 @@ class EndToEndSingle:
         return results_lst
 
     @classmethod
-    def from_cache(cls, method: str, artifact_name: str | None = None) -> Self:
-        if artifact_name is None:
-            artifact_name = method
-        method_metadata = MethodMetadata.from_yaml(
-            method=method, artifact_name=artifact_name
+    def from_cache(cls, method: str | MethodMetadata, artifact_name: str | None = None) -> Self:
+        if isinstance(method, MethodMetadata):
+            method_metadata = method
+        else:
+            if artifact_name is None:
+                artifact_name = method
+            method_metadata = MethodMetadata.from_yaml(
+                method=method, artifact_name=artifact_name,
+            )
+        repo = method_metadata.load_processed()
+        end_to_end_results_single = EndToEndResultsSingle(method_metadata=method_metadata)
+        return cls(
+            method_metadata=method_metadata,
+            repo=repo,
+            hpo_results=end_to_end_results_single.hpo_results,
+            model_results=end_to_end_results_single.model_results,
         )
-        results_lst = method_metadata.load_raw()
-        return cls.from_raw(results_lst=results_lst)
 
     def to_results(self) -> EndToEndResultsSingle:
         return EndToEndResultsSingle(
@@ -153,12 +183,15 @@ class EndToEndResultsSingle:
         self.model_results = model_results
 
     @classmethod
-    def from_cache(cls, method: str, artifact_name: str | None = None) -> Self:
-        if artifact_name is None:
-            artifact_name = method
-        method_metadata = MethodMetadata.from_yaml(
-            method=method, artifact_name=artifact_name
-        )
+    def from_cache(cls, method: str | MethodMetadata, artifact_name: str | None = None) -> Self:
+        if isinstance(method, MethodMetadata):
+            method_metadata = method
+        else:
+            if artifact_name is None:
+                artifact_name = method
+            method_metadata = MethodMetadata.from_yaml(
+                method=method, artifact_name=artifact_name
+            )
         return cls(method_metadata=method_metadata)
 
     def compare_on_tabarena(
