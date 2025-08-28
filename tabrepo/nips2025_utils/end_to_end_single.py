@@ -64,7 +64,7 @@ class EndToEndSingle:
             method_metadata.cache_raw(results_lst=results_lst)
 
         if task_metadata is None:
-            tids = list({r.task_metadata["tid"] for r in self.results_lst})
+            tids = list({r.task_metadata["tid"] for r in results_lst})
             task_metadata = generate_task_metadata(tids=tids)
 
         # processed
