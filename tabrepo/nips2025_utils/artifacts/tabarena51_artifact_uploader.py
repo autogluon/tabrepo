@@ -10,7 +10,6 @@ from autogluon.common.utils.s3_utils import upload_file
 from tabrepo.loaders import Paths
 
 from .abstract_artifact_uploader import AbstractArtifactUploader
-from .method_uploader import MethodUploader
 from .method_metadata import MethodMetadata
 from . import tabarena_method_metadata_map
 

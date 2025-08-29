@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 import requests
@@ -413,6 +414,26 @@ class MethodMetadata:
         with open(path, 'w') as outfile:
             yaml.dump(self.__dict__, outfile, default_flow_style=False)
 
+    def to_yaml_fileobj(self) -> io.BytesIO:
+        """
+        Serialize this object to YAML and return a BytesIO buffer suitable for
+        s3_client.upload_fileobj, without writing to local disk.
+
+        Returns
+        -------
+        io.BytesIO
+            Buffer positioned at start containing UTF-8 encoded YAML.
+        """
+        yaml_str = yaml.safe_dump(
+            self.__dict__,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
+        )
+        buf = io.BytesIO(yaml_str.encode("utf-8"))
+        buf.seek(0)
+        return buf
+
     @classmethod
     def from_yaml(
         cls,
@@ -440,3 +461,17 @@ class MethodMetadata:
 
     def cache_processed(self, repo: EvaluationRepository):
         repo.to_dir(self.path_processed)
+
+    def path_results_files(self, holdout: bool = False) -> list[Path]:
+        if self.method_type == "portfolio":
+            file_names = [
+                self.path_results_portfolio(holdout=holdout)
+            ]
+        else:
+            file_names = [
+                self.path_results_model(holdout=holdout)
+            ]
+
+        if self.method_type == "config":
+            file_names.append(self.path_results_hpo(holdout=holdout))
+        return file_names
