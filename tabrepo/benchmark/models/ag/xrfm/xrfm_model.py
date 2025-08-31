@@ -9,7 +9,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from autogluon.core.constants import REGRESSION
+from autogluon.core.constants import REGRESSION, MULTICLASS
 from sklearn.impute import SimpleImputer
 
 from autogluon.common.utils.pandas_utils import get_approximate_df_mem_usage
@@ -32,39 +32,51 @@ def set_logger_level(logger_name: str, level: int):
 
 
 class xRFMImplementation:
+    
     def __init__(self, problem_type, **kwargs):
         self.problem_type = problem_type
-        self.kwargs = kwargs
+        self.kwargs = kwargs        
 
     def fit(self, X, y, X_val, y_val):
         import xrfm
         import torch
 
         # preprocessing
-
         self.cat_cols_ = X.select_dtypes(include=["category", "string", "object"]).columns.tolist()
         self.num_cols_ = X.select_dtypes(exclude=["category", "string", "object"]).columns.tolist()
-        # todo: 'ignore' may be problematic for the automatic categorical handling of xRFM?
-        self.ohe_ = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+        
+        # Initialize encoders
+        self.ohe_ = OneHotEncoder(handle_unknown='ignore', sparse_output=False) if self.cat_cols_ else None
         self.scaler_ = StandardScaler()
 
-        x_cat_enc = self.ohe_.fit_transform(X.loc[:, self.cat_cols_])
+        # Encode categorical variables
+        if self.cat_cols_:
+            x_cat_enc = self.ohe_.fit_transform(X.loc[:, self.cat_cols_])
+        else:
+            x_cat_enc = np.empty((len(X), 0))
+
         x_num_enc = X.loc[:, self.num_cols_].to_numpy().astype(np.float32)
 
-        x_val_cat_enc = self.ohe_.transform(X_val.loc[:, self.cat_cols_])
+        # Process validation data
+        if self.cat_cols_:
+            x_val_cat_enc = self.ohe_.transform(X_val.loc[:, self.cat_cols_])
+        else:
+            x_val_cat_enc = np.empty((len(X_val), 0))
+            
         x_val_num_enc = X_val.loc[:, self.num_cols_].to_numpy().astype(np.float32)
 
-        if len(self.cat_cols_) == 0:
-            X = x_num_enc
-            X_val = x_val_num_enc
-        elif len(self.num_cols_) == 0:
-            X = x_cat_enc
-            X_val = x_val_cat_enc
-        else:
+
+        if self.kwargs.get('standardize_cats', False):
             X = np.concatenate([x_cat_enc, x_num_enc], axis=1)
             X_val = np.concatenate([x_val_cat_enc, x_val_num_enc], axis=1)
-        X = self.scaler_.fit_transform(X)
-        X_val = self.scaler_.transform(X_val)
+            X = self.scaler_.fit_transform(X)
+            X_val = self.scaler_.transform(X_val)
+        else:
+            if len(self.num_cols_) > 0:
+                x_num_enc    = self.scaler_.fit_transform(x_num_enc)
+                x_val_num_enc = self.scaler_.transform(x_val_num_enc)
+            X = np.concatenate([x_cat_enc, x_num_enc], axis=1)
+            X_val = np.concatenate([x_val_cat_enc, x_val_num_enc], axis=1)
 
         X = torch.from_numpy(X).float()
         X_val = torch.from_numpy(X_val).float()
@@ -79,11 +91,57 @@ class xRFMImplementation:
                 y_val = np.asarray(y_val)
                 y_val = (y_val - self.mean_) / self.std_
 
-        y = torch.from_numpy(y).float()
-        y_val = torch.from_numpy(y_val).float()
+        if isinstance(y, pd.Series):
+            y = y.to_numpy()
+        if isinstance(y_val, pd.Series):
+            y_val = y_val.to_numpy()
+
+        if len(y.shape) == 1:
+            y = y.reshape(-1, 1)
+        if len(y_val.shape) == 1:
+            y_val = y_val.reshape(-1, 1)
+
+        y = torch.from_numpy(y)
+        y_val = torch.from_numpy(y_val)
+
+        if self.cat_cols_:
+            idx = 0
+            categorical_indices = []
+            categorical_vectors = []
+            numerical_indices_parts = []
+            for cat in self.ohe_.categories_:
+                cat_len = len(cat)
+                cat_idxs = torch.tensor(range(idx, idx + cat_len))
+                if cat_len > self.kwargs.get('max_cardinality_for_one_hot', 100):
+                    categorical_indices.append(cat_idxs)
+                    if self.kwargs.get('standardize_cats', False):
+                        cat_vectors = (
+                            np.asarray(self.scaler_.scale_)[None, cat_idxs.numpy()] *
+                            (np.eye(cat_len) - np.asarray(self.scaler_.mean_)[None, cat_idxs.numpy()])
+                        )
+                        categorical_vectors.append(torch.tensor(cat_vectors, dtype=torch.float32))
+                    else:
+                        categorical_vectors.append(torch.eye(cat_len))
+                else:
+                    numerical_indices_parts.append(cat_idxs)
+                idx += cat_len
+                
+            # numerical indices include small-cardinality one-hot columns and then the true numerical block
+            numerical_block = idx + torch.arange(x_num_enc.shape[1])
+            if len(numerical_indices_parts) > 0:
+                numerical_indices = torch.cat(numerical_indices_parts + [numerical_block])
+            else:
+                numerical_indices = numerical_block
+            self.categorical_info_ = dict(
+                categorical_indices=categorical_indices,
+                categorical_vectors=categorical_vectors,
+                numerical_indices=numerical_indices,
+            )
+        else:
+            self.categorical_info_ = None
 
         self.model = xrfm.xRFM(
-            # categorical_info=self.categorical_info_,  # set in preprocess()
+            categorical_info=self.categorical_info_,  # set in preprocess()
             **self.kwargs,
         )
 
@@ -91,15 +149,28 @@ class xRFMImplementation:
             X=X,
             y=y,
             X_val=X_val,
-            y_val=y_val,
+            y_val=y_val
         )
 
     def preprocess_transform(self, X):
-        x_cat_enc = self.ohe_.transform(X.loc[:, self.cat_cols_])
+        # Encode categorical variables using the same strategy as in fit
+        
+        if self.cat_cols_:
+            x_cat_enc = self.ohe_.transform(X.loc[:, self.cat_cols_])
+        else:
+            x_cat_enc = np.empty((len(X), 0))
+
         x_num_enc = X.loc[:, self.num_cols_].to_numpy().astype(np.float32)
-        X = np.concatenate([x_cat_enc, x_num_enc], axis=1)
-        X = self.scaler_.transform(X)
-        return X
+        
+        if self.kwargs.get('standardize_cats', False):
+            X_processed = np.concatenate([x_cat_enc, x_num_enc], axis=1)
+            X_processed = self.scaler_.transform(X_processed)
+        else:
+            if len(self.num_cols_) > 0:
+                x_num_enc = self.scaler_.transform(x_num_enc)
+            X_processed = np.concatenate([x_cat_enc, x_num_enc], axis=1)
+
+        return X_processed
 
     def predict(self, X):
         y_pred = np.squeeze(self.model.predict(self.preprocess_transform(X)), axis=1)
@@ -114,6 +185,9 @@ class xRFMImplementation:
 
 # pip install xrfm
 class xRFMModel(AbstractModel):
+
+    ag_key = "XRFM"
+    ag_name = "xRFM"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -166,27 +240,46 @@ class xRFMModel(AbstractModel):
 
         init_kwargs = copy.copy(hyp)
 
+        
+
         if tuning_metric is not None:
             init_kwargs["tuning_metric"] = tuning_metric
 
         bool_to_cat = hyp.pop("bool_to_cat", False)
         impute_bool = hyp.pop("impute_bool", True)
 
+        init_kwargs['standardize_cats'] = init_kwargs.get('standardize_cats', False)
+        init_kwargs['classification_mode'] = init_kwargs.get('classification_mode', 'prevalence')
+
+        solver = init_kwargs.get('solver', 'solve')
+        if self.problem_type == REGRESSION or self.problem_type == MULTICLASS:
+            solver = 'solve'
+
+        if solver == 'log_reg':
+            classification_mode = 'zero_one'
+        else:
+            classification_mode = init_kwargs.get('classification_mode', 'prevalence')
+        init_kwargs['classification_mode'] = classification_mode
+
+        exponent = init_kwargs.get('exponent', 1.0)
         init_kwargs['rfm_params'] = {
             'model': {
                 'kernel': init_kwargs.get('kernel', 'l2'),
                 'bandwidth': init_kwargs.get('bandwidth', 10.0),
-                'exponent': init_kwargs.get('exponent', 1.0),
+                'exponent': exponent,
+                'norm_p': exponent + (2-exponent) * init_kwargs.get('p_interp', 1.0),
                 'diag': init_kwargs.get('diag', True),
                 'bandwidth_mode': init_kwargs.get('bandwidth_mode', 'constant'),
+                'fast_categorical': init_kwargs.get('fast_categorical', True),
             },
             'fit': {
-                'reg': init_kwargs.get('reg', 1e-5),
+                'reg': init_kwargs.get('reg', 1e-3),
                 'iters': init_kwargs.get('iters', 5),
-                'M_batch_size': init_kwargs.get('M_batch_size', len(X)),  # todo: adjust this dynamically!
-                'verbose': False,
+                'M_batch_size': min(init_kwargs.get('M_batch_size', len(X)), 30_000),  # todo: adjust this dynamically?
+                'verbose': True,
                 'early_stop_rfm': init_kwargs.get('early_stop_rfm', True),
-                'early_stop_multiplier': init_kwargs.get('early_stop_multiplier', 1.1),
+                'early_stop_multiplier': init_kwargs.get('early_stop_multiplier', 1.05),
+                'solver': solver,
             }
         }
 
@@ -207,6 +300,7 @@ class xRFMModel(AbstractModel):
             time_limit_s=time_limit - (time.time() - start_time) if time_limit is not None else None,
             **init_kwargs,
         )
+
 
         self.model.fit(
             X=X,
