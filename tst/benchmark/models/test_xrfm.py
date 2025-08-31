@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_tabm():
+def test_xrfm():
     toy_model_params = {}
     model_hyperparameters = toy_model_params
 
