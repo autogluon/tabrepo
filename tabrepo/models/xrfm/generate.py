@@ -13,15 +13,16 @@ def generate_configs_xrfm(num_random_configs=200) -> list:
     search_space = ConfigurationSpace(
         space=[
             Float("bandwidth", (0.5, 200), log=True),
-            Categorical("bandwidth_mode", ['constant', 'adaptive']),
-            # could tune categorical preprocessing if ordinal encoding is implemented
+            Categorical("standardize_cats", [False]),
+            Categorical("bandwidth_mode", ['constant']),
             Categorical("diag", [False, True]),
-            Categorical("early_stop_multiplier", [1.06]),
+            Categorical("early_stop_multiplier", [1.1]),
             Float("exponent", (0.7, 1.4)),
-            Categorical("kernel", ['l1_kermac', 'l2']),
+            Float("p_interp", (0., 0.8)),
+            Categorical("kernel", ['lpq_kermac', 'l2'], weights=[0.8, 0.2]),
             Float("reg", (1e-6, 1e1), log=True),
-            # todo: refill size?
-            Categorical("classification_mode", ['prevalence']),  # this differs from the paper
+            Categorical("solver", ['solve']), # [log_reg] possible for binary classification
+            Categorical("classification_mode", ['prevalence']), 
         ],
         seed=1234,
     )
@@ -31,6 +32,7 @@ def generate_configs_xrfm(num_random_configs=200) -> list:
         configs = [configs]
     configs = [dict(config) for config in configs]
     return [convert_numpy_dtypes(config) for config in configs]
+
 
 
 gen_xrfm = CustomAGConfigGenerator(
