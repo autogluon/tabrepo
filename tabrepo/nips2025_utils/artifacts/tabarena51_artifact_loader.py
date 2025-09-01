@@ -17,7 +17,7 @@ from .method_metadata import MethodMetadata
 class TabArena51ArtifactLoader(AbstractArtifactLoader):
     def __init__(self):
         self.bucket = "tabarena"
-        self.prefix = "cache/artifacts"
+        self.prefix = Path("cache") / "artifacts"
         self.url_prefix = "https://tabarena.s3.us-west-2.amazonaws.com"
         self.artifact_name = "tabarena-2025-06-12"
         self.local_paths = Paths
@@ -115,22 +115,22 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
         metadata = self._method_metadata(method=method)
         if holdout and not metadata.is_bag:
             return
-        url_prefix = f"{self.url_prefix}/{self.prefix}/{self.artifact_name}/methods/{method}"
+        url_prefix = f"{self.url_prefix}/{self.prefix.as_posix()}/{self.artifact_name}/methods/{method}"
         if metadata.method_type == "config":
             path_hpo = metadata.path_results_hpo(holdout=holdout)
-            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_hpo)}"
+            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_hpo).as_posix()}"
             _download_file(url=url_prefix_full, local_path=path_hpo)
         if metadata.method_type == "portfolio":
             path_portfolio = metadata.path_results_portfolio(holdout=holdout)
-            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_portfolio)}"
+            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_portfolio).as_posix()}"
             _download_file(url=url_prefix_full, local_path=path_portfolio)
         else:
             path_model = metadata.path_results_model(holdout=holdout)
-            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_model)}"
+            url_prefix_full = f"{url_prefix}/{metadata.relative_to_method(path_model).as_posix()}"
             _download_file(url=url_prefix_full, local_path=path_model)
 
     def _download_method(self, method: str, data_type: str):
-        url_prefix = f"{self.url_prefix}/{self.prefix}/{self.artifact_name}/methods"
+        url_prefix = f"{self.url_prefix}/{self.prefix.as_posix()}/{self.artifact_name}/methods"
         local_method_dir = Paths.artifacts_root_cache_tabarena / self.artifact_name / "methods"
 
         filename = f"{data_type}.zip"

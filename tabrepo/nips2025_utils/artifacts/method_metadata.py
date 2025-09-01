@@ -279,7 +279,7 @@ class MethodMetadata:
         return path.relative_to(self.path)
 
     def to_s3_cache_loc(self, path: Path, s3_cache_root: str) -> str:
-        path_suffix = self.relative_to_cache_root(path=path)
+        path_suffix: str = self.relative_to_cache_root(path=path).as_posix()
         s3_cache_path = f"{s3_cache_root}/{path_suffix}"
         return s3_cache_path
 

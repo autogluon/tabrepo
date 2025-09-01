@@ -28,7 +28,7 @@ class EbmCallback:
 
 
 class ExplainableBoostingMachineModel(AbstractModel):
-    ag_key = "EBM"
+    ag_key = "TA-EBM"
     ag_name = "ExplainableBM"
 
     def _fit(
