@@ -42,7 +42,7 @@ extras_require = {
         "category_encoders",
     ],
     "xrfm": [
-        "xrfm",
+        "xrfm[cu12]",
     ]
 }
 
