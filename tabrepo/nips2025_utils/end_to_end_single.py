@@ -18,17 +18,102 @@ if TYPE_CHECKING:
 
 
 class EndToEndSingle:
+    """
+    End-to-end pipeline for processing and evaluating a **single** method's results.
+
+    This class orchestrates:
+      1. Inferring method metadata from raw per-task results.
+      2. Building an :class:`EvaluationRepository` with processed artifacts.
+      3. Simulating HPO and ensembling under TabArena protocols.
+      4. Producing per-task evaluation tables (e.g., metrics, train/infer times).
+
+    Most users should not instantiate this class directly. Prefer
+    :meth:`EndToEndSingle.from_raw` or :meth:`EndToEndSingle.from_path_raw`.
+    If you are evaluating multiple methods, use :class:`EndToEnd`, which
+    manages a list of ``EndToEndSingle`` instances.
+
+    Parameters
+    ----------
+    method_metadata : MethodMetadata
+        Resolved metadata describing the method, its cache locations, and naming.
+    repo : EvaluationRepository
+        Repository of processed artifacts built from the raw runs and task metadata.
+    model_results : pd.DataFrame or None
+        Raw per-task model results prior to HPO / model selection.
+        These are the original results without simulation on TabArena.
+        ``None`` if not yet computed.
+    hpo_results : pd.DataFrame or None
+        TabArena HPO simulation results (one row per (task, config, seed)).
+        ``None`` if not yet computed.
+
+    Attributes
+    ----------
+    method_metadata : MethodMetadata
+        Method identity and on-disk artifact layout (e.g., ``path``, ``path_raw``).
+    repo : EvaluationRepository
+        Processed repository backing downstream analyses and comparisons.
+    model_results : pandas.DataFrame or None
+        Raw per-task model results prior to HPO / model selection.
+    hpo_results : pandas.DataFrame or None
+        Output of TabArena HPO and ensemble simulation for this method.
+    task_metadata : pd.DataFrame
+        (Property) Task-level metadata table provided by the repository.
+
+    Notes
+    -----
+    **Caching & Side Effects**
+    - The factory constructors (:meth:`from_raw`, :meth:`from_path_raw`) can
+      write artifacts to disk when ``cache=True`` and/or ``cache_raw=True``:
+        * Method metadata YAML to ``method_metadata.path_metadata``.
+        * Raw run pickles under ``method_metadata.path_raw``.
+        * Processed repository files under ``method_metadata.path_processed``
+    - Naming overrides (``name`` / ``name_suffix``) are applied to all configs
+      for consistency. If a unique name cannot be assigned (e.g., multiple
+      distinct configs while forcing a single ``name``), underlying helpers may raise.
+
+    See Also
+    --------
+    EndToEnd
+        Multi-method manager that constructs and coordinates multiple
+        ``EndToEndSingle`` pipelines.
+    EndToEndResultsSingle
+        Lightweight container returned by :meth:`to_results`.
+    MethodMetadata
+        Serialized description of a method and its artifact layout.
+    TabArenaContext
+        Simulator used internally for HPO/model selection under TabArena.
+
+    Examples
+    --------
+    Basic usage from raw objects::
+
+        results = [BaselineResult(...), ...]  # one per task/run
+        e2e = EndToEndSingle.from_raw(results, cache=True, cache_raw=True)
+        res = e2e.to_results()
+        print(res.model_results.head())
+
+    From an on-disk raw directory of per-run ``results.pkl`` files::
+
+        e2e = EndToEndSingle.from_path_raw("artifacts/my_method/raw", cache=True)
+        res = e2e.to_results()
+
+    Loading a previously cached method::
+
+        e2e = EndToEndSingle.from_cache("MyMethodName")
+        res = e2e.to_results()
+
+    """
     def __init__(
         self,
         method_metadata: MethodMetadata,
         repo: EvaluationRepository,
-        hpo_results: pd.DataFrame | None,
         model_results: pd.DataFrame | None,
+        hpo_results: pd.DataFrame | None,
     ):
         self.method_metadata = method_metadata
         self.repo = repo
-        self.hpo_results = hpo_results
         self.model_results = model_results
+        self.hpo_results = hpo_results
 
     @property
     def task_metadata(self) -> pd.DataFrame:
@@ -49,6 +134,43 @@ class EndToEndSingle:
         name_suffix: str | None = None,
         verbose: bool = True,
     ) -> Self:
+        """
+        Run logic end-to-end and cache all results:
+        1. (only if using `from_path_raw`) load raw artifacts
+            path_raw should be a directory containing `results.pkl` files for each run.
+            In the current code, we require `path_raw` to contain the results of only 1 type of method.
+        2. infer method_metadata
+        3. infer task_metadata
+        4. generate repo (processed data)
+        5. generate results (per-task metric scores, train time, infer time, etc.)
+
+        Parameters
+        ----------
+        results_lst : list[BaselineResult | dict]
+            The raw results of the method on all tasks and configs.
+        task_metadata : pd.DataFrame or None
+            The task_metadata containing information for each task,
+            such as the target evaluation metric and problem_type.
+            If unspecified, will be inferred from ``results_lst``.
+        cache : bool = True
+            If True, will cache method metadata, processed data, and results to disk.
+        cache_raw : bool = True
+            If True, will cache raw data to disk.
+        name : str or None = None
+            If specified, will overwrite the name of the method.
+            Will raise an exception if more than one config is present.
+        name_suffix : str or None = None
+            If specified, will be appended to the name of the method (including all configs of the method).
+            Useful for ensuring a unique name compared to prior results for a given model type,
+            such as when re-running LightGBM.
+        verbose : bool = True
+            If True will log info about the data processing and simulation.
+
+        Returns
+        -------
+        EndToEndSingle
+            An initialized EndToEndSingle class based on the provided raw results_lst.
+        """
         log = print if verbose else (lambda *a, **k: None)
 
         # raw
@@ -99,8 +221,8 @@ class EndToEndSingle:
         return cls(
             method_metadata=method_metadata,
             repo=repo,
-            hpo_results=hpo_results,
             model_results=model_results,
+            hpo_results=hpo_results,
         )
 
     @classmethod
@@ -155,15 +277,15 @@ class EndToEndSingle:
         return cls(
             method_metadata=method_metadata,
             repo=repo,
-            hpo_results=end_to_end_results_single.hpo_results,
             model_results=end_to_end_results_single.model_results,
+            hpo_results=end_to_end_results_single.hpo_results,
         )
 
     def to_results(self) -> EndToEndResultsSingle:
         return EndToEndResultsSingle(
             method_metadata=self.method_metadata,
-            hpo_results=self.hpo_results,
             model_results=self.model_results,
+            hpo_results=self.hpo_results,
         )
 
 
@@ -171,16 +293,17 @@ class EndToEndResultsSingle:
     def __init__(
         self,
         method_metadata: MethodMetadata,
-        hpo_results: pd.DataFrame = None,
+        *,
         model_results: pd.DataFrame = None,
+        hpo_results: pd.DataFrame = None,
     ):
         self.method_metadata = method_metadata
-        if hpo_results is None and self.method_metadata.method_type == "config":
-            hpo_results = self.method_metadata.load_hpo_results()
         if model_results is None:
             model_results = self.method_metadata.load_model_results()
-        self.hpo_results = hpo_results
+        if hpo_results is None and self.method_metadata.method_type == "config":
+            hpo_results = self.method_metadata.load_hpo_results()
         self.model_results = model_results
+        self.hpo_results = hpo_results
 
     @classmethod
     def from_cache(cls, method: str | MethodMetadata, artifact_name: str | None = None) -> Self:
