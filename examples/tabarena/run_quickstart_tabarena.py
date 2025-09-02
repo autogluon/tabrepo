@@ -64,12 +64,12 @@ if __name__ == '__main__':
     )
 
     # compute results
-    end_to_end = EndToEnd.from_raw(results_lst=results_lst, task_metadata=task_metadata, cache=False)
+    end_to_end = EndToEnd.from_raw(results_lst=results_lst, task_metadata=task_metadata, cache=False, cache_raw=False)
     end_to_end_results = end_to_end.to_results()
 
-    # print(f"New Configs Hyperparameters: {end_to_end.repo.configs_hyperparameters()}")
-    # with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
-    #     print(f"Results:\n{end_to_end_results.model_results.head(100)}")
+    print(f"New Configs Hyperparameters: {end_to_end.configs_hyperparameters()}")
+    with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
+        print(f"Results:\n{end_to_end_results.model_results.head(100)}")
 
     leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=eval_dir,

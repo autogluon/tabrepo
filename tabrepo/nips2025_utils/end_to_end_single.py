@@ -119,6 +119,9 @@ class EndToEndSingle:
     def task_metadata(self) -> pd.DataFrame:
         return self.repo.task_metadata
 
+    def configs_hyperparameters(self) -> dict[str, dict | None]:
+        return self.repo.configs_hyperparameters()
+
     @classmethod
     def clean_raw(cls, results_lst: list[BaselineResult | dict]) -> list[BaselineResult]:
         return [r if not isinstance(r, dict) else BaselineResult.from_dict(result=r) for r in results_lst]

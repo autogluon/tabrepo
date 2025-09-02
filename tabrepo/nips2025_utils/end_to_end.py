@@ -19,6 +19,16 @@ class EndToEnd:
     ):
         self.end_to_end_lst = end_to_end_lst
 
+    def configs_hyperparameters(self) -> dict[str, dict | None]:
+        configs_hyperparameters_per_method = [e2e.configs_hyperparameters() for e2e in self.end_to_end_lst]
+        configs_hyperparameters = {}
+        for d in configs_hyperparameters_per_method:
+            for k, v in d.items():
+                if k in configs_hyperparameters:
+                    raise ValueError(f"Duplicate key detected: {k!r}")
+                configs_hyperparameters[k] = v
+        return configs_hyperparameters
+
     @classmethod
     def from_raw(
         cls,
@@ -111,6 +121,24 @@ class EndToEndResults:
         end_to_end_results_lst: list[EndToEndResultsSingle],
     ):
         self.end_to_end_results_lst = end_to_end_results_lst
+
+    @property
+    def model_results(self) -> pd.DataFrame | None:
+        model_results_lst = [e2e.model_results for e2e in self.end_to_end_results_lst]
+        model_results_lst = [model_results for model_results in model_results_lst if model_results is not None]
+        if not model_results_lst:
+            return None
+
+        return pd.concat(model_results_lst, ignore_index=True)
+
+    @property
+    def hpo_results(self) -> pd.DataFrame | None:
+        hpo_results_lst = [e2e.hpo_results for e2e in self.end_to_end_results_lst]
+        hpo_results_lst = [hpo_results for hpo_results in hpo_results_lst if hpo_results is not None]
+        if not hpo_results_lst:
+            return None
+
+        return pd.concat(hpo_results_lst, ignore_index=True)
 
     def compare_on_tabarena(
         self,
