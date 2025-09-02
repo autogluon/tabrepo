@@ -14,6 +14,7 @@ from .method_metadata import MethodMetadata
 from . import tabarena_method_metadata_map
 
 
+# TODO: Make this use MethodUploaderS3
 class TabArena51ArtifactUploader(AbstractArtifactUploader):
     def __init__(self):
         self.artifact_name = "tabarena-2025-06-12"
