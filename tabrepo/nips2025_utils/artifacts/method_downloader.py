@@ -105,66 +105,135 @@ class MethodDownloaderS3:
         Attempts to download a single file to `path_local`. Skips quietly if not found.
         """
         import boto3
-        from botocore.exceptions import ClientError
+        from botocore import UNSIGNED
+        from botocore.config import Config
+        from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
         if isinstance(s3_key, Path):
             s3_key = s3_key.as_posix()
 
-        s3 = boto3.client("s3")
+        sess = boto3.session.Session()
+        s3_signed = sess.client("s3")
+        s3_unsigned = sess.client("s3", config=Config(signature_version=UNSIGNED))
 
-        # Check existence first (avoids creating empty files/directories on 404)
+        def _head(client):
+            return client.head_object(Bucket=self.bucket, Key=s3_key)
+
+        # ---------- Existence check (HEAD) ----------
+        client_for_get = None
         try:
-            s3.head_object(Bucket=self.bucket, Key=s3_key)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code")
-            if code in ("404", "NoSuchKey", "NotFound"):
-                if self.verbose:
-                    print(f"[WARN] Missing on S3, skipping: s3://{self.bucket}/{s3_key}")
-                return
-            raise
+            _head(s3_signed)
+            client_for_get = s3_signed
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            # Treat definitely-missing as skip
+            if isinstance(e, ClientError):
+                code = e.response.get("Error", {}).get("Code")
+                if code in ("404", "NoSuchKey", "NotFound"):
+                    if self.verbose:
+                        print(f"[WARN] Missing on S3, skipping: s3://{self.bucket}/{s3_key}")
+                    return
+            # Retry anonymously for publicly readable objects
+            try:
+                _head(s3_unsigned)
+                client_for_get = s3_unsigned
+            except ClientError as e2:
+                code2 = e2.response.get("Error", {}).get("Code")
+                if code2 in ("404", "NoSuchKey", "NotFound"):
+                    if self.verbose:
+                        print(f"[WARN] Missing on S3, skipping: s3://{self.bucket}/{s3_key}")
+                    return
+                # Still denied or other error -> propagate
+                raise
 
+        # ---------- Download ----------
         path_local.parent.mkdir(parents=True, exist_ok=True)
         if self.verbose:
             print(f"[INFO] Downloading s3://{self.bucket}/{s3_key} -> {path_local}")
-        s3.download_file(Bucket=self.bucket, Key=s3_key, Filename=str(path_local))
+
+        try:
+            client_for_get.download_file(Bucket=self.bucket, Key=s3_key, Filename=str(path_local))
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            # If we tried signed and it failed but the object might be public, try unsigned once.
+            if client_for_get is s3_signed:
+                try:
+                    s3_unsigned.download_file(Bucket=self.bucket, Key=s3_key, Filename=str(path_local))
+                    return
+                except ClientError:
+                    pass
+            # propagate original error if unsigned also failed or we were already unsigned
+            raise
 
     def _download_and_unzip_if_exists(self, s3_key: str | Path, dest_dir: Path, clear_dir: bool = True):
         """
         Downloads a zip from S3 into memory and extracts into `dest_dir`.
-        Skips if the zip does not exist on S3.
+        Skips if the object does not exist. Supports public objects by retrying
+        with an unsigned client when a signed request is denied or creds are missing.
         """
+        import io
+        import shutil
+        import zipfile
         import boto3
-        from botocore.exceptions import ClientError
+        from botocore import UNSIGNED
+        from botocore.config import Config
+        from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
         if isinstance(s3_key, Path):
             s3_key = s3_key.as_posix()
 
-        s3 = boto3.client("s3")
+        sess = boto3.session.Session()
+        s3_signed = sess.client("s3")
+        s3_unsigned = sess.client("s3", config=Config(signature_version=UNSIGNED))
 
-        # Existence check
+        def _head(c):
+            return c.head_object(Bucket=self.bucket, Key=s3_key)
+
+        # ---- Existence check (HEAD) with unsigned fallback ----
+        client_for_get = None
         try:
-            s3.head_object(Bucket=self.bucket, Key=s3_key)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code")
-            if code in ("404", "NoSuchKey", "NotFound"):
-                if self.verbose:
-                    print(f"[WARN] Missing on S3, skipping unzip: s3://{self.bucket}/{s3_key}")
-                return
-            raise
+            _head(s3_signed)
+            client_for_get = s3_signed
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            if isinstance(e, ClientError):
+                code = e.response.get("Error", {}).get("Code")
+                if code in ("404", "NoSuchKey", "NotFound"):
+                    if self.verbose:
+                        print(f"[WARN] Missing on S3, skipping unzip: s3://{self.bucket}/{s3_key}")
+                    return
+            try:
+                _head(s3_unsigned)
+                client_for_get = s3_unsigned
+            except ClientError as e2:
+                code2 = e2.response.get("Error", {}).get("Code")
+                if code2 in ("404", "NoSuchKey", "NotFound"):
+                    if self.verbose:
+                        print(f"[WARN] Missing on S3, skipping unzip: s3://{self.bucket}/{s3_key}")
+                    return
+                raise
 
         if self.verbose:
             print(f"[INFO] Downloading s3://{self.bucket}/{s3_key} -> extracting to {dest_dir}")
 
-        # Stream into memory
-        obj = s3.get_object(Bucket=self.bucket, Key=s3_key)
+        # ---- GET with fallback to unsigned only for credential-related failures ----
+        try:
+            obj = client_for_get.get_object(Bucket=self.bucket, Key=s3_key)
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            # Only retry unsigned for specific credential/signing errors
+            if isinstance(e, ClientError):
+                code = e.response.get("Error", {}).get("Code")
+                if code not in {"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch"}:
+                    raise
+            if client_for_get is s3_signed:
+                obj = s3_unsigned.get_object(Bucket=self.bucket, Key=s3_key)
+            else:
+                raise
+
+        # ---- In-memory unzip ----
         body = obj["Body"].read()
         buf = io.BytesIO(body)
 
-        # Clear destination (optional)
         if clear_dir and dest_dir.exists():
             shutil.rmtree(dest_dir)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
-        # Extract
         with zipfile.ZipFile(buf, "r") as zf:
             zf.extractall(path=dest_dir)
