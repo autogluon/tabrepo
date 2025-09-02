@@ -231,7 +231,26 @@ class TabArenaContext:
         metadata = self._method_metadata(method=method)
         return metadata.load_portfolio_results(holdout=holdout)
 
-    def load_results_paper(self, methods: list[str] | None = None, holdout: bool = False, download_results: str | bool = False) -> pd.DataFrame:
+    def load_results_paper(
+        self,
+        methods: list[str] | None = None,
+        holdout: bool = False,
+        download_results: str | bool = "auto",
+        methods_drop: list[str] | None = None,
+    ) -> pd.DataFrame:
+        if methods is None:
+            methods = _methods_paper
+            if holdout:
+                # only include methods that can have holdout
+                methods = [m for m in methods if self._method_metadata(m).is_bag]
+        if methods_drop is not None:
+            for method in methods_drop:
+                if method not in methods:
+                    raise AssertionError(
+                        f"Specified '{method}' in `methods_drop`, "
+                        f"but '{method}' is not present in methods: {methods}"
+                    )
+            methods = [method for method in methods if method not in methods_drop]
         if isinstance(download_results, bool) and download_results:
             loader = TabArena51ArtifactLoader()
             loader.download_results(holdout=holdout)
@@ -248,12 +267,7 @@ class TabArenaContext:
                 raise err
         return df_results
 
-    def _load_results_paper(self, methods: list[str] | None = None, holdout: bool = False) -> pd.DataFrame:
-        if methods is None:
-            methods = _methods_paper
-            if holdout:
-                # only include methods that can have holdout
-                methods = [m for m in methods if self._method_metadata(m).is_bag]
+    def _load_results_paper(self, methods: list[str], holdout: bool = False) -> pd.DataFrame:
         assert methods is not None and len(methods) > 0
         df_metadata_lst = []
         for method in methods:
@@ -400,13 +414,13 @@ class TabArenaContext:
         return df_missing
 
     @classmethod
-    def fillna_metrics(cls, df_metrics: pd.DataFrame, df_fillna: pd.DataFrame) -> pd.DataFrame:
+    def fillna_metrics(cls, df_to_fill: pd.DataFrame, df_fillna: pd.DataFrame) -> pd.DataFrame:
         """
-        Fills missing (dataset, fold, framework) rows in df_metrics with the (dataset, fold) row in df_fillna.
+        Fills missing (dataset, fold, framework) rows in df_to_fill with the (dataset, fold) row in df_fillna.
 
         Parameters
         ----------
-        df_metrics
+        df_to_fill
         df_fillna
 
         Returns
@@ -418,10 +432,10 @@ class TabArenaContext:
         split_col = "fold"
         dataset_col = "dataset"
 
-        df_metrics = df_metrics.set_index([dataset_col, split_col, method_col], drop=True)
+        df_to_fill = df_to_fill.set_index([dataset_col, split_col, method_col], drop=True)
         df_fillna = df_fillna.set_index([dataset_col, split_col], drop=True).drop(columns=[method_col])
 
-        unique_frameworks = list(df_metrics.index.unique(level=method_col))
+        unique_frameworks = list(df_to_fill.index.unique(level=method_col))
 
         df_filled = df_fillna.index.to_frame().merge(
             pd.Series(data=unique_frameworks, name=method_col),
@@ -430,23 +444,24 @@ class TabArenaContext:
         df_filled = df_filled.set_index(keys=list(df_filled.columns))
 
         # missing results
-        nan_vals = df_filled.index.difference(df_metrics.index)
+        nan_vals = df_filled.index.difference(df_to_fill.index)
 
         # fill valid values
-        fill_cols = list(df_metrics.columns)
+        fill_cols = list(df_to_fill.columns)
         df_filled[fill_cols] = np.nan
-        df_filled[fill_cols] = df_filled[fill_cols].astype(df_metrics.dtypes)
-        df_filled.loc[df_metrics.index] = df_metrics
+        df_filled[fill_cols] = df_filled[fill_cols].astype(df_to_fill.dtypes)
+        df_filled.loc[df_to_fill.index] = df_to_fill
 
         a = df_fillna.loc[nan_vals.droplevel(level=method_col)]
         a.index = nan_vals
         df_filled.loc[nan_vals] = a
 
-        df_filled["imputed"] = False
+        if "imputed" not in df_filled.columns:
+            df_filled["imputed"] = False
         df_filled.loc[nan_vals, "imputed"] = True
 
-        df_metrics = df_filled
+        df_to_fill = df_filled
 
-        df_metrics = df_metrics.reset_index(drop=False)
+        df_to_fill = df_to_fill.reset_index(drop=False)
 
-        return df_metrics
+        return df_to_fill

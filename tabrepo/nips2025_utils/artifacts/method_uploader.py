@@ -1,72 +1,150 @@
 from __future__ import annotations
 
+import io
 import os
-import shutil
+import zipfile
 from pathlib import Path
 
-from autogluon.common.utils.s3_utils import upload_file
+from autogluon.common.utils.s3_utils import s3_path_to_bucket_prefix
+
+from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 
 
-class MethodUploader:
+# TODO: Make `MethodDownloaderS3`
+class MethodUploaderS3:
     def __init__(
         self,
-        method: str,
+        method_metadata: MethodMetadata,
         bucket: str,
-        prefix: str,
-        local_path: str | Path,
+        s3_prefix_root: str = "cache",
         upload_as_public: bool = False,
     ):
-        self.method = method
+        self.method_metadata = method_metadata
+        self.method = method_metadata.method
         self.bucket = bucket
-        self.prefix = prefix
-        self.local_path = Path(local_path)
+        self.s3_prefix_root = s3_prefix_root
+        self.prefix = Path(self.s3_prefix_root) / method_metadata.relative_to_cache_root(method_metadata.path)
         self.upload_as_public = upload_as_public
 
-    def _local_path_raw(self) -> Path:
-        return self.local_path / "raw"
+    @property
+    def s3_cache_root(self) -> str:
+        return f"s3://{self.bucket}/{self.s3_prefix_root}"
 
-    def _local_path_processed(self) -> Path:
-        return self.local_path / "processed"
+    def upload_all(self):
+        self.upload_metadata()
+        self.upload_raw()
+        self.upload_processed()
+        self.upload_results()
 
-    def _local_path_results(self) -> Path:
-        return self.local_path / "results"
+    def upload_metadata(self):
+        fileobj = self.method_metadata.to_yaml_fileobj()
+        path_local = self.method_metadata.path_metadata
+        s3_key = self.local_to_s3_path(path_local=path_local)
+        self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
 
     def upload_raw(self):
-        path_data_method = self._local_path_raw()
+        path_raw = Path(self.method_metadata.path_raw)
 
-        tmp_dir = Path("tmp")
-        file_prefix = tmp_dir / self.method / "raw"
-        shutil.make_archive(file_prefix, 'zip', root_dir=path_data_method)
-        file_name = f"{file_prefix}.zip"
+        fileobj = self._zip(path=path_raw)
+        s3_key = self.prefix / "raw.zip"
 
-        self._upload_file(file_name=file_name, prefix=self.prefix)
-        # os.remove(file_name)
+        # Upload to S3 directly from memory
+        self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
 
-    def _upload_file(self, file_name: str | Path, prefix: str):
+    def upload_processed(self):
+        path_processed = self.method_metadata.path_processed
+
+        fileobj = self._zip(path=path_processed)
+        s3_key = self.prefix / "processed.zip"
+
+        # Upload to S3 directly from memory
+        self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
+
+        # Upload configs_hyperparameters as a standalone file for fast access
+        self.upload_configs_hyperparameters()
+
+    def _upload_fileobj(self, fileobj: io.BytesIO, s3_key: str | Path):
+        import boto3
+
+        if isinstance(s3_key, Path):
+            s3_key = s3_key.as_posix()
+
         kwargs = {}
         if self.upload_as_public:
             kwargs = {"ExtraArgs": {"ACL": "public-read"}}
-        upload_file(file_name=file_name, bucket=self.bucket, prefix=prefix, **kwargs)
 
-    def upload_processed(self):
-        path_data_method = self._local_path_processed()
+        s3_client = boto3.client("s3")
+        s3_client.upload_fileobj(Fileobj=fileobj, Bucket=self.bucket, Key=s3_key, **kwargs)
 
-        tmp_dir = Path("tmp")
-        file_prefix = tmp_dir / self.method / "processed"
-        shutil.make_archive(file_prefix, 'zip', root_dir=path_data_method)
-        file_name = f"{file_prefix}.zip"
+    def _upload_to_s3(self, path_local: str | Path, s3_key: str | Path | None = None):
+        import boto3
 
-        self._upload_file(file_name=file_name, prefix=self.prefix)
-        # os.remove(file_name)
+        if s3_key is None:
+            s3_key = self.local_to_s3_path(path_local=path_local)
 
-    def upload_results(self):
-        path_method_results = self._local_path_results()
-        prefix = f"{self.prefix}/results"
+        if isinstance(path_local, Path):
+            path_local = str(path_local)
+        if isinstance(s3_key, Path):
+            s3_key = s3_key.as_posix()
 
-        file_names = [
-            "model_results.parquet",
-            "hpo_results.parquet",
-        ]
-        for file_name in file_names:
-            local_file_path = path_method_results / file_name
-            self._upload_file(file_name=local_file_path, prefix=prefix)
+        kwargs = {}
+        if self.upload_as_public:
+            kwargs = {"ExtraArgs": {"ACL": "public-read"}}
+
+        # Upload the file
+        s3_client = boto3.client("s3")
+        s3_client.upload_file(Filename=path_local, Bucket=self.bucket, Key=s3_key, **kwargs)
+
+    def upload_configs_hyperparameters(self, holdout: bool = False):
+        path_local = self.method_metadata.path_configs_hyperparameters(holdout=holdout)
+        self._upload_to_s3(path_local=path_local)
+
+    def local_to_s3_path(self, path_local: str | Path) -> str:
+        s3_path_loc = self.method_metadata.to_s3_cache_loc(path=Path(path_local), s3_cache_root=self.s3_cache_root)
+        _, s3_key = s3_path_to_bucket_prefix(s3_path_loc)
+        return s3_key
+
+    def upload_results(self, holdout: bool = False):
+        file_names = self.method_metadata.path_results_files(holdout=holdout)
+        for path_local in file_names:
+            self._upload_to_s3(path_local=path_local)
+
+    # TODO: Move to util file
+    def _zip(self, path: Path) -> io.BytesIO:
+        """
+        Create an in-memory ZIP archive of a directory.
+
+        This method recursively traverses the given directory, compresses
+        all contained files into a ZIP archive, and returns the archive
+        as an in-memory `io.BytesIO` buffer. Paths inside the archive
+        are stored relative to the provided root directory.
+
+        Parameters
+        ----------
+        path : Path
+            The root directory whose contents will be compressed into
+            the ZIP archive.
+
+        Returns
+        -------
+        io.BytesIO
+            A binary buffer positioned at the beginning, containing the
+            ZIP archive data. The caller can read from this buffer or
+            upload it directly (e.g., to S3) without writing a local file.
+
+        """
+        # Create an in-memory buffer
+        buffer = io.BytesIO()
+
+        # Write the zip archive into the buffer
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, _, files in os.walk(path):
+                for file in files:
+                    file_path = Path(root) / file
+                    # Store relative path inside the zip
+                    arcname = file_path.relative_to(path)
+                    zf.write(file_path, arcname=arcname)
+
+        # Reset buffer position for reading
+        buffer.seek(0)
+        return buffer
