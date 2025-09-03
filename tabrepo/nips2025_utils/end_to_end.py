@@ -38,6 +38,7 @@ class EndToEnd:
         cache_raw: bool = True,
         name: str | None = None,
         name_suffix: str | None = None,
+        artifact_name: str | None = None,
         verbose: bool = True,
     ) -> Self:
         log = print if verbose else (lambda *a, **k: None)
@@ -70,6 +71,7 @@ class EndToEnd:
                 cache_raw=cache_raw,
                 name=name,
                 name_suffix=name_suffix,
+                artifact_name=artifact_name,
                 verbose=verbose,
             )
             end_to_end_lst.append(cur_end_to_end)
@@ -84,6 +86,7 @@ class EndToEnd:
         cache_raw: bool = True,
         name: str = None,
         name_suffix: str = None,
+        artifact_name: str | None = None,
         verbose: bool = True,
     ) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
@@ -94,6 +97,7 @@ class EndToEnd:
             cache_raw=cache_raw,
             name=name,
             name_suffix=name_suffix,
+            artifact_name=artifact_name,
             verbose=verbose,
         )
 

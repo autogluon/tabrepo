@@ -1,31 +1,20 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
-import shutil
 import time
 
-from autogluon.common.utils.s3_utils import upload_file
-
-from tabrepo.loaders import Paths
+from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
 
 from .abstract_artifact_uploader import AbstractArtifactUploader
 from .method_metadata import MethodMetadata
 from . import tabarena_method_metadata_map
 
 
-# TODO: Make this use MethodUploaderS3
 class TabArena51ArtifactUploader(AbstractArtifactUploader):
     def __init__(self):
-        self.artifact_name = "tabarena-2025-06-12"
         self.bucket = "tabarena"
-        self.s3_cache_root_prefix = "cache"
-        self.s3_cache_root = f"s3://{self.bucket}/{self.s3_cache_root_prefix}"
-        self.prefix = f"{self.s3_cache_root_prefix}/artifacts/{self.artifact_name}"
-        self.local_paths = Paths
+        self.s3_prefix_root = "cache"
         self.upload_as_public = True
-        self.method_metadata_map = tabarena_method_metadata_map
-        self.methods = [
+        methods = [
             "AutoGluon_v130",
             "Portfolio-N200-4h",
             "CatBoost",
@@ -51,9 +40,25 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             "TabM_GPU",
             "TabPFNv2_GPU",
         ]
+        self.method_metadata_map = {k: v for k, v in tabarena_method_metadata_map.items() if k in methods}
+        self.method_metadata_lst = [self.method_metadata_map[m] for m in methods]
+
+    @property
+    def methods(self) -> list[str]:
+        return [method_metadata.method for method_metadata in self.method_metadata_lst]
 
     def _method_metadata(self, method: str) -> MethodMetadata:
         return self.method_metadata_map[method]
+
+    def _method_uploader(self, method: str) -> MethodUploaderS3:
+        method_metadata = self._method_metadata(method=method)
+        downloader = MethodUploaderS3(
+            method_metadata=method_metadata,
+            bucket=self.bucket,
+            s3_prefix_root=self.s3_prefix_root,
+            upload_as_public=self.upload_as_public,
+        )
+        return downloader
 
     def upload_raw(self):
         methods = [method for method in self.methods if self._method_metadata(method).has_raw]
@@ -67,37 +72,9 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             time_elapsed = te - ts
             print(f"Uploaded raw artifact of method {method} ({i+1}/{n_methods} complete) |\tCompleted in {time_elapsed:.2f}s")
 
-    # FIXME: Update this
     def _upload_raw_method(self, method: str):
-        metadata = self._method_metadata(method=method)
-        path_raw = metadata.path_raw
-
-        relative_to_root = metadata.relative_to_root(metadata.path)
-        s3_path = str(Path("cache") / "artifacts" / relative_to_root)
-
-        tmp_dir = Path("tmp")
-        file_prefix = tmp_dir / method / "raw"
-        shutil.make_archive(file_prefix, 'zip', root_dir=path_raw)
-        file_name = f"{file_prefix}.zip"
-
-        self._upload_file(file_name=file_name, prefix=s3_path)
-        os.remove(file_name)
-
-        # method_uplodaer = MethodUploader(
-        #     method=method,
-        #     bucket=self.bucket,
-        #     prefix=prefix,
-        #     local_path=path_data_method,
-        #     upload_as_public=self.upload_as_public,
-        # )
-        #
-        # method_uplodaer.upload_raw()
-
-    def _upload_file(self, file_name: str | Path, prefix: str):
-        kwargs = {}
-        if self.upload_as_public:
-            kwargs = {"ExtraArgs": {"ACL": "public-read"}}
-        upload_file(file_name=file_name, bucket=self.bucket, prefix=prefix, **kwargs)
+        uploader = self._method_uploader(method=method)
+        uploader.upload_raw()
 
     def upload_processed(self):
         methods = [method for method in self.methods if self._method_metadata(method).has_processed]
@@ -111,39 +88,9 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             time_elapsed = te - ts
             print(f"Uploaded processed artifact of method {method} |\t ({i+1}/{n_methods} complete... |\tCompleted in {time_elapsed:.2f}s")
 
-    def _upload_processed_holdout_method(self, method: str):
-        metadata = self._method_metadata(method=method)
-        path_processed_holdout = metadata.path_processed_holdout
-
-        relative_to_root = metadata.relative_to_root(metadata.path)
-        s3_path = str(Path("cache") / "artifacts" / relative_to_root)
-
-        tmp_dir = Path("~/tabarena_tmp")
-        file_prefix = tmp_dir / metadata.artifact_name / metadata.method / "processed_holdout"
-        shutil.make_archive(file_prefix, 'zip', root_dir=path_processed_holdout)
-        file_name = f"{file_prefix}.zip"
-
-        self._upload_file(file_name=file_name, prefix=s3_path)
-        metadata.upload_configs_hyperparameters(s3_cache_root=self.s3_cache_root, holdout=True)
-
-        os.remove(file_name)
-
     def _upload_processed_method(self, method: str):
-        metadata = self._method_metadata(method=method)
-        path_processed = metadata.path_processed
-
-        relative_to_root = metadata.relative_to_root(metadata.path)
-        s3_path = str(Path("cache") / "artifacts" / relative_to_root)
-
-        tmp_dir = Path("~/tabarena_tmp")
-        file_prefix = tmp_dir / metadata.artifact_name / metadata.method / "processed"
-        shutil.make_archive(file_prefix, 'zip', root_dir=path_processed)
-        file_name = f"{file_prefix}.zip"
-
-        self._upload_file(file_name=file_name, prefix=s3_path)
-        metadata.upload_configs_hyperparameters(s3_cache_root=self.s3_cache_root, holdout=False)
-
-        os.remove(file_name)
+        uploader = self._method_uploader(method=method)
+        uploader.upload_processed()
 
     def upload_results(self):
         methods = [method for method in self.methods if self._method_metadata(method).has_results]
@@ -151,27 +98,5 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             self._upload_results_method(method=method)
 
     def _upload_results_method(self, method: str, holdout: bool = False):
-        metadata = self._method_metadata(method=method)
-        if holdout:
-            path_results = metadata.path_results_holdout
-        else:
-            path_results = metadata.path_results
-
-        relative_to_root = metadata.relative_to_root(path_results)
-        s3_path = str(Path("cache") / "artifacts" / relative_to_root)
-
-        if metadata.method_type == "portfolio":
-            file_names = [
-                "portfolio_results.parquet"
-            ]
-        else:
-            file_names = [
-                "model_results.parquet"
-            ]
-
-        if metadata.method_type == "config":
-            file_names.append("hpo_results.parquet")
-
-        for file_name in file_names:
-            local_file_path = path_results / file_name
-            self._upload_file(file_name=local_file_path, prefix=s3_path)
+        uploader = self._method_uploader(method=method)
+        uploader.upload_results(holdout=holdout)

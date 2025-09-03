@@ -10,7 +10,6 @@ from autogluon.common.utils.s3_utils import s3_path_to_bucket_prefix
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 
 
-# TODO: Make `MethodDownloaderS3`
 class MethodUploaderS3:
     def __init__(
         self,
@@ -45,19 +44,23 @@ class MethodUploaderS3:
     def upload_raw(self):
         path_raw = Path(self.method_metadata.path_raw)
 
+        print(f"Zipping raw files into memory under: {path_raw}")
         fileobj = self._zip(path=path_raw)
         s3_key = self.prefix / "raw.zip"
 
         # Upload to S3 directly from memory
+        print(f"Uploading raw zipped files to: {s3_key}")
         self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
 
     def upload_processed(self):
         path_processed = self.method_metadata.path_processed
 
+        print(f"Zipping processed files into memory under: {path_processed}")
         fileobj = self._zip(path=path_processed)
         s3_key = self.prefix / "processed.zip"
 
         # Upload to S3 directly from memory
+        print(f"Uploading processed zipped files to: {s3_key}")
         self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
 
         # Upload configs_hyperparameters as a standalone file for fast access
@@ -132,18 +135,27 @@ class MethodUploaderS3:
             ZIP archive data. The caller can read from this buffer or
             upload it directly (e.g., to S3) without writing a local file.
 
+        Raises
+        ------
+        FileNotFoundError
+        If no files exist in the given directory to be zipped.
         """
         # Create an in-memory buffer
         buffer = io.BytesIO()
+        file_count = 0
 
         # Write the zip archive into the buffer
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for root, _, files in os.walk(path):
                 for file in files:
+                    file_count += 1
                     file_path = Path(root) / file
                     # Store relative path inside the zip
                     arcname = file_path.relative_to(path)
                     zf.write(file_path, arcname=arcname)
+
+        if file_count == 0:
+            raise FileNotFoundError(f"No files found to zip in directory: {path}")
 
         # Reset buffer position for reading
         buffer.seek(0)

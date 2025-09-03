@@ -135,6 +135,8 @@ class EndToEndSingle:
         cache_raw: bool = True,
         name: str | None = None,
         name_suffix: str | None = None,
+        method: str | None = None,
+        artifact_name: str | None = None,
         verbose: bool = True,
     ) -> Self:
         """
@@ -166,6 +168,14 @@ class EndToEndSingle:
             If specified, will be appended to the name of the method (including all configs of the method).
             Useful for ensuring a unique name compared to prior results for a given model type,
             such as when re-running LightGBM.
+        method : str or None = None
+            The name of the lower directory in the cache:
+                ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
+            If unspecified, will default to ``{name_prefix}`` for configs or ``{name}`` for baselines.
+        artifact_name : str or None = None
+            The name of the upper directory in the cache:
+                ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
+            If unspecified, will default to ``{method}``
         verbose : bool = True
             If True will log info about the data processing and simulation.
 
@@ -180,7 +190,9 @@ class EndToEndSingle:
         results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
         results_lst = cls._rename(results_lst=results_lst, name=name, name_suffix=name_suffix)
         method_metadata: MethodMetadata = MethodMetadata.from_raw(
-            results_lst=results_lst
+            results_lst=results_lst,
+            method=method,
+            artifact_name=artifact_name,
         )
 
         log(
@@ -236,6 +248,8 @@ class EndToEndSingle:
         cache_raw: bool = True,
         name: str = None,
         name_suffix: str = None,
+        method: str | None = None,
+        artifact_name: str | None = None,
         verbose: bool = True,
     ) -> Self:
         results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
@@ -245,6 +259,8 @@ class EndToEndSingle:
             cache_raw=cache_raw,
             name=name,
             name_suffix=name_suffix,
+            method=method,
+            artifact_name=artifact_name,
             verbose=verbose,
         )
 
