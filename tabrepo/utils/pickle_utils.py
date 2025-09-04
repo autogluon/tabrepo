@@ -59,12 +59,12 @@ def fetch_all_pickles_fast(
     dir_path : str | pathlib.Path
         Root directory to search.
 
-    Returns:
+    Returns
     -------
     file_paths : dict[str, list[Paths]]
         List of file paths for each dataset-split-id combination.
 
-    Notes:
+    Notes
     -----
     Never un-pickle data you do not trust.
     Malicious pickle data can execute arbitrary code.
@@ -88,6 +88,7 @@ def fetch_all_pickles_fast(
 
     return file_paths
 
+
 def load_all_pickles(dir_path: str | Path) -> list[Any]:
     """Recursively find every file ending in “.pkl” or “.pickle” under *dir_path*
     and un‑pickle its contents.
@@ -97,13 +98,13 @@ def load_all_pickles(dir_path: str | Path) -> list[Any]:
     dir_path : str | pathlib.Path
         Root directory to search.
 
-    Returns:
+    Returns
     -------
     List[Any]
         A list whose elements are the Python objects obtained from each
         successfully un‑pickled file, in depth‑first lexical order.
 
-    Notes:
+    Notes
     -----
     Never un‑pickle data you do not trust.
     Malicious pickle data can execute arbitrary code.

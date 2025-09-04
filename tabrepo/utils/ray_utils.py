@@ -72,8 +72,9 @@ def ray_map_list(
     remote_kwargs = deepcopy(DEFAULT_REMOTE_KWARGS)
     if ray_remote_kwargs is not None:
         remote_kwargs.update(ray_remote_kwargs)
-    remote_kwargs["max_calls"] = max(len(list_to_map) // num_workers, 1)
-    remote_p = ray.remote(**DEFAULT_REMOTE_KWARGS)(func)
+    if ray_remote_kwargs is None or "max_calls" not in ray_remote_kwargs:
+        remote_kwargs["max_calls"] = max(len(list_to_map) // num_workers, 1)
+    remote_p = ray.remote(**remote_kwargs)(func)
     remote_p_options = {
         "num_cpus": num_cpus_per_worker,
         "num_gpus": num_gpus_per_worker,
