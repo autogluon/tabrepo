@@ -19,7 +19,7 @@ from tabrepo.nips2025_utils.method_processor import (
     load_raw,
 )
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.utils.pickle_utils import fetch_all_pickles_fast
+from tabrepo.utils.pickle_utils import fetch_all_pickles
 from tabrepo.utils.ray_utils import ray_map_list
 
 if TYPE_CHECKING:
@@ -356,9 +356,16 @@ class EndToEndSingle:
             num_cpus = len(os.sched_getaffinity(0))
 
         print("Get results paths...")
-        all_file_paths_method = fetch_all_pickles_fast(
+        file_paths = fetch_all_pickles(
             dir_path=path_raw, suffix="results.pkl"
         )
+
+        all_file_paths_method = {}
+        for file_path in file_paths:
+            did_sid = f"{file_path.parts[-3]}/{file_path.parts[-2]}"
+            if did_sid not in all_file_paths_method:
+                all_file_paths_method[did_sid] = []
+            all_file_paths_method[did_sid].append(file_path)
 
         if task_metadata is None:
             print("Get task metadata...")

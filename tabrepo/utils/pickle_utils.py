@@ -6,7 +6,7 @@ from typing import Any
 
 
 def fetch_all_pickles(dir_path: str | Path, suffix: str = ".pkl") -> list[Path]:
-    """Recursively find every file ending in “.pkl” or “.pickle” under *dir_path*
+    """Recursively find every file ending in “.pkl” under *dir_path*
     and un‑pickle its contents.
 
     Parameters
@@ -14,13 +14,13 @@ def fetch_all_pickles(dir_path: str | Path, suffix: str = ".pkl") -> list[Path]:
     dir_path : str | pathlib.Path
         Root directory to search.
 
-    Returns:
+    Returns
     -------
     List[Any]
         A list whose elements are the Python objects obtained from each
         successfully un‑pickled file, in depth‑first lexical order.
 
-    Notes:
+    Notes
     -----
     Never un‑pickle data you do not trust.
     Malicious pickle data can execute arbitrary code.
@@ -31,19 +31,10 @@ def fetch_all_pickles(dir_path: str | Path, suffix: str = ".pkl") -> list[Path]:
 
     file_paths: list[Path] = []
 
-    # Look for *.pkl, case‑insensitive
-    patterns = (f"*{suffix}",)
-    i = 0
-    for pattern in patterns:
-        pattern_suffix = pattern[1:]
-        for file_path in root.rglob(pattern):
-            if not str(file_path).endswith(pattern_suffix):
-                continue
-            if file_path.is_file():
-                i += 1
-                if i % 10000 == 0:
-                    print(i, file_path)
-                file_paths.append(file_path)
+    # Look for *.pkl
+    pattern = f"*{suffix}"
+    for file_path in root.rglob(pattern):
+        file_paths.append(file_path)
 
     return file_paths
 
