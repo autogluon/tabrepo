@@ -422,11 +422,13 @@ class EndToEndResultsSingle:
         if isinstance(method, MethodMetadata):
             method_metadata = method
         else:
+            custom_artifact_name = artifact_name is not None
             if artifact_name is None:
                 artifact_name = method
             method_metadata = MethodMetadata.from_yaml(
                 method=method, artifact_name=artifact_name
             )
+            method_metadata.custom_artifact_name = custom_artifact_name
         return cls(method_metadata=method_metadata)
 
     def compare_on_tabarena(

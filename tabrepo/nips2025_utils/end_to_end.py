@@ -270,6 +270,8 @@ class EndToEndResults:
             new_result_prefix (str | None): If not None, add a prefix to the new
                 results to distinguish new results from the original TabArena results.
                 Use this, for example, if you re-run a model from TabArena.
+                Note, this prefix will be added on top of model-specific prefixes that
+                might have been set during caching.
         """
         results = self.get_results(
             new_result_prefix=new_result_prefix,
@@ -292,9 +294,15 @@ class EndToEndResults:
     ) -> pd.DataFrame:
         df_results_lst = []
         for result in self.end_to_end_results_lst:
+            prefix = new_result_prefix
+            if result.method_metadata.custom_artifact_name:
+                if prefix is None:
+                    prefix = f"[{result.method_metadata.artifact_name}] "
+                else:
+                    prefix = prefix + f" [{result.method_metadata.artifact_name}] "
             df_results_lst.append(
                 result.get_results(
-                    new_result_prefix=new_result_prefix,
+                    new_result_prefix=prefix,
                     use_model_results=use_model_results,
                     fillna=fillna,
                 )

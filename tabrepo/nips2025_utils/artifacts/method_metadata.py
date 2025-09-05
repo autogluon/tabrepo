@@ -37,6 +37,7 @@ class MethodMetadata:
         has_processed: bool = False,
         has_results: bool = False,
         upload_as_public: bool = False,
+        custom_artifact_name: bool = False,
     ):
         self.method = method
         if artifact_name is None:
@@ -56,6 +57,7 @@ class MethodMetadata:
         if can_hpo is None:
             can_hpo = self.method_type == "config"
         self.can_hpo = can_hpo
+        self.custom_artifact_name = custom_artifact_name
 
         assert isinstance(self.method, str) and len(self.method) > 0
         assert isinstance(self.artifact_name, str) and len(self.artifact_name) > 0
