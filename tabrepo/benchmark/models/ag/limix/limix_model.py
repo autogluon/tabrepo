@@ -129,7 +129,7 @@ class LimiXModel(AbstractModel):
     def download_model():
         from huggingface_hub import hf_hub_download
 
-        model_dir = _user_cache_dir(platform=sys.platform, appname="tabdpt")
+        model_dir = _user_cache_dir(platform=sys.platform, appname="limix")
         model_dir.mkdir(exist_ok=True, parents=True)
 
         final_model_path = model_dir / LimiXModel._DEFAULT_CHECKPOINT_PATH
