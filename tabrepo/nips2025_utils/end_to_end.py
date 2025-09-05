@@ -140,20 +140,47 @@ class EndToEnd:
         return cls(end_to_end_lst=end_to_end_lst)
 
     @staticmethod
-    def create_and_cache_end_to_end_results(
-            path_raw: str | Path | list[str | Path],
-            num_cpus: int | None = None,
-            artifact_name: str | None = None,
-            task_metadata: pd.DataFrame | None = None,
+    def from_path_raw_to_results(
+        path_raw: str | Path | list[str | Path],
+        task_metadata: pd.DataFrame | None = None,
+        cache: bool = True,
+        name: str = None,
+        name_suffix: str = None,
+        artifact_name: str | None = None,
+        num_cpus: int | None = None,
     ) -> EndToEndResults:
-        """Create and cache end-to-end results for all methods in the given directory.
+        """
+        Create and cache end-to-end results for all methods in the given directory.
+        Will not cache raw or processed data. To cache all artifacts, call `from_path_raw` instead.
+        This is ~10x+ faster than calling `from_path_raw` for large artifacts, but will not cache raw or processed data.
 
-        Args:
-            path_raw (str | Path | list[str | Path): Path to the directory containing raw results.
-            num_cpus (int | None): Number of CPUs to use for parallel processing.
-                If None, it will use all available CPUs.
-            artifact_name (str | None): Optional name to distinguish different runs of
-                the same method.
+        Will process each task separately in parallel using ray, minimizing disk operations and memory burden.
+
+        Parameters
+        ----------
+        path_raw : str | Path | list[str | Path]
+            Path to the directory containing raw results.
+        task_metadata : pd.DataFrame or None = None
+            The task_metadata containing information for each task,
+            such as the target evaluation metric and problem_type.
+            If unspecified, will be inferred from ``results_lst``.
+        cache : bool = True
+            If True, will cache method metadata and results to disk.
+            This function will never cache raw and processed data.
+        name : str or None = None
+            If specified, will overwrite the name of the method.
+            Will raise an exception if more than one config is present.
+        name_suffix : str or None = None
+            If specified, will be appended to the name of the method (including all configs of the method).
+            Useful for ensuring a unique name compared to prior results for a given model type,
+            such as when re-running LightGBM.
+        artifact_name : str or None = None
+            The name of the upper directory in the cache:
+                ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
+            If unspecified, will default to ``{method}``
+        num_cpus : int or None = None
+            Number of CPUs to use for parallel processing.
+            If None, it will use all available CPUs.
         """
         if num_cpus is None:
             num_cpus = len(os.sched_getaffinity(0))
@@ -182,10 +209,12 @@ class EndToEnd:
             func_element_key_string="file_paths_method",
             num_workers=num_cpus,
             num_cpus_per_worker=1,
-            func_put_kwargs={
-                "task_metadata": task_metadata,
-                "artifact_name": artifact_name,
-            },
+            func_put_kwargs=dict(
+                task_metadata=task_metadata,
+                name=name,
+                name_suffix=name_suffix,
+                artifact_name=artifact_name,
+            ),
             track_progress=True,
             tqdm_kwargs={"desc": "Processing Results"},
             ray_remote_kwargs={"max_calls": 0},
@@ -207,8 +236,9 @@ class EndToEnd:
             e2e_single_lst.append(cur_e2e)
         e2e_results = EndToEndResults(end_to_end_results_lst=e2e_single_lst)
 
-        print(f"Save metadata and results...")
-        e2e_results.cache()
+        if cache:
+            print(f"Caching metadata and results...")
+            e2e_results.cache()
         return e2e_results
 
     def to_results(self) -> EndToEndResults:
@@ -325,7 +355,9 @@ def _process_result_list(
     *,
     file_paths_method: list[Path],
     task_metadata: pd.DataFrame,
-    artifact_name: str | None,
+    name: str = None,
+    name_suffix: str = None,
+    artifact_name: str | None = None,
 ) -> EndToEndResults:
     results_lst = load_all_artifacts(
         file_paths=file_paths_method, engine="sequential", progress_bar=False
@@ -334,6 +366,8 @@ def _process_result_list(
     e2e = EndToEnd.from_raw(
         results_lst=results_lst,
         task_metadata=task_metadata,
+        name=name,
+        name_suffix=name_suffix,
         artifact_name=artifact_name,
         cache=False,
         cache_raw=False,

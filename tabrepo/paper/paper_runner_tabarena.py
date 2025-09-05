@@ -405,7 +405,7 @@ class PaperRunTabArena(PaperRun):
             framework_types_extra = []
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
-        if baselines is "auto":
+        if isinstance(baselines, str) and baselines == "auto":
             baselines = [
                 # "AutoGluon 1.3 (5m)",
                 # "AutoGluon 1.3 (1h)",
