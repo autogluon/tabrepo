@@ -100,7 +100,7 @@ def get_info_from_result(result: BaselineResult) -> dict:
 
 
 def load_raw(
-    path_raw: str | Path = None,
+    path_raw: str | Path | list[str | Path] = None,
     engine: str = "ray",
     as_holdout: bool = False,
 ) -> list[BaselineResult]:

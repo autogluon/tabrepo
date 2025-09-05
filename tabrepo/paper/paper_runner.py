@@ -209,6 +209,14 @@ class PaperRun:
         df_results_configs["config_type"] = df_results_configs["framework"].map(configs_types)
         return df_results_configs
 
+    def run_config_family(self, config_type: str) -> pd.DataFrame:
+        configs = self.repo.configs(config_types=[config_type])
+        df_results_configs = self.evaluator.compare_metrics(configs=configs, baselines=[], include_metric_error_val=True).reset_index()
+        df_results_configs["method_type"] = "config"
+        configs_types = self.repo.configs_type()
+        df_results_configs["config_type"] = df_results_configs["framework"].map(configs_types)
+        return df_results_configs
+
     def run(self) -> pd.DataFrame:
         df_results_hpo_all = self.run_hpo_by_family()
         # df_zeroshot_portfolio = self.run_zs()

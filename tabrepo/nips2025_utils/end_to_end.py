@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 from typing_extensions import Self
 
 import pandas as pd
-from autogluon.common.savers import save_pd
 
 from tabrepo.benchmark.result import BaselineResult
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
@@ -21,8 +21,7 @@ from tabrepo.nips2025_utils.method_processor import (
     load_all_artifacts,
     load_raw,
 )
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.utils.pickle_utils import fetch_all_pickles_fast
+from tabrepo.utils.pickle_utils import fetch_all_pickles
 from tabrepo.utils.ray_utils import ray_map_list
 
 
@@ -55,6 +54,7 @@ class EndToEnd:
         name: str | None = None,
         name_suffix: str | None = None,
         artifact_name: str | None = None,
+        backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
     ) -> Self:
         log = print if verbose else (lambda *a, **k: None)
@@ -92,6 +92,7 @@ class EndToEnd:
                 name=name,
                 name_suffix=name_suffix,
                 artifact_name=artifact_name,
+                backend=backend,
                 verbose=verbose,
             )
             end_to_end_lst.append(cur_end_to_end)
@@ -100,16 +101,18 @@ class EndToEnd:
     @classmethod
     def from_path_raw(
         cls,
-        path_raw: str | Path,
+        path_raw: str | Path | list[str | Path],
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
         name: str = None,
         name_suffix: str = None,
         artifact_name: str | None = None,
+        backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
     ) -> Self:
-        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
+        engine = "ray" if backend == "ray" else "sequential"
+        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw, engine=engine)
         return cls.from_raw(
             results_lst=results_lst,
             task_metadata=task_metadata,
@@ -118,6 +121,7 @@ class EndToEnd:
             name=name,
             name_suffix=name_suffix,
             artifact_name=artifact_name,
+            backend=backend,
             verbose=verbose,
         )
 
@@ -135,23 +139,17 @@ class EndToEnd:
             end_to_end_lst.append(end_to_end_single)
         return cls(end_to_end_lst=end_to_end_lst)
 
-    def to_results(self) -> EndToEndResults:
-        return EndToEndResults(
-            end_to_end_results_lst=[
-                end_to_end.to_results() for end_to_end in self.end_to_end_lst
-            ],
-        )
-
     @staticmethod
     def create_and_cache_end_to_end_results(
-        path_raw: str | Path,
-        num_cpus: int | None = None,
-        artifact_name: str | None = None,
-    ) -> None:
+            path_raw: str | Path | list[str | Path],
+            num_cpus: int | None = None,
+            artifact_name: str | None = None,
+            task_metadata: pd.DataFrame | None = None,
+    ) -> EndToEndResults:
         """Create and cache end-to-end results for all methods in the given directory.
 
         Args:
-            path_raw (str | Path): Path to the directory containing raw results.
+            path_raw (str | Path | list[str | Path): Path to the directory containing raw results.
             num_cpus (int | None): Number of CPUs to use for parallel processing.
                 If None, it will use all available CPUs.
             artifact_name (str | None): Optional name to distinguish different runs of
@@ -161,15 +159,24 @@ class EndToEnd:
             num_cpus = len(os.sched_getaffinity(0))
 
         print("Get results paths...")
-        all_file_paths_method = fetch_all_pickles_fast(
+        file_paths = fetch_all_pickles(
             dir_path=path_raw, suffix="results.pkl"
         )
-        print("Get task metadata...")
-        task_metadata = load_task_metadata()
-        # Below is too slow to use by default, TODO: get logic for any task that is fast
-        # task_metadata = generate_task_metadata(tids=list({r.split("/")[0] for r in all_file_paths_method}))
 
-        results = ray_map_list(
+        all_file_paths_method = {}
+        for file_path in file_paths:
+            did_sid = f"{file_path.parts[-3]}/{file_path.parts[-2]}"
+            if did_sid not in all_file_paths_method:
+                all_file_paths_method[did_sid] = []
+            all_file_paths_method[did_sid].append(file_path)
+
+        if task_metadata is None:
+            print("Get task metadata...")
+            task_metadata = load_task_metadata()
+            # Below is too slow to use by default, TODO: get logic for any task that is fast
+            # task_metadata = generate_task_metadata(tids=list({r.split("/")[0] for r in all_file_paths_method}))
+
+        results: list[EndToEndResults] = ray_map_list(
             list_to_map=list(all_file_paths_method.values()),
             func=_process_result_list,
             func_element_key_string="file_paths_method",
@@ -181,71 +188,35 @@ class EndToEnd:
             },
             track_progress=True,
             tqdm_kwargs={"desc": "Processing Results"},
-            ray_remote_kwargs={"max_calls": 10},
+            ray_remote_kwargs={"max_calls": 0},
         )
+        results: list[EndToEndResultsSingle] = [
+            e2e_single for e2e in results for e2e_single in e2e.end_to_end_results_lst
+        ]
 
         print("Merging results...")
-        method_metadata, hpo_results, model_results = results[0]
-        for results_method in results[1:]:
-            method_metadata_other, hpo_results_other, model_results_other = (
-                results_method
-            )
+        results_per_method = {}
+        for e2e_single in results:
+            method = e2e_single.method_metadata.method
+            if method not in results_per_method:
+                results_per_method[method] = []
+            results_per_method[method].append(e2e_single)
+        e2e_single_lst = []
+        for method, e2e_lst in results_per_method.items():
+            cur_e2e = EndToEndResultsSingle.concat(e2e_lst=e2e_lst)
+            e2e_single_lst.append(cur_e2e)
+        e2e_results = EndToEndResults(end_to_end_results_lst=e2e_single_lst)
 
-            # Capture the any() in metadata creation.
-            if method_metadata.is_bag or method_metadata_other.is_bag:
-                method_metadata.is_bag = True
-                method_metadata_other.is_bag = True
+        print(f"Save metadata and results...")
+        e2e_results.cache()
+        return e2e_results
 
-            if method_metadata.__dict__ != method_metadata_other.__dict__:
-                raise ValueError(
-                    "Method metadata mismatch! "
-                    f"{method_metadata.__dict__} != {method_metadata_other.__dict__}"
-                )
-
-            # merge results
-            hpo_results = pd.concat([hpo_results, hpo_results_other], ignore_index=True)
-            model_results = pd.concat(
-                [model_results, model_results_other], ignore_index=True
-            )
-
-        print(f"Save metadata and results to {method_metadata.path}...")
-        method_metadata.to_yaml()
-        save_pd.save(path=str(method_metadata.path_results_hpo()), df=hpo_results)
-        save_pd.save(path=str(method_metadata.path_results_model()), df=model_results)
-
-
-def _process_result_list(
-    *,
-    file_paths_method: list[Path],
-    task_metadata: pd.DataFrame,
-    artifact_name: str | None,
-) -> tuple[MethodMetadata, pd.DataFrame, pd.DataFrame]:
-    results_lst = load_all_artifacts(
-        file_paths=file_paths_method, engine="sequential", progress_bar=False
-    )
-    # Get metadata
-    method_metadata: MethodMetadata = MethodMetadata.from_raw(
-        results_lst=results_lst, artifact_name=artifact_name
-    )
-
-    # Get evaluation repository
-    repo = method_metadata.generate_repo(
-        results_lst=results_lst,
-        task_metadata=task_metadata,
-    )
-
-    # Getting Tabarena context
-    tabarena_context = TabArenaContext()
-    tabarena_context.backend = "native"
-    tabarena_context.engine = "sequential"
-    hpo_results, model_results = tabarena_context.simulate_repo(
-        repo=repo,
-        method=method_metadata,
-        use_rf_config_fallback=False,
-        cache=False,
-    )
-
-    return method_metadata, hpo_results, model_results
+    def to_results(self) -> EndToEndResults:
+        return EndToEndResults(
+            end_to_end_results_lst=[
+                end_to_end.to_results() for end_to_end in self.end_to_end_lst
+            ],
+        )
 
 
 class EndToEndResults:
@@ -344,3 +315,31 @@ class EndToEndResults:
             )
             end_to_end_results_lst.append(end_to_end_results)
         return cls(end_to_end_results_lst=end_to_end_results_lst)
+
+    def cache(self):
+        for e2e_results_single in self.end_to_end_results_lst:
+            e2e_results_single.cache()
+
+
+def _process_result_list(
+    *,
+    file_paths_method: list[Path],
+    task_metadata: pd.DataFrame,
+    artifact_name: str | None,
+) -> EndToEndResults:
+    results_lst = load_all_artifacts(
+        file_paths=file_paths_method, engine="sequential", progress_bar=False
+    )
+
+    e2e = EndToEnd.from_raw(
+        results_lst=results_lst,
+        task_metadata=task_metadata,
+        artifact_name=artifact_name,
+        cache=False,
+        cache_raw=False,
+        backend="native",
+        verbose=False,
+    )
+    e2e_results = e2e.to_results()
+
+    return e2e_results

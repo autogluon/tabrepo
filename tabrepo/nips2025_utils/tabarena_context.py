@@ -140,7 +140,7 @@ class TabArenaContext:
         holdout: bool = False,
         use_rf_config_fallback: bool = True,
         cache: bool = True,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
         if isinstance(method, MethodMetadata):
             metadata = method
             method = metadata.method
@@ -156,7 +156,12 @@ class TabArenaContext:
                 path_processed = metadata.path_processed
             repo = EvaluationRepository.from_dir(path=path_processed)
 
-        model_types = repo.config_types()
+        if metadata.method_type == "config":
+            model_types = repo.config_types()
+            assert len(model_types) == 1
+            model_type = model_types[0]
+        else:
+            model_type = None
 
         if use_rf_config_fallback:
             metadata_rf = self._method_metadata(method="RandomForest")
@@ -177,17 +182,19 @@ class TabArenaContext:
         # FIXME: do this in simulator automatically
 
         if metadata.method_type == "config":
-            hpo_results = simulator.run_minimal_paper(model_types=model_types, tune=metadata.can_hpo)
+            hpo_results = simulator.run_minimal_single(model_type=model_type, tune=metadata.can_hpo)
             hpo_results["ta_name"] = metadata.method
             hpo_results["ta_suite"] = metadata.artifact_name
             hpo_results = hpo_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
             if cache:
                 save_pd.save(path=save_file, df=hpo_results)
+            config_results = simulator.run_config_family(config_type=model_type)
+            baseline_results = None
         else:
             hpo_results = None
+            config_results = None
+            baseline_results = simulator.run_baselines()
 
-        config_results = simulator.run_configs(model_types=model_types)
-        baseline_results = simulator.run_baselines()
         results_lst = [config_results, baseline_results]
         results_lst = [r for r in results_lst if r is not None]
         model_results = pd.concat(results_lst, ignore_index=True)
