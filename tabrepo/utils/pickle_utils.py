@@ -4,8 +4,12 @@ import pickle
 from pathlib import Path
 from typing import Any
 
+import tqdm
 
-def fetch_all_pickles(dir_path: str | Path | list[str | Path], suffix: str = ".pkl") -> list[Path]:
+
+def fetch_all_pickles(
+    dir_path: str | Path | list[str | Path], suffix: str = ".pkl"
+) -> list[Path]:
     """Recursively find every file ending in “.pkl” under *dir_path*
     and un‑pickle its contents.
 
@@ -15,12 +19,12 @@ def fetch_all_pickles(dir_path: str | Path | list[str | Path], suffix: str = ".p
         Root directory to search.
         If a list of directories, will search over all directories.
 
-    Returns
+    Returns:
     -------
     list[Path]
         A list of paths to .pkl files.
 
-    Notes
+    Notes:
     -----
     Never un‑pickle data you do not trust.
     Malicious pickle data can execute arbitrary code.
@@ -36,49 +40,10 @@ def fetch_all_pickles(dir_path: str | Path | list[str | Path], suffix: str = ".p
 
         # Look for *.pkl
         pattern = f"*{suffix}"
-        for file_path in root.rglob(pattern):
+        for file_path in tqdm.tqdm(
+            root.rglob(pattern), desc=f"Searching for pickles in {cur_dir_path}"
+        ):
             file_paths.append(file_path)
-
-    return file_paths
-
-
-def fetch_all_pickles_fast(
-    dir_path: str | Path, suffix: str = ".pkl"
-) -> dict[str, list[Path]]:
-    """Recursively find every file ending in “.pkl” or “.pickle” under *dir_path*
-    and un‑pickle its contents.
-
-    Parameters
-    ----------
-    dir_path : str | pathlib.Path
-        Root directory to search.
-
-    Returns
-    -------
-    file_paths : dict[str, list[Paths]]
-        List of file paths for each dataset-split-id combination.
-
-    Notes
-    -----
-    Never un-pickle data you do not trust.
-    Malicious pickle data can execute arbitrary code.
-    """
-    import tqdm
-
-    root = Path(dir_path).expanduser().resolve()
-    if not root.is_dir():
-        raise NotADirectoryError(f"{root} is not a directory")
-
-    file_paths: dict[str, list[Path]] = {}
-
-    print("Root dir:", root)
-    for file_path in tqdm.tqdm(
-        root.glob(f"*/*/*/{suffix}"), desc="Searching for pickles"
-    ):
-        did_sid = f"{file_path.parts[-3]}/{file_path.parts[-2]}"
-        if did_sid not in file_paths:
-            file_paths[did_sid] = []
-        file_paths[did_sid].append(file_path)
 
     return file_paths
 
@@ -92,13 +57,13 @@ def load_all_pickles(dir_path: str | Path) -> list[Any]:
     dir_path : str | pathlib.Path
         Root directory to search.
 
-    Returns
+    Returns:
     -------
     List[Any]
         A list whose elements are the Python objects obtained from each
         successfully un‑pickled file, in depth‑first lexical order.
 
-    Notes
+    Notes:
     -----
     Never un‑pickle data you do not trust.
     Malicious pickle data can execute arbitrary code.
