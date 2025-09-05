@@ -267,7 +267,7 @@ class EndToEndSingle:
     @classmethod
     def from_path_raw(
         cls,
-        path_raw: str | Path,
+        path_raw: str | Path | list[str | Path],
         method_metadata: MethodMetadata | None = None,
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
@@ -276,9 +276,11 @@ class EndToEndSingle:
         name_suffix: str = None,
         method: str | None = None,
         artifact_name: str | None = None,
+        backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
     ) -> Self:
-        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw)
+        engine = "ray" if backend == "ray" else "sequential"
+        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw, engine=engine)
         return cls.from_raw(
             results_lst=results_lst,
             method_metadata=method_metadata,
@@ -289,6 +291,7 @@ class EndToEndSingle:
             name_suffix=name_suffix,
             method=method,
             artifact_name=artifact_name,
+            backend=backend,
             verbose=verbose,
         )
 
@@ -338,15 +341,15 @@ class EndToEndSingle:
     # FIXME: Refactor
     @staticmethod
     def create_and_cache_end_to_end_results(
-        path_raw: str | Path,
+        path_raw: str | Path | list[str | Path],
         num_cpus: int | None = None,
         artifact_name: str | None = None,
         task_metadata: pd.DataFrame | None = None,
     ) -> EndToEndResultsSingle:
-        """Create and cache end-to-end results for all methods in the given directory.
+        """Create and cache end-to-end results for the method in the given directory.
 
         Args:
-            path_raw (str | Path): Path to the directory containing raw results.
+            path_raw (str | Path | list[str | Path]): Path to the directory containing raw results.
             num_cpus (int | None): Number of CPUs to use for parallel processing.
                 If None, it will use all available CPUs.
             artifact_name (str | None): Optional name to distinguish different runs of
@@ -373,7 +376,7 @@ class EndToEndSingle:
             # Below is too slow to use by default, TODO: get logic for any task that is fast
             # task_metadata = generate_task_metadata(tids=list({r.split("/")[0] for r in all_file_paths_method}))
 
-        results = ray_map_list(
+        results: list[EndToEndResultsSingle] = ray_map_list(
             list_to_map=list(all_file_paths_method.values()),
             func=_process_result_list,
             func_element_key_string="file_paths_method",
@@ -389,39 +392,13 @@ class EndToEndSingle:
         )
 
         print("Merging results...")
-        method_metadata, hpo_results, model_results = results[0]
-        for results_method in results[1:]:
-            method_metadata_other, hpo_results_other, model_results_other = (
-                results_method
-            )
 
-            # Capture the any() in metadata creation.
-            if method_metadata.is_bag or method_metadata_other.is_bag:
-                method_metadata.is_bag = True
-                method_metadata_other.is_bag = True
-
-            if method_metadata.__dict__ != method_metadata_other.__dict__:
-                raise ValueError(
-                    "Method metadata mismatch! "
-                    f"{method_metadata.__dict__} != {method_metadata_other.__dict__}"
-                )
-
-            # merge results
-            hpo_results = pd.concat([hpo_results, hpo_results_other], ignore_index=True)
-            model_results = pd.concat(
-                [model_results, model_results_other], ignore_index=True
-            )
+        e2e_results: EndToEndResultsSingle = EndToEndResultsSingle.concat(results)
+        method_metadata = e2e_results.method_metadata
 
         print(f"Save metadata and results to {method_metadata.path}...")
-        method_metadata.to_yaml()
-        save_pd.save(path=str(method_metadata.path_results_hpo()), df=hpo_results)
-        save_pd.save(path=str(method_metadata.path_results_model()), df=model_results)
-
-        return EndToEndResultsSingle(
-            method_metadata=method_metadata,
-            model_results=model_results,
-            hpo_results=hpo_results,
-        )
+        e2e_results.cache()
+        return e2e_results
 
 
 class EndToEndResultsSingle:
@@ -515,6 +492,13 @@ class EndToEndResultsSingle:
 
         return df_results
 
+    def cache(self):
+        self.method_metadata.to_yaml()
+        if self.hpo_results is not None:
+            save_pd.save(path=str(self.method_metadata.path_results_hpo()), df=self.hpo_results)
+        if self.model_results is not None:
+            save_pd.save(path=str(self.method_metadata.path_results_model()), df=self.model_results)
+
     @classmethod
     def fillna_results_on_tabarena(cls, df_results: pd.DataFrame) -> pd.DataFrame:
         tabarena_context = TabArenaContext()
@@ -534,13 +518,48 @@ class EndToEndResultsSingle:
             df_fillna=df_fillna,
         )
 
+    @classmethod
+    def concat(cls, e2e_lst: list[EndToEndResultsSingle]) -> EndToEndResultsSingle:
+        method_metadata = copy.deepcopy(e2e_lst[0].method_metadata)
+        hpo_results = copy.deepcopy(e2e_lst[0].hpo_results)
+        model_results = copy.deepcopy(e2e_lst[0].model_results)
+        for e2e_other in e2e_lst[1:]:
+            method_metadata_other = e2e_other.method_metadata
+            hpo_results_other = e2e_other.hpo_results
+            model_results_other = e2e_other.model_results
+
+            # Capture the any() in metadata creation.
+            if method_metadata.is_bag or method_metadata_other.is_bag:
+                method_metadata.is_bag = True
+                method_metadata_other = copy.deepcopy(method_metadata_other)
+                method_metadata_other.is_bag = True
+
+            if method_metadata.__dict__ != method_metadata_other.__dict__:
+                raise ValueError(
+                    "Method metadata mismatch! "
+                    f"{method_metadata.__dict__} != {method_metadata_other.__dict__}"
+                )
+
+            # merge results
+            hpo_results_to_concat = [r for r in [hpo_results, hpo_results_other] if r is not None]
+            if hpo_results_to_concat:
+                hpo_results = pd.concat(hpo_results_to_concat, ignore_index=True)
+            model_results_to_concat = [r for r in [model_results, model_results_other] if r is not None]
+            if model_results_to_concat:
+                model_results = pd.concat(model_results_to_concat, ignore_index=True)
+        return EndToEndResultsSingle(
+            method_metadata=method_metadata,
+            hpo_results=hpo_results,
+            model_results=model_results,
+        )
+
 
 def _process_result_list(
     *,
     file_paths_method: list[Path],
     task_metadata: pd.DataFrame,
     artifact_name: str | None,
-) -> tuple[MethodMetadata, pd.DataFrame, pd.DataFrame]:
+) -> EndToEndResultsSingle:
     results_lst = load_all_artifacts(
         file_paths=file_paths_method, engine="sequential", progress_bar=False
     )
@@ -554,5 +573,6 @@ def _process_result_list(
         backend="native",
         verbose=False,
     )
+    e2e_results = e2e.to_results()
 
-    return e2e.method_metadata, e2e.hpo_results, e2e.model_results
+    return e2e_results
