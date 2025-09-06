@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Literal
 
@@ -54,6 +55,8 @@ _methods_paper = [
 class TabArenaContext:
     def __init__(
         self,
+        include_ag_140: bool = True,
+        include_mitra: bool = True,
         backend: Literal["ray", "native"] = "ray",
     ):
         self.name = "tabarena-2025-06-12"
@@ -64,6 +67,11 @@ class TabArenaContext:
         assert backend in ["ray", "native"]
         self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
+        self._methods_paper = copy.deepcopy(_methods_paper)
+        if include_ag_140:
+            self._methods_paper.append("AutoGluon_v140")
+        if include_mitra:
+            self._methods_paper.append("Mitra_GPU")
 
     @property
     def methods(self) -> list[str]:
@@ -246,7 +254,7 @@ class TabArenaContext:
         methods_drop: list[str] | None = None,
     ) -> pd.DataFrame:
         if methods is None:
-            methods = _methods_paper
+            methods = self._methods_paper
             if holdout:
                 # only include methods that can have holdout
                 methods = [m for m in methods if self._method_metadata(m).is_bag]
@@ -259,14 +267,14 @@ class TabArenaContext:
                     )
             methods = [method for method in methods if method not in methods_drop]
         if isinstance(download_results, bool) and download_results:
-            loader = TabArena51ArtifactLoader()
+            loader = TabArena51ArtifactLoader(methods=methods)
             loader.download_results(holdout=holdout)
         try:
             df_results = self._load_results_paper(methods=methods, holdout=holdout)
         except FileNotFoundError as err:
             if isinstance(download_results, str) and download_results == "auto":
                 print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
-                loader = TabArena51ArtifactLoader()
+                loader = TabArena51ArtifactLoader(methods=methods)
                 loader.download_results(holdout=holdout)
                 df_results = self._load_results_paper(methods=methods, holdout=holdout)
             else:
@@ -293,7 +301,7 @@ class TabArenaContext:
 
     def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
         if methods is None:
-            methods = _methods_paper
+            methods = self._methods_paper
             methods = [m for m in methods if self._method_metadata(m).method_type == "config"]
             if holdout:
                 # only include methods that can have holdout
