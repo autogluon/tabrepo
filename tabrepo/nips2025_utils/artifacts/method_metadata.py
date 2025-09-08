@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 import requests
@@ -15,6 +16,7 @@ from tabrepo.repository.evaluation_repository import EvaluationRepository
 from tabrepo.nips2025_utils.generate_repo import generate_repo_from_results_lst
 from tabrepo.benchmark.result import BaselineResult
 from tabrepo.nips2025_utils.method_processor import get_info_from_result, load_raw
+from tabrepo.utils.s3_utils import s3_get_object
 
 
 class MethodMetadata:
@@ -170,7 +172,7 @@ class MethodMetadata:
         assert method_type == "config"
 
         unique_model_types = result_df["model_type"].unique()
-        assert len(unique_model_types) == 1
+        assert len(unique_model_types) == 1, f"MethodMetadata requires exactly 1 model type, found: {unique_model_types}"
 
         unique_num_gpus = result_df["num_gpus"].unique()
         assert len(unique_num_gpus) == 1
@@ -362,6 +364,23 @@ class MethodMetadata:
             path_raw = self.path_raw
         return load_raw(path_raw=path_raw, engine=engine, as_holdout=as_holdout)
 
+    def load_processed(
+        self,
+        path_processed: str | Path = None,
+        prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
+        as_holdout: bool = False,
+    ) -> EvaluationRepository:
+        if path_processed is None:
+            if as_holdout:
+                path_processed = self.path_processed_holdout
+            else:
+                path_processed = self.path_processed
+        repo = EvaluationRepository.from_dir(
+            path=path_processed,
+            prediction_format=prediction_format,
+        )
+        return repo
+
     def generate_repo(
         self,
         results_lst: list = None,
@@ -396,6 +415,26 @@ class MethodMetadata:
         with open(path, 'w') as outfile:
             yaml.dump(self.__dict__, outfile, default_flow_style=False)
 
+    def to_yaml_fileobj(self) -> io.BytesIO:
+        """
+        Serialize this object to YAML and return a BytesIO buffer suitable for
+        s3_client.upload_fileobj, without writing to local disk.
+
+        Returns
+        -------
+        io.BytesIO
+            Buffer positioned at start containing UTF-8 encoded YAML.
+        """
+        yaml_str = yaml.safe_dump(
+            self.__dict__,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
+        )
+        buf = io.BytesIO(yaml_str.encode("utf-8"))
+        buf.seek(0)
+        return buf
+
     @classmethod
     def from_yaml(
         cls,
@@ -413,13 +452,49 @@ class MethodMetadata:
             kwargs = yaml.safe_load(file)
         return cls(**kwargs)
 
+    @classmethod
+    def from_s3_cache(
+        cls,
+        method: str,
+        bucket: str,
+        s3_prefix_root: str = "cache",
+        artifact_name: str = None,
+    ) -> Self:
+        metadata = MethodMetadata(
+            method=method,
+            artifact_name=artifact_name,
+        )
+        path_local = Path(metadata.path_metadata)
+        s3_cache_root = f"s3://{bucket}/{s3_prefix_root}"
+        s3_path_loc = metadata.to_s3_cache_loc(path=Path(path_local), s3_cache_root=s3_cache_root)
+        _, s3_key = s3_path_to_bucket_prefix(s3_path_loc)
+        # Stream into memory
+        obj = s3_get_object(Bucket=bucket, Key=s3_key)
+        body = obj["Body"]  # file-like object (StreamingBody, BytesIO, etc.)
+        kwargs = yaml.safe_load(body)
+        return cls(**kwargs)
+
     def cache_raw(
         self,
         results_lst: list[BaselineResult],
     ):
         path = self.path_raw
-        n_results = len(results_lst)
-        for i, result in enumerate(results_lst):
-            if i % 100 == 0:
-                print(f"{i + 1}/{n_results}")
+        for result in results_lst:
             result.to_dir(path=path)
+
+    def cache_processed(self, repo: EvaluationRepository):
+        repo.to_dir(self.path_processed)
+
+    def path_results_files(self, holdout: bool = False) -> list[Path]:
+        if self.method_type == "portfolio":
+            file_names = [
+                self.path_results_portfolio(holdout=holdout)
+            ]
+        else:
+            file_names = [
+                self.path_results_model(holdout=holdout)
+            ]
+
+        if self.method_type == "config":
+            file_names.append(self.path_results_hpo(holdout=holdout))
+        return file_names

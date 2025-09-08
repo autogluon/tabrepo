@@ -132,8 +132,11 @@ def evaluate_all(
 
         folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
             if use_tabicl else ("tabpfn" if use_tabpfn else "full")
-        baselines = ["AutoGluon 1.3 (4h)"]
-        baseline_colors = ["black"]
+        baselines = [
+            "AutoGluon 1.3 (4h)",
+            "AutoGluon 1.4 (4h)",
+        ]
+        baseline_colors = ["black", "tab:purple"]
         if include_portfolio:
             baselines.append("TabArena ensemble (4h)")
             baseline_colors.append("tab:purple")

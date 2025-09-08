@@ -4,7 +4,7 @@ import numpy as np
 from hyperopt import hp
 from hyperopt.pyll import stochastic
 
-from autogluon.tabular.models import TabPFNV2Model
+from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
 from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 

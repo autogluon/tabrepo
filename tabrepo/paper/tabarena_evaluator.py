@@ -161,6 +161,28 @@ class TabArenaEvaluator:
         ])
         return config_types
 
+    # TODO: Remove the need for this, have the original results have the correct name to begin with
+    @classmethod
+    def _rename_dict(cls) -> dict:
+        return {
+            "AutoGluon_v130_bq_4h8c": "AutoGluon 1.3 (4h)",
+
+            "RandomForest_r1_BAG_L1_HOLDOUT": "RF (holdout)",
+            "ExtraTrees_r1_BAG_L1_HOLDOUT": "XT (holdout)",
+            "LinearModel_c1_BAG_L1_HOLDOUT": "LR (holdout)",
+
+            "LightGBM_c1_BAG_L1_HOLDOUT": "GBM (holdout)",
+            "XGBoost_c1_BAG_L1_HOLDOUT": "XGB (holdout)",
+            "CatBoost_c1_BAG_L1_HOLDOUT": "CAT (holdout)",
+            "NeuralNetTorch_c1_BAG_L1_HOLDOUT": "NN_TORCH (holdout)",
+            "NeuralNetFastAI_c1_BAG_L1_HOLDOUT": "FASTAI (holdout)",
+
+            "RealMLP_c1_BAG_L1_HOLDOUT": "REALMLP (holdout)",
+            "ExplainableBM_c1_BAG_L1_HOLDOUT": "EBM (holdout)",
+            "TabM_c1_BAG_L1_HOLDOUT": "TABM (holdout)",
+            "ModernNCA_c1_BAG_L1_HOLDOUT": "MNCA (holdout)",
+        }
+
     def eval(
         self,
         df_results: pd.DataFrame,
@@ -206,9 +228,34 @@ class TabArenaEvaluator:
             df_results["imputed"] = False
         df_results["imputed"] = df_results["imputed"].astype("boolean").fillna(False).astype(bool)
         df_results["seed"] = df_results["seed"].fillna(0).astype(int)
-        df_results = df_results.drop_duplicates(subset=[
-            "dataset", "fold", self.method_col, "seed"
-        ], keep="first")
+
+        # rename methods
+        _rename_dict = self._rename_dict()
+        df_results[self.method_col] = df_results[self.method_col].map(_rename_dict).fillna(df_results[self.method_col])
+        baselines = [_rename_dict.get(b, b) for b in baselines]
+        assert len(baselines) == len(list(set(baselines))), f"Duplicates keys found in baselines: {baselines}"
+        if calibration_framework is not None:
+            calibration_framework = _rename_dict.get(calibration_framework, calibration_framework)
+
+        # don't allow duplicate results
+        dupes = df_results[df_results.duplicated(
+            subset=["dataset", "fold", self.method_col, "seed"],
+            keep=False,
+        )]
+        if not dupes.empty:
+            dupes = dupes.sort_values(by=[self.method_col, "dataset", "fold", "seed"])
+            duplicated_methods = dupes["method"].value_counts()
+            raise ValueError(
+                "Duplicate rows detected on keys [dataset, fold, "
+                f"{self.method_col}, seed].\n"
+                f"The following {len(duplicated_methods)} methods were duplicated (w/ counts):\n"
+                f"{duplicated_methods.to_string()}\n"
+                f"The following {len(dupes)} rows are duplicates:\n"
+                f"{dupes.to_string(index=False)}"
+            )
+        # df_results = df_results.drop_duplicates(subset=[
+        #     "dataset", "fold", self.method_col, "seed"
+        # ], keep="first")
 
         if "normalized-error-dataset" not in df_results:
             df_results = self.compute_normalized_error_dynamic(df_results=df_results)
@@ -240,27 +287,6 @@ class TabArenaEvaluator:
             dataset_to_n_samples_train)
         df_results['time_infer_s_per_1K'] = df_results['time_infer_s'] * 1000 / df_results["dataset"].map(
             dataset_to_n_samples_test)
-
-        df_results[self.method_col] = df_results[self.method_col].map({
-            "AutoGluon_v130_bq_4h8c": "AutoGluon 1.3 (4h)",
-
-            "RandomForest_r1_BAG_L1_HOLDOUT": "RF (holdout)",
-            "ExtraTrees_r1_BAG_L1_HOLDOUT": "XT (holdout)",
-            "LinearModel_c1_BAG_L1_HOLDOUT": "LR (holdout)",
-
-            "LightGBM_c1_BAG_L1_HOLDOUT": "GBM (holdout)",
-            "XGBoost_c1_BAG_L1_HOLDOUT": "XGB (holdout)",
-            "CatBoost_c1_BAG_L1_HOLDOUT": "CAT (holdout)",
-            "NeuralNetTorch_c1_BAG_L1_HOLDOUT": "NN_TORCH (holdout)",
-            "NeuralNetFastAI_c1_BAG_L1_HOLDOUT": "FASTAI (holdout)",
-
-            "RealMLP_c1_BAG_L1_HOLDOUT": "REALMLP (holdout)",
-            "ExplainableBM_c1_BAG_L1_HOLDOUT": "EBM (holdout)",
-            "TabM_c1_BAG_L1_HOLDOUT": "TABM (holdout)",
-            "ModernNCA_c1_BAG_L1_HOLDOUT": "MNCA (holdout)",
-
-        }).fillna(df_results[self.method_col])
-        # print(df_results)
 
         df_results_rank_compare = copy.deepcopy(df_results)
         df_results_unfiltered = copy.deepcopy(df_results)

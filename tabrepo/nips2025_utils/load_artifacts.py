@@ -5,7 +5,6 @@ from pathlib import Path
 from autogluon.common.loaders import load_pkl
 from tabrepo.benchmark.result import AGBagResult, BaselineResult, ExperimentResults
 from tabrepo.utils.parallel_for import parallel_for
-import time
 
 
 def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
@@ -27,6 +26,7 @@ def load_all_artifacts(
     file_paths: list[str | Path],
     engine: str = "sequential",
     convert_to_holdout: bool = False,
+    progress_bar: bool = True,
 ) -> list[BaselineResult]:
     file_paths_lst = []
     for file_path in file_paths:
@@ -37,12 +37,10 @@ def load_all_artifacts(
             }
         )
 
-    ts = time.time()
     results_lst: list[BaselineResult] = parallel_for(
         f=load_and_align,
         inputs=file_paths_lst,
         engine=engine,
+        progress_bar=progress_bar,
     )
-    te = time.time()
-    print(f"{te - ts:.2f}s\t{engine}")
     return results_lst

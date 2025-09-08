@@ -11,9 +11,28 @@ if __name__ == '__main__':
     save_path = "output_paper_results"  # folder to save all figures and tables
     use_latex: bool = False  # Set to True if you have the appropriate latex packages installed for nicer figure style
 
-    tabarena_context = TabArenaContext()
+    include_2025_09_03_results = True  # Set to True to include new results not in the paper preprint
+
+    if include_2025_09_03_results:
+        tabarena_context = TabArenaContext(
+            include_ag_140=True,
+            include_mitra=True,
+        )
+        df_results_holdout = None  # TODO: Mitra does not yet have holdout results saved in S3, need to add
+    else:
+        tabarena_context = TabArenaContext(
+            include_ag_140=False,
+            include_mitra=False,
+        )
+        df_results_holdout = tabarena_context.load_results_paper(download_results=download_results, holdout=True)
     df_results = tabarena_context.load_results_paper(download_results=download_results)
-    df_results_holdout = tabarena_context.load_results_paper(download_results=download_results, holdout=True)
+
+    if include_2025_09_03_results:
+        fillna_method = "RF (default)"
+        df_results = TabArenaContext.fillna_metrics(
+            df_to_fill=df_results,
+            df_fillna=df_results[df_results["method"] == fillna_method],
+        )
 
     cpu_methods = [
         "ModernNCA",

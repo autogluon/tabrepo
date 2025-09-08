@@ -415,8 +415,6 @@ class BenchmarkContext:
                       f'\tfolds: {folds}')
             if download_files and exists == 'ignore':
                 if self.benchmark_paths.exists_all(check_zs=load_predictions):
-                    if verbose:
-                        print(f'All required files are present...')
                     download_files = False
             if download_files:
                 if verbose:
@@ -433,8 +431,6 @@ class BenchmarkContext:
 
             configs_hyperparameters = self.load_configs_hyperparameters()
             zsc = self._load_zsc(folds=folds, configs_hyperparameters=configs_hyperparameters, verbose=verbose)
-            if verbose:
-                print(f'Loading config hyperparameter definitions... Note: Hyperparameter definitions are only accurate for the latest version.')
 
             if load_predictions:
                 zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format, verbose=verbose)

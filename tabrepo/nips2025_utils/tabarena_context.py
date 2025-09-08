@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Literal
 
@@ -54,6 +55,8 @@ _methods_paper = [
 class TabArenaContext:
     def __init__(
         self,
+        include_ag_140: bool = True,
+        include_mitra: bool = True,
         backend: Literal["ray", "native"] = "ray",
     ):
         self.name = "tabarena-2025-06-12"
@@ -64,6 +67,11 @@ class TabArenaContext:
         assert backend in ["ray", "native"]
         self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
+        self._methods_paper = copy.deepcopy(_methods_paper)
+        if include_ag_140:
+            self._methods_paper.append("AutoGluon_v140")
+        if include_mitra:
+            self._methods_paper.append("Mitra_GPU")
 
     @property
     def methods(self) -> list[str]:
@@ -140,7 +148,7 @@ class TabArenaContext:
         holdout: bool = False,
         use_rf_config_fallback: bool = True,
         cache: bool = True,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
         if isinstance(method, MethodMetadata):
             metadata = method
             method = metadata.method
@@ -156,7 +164,12 @@ class TabArenaContext:
                 path_processed = metadata.path_processed
             repo = EvaluationRepository.from_dir(path=path_processed)
 
-        model_types = repo.config_types()
+        if metadata.method_type == "config":
+            model_types = repo.config_types()
+            assert len(model_types) == 1
+            model_type = model_types[0]
+        else:
+            model_type = None
 
         if use_rf_config_fallback:
             metadata_rf = self._method_metadata(method="RandomForest")
@@ -177,17 +190,19 @@ class TabArenaContext:
         # FIXME: do this in simulator automatically
 
         if metadata.method_type == "config":
-            hpo_results = simulator.run_minimal_paper(model_types=model_types, tune=metadata.can_hpo)
+            hpo_results = simulator.run_minimal_single(model_type=model_type, tune=metadata.can_hpo)
             hpo_results["ta_name"] = metadata.method
             hpo_results["ta_suite"] = metadata.artifact_name
             hpo_results = hpo_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
             if cache:
                 save_pd.save(path=save_file, df=hpo_results)
+            config_results = simulator.run_config_family(config_type=model_type)
+            baseline_results = None
         else:
             hpo_results = None
+            config_results = None
+            baseline_results = simulator.run_baselines()
 
-        config_results = simulator.run_configs(model_types=model_types)
-        baseline_results = simulator.run_baselines()
         results_lst = [config_results, baseline_results]
         results_lst = [r for r in results_lst if r is not None]
         model_results = pd.concat(results_lst, ignore_index=True)
@@ -231,16 +246,35 @@ class TabArenaContext:
         metadata = self._method_metadata(method=method)
         return metadata.load_portfolio_results(holdout=holdout)
 
-    def load_results_paper(self, methods: list[str] | None = None, holdout: bool = False, download_results: str | bool = False) -> pd.DataFrame:
+    def load_results_paper(
+        self,
+        methods: list[str] | None = None,
+        holdout: bool = False,
+        download_results: str | bool = "auto",
+        methods_drop: list[str] | None = None,
+    ) -> pd.DataFrame:
+        if methods is None:
+            methods = self._methods_paper
+            if holdout:
+                # only include methods that can have holdout
+                methods = [m for m in methods if self._method_metadata(m).is_bag]
+        if methods_drop is not None:
+            for method in methods_drop:
+                if method not in methods:
+                    raise AssertionError(
+                        f"Specified '{method}' in `methods_drop`, "
+                        f"but '{method}' is not present in methods: {methods}"
+                    )
+            methods = [method for method in methods if method not in methods_drop]
         if isinstance(download_results, bool) and download_results:
-            loader = TabArena51ArtifactLoader()
+            loader = TabArena51ArtifactLoader(methods=methods)
             loader.download_results(holdout=holdout)
         try:
             df_results = self._load_results_paper(methods=methods, holdout=holdout)
         except FileNotFoundError as err:
             if isinstance(download_results, str) and download_results == "auto":
                 print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
-                loader = TabArena51ArtifactLoader()
+                loader = TabArena51ArtifactLoader(methods=methods)
                 loader.download_results(holdout=holdout)
                 df_results = self._load_results_paper(methods=methods, holdout=holdout)
             else:
@@ -248,12 +282,7 @@ class TabArenaContext:
                 raise err
         return df_results
 
-    def _load_results_paper(self, methods: list[str] | None = None, holdout: bool = False) -> pd.DataFrame:
-        if methods is None:
-            methods = _methods_paper
-            if holdout:
-                # only include methods that can have holdout
-                methods = [m for m in methods if self._method_metadata(m).is_bag]
+    def _load_results_paper(self, methods: list[str], holdout: bool = False) -> pd.DataFrame:
         assert methods is not None and len(methods) > 0
         df_metadata_lst = []
         for method in methods:
@@ -272,7 +301,7 @@ class TabArenaContext:
 
     def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
         if methods is None:
-            methods = _methods_paper
+            methods = self._methods_paper
             methods = [m for m in methods if self._method_metadata(m).method_type == "config"]
             if holdout:
                 # only include methods that can have holdout
@@ -400,13 +429,13 @@ class TabArenaContext:
         return df_missing
 
     @classmethod
-    def fillna_metrics(cls, df_metrics: pd.DataFrame, df_fillna: pd.DataFrame) -> pd.DataFrame:
+    def fillna_metrics(cls, df_to_fill: pd.DataFrame, df_fillna: pd.DataFrame) -> pd.DataFrame:
         """
-        Fills missing (dataset, fold, framework) rows in df_metrics with the (dataset, fold) row in df_fillna.
+        Fills missing (dataset, fold, framework) rows in df_to_fill with the (dataset, fold) row in df_fillna.
 
         Parameters
         ----------
-        df_metrics
+        df_to_fill
         df_fillna
 
         Returns
@@ -418,10 +447,10 @@ class TabArenaContext:
         split_col = "fold"
         dataset_col = "dataset"
 
-        df_metrics = df_metrics.set_index([dataset_col, split_col, method_col], drop=True)
+        df_to_fill = df_to_fill.set_index([dataset_col, split_col, method_col], drop=True)
         df_fillna = df_fillna.set_index([dataset_col, split_col], drop=True).drop(columns=[method_col])
 
-        unique_frameworks = list(df_metrics.index.unique(level=method_col))
+        unique_frameworks = list(df_to_fill.index.unique(level=method_col))
 
         df_filled = df_fillna.index.to_frame().merge(
             pd.Series(data=unique_frameworks, name=method_col),
@@ -430,23 +459,24 @@ class TabArenaContext:
         df_filled = df_filled.set_index(keys=list(df_filled.columns))
 
         # missing results
-        nan_vals = df_filled.index.difference(df_metrics.index)
+        nan_vals = df_filled.index.difference(df_to_fill.index)
 
         # fill valid values
-        fill_cols = list(df_metrics.columns)
+        fill_cols = list(df_to_fill.columns)
         df_filled[fill_cols] = np.nan
-        df_filled[fill_cols] = df_filled[fill_cols].astype(df_metrics.dtypes)
-        df_filled.loc[df_metrics.index] = df_metrics
+        df_filled[fill_cols] = df_filled[fill_cols].astype(df_to_fill.dtypes)
+        df_filled.loc[df_to_fill.index] = df_to_fill
 
         a = df_fillna.loc[nan_vals.droplevel(level=method_col)]
         a.index = nan_vals
         df_filled.loc[nan_vals] = a
 
-        df_filled["imputed"] = False
+        if "imputed" not in df_filled.columns:
+            df_filled["imputed"] = False
         df_filled.loc[nan_vals, "imputed"] = True
 
-        df_metrics = df_filled
+        df_to_fill = df_filled
 
-        df_metrics = df_metrics.reset_index(drop=False)
+        df_to_fill = df_to_fill.reset_index(drop=False)
 
-        return df_metrics
+        return df_to_fill

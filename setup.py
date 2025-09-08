@@ -7,6 +7,7 @@ requirements = [
     "openml>=0.14.1",  # consider making optional
     "pyyaml",
     "pytest",
+    "tqdm",
     "typing-extensions>=4.11,<5",  # used for `Self` type hint
     "huggingface-hub",
 ]

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 
 
@@ -139,6 +141,13 @@ methods_compute_map = {
 
 }
 
+methods_artifact_name_map = {
+    "Mitra_GPU": "tabarena-2025-09-03",
+}
+
+methods_date_map = {
+    "Mitra_GPU": "2025-09-03",
+}
 
 methods = [
     "CatBoost",
@@ -184,6 +193,12 @@ for method in methods:
     else:
         can_hpo = True
 
+    method_kwargs = copy.deepcopy(method_kwargs)
+    if method in methods_artifact_name_map:
+        method_kwargs["artifact_name"] = methods_artifact_name_map[method]
+    if method in methods_date_map:
+        method_kwargs["date"] = methods_date_map[method]
+
     method_metadata = MethodMetadata(
         method=method,
         config_default=config_default,
@@ -223,3 +238,18 @@ portfolio_metadata = MethodMetadata(
 )
 
 tabarena_method_metadata_map[portfolio_metadata.method] = portfolio_metadata
+
+# New methods (tabarena-2025-09-03)
+ag_140_metadata = MethodMetadata(
+    method="AutoGluon_v140",
+    artifact_name="tabarena-2025-09-03",
+    date="2025-09-03",
+    method_type="baseline",
+    compute="gpu",
+    has_raw=True,
+    has_processed=True,
+    has_results=True,
+    upload_as_public=True,
+)
+
+tabarena_method_metadata_map[ag_140_metadata.method] = ag_140_metadata
