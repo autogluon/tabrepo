@@ -480,8 +480,8 @@ class xRFMModel(AbstractModel):
         #  How to mirror RealMLP learning rate scheduler while forcing stopping at a specific epoch?
         return {"can_refit_full": False}
 
-    def predict_proba(self, **kwargs) -> np.ndarray:
-        y_pred_proba = super().predict_proba(**kwargs)
+    def predict_proba(self, *args, **kwargs) -> np.ndarray:
+        y_pred_proba = super().predict_proba(*args, **kwargs)
 
         if self._device == "cuda":
             # backup free up VRAM after prediction
