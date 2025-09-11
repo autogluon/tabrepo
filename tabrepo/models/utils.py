@@ -47,6 +47,7 @@ def get_configs_generator_from_name(model_name: str):
         "TabPFNv2": lambda: importlib.import_module("tabrepo.models.tabpfnv2.generate").gen_tabpfnv2,
         "XGBoost": lambda: importlib.import_module("tabrepo.models.xgboost.generate").gen_xgboost,
         "Mitra": lambda: importlib.import_module("tabrepo.models.mitra.generate").gen_mitra,
+        "LimiX": lambda: importlib.import_module("tabrepo.models.limix.generate").gen_limix,
     }
 
     if model_name not in name_to_import_map:
