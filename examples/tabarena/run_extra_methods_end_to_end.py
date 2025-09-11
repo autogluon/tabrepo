@@ -15,6 +15,7 @@ def download_results(
     url = f"{url_prefix}{filename}"
     local_dir_suffix = Path(filename).with_suffix("").as_posix()
     path_raw = local_path_prefix / local_dir_suffix
+    print(f"Downloading '{url}' -> '{path_raw}'")
     download_and_extract_zip(url=url, path_local=path_raw)
 
 
@@ -61,24 +62,25 @@ if __name__ == '__main__':
     local_path_prefix = Path("local_data")
     cache = True
 
+    download = True
     filenames = [
         "data_BetaTabPFN.zip",
         "data_TabFlex.zip",
-        "leaderboard_submissions/data_Mitra_14082025.zip",
+        # "leaderboard_submissions/data_EBM_12082025.zip",
+        # "leaderboard_submissions/data_RealMLP_20082025.zip",
+        # "data_PerpetualBoosting.zip",
     ]
-    for filename in filenames:
-        download_results(
-            url_prefix=url_prefix,
-            local_path_prefix=local_path_prefix,
-            filename=filename,
-        )
+    if download:
+        for filename in filenames:
+            download_results(
+                url_prefix=url_prefix,
+                local_path_prefix=local_path_prefix,
+                filename=filename,
+            )
 
     methods = [
         "BetaTabPFN",
-        "Mitra",
         "TabFlex",
-        # "AutoGluon_ExperimentalV140_4h",
-        # "LightGBM_aio_0808",
     ]
 
     end_to_end_new_results(

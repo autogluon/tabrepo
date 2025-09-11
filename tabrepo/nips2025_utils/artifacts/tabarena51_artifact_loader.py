@@ -14,38 +14,53 @@ from .method_metadata import MethodMetadata
 
 
 class TabArena51ArtifactLoader(AbstractArtifactLoader):
-    def __init__(self):
-        self.bucket = "tabarena"
-        self.s3_prefix_root = "cache"
+    def __init__(
+        self,
+        methods: list[str | MethodMetadata] | str = "auto",
+        bucket: str = "tabarena",
+        s3_prefix_root: str = "cache",
+    ):
+        self.bucket = bucket
+        self.s3_prefix_root = s3_prefix_root
         self.local_paths = Paths
-        methods = [
-            "AutoGluon_v130",
-            "Portfolio-N200-4h",
-            "CatBoost",
-            "Dummy",
-            "ExplainableBM",
-            "ExtraTrees",
-            "KNeighbors",
-            "LightGBM",
-            "LinearModel",
-            "ModernNCA",
-            "NeuralNetFastAI",
-            "NeuralNetTorch",
-            "RandomForest",
-            "RealMLP",
-            "TabM",
-            "XGBoost",
+        if isinstance(methods, str) and methods == "auto":
+            methods = [
+                "AutoGluon_v130",
+                "Portfolio-N200-4h",
+                "CatBoost",
+                "Dummy",
+                "ExplainableBM",
+                "ExtraTrees",
+                "KNeighbors",
+                "LightGBM",
+                "LinearModel",
+                "ModernNCA",
+                "NeuralNetFastAI",
+                "NeuralNetTorch",
+                "RandomForest",
+                "RealMLP",
+                "TabM",
+                "XGBoost",
 
-            # "Mitra_GPU",
-            "ModernNCA_GPU",
-            "RealMLP_GPU",
-            "TabDPT_GPU",
-            "TabICL_GPU",
-            "TabM_GPU",
-            "TabPFNv2_GPU",
-        ]
-        self.method_metadata_map = {k: v for k, v in tabarena_method_metadata_map.items() if k in methods}
-        self.method_metadata_lst = [self.method_metadata_map[m] for m in methods]
+                # "Mitra_GPU",
+                "ModernNCA_GPU",
+                "RealMLP_GPU",
+                "TabDPT_GPU",
+                "TabICL_GPU",
+                "TabM_GPU",
+                "TabPFNv2_GPU",
+
+                "AutoGluon_v140",
+            ]
+        self.method_metadata_map: dict[str, MethodMetadata] = {}
+        self.method_metadata_lst: list[MethodMetadata] = []
+        for m in methods:
+            if isinstance(m, MethodMetadata):
+                metadata = m
+            else:
+                metadata = tabarena_method_metadata_map[m]
+            self.method_metadata_map[metadata.method] = metadata
+            self.method_metadata_lst.append(metadata)
 
     @property
     def methods(self) -> list[str]:

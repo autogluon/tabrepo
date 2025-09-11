@@ -27,9 +27,9 @@ model_type_emoji = {
 def get_model_family(model_name: str) -> str:
     prefixes_mapping = {
         Constants.reference: ["AutoGluon"],
-        Constants.neural_network: ["REALMLP", "TabM", "FASTAI", "MNCA", "NN_TORCH"],
+        Constants.neural_network: ["REALMLP", "TABM", "FASTAI", "MNCA", "NN_TORCH", "MITRA"],
         Constants.tree: ["GBM", "CAT", "EBM", "XGB", "XT", "RF"],
-        Constants.foundational: ["TABDPT", "TABICL", "TABPFN"],
+        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA"],
         Constants.baseline: ["KNN", "LR"],
     }
 
@@ -58,6 +58,8 @@ def rename_map(model_name: str) -> str:
         "TABICL": "TabICL",
         "KNN": "KNN",
         "LR": "Linear",
+
+        "MITRA": "Mitra",
     }
 
     for prefix in rename_map:
@@ -65,6 +67,17 @@ def rename_map(model_name: str) -> str:
             return model_name.replace(prefix, rename_map[prefix])
 
     return model_name
+
+
+def compute_map(method: str) -> str:
+    _compute_map = {
+        "AutoGluon 1.3 (4h)": "CPU",
+        "AutoGluon 1.4 (4h)": "GPU",
+    }
+    gpu_postfix = "_GPU"
+    if method in _compute_map:
+        return _compute_map[method]
+    return "CPU" if gpu_postfix not in method else "GPU"
 
 
 def format_leaderboard(df_leaderboard: pd.DataFrame, include_type: bool = False) -> pd.DataFrame:
@@ -109,9 +122,7 @@ def format_leaderboard(df_leaderboard: pd.DataFrame, include_type: bool = False)
 
     # Resolve GPU postfix
     gpu_postfix = "_GPU"
-    df_leaderboard["Hardware"] = df_leaderboard["method"].apply(
-        lambda x: "CPU" if gpu_postfix not in x else "GPU"
-    )
+    df_leaderboard["Hardware"] = df_leaderboard["method"].apply(compute_map)
     df_leaderboard["method"] = df_leaderboard["method"].str.replace(gpu_postfix, "")
 
     df_leaderboard = df_leaderboard.loc[

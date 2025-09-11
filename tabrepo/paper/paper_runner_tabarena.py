@@ -98,7 +98,7 @@ class PaperRunTabArena(PaperRun):
         return self.run_zs(n_portfolios=n_portfolio, n_ensemble=None, n_ensemble_in_name=False)
 
     # FIXME: This is a hack
-    def _config_default(self, config_type: str) -> str:
+    def _config_default(self, config_type: str, return_none_if_missing=False) -> str | None:
         configs = self.repo.configs(config_types=[config_type])
         configs_default = [c for c in configs if "_c1_" in c]
         if len(configs_default) == 1:
@@ -106,6 +106,8 @@ class PaperRunTabArena(PaperRun):
         elif len(configs_default) == 0:
             configs_default = [c for c in configs if "_r1_" in c]
             if len(configs_default) == 0:
+                if return_none_if_missing:
+                    return None
                 raise ValueError(
                     f"Could not find any default config for config_type='{config_type}'"
                     f"\n\tconfigs={configs}"
@@ -122,21 +124,30 @@ class PaperRunTabArena(PaperRun):
     def run_configs_default(self, model_types: list[str] | None = None) -> pd.DataFrame:
         df_results_configs_lst = []
         for model_type in model_types:
-            config_default = self._config_default(config_type=model_type)
-            df_results_config = self.evaluator.compare_metrics(
-                configs=[config_default],
-                baselines=[],
-                include_metric_error_val=True,
-            ).reset_index()
-            configs_types = self.repo.configs_type()
-            df_results_config["method_type"] = "config"
-            df_results_config["method_subtype"] = "default"
-            df_results_config["config_type"] = df_results_config["framework"].map(configs_types)
-            df_results_config["framework"] = f"{model_type} (default)"
+            df_results_config = self.run_config_default(model_type=model_type)
             df_results_configs_lst.append(df_results_config)
 
         df_results_configs = pd.concat(df_results_configs_lst, ignore_index=True)
         return df_results_configs
+
+    def run_config(self, config: str) -> pd.DataFrame:
+        configs = [config]
+        df_results_config = self.evaluator.compare_metrics(
+            configs=configs,
+            baselines=[],
+            include_metric_error_val=True,
+        ).reset_index()
+        return df_results_config
+
+    def run_config_default(self, model_type: str) -> pd.DataFrame:
+        config_default = self._config_default(config_type=model_type)
+        df_results_config = self.run_config(config=config_default)
+        configs_types = self.repo.configs_type()
+        df_results_config["method_type"] = "config"
+        df_results_config["method_subtype"] = "default"
+        df_results_config["config_type"] = df_results_config["framework"].map(configs_types)
+        df_results_config["framework"] = f"{model_type} (default)"
+        return df_results_config
 
     def run_minimal_paper(self, model_types: list[str] | None = None, tune: bool = True) -> pd.DataFrame:
         """
@@ -163,6 +174,39 @@ class PaperRunTabArena(PaperRun):
         to_concat_lst = [
             df_results_configs_default,
             df_results_hpo_all,
+        ]
+        to_concat_lst = [df for df in to_concat_lst if df is not None]
+
+        df_results_all = pd.concat(to_concat_lst, ignore_index=True)
+
+        return df_results_all
+
+    def run_minimal_single(self, model_type: str, tune: bool = True) -> pd.DataFrame:
+        """
+        Run logic that isn't impacted by other methods or other datasets
+
+        Returns
+        -------
+
+        """
+        config_default = self._config_default(config_type=model_type, return_none_if_missing=True)
+        if config_default is not None:
+            df_results_config_default = self.run_config_default(model_type=model_type)
+        else:
+            df_results_config_default = None
+
+        if tune:
+            df_results_hpo = self.run_hpo_by_family(
+                model_types=[model_type],
+                include_uncapped=True,
+                include_4h=False,
+            )
+        else:
+            df_results_hpo = None
+
+        to_concat_lst = [
+            df_results_config_default,
+            df_results_hpo,
         ]
         to_concat_lst = [df for df in to_concat_lst if df is not None]
 
@@ -361,7 +405,7 @@ class PaperRunTabArena(PaperRun):
             framework_types_extra = []
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
-        if baselines is "auto":
+        if isinstance(baselines, str) and baselines == "auto":
             baselines = [
                 # "AutoGluon 1.3 (5m)",
                 # "AutoGluon 1.3 (1h)",

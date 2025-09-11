@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Literal
 
@@ -54,6 +55,8 @@ _methods_paper = [
 class TabArenaContext:
     def __init__(
         self,
+        include_ag_140: bool = True,
+        include_mitra: bool = True,
         backend: Literal["ray", "native"] = "ray",
     ):
         self.name = "tabarena-2025-06-12"
@@ -64,6 +67,11 @@ class TabArenaContext:
         assert backend in ["ray", "native"]
         self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
+        self._methods_paper = copy.deepcopy(_methods_paper)
+        if include_ag_140:
+            self._methods_paper.append("AutoGluon_v140")
+        if include_mitra:
+            self._methods_paper.append("Mitra_GPU")
 
     @property
     def methods(self) -> list[str]:
@@ -140,7 +148,7 @@ class TabArenaContext:
         holdout: bool = False,
         use_rf_config_fallback: bool = True,
         cache: bool = True,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
         if isinstance(method, MethodMetadata):
             metadata = method
             method = metadata.method
@@ -156,7 +164,12 @@ class TabArenaContext:
                 path_processed = metadata.path_processed
             repo = EvaluationRepository.from_dir(path=path_processed)
 
-        model_types = repo.config_types()
+        if metadata.method_type == "config":
+            model_types = repo.config_types()
+            assert len(model_types) == 1
+            model_type = model_types[0]
+        else:
+            model_type = None
 
         if use_rf_config_fallback:
             metadata_rf = self._method_metadata(method="RandomForest")
@@ -177,17 +190,19 @@ class TabArenaContext:
         # FIXME: do this in simulator automatically
 
         if metadata.method_type == "config":
-            hpo_results = simulator.run_minimal_paper(model_types=model_types, tune=metadata.can_hpo)
+            hpo_results = simulator.run_minimal_single(model_type=model_type, tune=metadata.can_hpo)
             hpo_results["ta_name"] = metadata.method
             hpo_results["ta_suite"] = metadata.artifact_name
             hpo_results = hpo_results.rename(columns={"framework": "method"})  # FIXME: Don't do this, make it method by default
             if cache:
                 save_pd.save(path=save_file, df=hpo_results)
+            config_results = simulator.run_config_family(config_type=model_type)
+            baseline_results = None
         else:
             hpo_results = None
+            config_results = None
+            baseline_results = simulator.run_baselines()
 
-        config_results = simulator.run_configs(model_types=model_types)
-        baseline_results = simulator.run_baselines()
         results_lst = [config_results, baseline_results]
         results_lst = [r for r in results_lst if r is not None]
         model_results = pd.concat(results_lst, ignore_index=True)
@@ -239,7 +254,7 @@ class TabArenaContext:
         methods_drop: list[str] | None = None,
     ) -> pd.DataFrame:
         if methods is None:
-            methods = _methods_paper
+            methods = self._methods_paper
             if holdout:
                 # only include methods that can have holdout
                 methods = [m for m in methods if self._method_metadata(m).is_bag]
@@ -252,14 +267,14 @@ class TabArenaContext:
                     )
             methods = [method for method in methods if method not in methods_drop]
         if isinstance(download_results, bool) and download_results:
-            loader = TabArena51ArtifactLoader()
+            loader = TabArena51ArtifactLoader(methods=methods)
             loader.download_results(holdout=holdout)
         try:
             df_results = self._load_results_paper(methods=methods, holdout=holdout)
         except FileNotFoundError as err:
             if isinstance(download_results, str) and download_results == "auto":
                 print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
-                loader = TabArena51ArtifactLoader()
+                loader = TabArena51ArtifactLoader(methods=methods)
                 loader.download_results(holdout=holdout)
                 df_results = self._load_results_paper(methods=methods, holdout=holdout)
             else:
@@ -286,7 +301,7 @@ class TabArenaContext:
 
     def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
         if methods is None:
-            methods = _methods_paper
+            methods = self._methods_paper
             methods = [m for m in methods if self._method_metadata(m).method_type == "config"]
             if holdout:
                 # only include methods that can have holdout

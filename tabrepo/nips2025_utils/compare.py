@@ -41,6 +41,10 @@ def compare_on_tabarena(
         df_to_fill=new_results,
         df_fillna=paper_results[paper_results["method"] == fillna_method],
     )
+    paper_results = TabArenaContext.fillna_metrics(
+        df_to_fill=paper_results,
+        df_fillna=paper_results[paper_results["method"] == fillna_method],
+    )
     df_results = pd.concat([paper_results, new_results], ignore_index=True)
 
     if subset is not None:
