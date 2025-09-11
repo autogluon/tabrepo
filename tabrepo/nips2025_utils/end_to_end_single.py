@@ -434,6 +434,10 @@ class EndToEndSingle:
             # Below is too slow to use by default, TODO: get logic for any task that is fast
             # task_metadata = generate_task_metadata(tids=list({r.split("/")[0] for r in all_file_paths_method}))
 
+        import ray
+        if not ray.is_initialized():
+            ray.init(num_cpus=num_cpus)
+
         results: list[EndToEndResultsSingle] = ray_map_list(
             list_to_map=list(all_file_paths_method.values()),
             func=_process_result_list,
