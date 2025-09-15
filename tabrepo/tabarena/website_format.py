@@ -27,9 +27,9 @@ model_type_emoji = {
 def get_model_family(model_name: str) -> str:
     prefixes_mapping = {
         Constants.reference: ["AutoGluon"],
-        Constants.neural_network: ["REALMLP", "TABM", "FASTAI", "MNCA", "NN_TORCH", "MITRA"],
+        Constants.neural_network: ["REALMLP", "TABM", "FASTAI", "MNCA", "NN_TORCH", "MITRA", "LIMIX"],
         Constants.tree: ["GBM", "CAT", "EBM", "XGB", "XT", "RF"],
-        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA"],
+        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA", "LIMIX"],
         Constants.baseline: ["KNN", "LR"],
     }
 
@@ -60,6 +60,7 @@ def rename_map(model_name: str) -> str:
         "LR": "Linear",
 
         "MITRA": "Mitra",
+        "LIMIX": "LimiX",
     }
 
     for prefix in rename_map:
@@ -73,6 +74,7 @@ def compute_map(method: str) -> str:
     _compute_map = {
         "AutoGluon 1.3 (4h)": "CPU",
         "AutoGluon 1.4 (4h)": "GPU",
+        "LimiX (default)": "GPU",
     }
     gpu_postfix = "_GPU"
     if method in _compute_map:
