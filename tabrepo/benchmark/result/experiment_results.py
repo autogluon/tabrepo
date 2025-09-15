@@ -24,7 +24,7 @@ class ExperimentResults:
         calibrate: bool = False,
         include_holdout: bool = False,
     ) -> EvaluationRepository:
-        results_lst: list[BaselineResult] = [self._align_result_input_format(result) for result in results_lst]
+        results_lst: list[BaselineResult] = [BaselineResult.from_dict(result) for result in results_lst]
 
         results_configs: list[ConfigResult] = []
         results_baselines: list[BaselineResult] = []
@@ -70,45 +70,6 @@ class ExperimentResults:
         )
 
         return repo
-
-    @classmethod
-    def _align_result_input_format(cls, result: dict | BaselineResult) -> BaselineResult:
-        """
-        Converts results in old format to new format
-        Keeps results in new format as-is.
-
-        This enables the use of results in the old format alongside results in the new format.
-
-        Parameters
-        ----------
-        result
-
-        Returns
-        -------
-
-        """
-        if isinstance(result, BaselineResult):
-            return result
-        assert isinstance(result, dict)
-        result_cls = BaselineResult
-        sim_artifacts = result.get("simulation_artifacts", None)
-        if sim_artifacts is not None:
-            assert isinstance(sim_artifacts, dict)
-            if "task_metadata" in result:
-                dataset = result["task_metadata"]["name"]
-                split_idx = result["task_metadata"]["split_idx"]
-            else:
-                dataset = result["dataset"]
-                split_idx = result["fold"]
-            result_cls = ConfigResult
-            if list(sim_artifacts.keys()) == [dataset]:
-                sim_artifacts = sim_artifacts[dataset][split_idx]
-            bag_info = sim_artifacts.get("bag_info", None)
-            if bag_info is not None:
-                assert isinstance(bag_info, dict)
-                result_cls = AGBagResult
-        result_obj = result_cls(result=result, convert_format=True, inplace=False)
-        return result_obj
 
     def _calibrate(self, result: ConfigResult) -> ConfigResult:
         problem_type = result.result["problem_type"]

@@ -3,13 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from autogluon.common.loaders import load_pkl
-from tabrepo.benchmark.result import AGBagResult, BaselineResult, ExperimentResults
+from tabrepo.benchmark.result import AGBagResult, BaselineResult
 from tabrepo.utils.parallel_for import parallel_for
 
 
 def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
     data: dict | BaselineResult = load_pkl.load(path)
-    data_aligned = ExperimentResults._align_result_input_format(data)
+    data_aligned = BaselineResult.from_dict(data)
     if convert_to_holdout:
         assert isinstance(data_aligned, AGBagResult)
         result_holdout = data_aligned.bag_artifacts(as_baseline=False)
