@@ -197,7 +197,14 @@ class TabArena:
         for c in self.columns_to_agg:
             assert is_numeric_dtype(data[c]), f"aggregation columns must be numeric!"
         for c in self.columns_to_agg:
-            assert data[c].isnull().sum() == 0
+            if data[c].isnull().sum() != 0:
+                invalid_samples = data[data[c].isnull()]
+
+                raise AssertionError(
+                    f"Column {c} should not contain null values. "
+                    f"Found {data[c].isnull().sum()}/{len(data)} null values! "
+                    f"Invalid samples:\n{invalid_samples.head(100).to_markdown()}"
+                )
 
         # TODO: Check no duplicates
         len_data = len(data)

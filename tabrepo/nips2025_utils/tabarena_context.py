@@ -57,10 +57,11 @@ class TabArenaContext:
         self,
         include_ag_140: bool = True,
         include_mitra: bool = True,
+        extra_methods: list[MethodMetadata] = None,
         backend: Literal["ray", "native"] = "ray",
     ):
         self.name = "tabarena-2025-06-12"
-        self.method_metadata_map: dict[str, MethodMetadata] = tabarena_method_metadata_map
+        self.method_metadata_map: dict[str, MethodMetadata] = copy.deepcopy(tabarena_method_metadata_map)
         self.root_cache = Paths.artifacts_root_cache_tabarena
         self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
@@ -72,6 +73,10 @@ class TabArenaContext:
             self._methods_paper.append("AutoGluon_v140")
         if include_mitra:
             self._methods_paper.append("Mitra_GPU")
+        if extra_methods:
+            for method_metadata in extra_methods:
+                assert method_metadata.method not in self.method_metadata_map
+                self.method_metadata_map[method_metadata.method] = method_metadata
 
     @property
     def methods(self) -> list[str]:
