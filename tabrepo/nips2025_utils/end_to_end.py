@@ -70,8 +70,8 @@ class EndToEnd:
 
         result_types_dict = {}
         for r in results_lst:
-            cur_result = get_info_from_result(result=r)
-            cur_tuple = (cur_result["method_type"], cur_result["model_type"])
+            cur_method_metadata = MethodMetadata.from_raw(results_lst=[r])
+            cur_tuple = (cur_method_metadata.method, cur_method_metadata.artifact_name, cur_method_metadata.method_type)
             if cur_tuple not in result_types_dict:
                 result_types_dict[cur_tuple] = []
             result_types_dict[cur_tuple].append(r)
