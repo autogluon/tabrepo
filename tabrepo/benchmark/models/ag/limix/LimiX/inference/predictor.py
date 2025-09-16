@@ -240,6 +240,23 @@ class LimiXPredictor:
             return np.argmax(pred, axis=1)
         return pred
     def predict_proba(self, X_test):
+
+        predict_batch_size = 5000
+
+        def get_batch_intervals(n, bs):
+            return [(i, min(i + bs, n)) for i in range(0, n, bs)]
+
+        if len(X_test) <= predict_batch_size:
+            return self._predict(x_train=self.X_train, y_train=self.y_train, x_test=X_test)
+
+        return np.concatenate(
+            [
+                self._predict(x_train=self.X_train, y_train=self.y_train, x_test=X_test[s:e])
+                for s, e in get_batch_intervals(X_test.shape[0], predict_batch_size)
+            ],
+            axis=0,
+        )
+
         return self._predict(x_train=self.X_train, y_train=self.y_train, x_test=X_test)
 
     def _predict(self, x_train:np.ndarray, y_train:np.ndarray, x_test:np.ndarray) -> np.ndarray:
