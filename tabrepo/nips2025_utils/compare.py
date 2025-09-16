@@ -33,10 +33,6 @@ def compare_on_tabarena(
             df_filter=new_results,
         )
 
-    # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
-    #  need to use original, not filled values
-    #  This doesn't impact the evaluation, but could introduce bugs in future if we use these columns
-    #  Fixing this is do-able, but requires some complex pandas tricks, so I haven't had time to implement it yet
     new_results = TabArenaContext.fillna_metrics(
         df_to_fill=new_results,
         df_fillna=paper_results[paper_results["method"] == fillna_method],

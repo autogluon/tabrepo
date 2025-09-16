@@ -586,10 +586,6 @@ class EndToEndResultsSingle:
         df_fillna = df_fillna[df_fillna["method"] == fillna_method]
         assert not df_fillna.empty
 
-        # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
-        #  need to use original, not filled values
-        #  This doesn't impact the evaluation, but could introduce bugs in future if we use these columns
-        #  Fixing this is do-able, but requires some complex pandas tricks, so I haven't had time to implement it yet
         return TabArenaContext.fillna_metrics(
             df_to_fill=df_results,
             df_fillna=df_fillna,
