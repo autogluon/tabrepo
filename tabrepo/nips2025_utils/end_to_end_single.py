@@ -133,7 +133,7 @@ class EndToEndSingle:
 
     @classmethod
     def clean_raw(cls, results_lst: list[BaselineResult | dict]) -> list[BaselineResult]:
-        return [r if not isinstance(r, dict) else BaselineResult.from_dict(result=r) for r in results_lst]
+        return [BaselineResult.from_dict(result=r) for r in results_lst]
 
     @classmethod
     def from_raw(

@@ -17,10 +17,9 @@ from tabrepo.nips2025_utils.end_to_end_single import (
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.nips2025_utils.method_processor import (
     generate_task_metadata,
-    get_info_from_result,
     load_all_artifacts,
-    load_raw,
 )
+from tabrepo.nips2025_utils.load_metadata_from_raw import load_from_raw_all_metadata
 from tabrepo.utils.pickle_utils import fetch_all_pickles
 from tabrepo.utils.ray_utils import ray_map_list
 
@@ -111,19 +110,46 @@ class EndToEnd:
         backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
     ) -> Self:
+        log = print if verbose else (lambda *a, **k: None)
+
         engine = "ray" if backend == "ray" else "sequential"
-        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw, engine=engine)
-        return cls.from_raw(
-            results_lst=results_lst,
-            task_metadata=task_metadata,
-            cache=cache,
-            cache_raw=cache_raw,
-            name=name,
-            name_suffix=name_suffix,
-            artifact_name=artifact_name,
-            backend=backend,
-            verbose=verbose,
+        file_paths = fetch_all_pickles(
+            dir_path=path_raw, suffix="results.pkl"
         )
+        results_metadata = load_from_raw_all_metadata(file_paths=file_paths, engine=engine)
+        unique_types_dict = dict()
+        unique_tids = set()
+        for r, file_path in zip(results_metadata, file_paths):
+            r_type = r[0].method
+            r_tid = r[1]["tid"]
+            if r_type not in unique_types_dict:
+                unique_types_dict[r_type] = []
+            unique_tids.add(r_tid)
+            unique_types_dict[r_type].append(file_path)
+        unique_types = list(unique_types_dict.keys())
+
+        if task_metadata is None:
+            task_metadata = generate_task_metadata(tids=list(unique_tids))
+
+        log(
+            f"Constructing EndToEnd from raw results... Found {len(unique_types)} unique methods: {unique_types}"
+        )
+        end_to_end_lst = []
+        for cur_type in unique_types:
+            cur_path_raw_lst = unique_types_dict[cur_type]
+            cur_end_to_end = EndToEndSingle.from_path_raw(
+                path_raw=cur_path_raw_lst,
+                task_metadata=task_metadata,
+                cache=cache,
+                cache_raw=cache_raw,
+                name=name,
+                name_suffix=name_suffix,
+                artifact_name=artifact_name,
+                backend=backend,
+                verbose=verbose,
+            )
+            end_to_end_lst.append(cur_end_to_end)
+        return cls(end_to_end_lst=end_to_end_lst)
 
     @classmethod
     def from_cache(cls, methods: list[str | MethodMetadata | tuple[str, str]]) -> Self:

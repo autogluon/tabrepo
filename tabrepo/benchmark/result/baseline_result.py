@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from autogluon.common.loaders import load_pkl
 from autogluon.common.savers import save_pkl
 
 from tabrepo.benchmark.result.abstract_result import AbstractResult
@@ -63,6 +64,11 @@ class BaselineResult(AbstractResult):
                 result_cls = AGBagResult
         result_obj = result_cls(result=result, convert_format=True, inplace=False)
         return result_obj
+
+    @classmethod
+    def from_pickle(cls, path: str | Path) -> BaselineResult:
+        result: dict | BaselineResult = load_pkl.load(path)
+        return cls.from_dict(result=result)
 
     def update_name(self, name: str = None, name_suffix: str = None):
         assert name is not None or name_suffix is not None, f"Must specify one of `name`, `name_suffix`."
