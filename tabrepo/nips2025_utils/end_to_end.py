@@ -313,6 +313,7 @@ class EndToEndResults:
         only_valid_tasks: bool = False,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
@@ -329,6 +330,7 @@ class EndToEndResults:
         """
         results = self.get_results(
             new_result_prefix=new_result_prefix,
+            use_artifact_name_in_prefix=use_artifact_name_in_prefix,
             use_model_results=use_model_results,
             fillna=not only_valid_tasks,
         )
@@ -343,6 +345,7 @@ class EndToEndResults:
     def get_results(
         self,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
         fillna: bool = False,
     ) -> pd.DataFrame:
@@ -351,6 +354,7 @@ class EndToEndResults:
             df_results_lst.append(
                 result.get_results(
                     new_result_prefix=new_result_prefix,
+                    use_artifact_name_in_prefix=use_artifact_name_in_prefix,
                     use_model_results=use_model_results,
                     fillna=fillna,
                 )

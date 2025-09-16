@@ -36,6 +36,7 @@ class MethodMetadata:
         has_raw: bool = False,
         has_processed: bool = False,
         has_results: bool = False,
+        use_artifact_name_in_prefix: bool = False,
         upload_as_public: bool = False,
     ):
         self.method = method
@@ -52,6 +53,7 @@ class MethodMetadata:
         self.has_raw = has_raw
         self.has_processed = has_processed
         self.has_results = has_results
+        self.use_artifact_name_in_prefix = use_artifact_name_in_prefix
         self.upload_as_public = upload_as_public
         if can_hpo is None:
             can_hpo = self.method_type == "config"

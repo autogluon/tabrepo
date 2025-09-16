@@ -503,6 +503,7 @@ class EndToEndResultsSingle:
         only_valid_tasks: bool = False,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
@@ -519,6 +520,7 @@ class EndToEndResultsSingle:
         """
         results = self.get_results(
             new_result_prefix=new_result_prefix,
+            use_artifact_name_in_prefix=use_artifact_name_in_prefix,
             use_model_results=use_model_results,
             fillna=not only_valid_tasks,
         )
@@ -533,6 +535,7 @@ class EndToEndResultsSingle:
     def get_results(
         self,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
         fillna: bool = False,
     ) -> pd.DataFrame:
@@ -546,10 +549,17 @@ class EndToEndResultsSingle:
         use_model_results = self.method_metadata.method_type != "config" or use_model_results
 
         if use_model_results:
-            df_results = self.model_results
+            df_results = copy.deepcopy(self.model_results)
         else:
-            df_results = self.hpo_results
+            df_results = copy.deepcopy(self.hpo_results)
 
+        if use_artifact_name_in_prefix is None:
+            use_artifact_name_in_prefix = self.method_metadata.use_artifact_name_in_prefix
+
+        if use_artifact_name_in_prefix:
+            if new_result_prefix is None:
+                new_result_prefix = ""
+            new_result_prefix = new_result_prefix + f"[{self.method_metadata.artifact_name}] "
         if new_result_prefix is not None:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
                 df_results[col] = new_result_prefix + df_results[col]
