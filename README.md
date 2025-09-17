@@ -9,7 +9,14 @@
   </ul>
 </div>
 
-## A  Living Benchmark for Machine Learning on Tabular Data 💫
+## A Living Benchmark for Machine Learning on Tabular Data 💫
+
+---
+
+| 🚀 [Leaderboard](https://huggingface.co/spaces/TabArena/leaderboard) | 📂 [Example Scripts](https://github.com/TabArena/tabarena_benchmarking_examples/tree/main) | 📊 [Dataset Curation](https://github.com/TabArena/tabarena_dataset_curation) | 📄 [ArXiv Paper](https://arxiv.org/abs/2506.16791) |
+|:-------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
+
+---
 </div>
 
 TabArena is a living benchmarking system that makes benchmarking tabular machine learning models a reliable experience. TabArena implements best practices to ensure methods are represented at their peak potential, including cross-validated ensembles, strong hyperparameter search spaces contributed by the method authors, early stopping, model refitting, parallel bagging, memory usage estimation, and more.
