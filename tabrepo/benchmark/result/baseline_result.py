@@ -70,15 +70,18 @@ class BaselineResult(AbstractResult):
         result: dict | BaselineResult = load_pkl.load(path)
         return cls.from_dict(result=result)
 
-    def update_name(self, name: str = None, name_suffix: str = None):
-        assert name is not None or name_suffix is not None, f"Must specify one of `name`, `name_suffix`."
+    def update_name(self, name: str = None, name_prefix: str = None, name_suffix: str = None):
+        assert name is not None or name_prefix is not None or name_suffix is not None, \
+            f"Must specify one of `name`, `name_prefix`, `name_suffix`."
+        assert name is None or name_prefix is None, f"Must only specify one of `name`, `name_prefix`."
         assert name is None or name_suffix is None, f"Must only specify one of `name`, `name_suffix`."
         if name is not None:
             self.result["framework"] = name
-        elif name_suffix is not None:
-            og_name = self.result["framework"]
-            new_name = f"{og_name}{name_suffix}"
-            self.result["framework"] = new_name
+            return
+        if name_prefix is not None:
+            self.result["framework"] = f"{name_prefix}{self.framework}"
+        if name_suffix is not None:
+            self.result["framework"] = f"{self.framework}{name_suffix}"
 
     @property
     def framework(self) -> str:

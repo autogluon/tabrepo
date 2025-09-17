@@ -51,7 +51,9 @@ class EndToEnd:
         cache: bool = True,
         cache_raw: bool = True,
         name: str | None = None,
+        name_prefix: str | None = None,
         name_suffix: str | None = None,
+        model_key: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
@@ -89,7 +91,9 @@ class EndToEnd:
                 cache=cache,
                 cache_raw=cache_raw,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 artifact_name=artifact_name,
                 backend=backend,
                 verbose=verbose,
@@ -104,8 +108,10 @@ class EndToEnd:
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
@@ -143,7 +149,9 @@ class EndToEnd:
                 cache=cache,
                 cache_raw=cache_raw,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 artifact_name=artifact_name,
                 backend=backend,
                 verbose=verbose,
@@ -170,8 +178,10 @@ class EndToEnd:
         path_raw: str | Path | list[str | Path],
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         artifact_name: str | None = None,
         num_cpus: int | None = None,
     ) -> EndToEndResults:
@@ -196,10 +206,20 @@ class EndToEnd:
         name : str or None = None
             If specified, will overwrite the name of the method.
             Will raise an exception if more than one config is present.
+        name_prefix : str or None = None
+            If specified, will be prepended to the name of the method (including all configs of the method).
+            Useful for ensuring a unique name compared to prior results for a given model type,
+            such as when re-running LightGBM.
+            Will also update the model_key.
         name_suffix : str or None = None
             If specified, will be appended to the name of the method (including all configs of the method).
             Useful for ensuring a unique name compared to prior results for a given model type,
             such as when re-running LightGBM.
+            Will also update the model_key.
+        model_key : str or None = None
+            If specified, will overwrite the model_key of the method (result.model_type).
+            This is thr `ag_key` value, used to distinguish between different config families
+            during portfolio simulation.
         artifact_name : str or None = None
             The name of the upper directory in the cache:
                 ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
@@ -238,7 +258,9 @@ class EndToEnd:
             func_put_kwargs=dict(
                 task_metadata=task_metadata,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 artifact_name=artifact_name,
             ),
             track_progress=True,
@@ -386,7 +408,9 @@ def _process_result_list(
     file_paths_method: list[Path],
     task_metadata: pd.DataFrame,
     name: str = None,
+    name_prefix: str = None,
     name_suffix: str = None,
+    model_key: str = None,
     artifact_name: str | None = None,
 ) -> EndToEndResults:
     results_lst = load_all_artifacts(
@@ -397,7 +421,9 @@ def _process_result_list(
         results_lst=results_lst,
         task_metadata=task_metadata,
         name=name,
+        name_prefix=name_prefix,
         name_suffix=name_suffix,
+        model_key=model_key,
         artifact_name=artifact_name,
         cache=False,
         cache_raw=False,

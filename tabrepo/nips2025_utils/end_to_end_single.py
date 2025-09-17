@@ -144,7 +144,9 @@ class EndToEndSingle:
         cache: bool = True,
         cache_raw: bool = True,
         name: str | None = None,
+        name_prefix: str | None = None,
         name_suffix: str | None = None,
+        model_key: str | None = None,
         method: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
@@ -179,10 +181,20 @@ class EndToEndSingle:
         name : str or None = None
             If specified, will overwrite the name of the method.
             Will raise an exception if more than one config is present.
+        name_prefix : str or None = None
+            If specified, will be prepended to the name of the method (including all configs of the method).
+            Useful for ensuring a unique name compared to prior results for a given model type,
+            such as when re-running LightGBM.
+            Will also update the model_key.
         name_suffix : str or None = None
             If specified, will be appended to the name of the method (including all configs of the method).
             Useful for ensuring a unique name compared to prior results for a given model type,
             such as when re-running LightGBM.
+            Will also update the model_key.
+        model_key : str or None = None
+            If specified, will overwrite the model_key of the method (result.model_type).
+            This is thr `ag_key` value, used to distinguish between different config families
+            during portfolio simulation.
         method : str or None = None
             The name of the lower directory in the cache:
                 ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
@@ -206,7 +218,13 @@ class EndToEndSingle:
 
         # raw
         results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
-        results_lst = cls._rename(results_lst=results_lst, name=name, name_suffix=name_suffix)
+        results_lst = cls._rename(
+            results_lst=results_lst,
+            name=name,
+            name_prefix=name_prefix,
+            name_suffix=name_suffix,
+            model_key=model_key,
+        )
         if method_metadata is None:
             method_metadata: MethodMetadata = MethodMetadata.from_raw(
                 results_lst=results_lst,
@@ -272,8 +290,10 @@ class EndToEndSingle:
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         method: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
@@ -291,7 +311,9 @@ class EndToEndSingle:
         cache
         cache_raw
         name
+        name_prefix
         name_suffix
+        model_key
         method
         artifact_name
         backend
@@ -310,7 +332,9 @@ class EndToEndSingle:
             cache=cache,
             cache_raw=cache_raw,
             name=name,
+            name_prefix=name_prefix,
             name_suffix=name_suffix,
+            model_key=model_key,
             method=method,
             artifact_name=artifact_name,
             backend=backend,
@@ -322,16 +346,21 @@ class EndToEndSingle:
         cls,
         results_lst: list[BaselineResult],
         name: str = None,
+        name_prefix: str = None,
         name_suffix: str = None,
+        model_key: str = None,
         inplace: bool = True
     ) -> list[BaselineResult]:
         if not inplace:
             results_lst = copy.deepcopy(results_lst)
-        if name is not None or name_suffix is not None:
+        rename = any([name, name_prefix, name_suffix])
+        rename_model_key = any([model_key, name_prefix, name_suffix])
+        if rename or rename_model_key:
             for r in results_lst:
-                r.update_name(name=name, name_suffix=name_suffix)
-                if isinstance(r, ConfigResult):
-                    r.update_model_type(name=name, name_suffix=name_suffix)
+                if rename:
+                    r.update_name(name=name, name_prefix=name_prefix, name_suffix=name_suffix)
+                if rename_model_key and isinstance(r, ConfigResult):
+                    r.update_model_type(name=model_key, name_prefix=name_prefix, name_suffix=name_suffix)
         return results_lst
 
     @classmethod
@@ -366,8 +395,10 @@ class EndToEndSingle:
         method_metadata: MethodMetadata | None = None,
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         method: str | None = None,
         artifact_name: str | None = None,
         num_cpus: int | None = None,
@@ -448,7 +479,9 @@ class EndToEndSingle:
                 method_metadata=method_metadata,
                 task_metadata=task_metadata,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 method=method,
                 artifact_name=artifact_name,
             ),
@@ -632,8 +665,10 @@ def _process_result_list(
     file_paths_method: list[Path],
     method_metadata: MethodMetadata | None = None,
     task_metadata: pd.DataFrame,
-    name: str = None,
-    name_suffix: str = None,
+    name: str | None = None,
+    name_prefix: str | None = None,
+    name_suffix: str | None = None,
+    model_key: str | None = None,
     method: str | None = None,
     artifact_name: str | None = None,
 ) -> EndToEndResultsSingle:
@@ -648,7 +683,9 @@ def _process_result_list(
         cache=False,
         cache_raw=False,
         name=name,
+        name_prefix=name_prefix,
         name_suffix=name_suffix,
+        model_key=model_key,
         method=method,
         artifact_name=artifact_name,
         backend="native",
