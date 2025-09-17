@@ -193,7 +193,7 @@ class EndToEndSingle:
             Will also update the model_key.
         model_key : str or None = None
             If specified, will overwrite the model_key of the method (result.model_type).
-            This is thr `ag_key` value, used to distinguish between different config families
+            This is the `ag_key` value, used to distinguish between different config families
             during portfolio simulation.
         method : str or None = None
             The name of the lower directory in the cache:
