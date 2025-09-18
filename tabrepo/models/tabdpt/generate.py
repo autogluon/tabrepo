@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from autogluon.common.space import Real, Categorical
 from tabrepo.benchmark.models.ag.tabdpt.tabdpt_model import TabDPTModel
 from tabrepo.utils.config_utils import ConfigGenerator
 
@@ -8,9 +9,14 @@ manual_configs = [
     # Default config with refit after cross-validation.
     {"ag_args_ensemble": {"refit_folds": True}},
 ]
+search_space = {
+    'temperature': Real(0.05, 1.25, default=0.3),
+    'context_size': Categorical(2048, 768, 256),
+    'permute_classes': Categorical(True, False)
+}
 
 gen_tabdpt = ConfigGenerator(
-    model_cls=TabDPTModel, manual_configs=manual_configs, search_space={}
+    model_cls=TabDPTModel, manual_configs=manual_configs, search_space=search_space
 )
 
 if __name__ == "__main__":

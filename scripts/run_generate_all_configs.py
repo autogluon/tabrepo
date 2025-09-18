@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     experiments_tabicl = gen_tabicl.generate_all_bag_experiments(num_random_configs=0)
     experiments_tabpfnv2 = gen_tabpfnv2.generate_all_bag_experiments(num_random_configs=n_random_configs)
-    experiments_tabdpt = gen_tabdpt.generate_all_bag_experiments(num_random_configs=0)
+    experiments_tabdpt = gen_tabdpt.generate_all_bag_experiments(num_random_configs=n_random_configs)
     experiments_modernnca = gen_modernnca.generate_all_bag_experiments(num_random_configs=n_random_configs)
 
     # Dummy (constant predictor)
