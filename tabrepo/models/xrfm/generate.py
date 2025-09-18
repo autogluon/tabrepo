@@ -4,7 +4,7 @@ from autogluon.tabular.models import LGBModel
 from ConfigSpace import Categorical, ConfigurationSpace, Float, Integer
 
 from tabrepo.benchmark.experiment import YamlExperimentSerializer
-from tabrepo.benchmark.models.ag.xrfm.xrfm_model import xRFMModel
+from tabrepo.benchmark.models.ag.xrfm.xrfm_model import XRFMModel
 from tabrepo.models.utils import convert_numpy_dtypes
 from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
@@ -36,7 +36,7 @@ def generate_configs_xrfm(num_random_configs=200) -> list:
 
 
 gen_xrfm = CustomAGConfigGenerator(
-    model_cls=xRFMModel,
+    model_cls=XRFMModel,
     search_space_func=generate_configs_xrfm,
     manual_configs=[{}],
 )
