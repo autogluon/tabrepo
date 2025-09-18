@@ -17,10 +17,9 @@ from tabrepo.nips2025_utils.end_to_end_single import (
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.nips2025_utils.method_processor import (
     generate_task_metadata,
-    get_info_from_result,
     load_all_artifacts,
-    load_raw,
 )
+from tabrepo.nips2025_utils.load_metadata_from_raw import load_from_raw_all_metadata
 from tabrepo.utils.pickle_utils import fetch_all_pickles
 from tabrepo.utils.ray_utils import ray_map_list
 
@@ -52,7 +51,9 @@ class EndToEnd:
         cache: bool = True,
         cache_raw: bool = True,
         name: str | None = None,
+        name_prefix: str | None = None,
         name_suffix: str | None = None,
+        model_key: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
@@ -70,8 +71,8 @@ class EndToEnd:
 
         result_types_dict = {}
         for r in results_lst:
-            cur_result = get_info_from_result(result=r)
-            cur_tuple = (cur_result["method_type"], cur_result["model_type"])
+            cur_method_metadata = MethodMetadata.from_raw(results_lst=[r])
+            cur_tuple = (cur_method_metadata.method, cur_method_metadata.artifact_name, cur_method_metadata.method_type)
             if cur_tuple not in result_types_dict:
                 result_types_dict[cur_tuple] = []
             result_types_dict[cur_tuple].append(r)
@@ -90,7 +91,9 @@ class EndToEnd:
                 cache=cache,
                 cache_raw=cache_raw,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 artifact_name=artifact_name,
                 backend=backend,
                 verbose=verbose,
@@ -105,25 +108,56 @@ class EndToEnd:
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
         verbose: bool = True,
     ) -> Self:
+        log = print if verbose else (lambda *a, **k: None)
+
         engine = "ray" if backend == "ray" else "sequential"
-        results_lst: list[BaselineResult] = load_raw(path_raw=path_raw, engine=engine)
-        return cls.from_raw(
-            results_lst=results_lst,
-            task_metadata=task_metadata,
-            cache=cache,
-            cache_raw=cache_raw,
-            name=name,
-            name_suffix=name_suffix,
-            artifact_name=artifact_name,
-            backend=backend,
-            verbose=verbose,
+        file_paths = fetch_all_pickles(
+            dir_path=path_raw, suffix="results.pkl"
         )
+        results_metadata = load_from_raw_all_metadata(file_paths=file_paths, engine=engine)
+        unique_types_dict = dict()
+        unique_tids = set()
+        for r, file_path in zip(results_metadata, file_paths):
+            r_type = r[0].method
+            r_tid = r[1]["tid"]
+            if r_type not in unique_types_dict:
+                unique_types_dict[r_type] = []
+            unique_tids.add(r_tid)
+            unique_types_dict[r_type].append(file_path)
+        unique_types = list(unique_types_dict.keys())
+
+        if task_metadata is None:
+            task_metadata = generate_task_metadata(tids=list(unique_tids))
+
+        log(
+            f"Constructing EndToEnd from raw results... Found {len(unique_types)} unique methods: {unique_types}"
+        )
+        end_to_end_lst = []
+        for cur_type in unique_types:
+            cur_path_raw_lst = unique_types_dict[cur_type]
+            cur_end_to_end = EndToEndSingle.from_path_raw(
+                path_raw=cur_path_raw_lst,
+                task_metadata=task_metadata,
+                cache=cache,
+                cache_raw=cache_raw,
+                name=name,
+                name_prefix=name_prefix,
+                name_suffix=name_suffix,
+                model_key=model_key,
+                artifact_name=artifact_name,
+                backend=backend,
+                verbose=verbose,
+            )
+            end_to_end_lst.append(cur_end_to_end)
+        return cls(end_to_end_lst=end_to_end_lst)
 
     @classmethod
     def from_cache(cls, methods: list[str | MethodMetadata | tuple[str, str]]) -> Self:
@@ -144,8 +178,10 @@ class EndToEnd:
         path_raw: str | Path | list[str | Path],
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         artifact_name: str | None = None,
         num_cpus: int | None = None,
     ) -> EndToEndResults:
@@ -170,10 +206,20 @@ class EndToEnd:
         name : str or None = None
             If specified, will overwrite the name of the method.
             Will raise an exception if more than one config is present.
+        name_prefix : str or None = None
+            If specified, will be prepended to the name of the method (including all configs of the method).
+            Useful for ensuring a unique name compared to prior results for a given model type,
+            such as when re-running LightGBM.
+            Will also update the model_key.
         name_suffix : str or None = None
             If specified, will be appended to the name of the method (including all configs of the method).
             Useful for ensuring a unique name compared to prior results for a given model type,
             such as when re-running LightGBM.
+            Will also update the model_key.
+        model_key : str or None = None
+            If specified, will overwrite the model_key of the method (result.model_type).
+            This is the `ag_key` value, used to distinguish between different config families
+            during portfolio simulation.
         artifact_name : str or None = None
             The name of the upper directory in the cache:
                 ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
@@ -212,7 +258,9 @@ class EndToEnd:
             func_put_kwargs=dict(
                 task_metadata=task_metadata,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 artifact_name=artifact_name,
             ),
             track_progress=True,
@@ -287,6 +335,7 @@ class EndToEndResults:
         only_valid_tasks: bool = False,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
@@ -303,6 +352,7 @@ class EndToEndResults:
         """
         results = self.get_results(
             new_result_prefix=new_result_prefix,
+            use_artifact_name_in_prefix=use_artifact_name_in_prefix,
             use_model_results=use_model_results,
             fillna=not only_valid_tasks,
         )
@@ -317,6 +367,7 @@ class EndToEndResults:
     def get_results(
         self,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
         fillna: bool = False,
     ) -> pd.DataFrame:
@@ -325,6 +376,7 @@ class EndToEndResults:
             df_results_lst.append(
                 result.get_results(
                     new_result_prefix=new_result_prefix,
+                    use_artifact_name_in_prefix=use_artifact_name_in_prefix,
                     use_model_results=use_model_results,
                     fillna=fillna,
                 )
@@ -356,7 +408,9 @@ def _process_result_list(
     file_paths_method: list[Path],
     task_metadata: pd.DataFrame,
     name: str = None,
+    name_prefix: str = None,
     name_suffix: str = None,
+    model_key: str = None,
     artifact_name: str | None = None,
 ) -> EndToEndResults:
     results_lst = load_all_artifacts(
@@ -367,7 +421,9 @@ def _process_result_list(
         results_lst=results_lst,
         task_metadata=task_metadata,
         name=name,
+        name_prefix=name_prefix,
         name_suffix=name_suffix,
+        model_key=model_key,
         artifact_name=artifact_name,
         cache=False,
         cache_raw=False,

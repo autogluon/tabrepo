@@ -57,10 +57,11 @@ class TabArenaContext:
         self,
         include_ag_140: bool = True,
         include_mitra: bool = True,
+        extra_methods: list[MethodMetadata] = None,
         backend: Literal["ray", "native"] = "ray",
     ):
         self.name = "tabarena-2025-06-12"
-        self.method_metadata_map: dict[str, MethodMetadata] = tabarena_method_metadata_map
+        self.method_metadata_map: dict[str, MethodMetadata] = copy.deepcopy(tabarena_method_metadata_map)
         self.root_cache = Paths.artifacts_root_cache_tabarena
         self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
@@ -72,6 +73,10 @@ class TabArenaContext:
             self._methods_paper.append("AutoGluon_v140")
         if include_mitra:
             self._methods_paper.append("Mitra_GPU")
+        if extra_methods:
+            for method_metadata in extra_methods:
+                assert method_metadata.method not in self.method_metadata_map
+                self.method_metadata_map[method_metadata.method] = method_metadata
 
     @property
     def methods(self) -> list[str]:
@@ -447,6 +452,30 @@ class TabArenaContext:
         split_col = "fold"
         dataset_col = "dataset"
 
+        columns_to_keep = [
+            "method_type",
+            "method_subtype",
+            "config_type",
+            "ta_name",
+            "ta_suite",
+        ]
+        columns_to_keep = [c for c in columns_to_keep if c in df_to_fill]
+        per_column: dict[str, dict] = {}
+        for c in columns_to_keep:
+            groupby_method = df_to_fill.groupby(method_col)[c]
+            nunique = groupby_method.nunique(dropna=False)
+            invalid = nunique[nunique != 1]
+            df_to_fill_invalid = df_to_fill[df_to_fill[method_col].isin(invalid.index)]
+            groupby_method_invalid = df_to_fill_invalid.groupby(method_col)[c]
+            if not invalid.empty:
+                raise AssertionError(
+                    f"Found a method with multiple values for column {c} (must be unique):\n"
+                    f"{groupby_method_invalid.value_counts()}"
+                )
+
+            # Using .first() is safe because nunique == 1 for every method
+            per_column[c] = groupby_method.first().to_dict()
+
         df_to_fill = df_to_fill.set_index([dataset_col, split_col, method_col], drop=True)
         df_fillna = df_fillna.set_index([dataset_col, split_col], drop=True).drop(columns=[method_col])
 
@@ -467,16 +496,19 @@ class TabArenaContext:
         df_filled[fill_cols] = df_filled[fill_cols].astype(df_to_fill.dtypes)
         df_filled.loc[df_to_fill.index] = df_to_fill
 
-        a = df_fillna.loc[nan_vals.droplevel(level=method_col)]
-        a.index = nan_vals
-        df_filled.loc[nan_vals] = a
+        df_fillna_to_use = df_fillna.loc[nan_vals.droplevel(level=method_col)].copy()
+        df_fillna_to_use.index = nan_vals
+        df_filled.loc[nan_vals] = df_fillna_to_use
 
         if "imputed" not in df_filled.columns:
             df_filled["imputed"] = False
         df_filled.loc[nan_vals, "imputed"] = True
 
-        df_to_fill = df_filled
+        df_filled = df_filled.reset_index(drop=False)
 
-        df_to_fill = df_to_fill.reset_index(drop=False)
+        # Overwrite values column-by-column while preserving order
+        for c in columns_to_keep:
+            mapping = per_column[c]
+            df_filled[c] = df_filled[method_col].map(mapping)
 
-        return df_to_fill
+        return df_filled

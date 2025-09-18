@@ -36,6 +36,7 @@ class MethodMetadata:
         has_raw: bool = False,
         has_processed: bool = False,
         has_results: bool = False,
+        use_artifact_name_in_prefix: bool = False,
         upload_as_public: bool = False,
     ):
         self.method = method
@@ -52,6 +53,7 @@ class MethodMetadata:
         self.has_raw = has_raw
         self.has_processed = has_processed
         self.has_results = has_results
+        self.use_artifact_name_in_prefix = use_artifact_name_in_prefix
         self.upload_as_public = upload_as_public
         if can_hpo is None:
             can_hpo = self.method_type == "config"
@@ -383,24 +385,22 @@ class MethodMetadata:
 
     def generate_repo(
         self,
-        results_lst: list = None,
+        results_lst: list[BaselineResult] = None,
         task_metadata: pd.DataFrame = None,
         cache: bool = False,
         engine: str = "ray",
     ) -> EvaluationRepository:
         if results_lst is None:
             results_lst = self.load_raw(engine=engine)
-        path_processed = self.path_processed
-        name_suffix = self.name_suffix
 
         repo: EvaluationRepository = generate_repo_from_results_lst(
             results_lst=results_lst,
             task_metadata=task_metadata,
-            name_suffix=name_suffix,
+            name_suffix=self.name_suffix,
         )
 
         if cache:
-            repo.to_dir(path_processed)
+            repo.to_dir(self.path_processed)
         return repo
 
     @property

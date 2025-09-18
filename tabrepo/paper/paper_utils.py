@@ -56,6 +56,7 @@ def get_method_rename_map() -> dict:
         'REALMLP': 'RealMLP',
 
         "MITRA_GPU": "Mitra",
+        "LIMIX": "LimiX",
     }
 
 

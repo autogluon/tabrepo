@@ -7,7 +7,7 @@ import pandas as pd
 
 from tabrepo import EvaluationRepository
 from tabrepo.utils.pickle_utils import fetch_all_pickles
-from tabrepo.benchmark.result import BaselineResult, ExperimentResults
+from tabrepo.benchmark.result import BaselineResult, ConfigResult, ExperimentResults
 
 from .load_artifacts import load_all_artifacts
 
@@ -36,7 +36,7 @@ def generate_repo_from_paths(
 
 
 def generate_repo_from_results_lst(
-    results_lst: list,
+    results_lst: list[BaselineResult],
     task_metadata: pd.DataFrame,
     name_suffix: str | None = None,
 ) -> EvaluationRepository:
@@ -47,7 +47,8 @@ def generate_repo_from_results_lst(
     if name_suffix is not None:
         for r in results_lst:
             r.update_name(name_suffix=name_suffix)
-            r.update_model_type(name_suffix=name_suffix)
+            if isinstance(r, ConfigResult):
+                r.update_model_type(name_suffix=name_suffix)
 
     if len(results_lst) == 0:
         print(f"EMPTY")
