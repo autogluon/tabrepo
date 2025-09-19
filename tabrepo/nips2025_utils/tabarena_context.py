@@ -78,6 +78,22 @@ class TabArenaContext:
                 assert method_metadata.method not in self.method_metadata_map
                 self.method_metadata_map[method_metadata.method] = method_metadata
 
+    def compare(
+        self,
+        output_dir: str | Path,
+        new_results: pd.DataFrame | None = None,
+        only_valid_tasks: bool = False,
+        subset: str | None = None,
+    ) -> pd.DataFrame:
+        from tabrepo.nips2025_utils.compare import compare_on_tabarena
+        return compare_on_tabarena(
+            output_dir=output_dir,
+            new_results=new_results,
+            only_valid_tasks=only_valid_tasks,
+            subset=subset,
+            tabarena_context=self,
+        )
+
     @property
     def methods(self) -> list[str]:
         return list(self.method_metadata_map.keys())
