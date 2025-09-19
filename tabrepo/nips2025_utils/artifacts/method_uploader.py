@@ -14,20 +14,20 @@ class MethodUploaderS3:
     def __init__(
         self,
         method_metadata: MethodMetadata,
-        bucket: str,
-        s3_prefix_root: str = "cache",
+        s3_bucket: str,
+        s3_prefix: str = "cache",
         upload_as_public: bool = False,
     ):
         self.method_metadata = method_metadata
         self.method = method_metadata.method
-        self.bucket = bucket
-        self.s3_prefix_root = s3_prefix_root
-        self.prefix = Path(self.s3_prefix_root) / method_metadata.relative_to_cache_root(method_metadata.path)
+        self.s3_bucket = s3_bucket
+        self.s3_prefix = s3_prefix
+        self.prefix = Path(self.s3_prefix) / method_metadata.relative_to_cache_root(method_metadata.path)
         self.upload_as_public = upload_as_public
 
     @property
     def s3_cache_root(self) -> str:
-        return f"s3://{self.bucket}/{self.s3_prefix_root}"
+        return f"s3://{self.s3_bucket}/{self.s3_prefix}"
 
     def upload_all(self):
         self.upload_metadata()
@@ -77,7 +77,7 @@ class MethodUploaderS3:
             kwargs = {"ExtraArgs": {"ACL": "public-read"}}
 
         s3_client = boto3.client("s3")
-        s3_client.upload_fileobj(Fileobj=fileobj, Bucket=self.bucket, Key=s3_key, **kwargs)
+        s3_client.upload_fileobj(Fileobj=fileobj, Bucket=self.s3_bucket, Key=s3_key, **kwargs)
 
     def _upload_to_s3(self, path_local: str | Path, s3_key: str | Path | None = None):
         import boto3
@@ -96,7 +96,7 @@ class MethodUploaderS3:
 
         # Upload the file
         s3_client = boto3.client("s3")
-        s3_client.upload_file(Filename=path_local, Bucket=self.bucket, Key=s3_key, **kwargs)
+        s3_client.upload_file(Filename=path_local, Bucket=self.s3_bucket, Key=s3_key, **kwargs)
 
     def upload_configs_hyperparameters(self, holdout: bool = False):
         path_local = self.method_metadata.path_configs_hyperparameters(holdout=holdout)

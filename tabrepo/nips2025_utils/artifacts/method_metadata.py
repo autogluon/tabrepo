@@ -456,8 +456,8 @@ class MethodMetadata:
     def from_s3_cache(
         cls,
         method: str,
-        bucket: str,
-        s3_prefix_root: str = "cache",
+        s3_bucket: str,
+        s3_prefix: str = "cache",
         artifact_name: str = None,
     ) -> Self:
         metadata = MethodMetadata(
@@ -465,11 +465,11 @@ class MethodMetadata:
             artifact_name=artifact_name,
         )
         path_local = Path(metadata.path_metadata)
-        s3_cache_root = f"s3://{bucket}/{s3_prefix_root}"
+        s3_cache_root = f"s3://{s3_bucket}/{s3_prefix}"
         s3_path_loc = metadata.to_s3_cache_loc(path=Path(path_local), s3_cache_root=s3_cache_root)
         _, s3_key = s3_path_to_bucket_prefix(s3_path_loc)
         # Stream into memory
-        obj = s3_get_object(Bucket=bucket, Key=s3_key)
+        obj = s3_get_object(Bucket=s3_bucket, Key=s3_key)
         body = obj["Body"]  # file-like object (StreamingBody, BytesIO, etc.)
         kwargs = yaml.safe_load(body)
         return cls(**kwargs)

@@ -49,6 +49,11 @@ _methods_paper = [
     "TabICL_GPU",
     "TabM_GPU",
     "TabPFNv2_GPU",
+
+    "xRFM_GPU",
+    # "LimiX_GPU",
+    # "BetaTabPFN_GPU",
+    # "TabFlex_GPU",
 ]
 
 
@@ -57,6 +62,7 @@ class TabArenaContext:
         self,
         include_ag_140: bool = True,
         include_mitra: bool = True,
+        include_unverified: bool = False,
         extra_methods: list[MethodMetadata] = None,
         backend: Literal["ray", "native"] = "ray",
     ):
@@ -73,6 +79,12 @@ class TabArenaContext:
             self._methods_paper.append("AutoGluon_v140")
         if include_mitra:
             self._methods_paper.append("Mitra_GPU")
+        if include_unverified:
+            self._methods_paper.extend([
+                "LimiX_GPU",
+                "BetaTabPFN_GPU",
+                "TabFlex_GPU",
+            ])
         if extra_methods:
             for method_metadata in extra_methods:
                 assert method_metadata.method not in self.method_metadata_map

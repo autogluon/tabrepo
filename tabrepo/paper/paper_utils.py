@@ -46,17 +46,20 @@ def get_method_rename_map() -> dict:
         'NN_TORCH': 'TorchMLP',
         'MNCA_GPU': 'ModernNCA',
         'TABM_GPU': 'TabM',
-        'REALMLP_GPU': 'RealMLP (GPU)',
+        'REALMLP_GPU': 'RealMLP',
         'TABDPT_GPU': 'TabDPT',
         'TABICL_GPU': 'TabICL',
         'TABPFNV2_GPU': 'TabPFNv2',
 
         'MNCA': 'ModernNCA (CPU)',
         'TABM': 'TabM (CPU)',
-        'REALMLP': 'RealMLP',
+        'REALMLP': 'RealMLP (CPU)',
 
         "MITRA_GPU": "Mitra",
-        "LIMIX": "LimiX",
+        "LIMIX_GPU": "LimiX",
+        "XRFM_GPU": "xRFM",
+        "BETA_GPU": "BetaTabPFN",
+        "TABFLEX_GPU": "TabFlex",
     }
 
 

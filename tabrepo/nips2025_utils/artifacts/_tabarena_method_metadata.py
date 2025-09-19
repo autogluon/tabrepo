@@ -8,6 +8,9 @@ from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_09_03 impor
     ebm_metadata,
     limix_metadata,
     realmlp_gpu_metadata,
+    xrfm_metadata,
+    tabflex_metadata,
+    betatabpfn_metadata,
 )
 
 
@@ -248,8 +251,11 @@ tabarena_method_metadata_map[portfolio_metadata.method] = portfolio_metadata
 methods_2025_09_03 = [
     ag_140_metadata,
     ebm_metadata,
-    # limix_metadata,
+    limix_metadata,
     realmlp_gpu_metadata,
+    xrfm_metadata,
+    betatabpfn_metadata,
+    tabflex_metadata,
 ]
 for method_metadata in methods_2025_09_03:
     tabarena_method_metadata_map[method_metadata.method] = method_metadata
