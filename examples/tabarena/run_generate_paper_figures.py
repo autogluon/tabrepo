@@ -36,7 +36,8 @@ if __name__ == '__main__':
 
     cpu_methods = [
         "ModernNCA",
-        "RealMLP_GPU",  # GPU method, since RealMLP uses CPU
+        # Commenting out because RealMLP from Sep 2025 is a new ver that shouldn't be compared to CPU run in June.
+        # "RealMLP",
         "TabM",
     ]
     df_results_cpu = tabarena_context.load_results_paper(methods=cpu_methods, download_results=download_results)

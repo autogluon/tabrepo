@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
@@ -16,6 +17,8 @@ def compare_on_tabarena(
     subset: str | list[str] | None = None,
 ) -> pd.DataFrame:
     new_results = new_results.copy(deep=True)
+    if "method_subtype" not in new_results:
+        new_results["method_subtype"] = np.nan
 
     output_dir = Path(output_dir)
 
