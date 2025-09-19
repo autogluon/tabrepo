@@ -33,16 +33,16 @@ class MethodDownloaderS3:
     def __init__(
         self,
         method_metadata: MethodMetadata,
-        bucket: str,
-        s3_prefix_root: str = "cache",
+        s3_bucket: str,
+        s3_prefix: str = "cache",
         verbose: bool = True,
         clear_dirs: bool = True,
     ):
         self.method_metadata = method_metadata
         self.method = method_metadata.method
-        self.bucket = bucket
-        self.s3_prefix_root = s3_prefix_root
-        self.prefix = Path(self.s3_prefix_root) / method_metadata.relative_to_cache_root(method_metadata.path)
+        self.s3_bucket = s3_bucket
+        self.s3_prefix = s3_prefix
+        self.prefix = Path(self.s3_prefix) / method_metadata.relative_to_cache_root(method_metadata.path)
         self.verbose = verbose
         self.clear_dirs = clear_dirs
 
@@ -51,7 +51,7 @@ class MethodDownloaderS3:
     # --------------------
     @property
     def s3_cache_root(self) -> str:
-        return f"s3://{self.bucket}/{self.s3_prefix_root}"
+        return f"s3://{self.s3_bucket}/{self.s3_prefix}"
 
     def local_to_s3_path(self, path_local: str | Path) -> str:
         s3_path_loc = self.method_metadata.to_s3_cache_loc(path=Path(path_local), s3_cache_root=self.s3_cache_root)
@@ -117,7 +117,7 @@ class MethodDownloaderS3:
         s3_unsigned = sess.client("s3", config=Config(signature_version=UNSIGNED))
 
         def _head(client):
-            return client.head_object(Bucket=self.bucket, Key=s3_key)
+            return client.head_object(Bucket=self.s3_bucket, Key=s3_key)
 
         # ---------- Existence check (HEAD) ----------
         client_for_get = None
@@ -130,7 +130,7 @@ class MethodDownloaderS3:
                 code = e.response.get("Error", {}).get("Code")
                 if code in ("404", "NoSuchKey", "NotFound"):
                     if self.verbose:
-                        print(f"[WARN] Missing on S3, skipping: s3://{self.bucket}/{s3_key}")
+                        print(f"[WARN] Missing on S3, skipping: s3://{self.s3_bucket}/{s3_key}")
                     return
             # Retry anonymously for publicly readable objects
             try:
@@ -140,7 +140,7 @@ class MethodDownloaderS3:
                 code2 = e2.response.get("Error", {}).get("Code")
                 if code2 in ("404", "NoSuchKey", "NotFound"):
                     if self.verbose:
-                        print(f"[WARN] Missing on S3, skipping: s3://{self.bucket}/{s3_key}")
+                        print(f"[WARN] Missing on S3, skipping: s3://{self.s3_bucket}/{s3_key}")
                     return
                 # Still denied or other error -> propagate
                 raise
@@ -148,15 +148,15 @@ class MethodDownloaderS3:
         # ---------- Download ----------
         path_local.parent.mkdir(parents=True, exist_ok=True)
         if self.verbose:
-            print(f"[INFO] Downloading s3://{self.bucket}/{s3_key} -> {path_local}")
+            print(f"[INFO] Downloading s3://{self.s3_bucket}/{s3_key} -> {path_local}")
 
         try:
-            client_for_get.download_file(Bucket=self.bucket, Key=s3_key, Filename=str(path_local))
+            client_for_get.download_file(Bucket=self.s3_bucket, Key=s3_key, Filename=str(path_local))
         except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
             # If we tried signed and it failed but the object might be public, try unsigned once.
             if client_for_get is s3_signed:
                 try:
-                    s3_unsigned.download_file(Bucket=self.bucket, Key=s3_key, Filename=str(path_local))
+                    s3_unsigned.download_file(Bucket=self.s3_bucket, Key=s3_key, Filename=str(path_local))
                     return
                 except ClientError:
                     pass
@@ -185,7 +185,7 @@ class MethodDownloaderS3:
         s3_unsigned = sess.client("s3", config=Config(signature_version=UNSIGNED))
 
         def _head(c):
-            return c.head_object(Bucket=self.bucket, Key=s3_key)
+            return c.head_object(Bucket=self.s3_bucket, Key=s3_key)
 
         # ---- Existence check (HEAD) with unsigned fallback ----
         client_for_get = None
@@ -197,7 +197,7 @@ class MethodDownloaderS3:
                 code = e.response.get("Error", {}).get("Code")
                 if code in ("404", "NoSuchKey", "NotFound"):
                     if self.verbose:
-                        print(f"[WARN] Missing on S3, skipping unzip: s3://{self.bucket}/{s3_key}")
+                        print(f"[WARN] Missing on S3, skipping unzip: s3://{self.s3_bucket}/{s3_key}")
                     return
             try:
                 _head(s3_unsigned)
@@ -206,16 +206,16 @@ class MethodDownloaderS3:
                 code2 = e2.response.get("Error", {}).get("Code")
                 if code2 in ("404", "NoSuchKey", "NotFound"):
                     if self.verbose:
-                        print(f"[WARN] Missing on S3, skipping unzip: s3://{self.bucket}/{s3_key}")
+                        print(f"[WARN] Missing on S3, skipping unzip: s3://{self.s3_bucket}/{s3_key}")
                     return
                 raise
 
         if self.verbose:
-            print(f"[INFO] Downloading s3://{self.bucket}/{s3_key} -> extracting to {dest_dir}")
+            print(f"[INFO] Downloading s3://{self.s3_bucket}/{s3_key} -> extracting to {dest_dir}")
 
         # ---- GET with fallback to unsigned only for credential-related failures ----
         try:
-            obj = client_for_get.get_object(Bucket=self.bucket, Key=s3_key)
+            obj = client_for_get.get_object(Bucket=self.s3_bucket, Key=s3_key)
         except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
             # Only retry unsigned for specific credential/signing errors
             if isinstance(e, ClientError):
@@ -223,7 +223,7 @@ class MethodDownloaderS3:
                 if code not in {"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch"}:
                     raise
             if client_for_get is s3_signed:
-                obj = s3_unsigned.get_object(Bucket=self.bucket, Key=s3_key)
+                obj = s3_unsigned.get_object(Bucket=self.s3_bucket, Key=s3_key)
             else:
                 raise
 

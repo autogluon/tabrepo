@@ -17,13 +17,13 @@ if __name__ == '__main__':
     for method in methods:
         metadata = MethodMetadata.from_s3_cache(
             method=method,
-            bucket=bucket,
-            s3_prefix_root=s3_prefix_root,
+            s3_bucket=bucket,
+            s3_prefix=s3_prefix_root,
         )
         downloader = MethodDownloaderS3(
             method_metadata=metadata,
-            bucket=bucket,
-            s3_prefix_root=s3_prefix_root,
+            s3_bucket=bucket,
+            s3_prefix=s3_prefix_root,
         )
         downloader.download_all()
         # Nick: Note that LightGBM_aio_0812 will skip processed and results due to invalid raw contents.

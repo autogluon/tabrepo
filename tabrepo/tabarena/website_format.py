@@ -13,6 +13,7 @@ class Constants:
     # Not Used
     other: str = "Other"
 
+
 model_type_emoji = {
     Constants.tree: "🌳",
     Constants.foundational: "🧠⚡",
@@ -28,14 +29,14 @@ def get_model_family(model_name: str) -> str:
     prefixes_mapping = {
         Constants.reference: ["AutoGluon"],
         Constants.neural_network: ["REALMLP", "TABM", "FASTAI", "MNCA", "NN_TORCH", "MITRA", "LIMIX"],
-        Constants.tree: ["GBM", "CAT", "EBM", "XGB", "XT", "RF"],
-        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA", "LIMIX"],
+        Constants.tree: ["GBM", "CAT", "EBM", "XGB", "XT", "RF", "XRFM"],
+        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA", "LIMIX", "BETA", "TABFLEX"],
         Constants.baseline: ["KNN", "LR"],
     }
 
     for method_type, prefixes in prefixes_mapping.items():
         for prefix in prefixes:
-            if prefix.lower() in model_name.lower():
+            if model_name.lower().startswith(prefix.lower()):
                 return method_type
     return Constants.other
 
@@ -58,14 +59,20 @@ def rename_map(model_name: str) -> str:
         "TABICL": "TabICL",
         "KNN": "KNN",
         "LR": "Linear",
-
         "MITRA": "Mitra",
         "LIMIX": "LimiX",
+        "XRFM": "xRFM",
+        "TABFLEX": "TabFlex",
+        "BETA": "BetaTabPFN",
     }
 
-    for prefix in rename_map:
-        if prefix in model_name:
-            return model_name.replace(prefix, rename_map[prefix])
+    # Sort keys by descending length so longest prefixes are matched first
+    for prefix in sorted(rename_map, key=len, reverse=True):
+        if model_name.startswith(prefix):
+            if model_name == prefix:
+                return rename_map[prefix]
+            else:
+                return model_name.replace(prefix, rename_map[prefix], 1)
 
     return model_name
 

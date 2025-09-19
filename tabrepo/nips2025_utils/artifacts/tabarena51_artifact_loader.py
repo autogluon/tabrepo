@@ -73,8 +73,8 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
         method_metadata = self._method_metadata(method=method)
         downloader = MethodDownloaderS3(
             method_metadata=method_metadata,
-            bucket=self.bucket,
-            s3_prefix_root=self.s3_prefix_root,
+            s3_bucket=self.bucket,
+            s3_prefix=self.s3_prefix_root,
         )
         return downloader
 

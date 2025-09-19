@@ -38,17 +38,22 @@ _methods_paper = [
     "NeuralNetFastAI",
     "NeuralNetTorch",
     "RandomForest",
-    "RealMLP",
+    # "RealMLP",
     # "TabM",
     "XGBoost",
 
     # "Mitra_GPU",
     "ModernNCA_GPU",
-    # "RealMLP_GPU",
+    "RealMLP_GPU",
     "TabDPT_GPU",
     "TabICL_GPU",
     "TabM_GPU",
     "TabPFNv2_GPU",
+
+    "xRFM_GPU",
+    # "LimiX_GPU",
+    # "BetaTabPFN_GPU",
+    # "TabFlex_GPU",
 ]
 
 
@@ -57,6 +62,7 @@ class TabArenaContext:
         self,
         include_ag_140: bool = True,
         include_mitra: bool = True,
+        include_unverified: bool = False,
         extra_methods: list[MethodMetadata] = None,
         backend: Literal["ray", "native"] = "ray",
     ):
@@ -73,10 +79,32 @@ class TabArenaContext:
             self._methods_paper.append("AutoGluon_v140")
         if include_mitra:
             self._methods_paper.append("Mitra_GPU")
+        if include_unverified:
+            self._methods_paper.extend([
+                "LimiX_GPU",
+                "BetaTabPFN_GPU",
+                "TabFlex_GPU",
+            ])
         if extra_methods:
             for method_metadata in extra_methods:
                 assert method_metadata.method not in self.method_metadata_map
                 self.method_metadata_map[method_metadata.method] = method_metadata
+
+    def compare(
+        self,
+        output_dir: str | Path,
+        new_results: pd.DataFrame | None = None,
+        only_valid_tasks: bool = False,
+        subset: str | None = None,
+    ) -> pd.DataFrame:
+        from tabrepo.nips2025_utils.compare import compare_on_tabarena
+        return compare_on_tabarena(
+            output_dir=output_dir,
+            new_results=new_results,
+            only_valid_tasks=only_valid_tasks,
+            subset=subset,
+            tabarena_context=self,
+        )
 
     @property
     def methods(self) -> list[str]:

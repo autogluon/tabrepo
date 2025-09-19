@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
@@ -9,39 +10,47 @@ from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
 
 
 def compare_on_tabarena(
-    new_results: pd.DataFrame,
     output_dir: str | Path,
+    new_results: pd.DataFrame | None = None,
     *,
     only_valid_tasks: bool = False,
     subset: str | list[str] | None = None,
+    tabarena_context: TabArenaContext | None = None,
 ) -> pd.DataFrame:
-    new_results = new_results.copy(deep=True)
-
     output_dir = Path(output_dir)
-
-    tabarena_context = TabArenaContext()
-
+    if tabarena_context is None:
+        tabarena_context = TabArenaContext()
     fillna_method = "RF (default)"
+
     paper_results = tabarena_context.load_results_paper(
         download_results="auto",
         methods_drop=["Portfolio-N200-4h"],  # TODO: Clean this up by not including by default
     )
 
-    if only_valid_tasks:
-        paper_results = filter_to_valid_tasks(
-            df_to_filter=paper_results,
-            df_filter=new_results,
-        )
-
-    new_results = TabArenaContext.fillna_metrics(
-        df_to_fill=new_results,
-        df_fillna=paper_results[paper_results["method"] == fillna_method],
-    )
     paper_results = TabArenaContext.fillna_metrics(
         df_to_fill=paper_results,
         df_fillna=paper_results[paper_results["method"] == fillna_method],
     )
-    df_results = pd.concat([paper_results, new_results], ignore_index=True)
+
+    if new_results is not None:
+        new_results = new_results.copy(deep=True)
+        if "method_subtype" not in new_results:
+            new_results["method_subtype"] = np.nan
+
+        if only_valid_tasks:
+            paper_results = filter_to_valid_tasks(
+                df_to_filter=paper_results,
+                df_filter=new_results,
+            )
+
+        new_results = TabArenaContext.fillna_metrics(
+            df_to_fill=new_results,
+            df_fillna=paper_results[paper_results["method"] == fillna_method],
+        )
+
+        df_results = pd.concat([paper_results, new_results], ignore_index=True)
+    else:
+        df_results = paper_results
 
     if subset is not None:
         if isinstance(subset, str):

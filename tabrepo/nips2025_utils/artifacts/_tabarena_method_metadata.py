@@ -3,6 +3,15 @@ from __future__ import annotations
 import copy
 
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
+from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_09_03 import (
+    ag_140_metadata,
+    ebm_metadata,
+    limix_metadata,
+    realmlp_gpu_metadata,
+    xrfm_metadata,
+    tabflex_metadata,
+    betatabpfn_metadata,
+)
 
 
 common_kwargs = dict(
@@ -152,7 +161,7 @@ methods_date_map = {
 methods = [
     "CatBoost",
     "Dummy",
-    "ExplainableBM",
+    # "ExplainableBM",
     "ExtraTrees",
     "KNeighbors",
     "LightGBM",
@@ -167,7 +176,7 @@ methods = [
 
     "Mitra_GPU",
     "ModernNCA_GPU",
-    "RealMLP_GPU",
+    # "RealMLP_GPU",
     "TabDPT_GPU",
     "TabICL_GPU",
     "TabM_GPU",
@@ -239,17 +248,14 @@ portfolio_metadata = MethodMetadata(
 
 tabarena_method_metadata_map[portfolio_metadata.method] = portfolio_metadata
 
-# New methods (tabarena-2025-09-03)
-ag_140_metadata = MethodMetadata(
-    method="AutoGluon_v140",
-    artifact_name="tabarena-2025-09-03",
-    date="2025-09-03",
-    method_type="baseline",
-    compute="gpu",
-    has_raw=True,
-    has_processed=True,
-    has_results=True,
-    upload_as_public=True,
-)
-
-tabarena_method_metadata_map[ag_140_metadata.method] = ag_140_metadata
+methods_2025_09_03 = [
+    ag_140_metadata,
+    ebm_metadata,
+    limix_metadata,
+    realmlp_gpu_metadata,
+    xrfm_metadata,
+    betatabpfn_metadata,
+    tabflex_metadata,
+]
+for method_metadata in methods_2025_09_03:
+    tabarena_method_metadata_map[method_metadata.method] = method_metadata
