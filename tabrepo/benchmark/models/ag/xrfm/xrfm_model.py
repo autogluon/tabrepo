@@ -28,7 +28,7 @@ def set_logger_level(logger_name: str, level: int):
         _logger.setLevel(old_level)
 
 
-class xRFMImplementation:
+class XRFMImplementation:
     def __init__(self, problem_type, **kwargs):
         self.problem_type = problem_type
         self.kwargs = kwargs
@@ -187,7 +187,7 @@ class xRFMImplementation:
 
 
 # pip install xrfm
-class xRFMModel(AbstractModel):
+class XRFMModel(AbstractModel):
     ag_key = "XRFM"
     ag_name = "xRFM"
 
@@ -300,7 +300,7 @@ class xRFMModel(AbstractModel):
         if X_val is not None:
             X_val = self.preprocess(X_val)
 
-        self.model = xRFMImplementation(
+        self.model = XRFMImplementation(
             problem_type=self.problem_type,
             n_threads=num_cpus if num_gpus == 0 else 1,  # avoid VRAM leak
             device=device,
