@@ -15,6 +15,7 @@ def compare_on_tabarena(
     *,
     only_valid_tasks: bool = False,
     subset: str | list[str] | None = None,
+    folds: list[int] | None = None,
     tabarena_context: TabArenaContext | None = None,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
@@ -52,10 +53,12 @@ def compare_on_tabarena(
     else:
         df_results = paper_results
 
-    if subset is not None:
+    if subset is not None or folds is not None:
+        if subset is None:
+            subset = []
         if isinstance(subset, str):
             subset = [subset]
-        df_results = subset_tasks(df_results=df_results, subset=subset)
+        df_results = subset_tasks(df_results=df_results, subset=subset, folds=folds)
 
     imputed_names = get_imputed_names(df_results=df_results)
 
@@ -95,7 +98,7 @@ def filter_to_valid_tasks(df_to_filter: pd.DataFrame, df_filter: pd.DataFrame) -
     return df_filtered
 
 
-def subset_tasks(df_results: pd.DataFrame, subset: list[str]) -> pd.DataFrame:
+def subset_tasks(df_results: pd.DataFrame, subset: list[str], folds: list[int] = None) -> pd.DataFrame:
     from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 
     df_results = df_results.copy(deep=True)
@@ -135,7 +138,10 @@ def subset_tasks(df_results: pd.DataFrame, subset: list[str]) -> pd.DataFrame:
             df_results = df_results[df_results["dataset"].isin(allowed_dataset)]
         else:
             raise ValueError(f"Invalid subset {subset} name!")
-        df_results = df_results.reset_index(drop=True)
+
+    if folds is not None:
+        df_results = df_results[df_results["fold"].isin(folds)]
+    df_results = df_results.reset_index(drop=True)
     return df_results
 
 

@@ -41,6 +41,8 @@ class MethodMetadata:
         has_results: bool = False,
         use_artifact_name_in_prefix: bool = False,
         upload_as_public: bool = False,
+        s3_bucket: str = None,
+        s3_prefix: str = None,
     ):
         self.method = method
         if artifact_name is None:
@@ -61,6 +63,8 @@ class MethodMetadata:
         if can_hpo is None:
             can_hpo = self.method_type == "config"
         self.can_hpo = can_hpo
+        self.s3_bucket = s3_bucket
+        self.s3_prefix = s3_prefix
 
         assert isinstance(self.method, str) and len(self.method) > 0
         assert isinstance(self.artifact_name, str) and len(self.artifact_name) > 0
@@ -229,6 +233,10 @@ class MethodMetadata:
         return _method_metadata
 
     @property
+    def has_s3_cache(self) -> bool:
+        return self.s3_bucket is not None and self.s3_prefix is not None
+
+    @property
     def has_configs_hyperparameters(self) -> bool:
         return self.method_type == "config"
 
@@ -290,16 +298,20 @@ class MethodMetadata:
         s3_cache_path = f"{s3_cache_root}/{path_suffix}"
         return s3_cache_path
 
-    def method_downloader(
-        self,
-        s3_bucket: str,
-        s3_prefix: str,
-    ) -> MethodDownloaderS3:
+    def method_downloader(self) -> MethodDownloaderS3:
+        if not self.has_s3_cache:
+            raise AssertionError(
+                f"Tried to get MethodDownloaderS3 from MethodMetadata, "
+                f"but s3_bucket and/or s3_prefix were not specified!"
+                f"\n\t(method={self.method}, artifact_name={self.artifact_name}, "
+                f"s3_bucket={self.s3_bucket}, s3_prefix={self.s3_prefix})"
+                f"\nEnsure you initialize MethodMetadata with s3_bucket and s3_prefix to enable s3 artifact download."
+            )
         from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
         return MethodDownloaderS3(
             method_metadata=self,
-            s3_bucket=s3_bucket,
-            s3_prefix=s3_prefix,
+            s3_bucket=self.s3_bucket,
+            s3_prefix=self.s3_prefix,
             verbose=False,
             clear_dirs=False,
         )
@@ -337,8 +349,8 @@ class MethodMetadata:
             out = json.load(f)
         return out
 
-    def download_configs_hyperparameters(self, s3_bucket: str, s3_prefix: str, holdout: bool = False):
-        method_downloader = self.method_downloader(s3_bucket=s3_bucket, s3_prefix=s3_prefix)
+    def download_configs_hyperparameters(self, holdout: bool = False):
+        method_downloader = self.method_downloader()
         method_downloader.download_configs_hyperparameters(holdout=holdout)
 
     def _download_file(self, url: str, local_path: str | Path):

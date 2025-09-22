@@ -7,6 +7,7 @@ from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_09_03 impor
     ag_140_metadata,
     ebm_metadata,
     limix_metadata,
+    mitra_metadata,
     realmlp_gpu_metadata,
     xrfm_metadata,
     tabflex_metadata,
@@ -21,6 +22,11 @@ common_kwargs = dict(
     has_raw=True,
     has_processed=True,
     has_results=True,
+)
+
+s3_cache_kwargs = dict(
+    s3_bucket="tabarena",
+    s3_prefix="cache",
 )
 
 cpu_kwargs = dict(
@@ -63,7 +69,6 @@ methods_is_bag = [
     "RealMLP",
     "TabM",
     "XGBoost",
-    "Mitra_GPU",
     "ModernNCA_GPU",
     "RealMLP_GPU",
     # "TabDPT_GPU",
@@ -89,7 +94,6 @@ methods_ag_key_map = {
     "TabM": "TABM",
     "XGBoost": "XGB",
 
-    "Mitra_GPU": "MITRA",
     "ModernNCA_GPU": "MNCA",
     "RealMLP_GPU": "REALMLP",
     "TabDPT_GPU": "TABDPT",
@@ -114,7 +118,6 @@ methods_config_default_map = {
     "TabM": "TabM_c1_BAG_L1",
     "XGBoost": "XGBoost_c1_BAG_L1",
 
-    "Mitra_GPU": "Mitra_GPU_c1_BAG_L1",
     "ModernNCA_GPU": "ModernNCA_GPU_c1_BAG_L1",
     "RealMLP_GPU": "RealMLP_GPU_c1_BAG_L1",
     "TabDPT_GPU": "TabDPT_GPU_c1_BAG_L1",
@@ -140,7 +143,6 @@ methods_compute_map = {
     "TabM": "cpu",
     "XGBoost": "cpu",
 
-    "Mitra_GPU": "gpu",
     "ModernNCA_GPU": "gpu",
     "RealMLP_GPU": "gpu",
     "TabDPT_GPU": "gpu",
@@ -148,14 +150,6 @@ methods_compute_map = {
     "TabM_GPU": "gpu",
     "TabPFNv2_GPU": "gpu",
 
-}
-
-methods_artifact_name_map = {
-    "Mitra_GPU": "tabarena-2025-09-03",
-}
-
-methods_date_map = {
-    "Mitra_GPU": "2025-09-03",
 }
 
 methods = [
@@ -174,7 +168,6 @@ methods = [
     "TabM",
     "XGBoost",
 
-    "Mitra_GPU",
     "ModernNCA_GPU",
     # "RealMLP_GPU",
     "TabDPT_GPU",
@@ -203,10 +196,6 @@ for method in methods:
         can_hpo = True
 
     method_kwargs = copy.deepcopy(method_kwargs)
-    if method in methods_artifact_name_map:
-        method_kwargs["artifact_name"] = methods_artifact_name_map[method]
-    if method in methods_date_map:
-        method_kwargs["date"] = methods_date_map[method]
 
     method_metadata = MethodMetadata(
         method=method,
@@ -216,6 +205,7 @@ for method in methods:
         can_hpo=can_hpo,
         upload_as_public=upload_as_public,
         **method_kwargs,
+        **s3_cache_kwargs,
     )
     tabarena_method_metadata_map[method_metadata.method] = method_metadata
 
@@ -231,6 +221,7 @@ ag_130_metadata = MethodMetadata(
     has_processed=True,
     has_results=True,
     upload_as_public=True,
+    **s3_cache_kwargs,
 )
 
 tabarena_method_metadata_map[ag_130_metadata.method] = ag_130_metadata
@@ -244,6 +235,7 @@ portfolio_metadata = MethodMetadata(
     has_processed=False,
     has_results=True,
     upload_as_public=True,
+    **s3_cache_kwargs,
 )
 
 tabarena_method_metadata_map[portfolio_metadata.method] = portfolio_metadata
@@ -252,6 +244,7 @@ methods_2025_09_03 = [
     ag_140_metadata,
     ebm_metadata,
     limix_metadata,
+    mitra_metadata,
     realmlp_gpu_metadata,
     xrfm_metadata,
     betatabpfn_metadata,

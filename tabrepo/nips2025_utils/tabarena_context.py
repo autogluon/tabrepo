@@ -69,9 +69,6 @@ class TabArenaContext:
         self.name = "tabarena-2025-06-12"
         self.method_metadata_map: dict[str, MethodMetadata] = copy.deepcopy(tabarena_method_metadata_map)
         self.root_cache = Paths.artifacts_root_cache_tabarena
-        self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
-        self.s3_bucket = "tabarena"
-        self.s3_prefix = "cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
         assert backend in ["ray", "native"]
         self.backend = backend
@@ -90,7 +87,9 @@ class TabArenaContext:
         if extra_methods:
             for method_metadata in extra_methods:
                 assert method_metadata.method not in self.method_metadata_map
+                assert method_metadata.method not in self._methods_paper
                 self.method_metadata_map[method_metadata.method] = method_metadata
+                self._methods_paper.append(method_metadata.method)
 
     def compare(
         self,
@@ -98,6 +97,7 @@ class TabArenaContext:
         new_results: pd.DataFrame | None = None,
         only_valid_tasks: bool = False,
         subset: str | None = None,
+        folds: list[int] | None = None,
     ) -> pd.DataFrame:
         from tabrepo.nips2025_utils.compare import compare_on_tabarena
         return compare_on_tabarena(
@@ -105,6 +105,7 @@ class TabArenaContext:
             new_results=new_results,
             only_valid_tasks=only_valid_tasks,
             subset=subset,
+            folds=folds,
             tabarena_context=self,
         )
 
@@ -306,10 +307,7 @@ class TabArenaContext:
         for method in methods:
             method_metadata = self._method_metadata(method=method)
             if isinstance(download_results, bool) and download_results:
-                method_downloader = method_metadata.method_downloader(
-                    s3_bucket=self.s3_bucket,
-                    s3_prefix=self.s3_prefix,
-                )
+                method_downloader = method_metadata.method_downloader()
                 method_downloader.download_results(holdout=holdout)
 
             try:
@@ -320,10 +318,7 @@ class TabArenaContext:
                         f"Missing local results files for method {method_metadata.method}! "
                         f"Attempting to download from s3 and retry... (download_results={download_results})"
                     )
-                    method_downloader = method_metadata.method_downloader(
-                        s3_bucket=self.s3_bucket,
-                        s3_prefix=self.s3_prefix,
-                    )
+                    method_downloader = method_metadata.method_downloader()
                     method_downloader.download_results(holdout=holdout)
                     df_results = method_metadata.load_paper_results(holdout=holdout)
                 else:
@@ -348,7 +343,7 @@ class TabArenaContext:
         for method in methods:
             metadata = self._method_metadata(method=method)
             if isinstance(download, bool) and download:
-                metadata.download_configs_hyperparameters(s3_bucket=self.s3_bucket, s3_prefix=self.s3_prefix, holdout=holdout)
+                metadata.download_configs_hyperparameters(holdout=holdout)
             try:
                 configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
             except FileNotFoundError as err:
@@ -357,7 +352,7 @@ class TabArenaContext:
                         f"Cache miss detected for configs_hyperparameters.json "
                         f"(method={metadata.method}), attempting download..."
                     )
-                    metadata.download_configs_hyperparameters(s3_bucket=self.s3_bucket, s3_prefix=self.s3_prefix, holdout=holdout)
+                    metadata.download_configs_hyperparameters(holdout=holdout)
                     configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
                     print(f"\tDownload successful")
                 else:
