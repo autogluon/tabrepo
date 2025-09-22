@@ -4,7 +4,7 @@ import io
 import json
 from pathlib import Path
 import requests
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from typing_extensions import Self
 
 from autogluon.common.utils.s3_utils import s3_path_to_bucket_prefix
@@ -17,6 +17,9 @@ from tabrepo.nips2025_utils.generate_repo import generate_repo_from_results_lst
 from tabrepo.benchmark.result import BaselineResult
 from tabrepo.nips2025_utils.method_processor import get_info_from_result, load_raw
 from tabrepo.utils.s3_utils import s3_get_object
+
+if TYPE_CHECKING:
+    from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
 
 
 class MethodMetadata:
@@ -287,6 +290,20 @@ class MethodMetadata:
         s3_cache_path = f"{s3_cache_root}/{path_suffix}"
         return s3_cache_path
 
+    def method_downloader(
+        self,
+        s3_bucket: str,
+        s3_prefix: str,
+    ) -> MethodDownloaderS3:
+        from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
+        return MethodDownloaderS3(
+            method_metadata=self,
+            s3_bucket=s3_bucket,
+            s3_prefix=s3_prefix,
+            verbose=False,
+            clear_dirs=False,
+        )
+
     def load_model_results(self, holdout: bool = False) -> pd.DataFrame:
         return pd.read_parquet(path=self.path_results_model(holdout=holdout))
 
@@ -295,6 +312,17 @@ class MethodMetadata:
 
     def load_portfolio_results(self, holdout: bool = False) -> pd.DataFrame:
         return pd.read_parquet(path=self.path_results_portfolio(holdout=holdout))
+
+    def load_paper_results(self, holdout: bool = False) -> pd.DataFrame:
+        if self.method_type == "config":
+            df_results = self.load_hpo_results(holdout=holdout)
+        elif self.method_type == "baseline":
+            df_results = self.load_model_results(holdout=holdout)
+        elif self.method_type == "portfolio":
+            df_results = self.load_portfolio_results(holdout=holdout)
+        else:
+            raise ValueError(f"Unknown method_type: {self.method_type} for method {self.method}")
+        return df_results
 
     def path_configs_hyperparameters(self, holdout: bool = False) -> Path:
         if holdout:
@@ -309,27 +337,9 @@ class MethodMetadata:
             out = json.load(f)
         return out
 
-    def download_configs_hyperparameters(self, s3_cache_root: str, holdout: bool = False):
-        path_local = self.path_configs_hyperparameters(holdout=holdout)
-        s3_path_loc = self.to_s3_cache_loc(path=path_local, s3_cache_root=s3_cache_root)
-        self._download_file(url=s3_path_loc, local_path=path_local)
-
-    def upload_configs_hyperparameters(self, s3_cache_root: str, holdout: bool = False):
-        path_local = self.path_configs_hyperparameters(holdout=holdout)
-        s3_path_loc = self.to_s3_cache_loc(path=path_local, s3_cache_root=s3_cache_root)
-        self._upload_file(file_name=path_local, s3_path=s3_path_loc)
-
-    def _upload_file(self, file_name: str | Path, s3_path: str):
-        import boto3
-
-        kwargs = {}
-        if self.upload_as_public:
-            kwargs = {"ExtraArgs": {"ACL": "public-read"}}
-        bucket, prefix = s3_path_to_bucket_prefix(s3_path)
-
-        # Upload the file
-        s3_client = boto3.client("s3")
-        s3_client.upload_file(Filename=file_name, Bucket=bucket, Key=prefix, **kwargs)
+    def download_configs_hyperparameters(self, s3_bucket: str, s3_prefix: str, holdout: bool = False):
+        method_downloader = self.method_downloader(s3_bucket=s3_bucket, s3_prefix=s3_prefix)
+        method_downloader.download_configs_hyperparameters(holdout=holdout)
 
     def _download_file(self, url: str, local_path: str | Path):
         local_path = Path(local_path)

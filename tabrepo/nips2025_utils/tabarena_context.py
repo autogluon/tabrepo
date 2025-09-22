@@ -70,6 +70,8 @@ class TabArenaContext:
         self.method_metadata_map: dict[str, MethodMetadata] = copy.deepcopy(tabarena_method_metadata_map)
         self.root_cache = Paths.artifacts_root_cache_tabarena
         self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
+        self.s3_bucket = "tabarena"
+        self.s3_prefix = "cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
         assert backend in ["ray", "native"]
         self.backend = backend
@@ -299,38 +301,41 @@ class TabArenaContext:
                         f"but '{method}' is not present in methods: {methods}"
                     )
             methods = [method for method in methods if method not in methods_drop]
-        if isinstance(download_results, bool) and download_results:
-            loader = TabArena51ArtifactLoader(methods=methods)
-            loader.download_results(holdout=holdout)
-        try:
-            df_results = self._load_results_paper(methods=methods, holdout=holdout)
-        except FileNotFoundError as err:
-            if isinstance(download_results, str) and download_results == "auto":
-                print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
-                loader = TabArena51ArtifactLoader(methods=methods)
-                loader.download_results(holdout=holdout)
-                df_results = self._load_results_paper(methods=methods, holdout=holdout)
-            else:
-                print(f"Missing local results files! Try setting `download_results=True` to get the required files.")
-                raise err
-        return df_results
 
-    def _load_results_paper(self, methods: list[str], holdout: bool = False) -> pd.DataFrame:
-        assert methods is not None and len(methods) > 0
-        df_metadata_lst = []
+        df_results_lst = []
         for method in methods:
-            metadata = self._method_metadata(method=method)
-            if metadata.method_type == "config":
-                df_metadata = self.load_hpo_results(method=method, holdout=holdout)
-            elif metadata.method_type == "baseline":
-                df_metadata = self.load_config_results(method=method, holdout=holdout)
-            elif metadata.method_type == "portfolio":
-                df_metadata = self.load_portfolio_results(method=method, holdout=holdout)
-            else:
-                raise ValueError(f"Unknown method_type: {metadata.method_type} for method {method}")
-            df_metadata_lst.append(df_metadata)
-        df_metadata = pd.concat(df_metadata_lst, ignore_index=True)
-        return df_metadata
+            method_metadata = self._method_metadata(method=method)
+            if isinstance(download_results, bool) and download_results:
+                method_downloader = method_metadata.method_downloader(
+                    s3_bucket=self.s3_bucket,
+                    s3_prefix=self.s3_prefix,
+                )
+                method_downloader.download_results(holdout=holdout)
+
+            try:
+                df_results = method_metadata.load_paper_results(holdout=holdout)
+            except FileNotFoundError as err:
+                if isinstance(download_results, str) and download_results == "auto":
+                    print(
+                        f"Missing local results files for method {method_metadata.method}! "
+                        f"Attempting to download from s3 and retry... (download_results={download_results})"
+                    )
+                    method_downloader = method_metadata.method_downloader(
+                        s3_bucket=self.s3_bucket,
+                        s3_prefix=self.s3_prefix,
+                    )
+                    method_downloader.download_results(holdout=holdout)
+                    df_results = method_metadata.load_paper_results(holdout=holdout)
+                else:
+                    print(
+                        f"Missing local results files for method {method_metadata.method}! "
+                        f"Try setting `download_results=True` to get the required files."
+                    )
+                    raise err
+            df_results_lst.append(df_results)
+
+        df_results = pd.concat(df_results_lst, ignore_index=True)
+        return df_results
 
     def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
         if methods is None:
@@ -343,7 +348,7 @@ class TabArenaContext:
         for method in methods:
             metadata = self._method_metadata(method=method)
             if isinstance(download, bool) and download:
-                metadata.download_configs_hyperparameters(s3_cache_root=self.s3_cache_root_url, holdout=holdout)
+                metadata.download_configs_hyperparameters(s3_bucket=self.s3_bucket, s3_prefix=self.s3_prefix, holdout=holdout)
             try:
                 configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
             except FileNotFoundError as err:
@@ -352,7 +357,7 @@ class TabArenaContext:
                         f"Cache miss detected for configs_hyperparameters.json "
                         f"(method={metadata.method}), attempting download..."
                     )
-                    metadata.download_configs_hyperparameters(s3_cache_root=self.s3_cache_root_url, holdout=holdout)
+                    metadata.download_configs_hyperparameters(s3_bucket=self.s3_bucket, s3_prefix=self.s3_prefix, holdout=holdout)
                     configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
                     print(f"\tDownload successful")
                 else:
