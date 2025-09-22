@@ -10,6 +10,12 @@ requirements = [
     "tqdm",
     "typing-extensions>=4.11,<5",  # used for `Self` type hint
     "huggingface-hub",
+
+    # TODO: For 2025 paper, consider making optional
+    "tueplots",
+    "autorank==1.2.1",
+    "seaborn==0.13.2",
+    "matplotlib==3.9.2",
 ]
 
 extras_require = {
@@ -62,14 +68,6 @@ for extra_package in [
     benchmark_requires += extras_require[extra_package]
 benchmark_requires = list(set(benchmark_requires))
 extras_require["benchmark"] = benchmark_requires
-
-# FIXME: For 2025 paper, cleanup after
-extras_require["benchmark"] += [
-    "seaborn==0.13.2",
-    "matplotlib==3.9.2",
-    "autorank==1.2.1",
-    "tueplots",
-]
 
 setup(
     name="tabrepo",
