@@ -6,7 +6,7 @@ from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
 
 from .abstract_artifact_uploader import AbstractArtifactUploader
 from .method_metadata import MethodMetadata
-from . import tabarena_method_metadata_map
+from . import tabarena_method_metadata_collection
 
 
 class TabArena51ArtifactUploader(AbstractArtifactUploader):
@@ -37,7 +37,7 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             "TabM_GPU",
             "TabPFNv2_GPU",
         ]
-        self.method_metadata_map = {k: v for k, v in tabarena_method_metadata_map.items() if k in methods}
+        self.method_metadata_map = {m.method: m for m in tabarena_method_metadata_collection.method_metadata_lst if m.method in methods}
         self.method_metadata_lst = [self.method_metadata_map[m] for m in methods]
 
     @property

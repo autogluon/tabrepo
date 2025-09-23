@@ -7,7 +7,7 @@ import time
 
 from tabrepo.loaders import Paths
 from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
-from . import tabarena_method_metadata_map
+from . import tabarena_method_metadata_collection
 from .method_metadata import MethodMetadata
 
 
@@ -52,7 +52,7 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
             if isinstance(m, MethodMetadata):
                 metadata = m
             else:
-                metadata = tabarena_method_metadata_map[m]
+                metadata = tabarena_method_metadata_collection.get_method_metadata(method=m)
             self.method_metadata_map[metadata.method] = metadata
             self.method_metadata_lst.append(metadata)
 
