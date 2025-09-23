@@ -20,6 +20,7 @@ from tabrepo.utils.s3_utils import s3_get_object
 
 if TYPE_CHECKING:
     from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
+    from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
 
 
 class MethodMetadata:
@@ -298,7 +299,7 @@ class MethodMetadata:
         s3_cache_path = f"{s3_cache_root}/{path_suffix}"
         return s3_cache_path
 
-    def method_downloader(self) -> MethodDownloaderS3:
+    def method_downloader(self, verbose: bool = False) -> MethodDownloaderS3:
         if not self.has_s3_cache:
             raise AssertionError(
                 f"Tried to get MethodDownloaderS3 from MethodMetadata, "
@@ -312,8 +313,25 @@ class MethodMetadata:
             method_metadata=self,
             s3_bucket=self.s3_bucket,
             s3_prefix=self.s3_prefix,
-            verbose=False,
+            verbose=verbose,
             clear_dirs=False,
+        )
+
+    def method_uploader(self) -> MethodUploaderS3:
+        if not self.has_s3_cache:
+            raise AssertionError(
+                f"Tried to get MethodUploaderS3 from MethodMetadata, "
+                f"but s3_bucket and/or s3_prefix were not specified!"
+                f"\n\t(method={self.method}, artifact_name={self.artifact_name}, "
+                f"s3_bucket={self.s3_bucket}, s3_prefix={self.s3_prefix})"
+                f"\nEnsure you initialize MethodMetadata with s3_bucket and s3_prefix to enable s3 artifact upload."
+            )
+        from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
+        return MethodUploaderS3(
+            method_metadata=self,
+            s3_bucket=self.s3_bucket,
+            s3_prefix=self.s3_prefix,
+            upload_as_public=self.upload_as_public,
         )
 
     def load_model_results(self, holdout: bool = False) -> pd.DataFrame:
@@ -494,6 +512,14 @@ class MethodMetadata:
         obj = s3_get_object(Bucket=s3_bucket, Key=s3_key)
         body = obj["Body"]  # file-like object (StreamingBody, BytesIO, etc.)
         kwargs = yaml.safe_load(body)
+
+        if "s3_bucket" not in kwargs:
+            # yaml created before s3_bucket existed
+            kwargs["s3_bucket"] = s3_bucket
+        if "s3_prefix" not in kwargs:
+            # yaml created before s3_prefix existed
+            kwargs["s3_prefix"] = s3_prefix
+
         return cls(**kwargs)
 
     def cache_raw(
