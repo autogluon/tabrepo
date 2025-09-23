@@ -10,6 +10,8 @@ requirements = [
     "tqdm",
     "typing-extensions>=4.11,<5",  # used for `Self` type hint
     "huggingface-hub",
+    "numpy",
+    "pandas",
 
     # TODO: For 2025 paper, consider making optional
     "tueplots",

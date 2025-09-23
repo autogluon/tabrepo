@@ -25,7 +25,6 @@ def compare_on_tabarena(
 
     paper_results = tabarena_context.load_results_paper(
         download_results="auto",
-        methods_drop=["Portfolio-N200-4h"],  # TODO: Clean this up by not including by default
     )
 
     paper_results = TabArenaContext.fillna_metrics(
