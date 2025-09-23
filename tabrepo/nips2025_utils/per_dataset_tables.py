@@ -249,7 +249,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
             df_mean = (df_mean/10).round(0).astype(int).astype(str)
         
 
-        df_latex = df_mean + " $\pm$ " + df_std
+        df_latex = df_mean + " $\\pm$ " + df_std
 
         df_latex.columns = [dataset_name]
         if metric_dir == "min":
