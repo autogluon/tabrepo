@@ -315,8 +315,9 @@ class TabArenaContext:
             except FileNotFoundError as err:
                 if isinstance(download_results, str) and download_results == "auto":
                     print(
-                        f"Missing local results files for method {method_metadata.method}! "
-                        f"Attempting to download from s3 and retry... (download_results={download_results})"
+                        f"Missing local results files for method! "
+                        f"Attempting to download from s3 and retry... "
+                        f'(download_results={download_results}, method="{method_metadata.method}")'
                     )
                     method_downloader = method_metadata.method_downloader()
                     method_downloader.download_results(holdout=holdout)
