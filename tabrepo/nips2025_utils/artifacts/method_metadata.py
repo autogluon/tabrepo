@@ -41,9 +41,9 @@ class MethodMetadata:
         has_processed: bool = False,
         has_results: bool = False,
         use_artifact_name_in_prefix: bool = False,
-        upload_as_public: bool = False,
         s3_bucket: str = None,
         s3_prefix: str = None,
+        upload_as_public: bool = False,
     ):
         self.method = method
         if artifact_name is None:
@@ -60,12 +60,12 @@ class MethodMetadata:
         self.has_processed = has_processed
         self.has_results = has_results
         self.use_artifact_name_in_prefix = use_artifact_name_in_prefix
-        self.upload_as_public = upload_as_public
         if can_hpo is None:
             can_hpo = self.method_type == "config"
         self.can_hpo = can_hpo
         self.s3_bucket = s3_bucket
         self.s3_prefix = s3_prefix
+        self.upload_as_public = upload_as_public
 
         assert isinstance(self.method, str) and len(self.method) > 0
         assert isinstance(self.artifact_name, str) and len(self.artifact_name) > 0
@@ -509,7 +509,16 @@ class MethodMetadata:
         s3_path_loc = metadata.to_s3_cache_loc(path=Path(path_local), s3_cache_root=s3_cache_root)
         _, s3_key = s3_path_to_bucket_prefix(s3_path_loc)
         # Stream into memory
-        obj = s3_get_object(Bucket=s3_bucket, Key=s3_key)
+        try:
+            obj = s3_get_object(Bucket=s3_bucket, Key=s3_key)
+        except Exception as e:
+            print(
+                f"Failed to fetch MethodMetadata yaml file from s3! Maybe it doesn't exist or is not public?"
+                f'\n\t(method="{method}", artifact_name="{artifact_name}", '
+                f's3_bucket="{s3_bucket}", s3_prefix="{s3_prefix}")'
+            )
+            raise e
+
         body = obj["Body"]  # file-like object (StreamingBody, BytesIO, etc.)
         kwargs = yaml.safe_load(body)
 
