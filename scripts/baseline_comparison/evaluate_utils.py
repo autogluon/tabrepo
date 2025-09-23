@@ -167,8 +167,8 @@ def generate_sensitivity_plots(df, n_portfolios: list = None, n_ensemble_iterati
 
     metric = "normalized-error"
 
-    ag_mean = df.loc[df.method.str.contains("AutoGluon best \(4h\)"), metric].mean()
-    askl2_mean = df.loc[df.method.str.contains("Autosklearn2 \(4h\)"), metric].mean()
+    ag_mean = df.loc[df.method.str.contains(r"AutoGluon best \(4h\)"), metric].mean()
+    askl2_mean = df.loc[df.method.str.contains(r"Autosklearn2 \(4h\)"), metric].mean()
 
     def decorate(ax, add_ylabel):
         ax.set_xlim([0, 200])

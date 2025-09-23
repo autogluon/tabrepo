@@ -6,14 +6,11 @@ from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
 
 from .abstract_artifact_uploader import AbstractArtifactUploader
 from .method_metadata import MethodMetadata
-from . import tabarena_method_metadata_map
+from . import tabarena_method_metadata_collection
 
 
 class TabArena51ArtifactUploader(AbstractArtifactUploader):
     def __init__(self):
-        self.bucket = "tabarena"
-        self.s3_prefix_root = "cache"
-        self.upload_as_public = True
         methods = [
             "AutoGluon_v130",
             "Portfolio-N200-4h",
@@ -40,7 +37,7 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
             "TabM_GPU",
             "TabPFNv2_GPU",
         ]
-        self.method_metadata_map = {k: v for k, v in tabarena_method_metadata_map.items() if k in methods}
+        self.method_metadata_map = {m.method: m for m in tabarena_method_metadata_collection.method_metadata_lst if m.method in methods}
         self.method_metadata_lst = [self.method_metadata_map[m] for m in methods]
 
     @property
@@ -52,13 +49,7 @@ class TabArena51ArtifactUploader(AbstractArtifactUploader):
 
     def _method_uploader(self, method: str) -> MethodUploaderS3:
         method_metadata = self._method_metadata(method=method)
-        downloader = MethodUploaderS3(
-            method_metadata=method_metadata,
-            s3_bucket=self.bucket,
-            s3_prefix=self.s3_prefix_root,
-            upload_as_public=self.upload_as_public,
-        )
-        return downloader
+        return method_metadata.method_uploader()
 
     def upload_raw(self):
         methods = [method for method in self.methods if self._method_metadata(method).has_raw]

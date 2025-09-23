@@ -607,7 +607,11 @@ class TabArena:
             data = results_per_task.pivot_table(index=self.task_col, columns=self.method_col, values="rank")
             result = autorank(data, alpha=0.05, verbose=False, order="ascending", force_mode="nonparametric")
 
-            ax = cd_diagram(result, reverse=reverse, ax=ax, width=6)
+            try:
+                ax = cd_diagram(result, reverse=reverse, ax=ax, width=6)
+            except KeyError:
+                print(f"Not enough methods to generate cd_diagram, skipping...")
+                return
 
             # plt.tight_layout()  # cuts off text
             if save_path is not None:
