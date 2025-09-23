@@ -19,7 +19,6 @@ from tabrepo.loaders import Paths
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
 from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_map
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
-from tabrepo.nips2025_utils.artifacts.tabarena51_artifact_loader import TabArena51ArtifactLoader
 from tabrepo.nips2025_utils.eval_all import evaluate_all
 
 
