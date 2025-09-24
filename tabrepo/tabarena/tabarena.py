@@ -594,6 +594,10 @@ class TabArena:
                     upper=bootstrap_elo_lu.quantile(.975),
                 ))
             else:
+                print(
+                    f"Warning: Returning 95% CI quantiles for elo when BOOTSTRAP_ROUNDS<=1. "
+                    f"The CI is invalid and widths will be set to 0."
+                )
                 bars_quantiles = pd.DataFrame(dict(
                     lower=elo,
                     upper=elo,
