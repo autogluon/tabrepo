@@ -495,28 +495,131 @@ class TabArena:
         SCALE: int = 400,
         include_quantiles: bool = True,
         round_decimals: int | None = 1,
+        use_bootstrap_median: bool = False,
+        use_bootstrap_median_for_quantiles: bool = False,
+        clip_negative_ci: bool = True,
     ) -> pd.DataFrame:
+        """
+        Compute Elo ratings for methods evaluated across multiple tasks.
+
+        This aggregates per-task results into head-to-head “battles” and estimates
+        per-method Elo scores either by maximum likelihood (single fit) or by a
+        bootstrap procedure. Optionally returns uncertainty bars derived from the
+        bootstrap distribution.
+
+        Parameters
+        ----------
+        results_per_task
+            Long-form DataFrame with one row per (method, task) containing an error metric.
+            Must contain the columns referenced by ``self.method_col`` (method identifier),
+            ``self.task_col`` (task identifier), and ``self.error_col`` (lower is better).
+        calibration_framework
+            Optional name of a reference method to anchor the Elo scale (e.g.,
+            set that method’s Elo to ``calibration_elo``).
+        calibration_elo
+            Elo value assigned to ``calibration_framework`` when provided.
+            Ignored if ``calibration_framework`` is ``None``.
+        INIT_RATING
+            Initial rating used to start optimization / simulation.
+        BOOTSTRAP_ROUNDS
+            Number of bootstrap resamples of tasks to estimate uncertainty.
+            If set to 1, no resampling is performed and quantiles (if requested) collapse to the point estimate.
+        SCALE
+            Logistic scale factor in the Elo win-probability model (typical value is 400).
+            Larger values make probabilities less sensitive to rating differences.
+        include_quantiles
+            If ``True``, include 2.5%/97.5% quantile bars (or point bars when ``BOOTSTRAP_ROUNDS == 1``).
+        round_decimals
+            If not ``None``, round the returned values to this many decimal places.
+        use_bootstrap_median
+            If ``True``, use the bootstrap median rating as the primary Elo estimate instead of the MLE point estimate.
+        use_bootstrap_median_for_quantiles
+            If ``True``, center the ± bars around the bootstrap median,
+            otherwise they are centered around the chosen Elo point estimate.
+        clip_negative_ci
+            If ``True``, negative widths for ``elo+``/``elo-`` are clipped to 0.
+            Negative width can occur if ``use_bootstrap_median=False`` and ``use_bootstrap_median_for_quantiles=False``.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame indexed by method (index name = ``self.method_col``) sorted
+            by descending Elo. Always contains:
+
+            - ``elo`` : float
+                The Elo rating for each method (rounded if ``round_decimals`` is set).
+
+            If ``include_quantiles`` is ``True``, also contains:
+
+            - ``elo+`` : float
+                Upper error bar width (e.g., 97.5% quantile minus center).
+            - ``elo-`` : float
+                Lower error bar width (e.g., center minus 2.5% quantile).
+
+            When ``BOOTSTRAP_ROUNDS == 1``, ``elo+`` and ``elo-`` will be 0.
+        """
         elo_helper = EloHelper(method_col=self.method_col, task_col=self.task_col, error_col=self.error_col)
-        bootstrap_elo_lu = elo_helper.compute_elo_ratings(
-            results_ranked_fillna_df=results_per_task,
-            calibration_framework=calibration_framework,
-            calibration_elo=calibration_elo,
-            INIT_RATING=INIT_RATING,
-            BOOTSTRAP_ROUNDS=BOOTSTRAP_ROUNDS,
-            SCALE=SCALE,
-        )
+        battles = elo_helper.convert_results_to_battles(results_df=results_per_task)
+
+        bootstrap_median = None
+        bootstrap_elo_lu = None
+        bars_quantiles = None
+        if use_bootstrap_median or (include_quantiles and BOOTSTRAP_ROUNDS > 1):
+            bootstrap_elo_lu = elo_helper.compute_elo_ratings(
+                battles=battles,
+                calibration_framework=calibration_framework,
+                calibration_elo=calibration_elo,
+                INIT_RATING=INIT_RATING,
+                BOOTSTRAP_ROUNDS=BOOTSTRAP_ROUNDS,
+                SCALE=SCALE,
+            )
+            bootstrap_median = bootstrap_elo_lu.quantile(.5)
+
+        if use_bootstrap_median:
+            elo = bootstrap_median
+        else:
+            elo = elo_helper.compute_mle_elo(
+                battles=battles,
+                INIT_RATING=INIT_RATING,
+                SCALE=SCALE,
+                calibration_framework=calibration_framework,
+                calibration_elo=calibration_elo,
+            )
+
+        if include_quantiles:
+            if BOOTSTRAP_ROUNDS > 1:
+                assert bootstrap_elo_lu is not None
+                bars_quantiles = pd.DataFrame(dict(
+                    lower=bootstrap_elo_lu.quantile(.025),
+                    upper=bootstrap_elo_lu.quantile(.975),
+                ))
+            else:
+                print(
+                    f"Warning: Returning 95% CI quantiles for elo when BOOTSTRAP_ROUNDS<=1. "
+                    f"The CI is invalid and widths will be set to 0."
+                )
+                bars_quantiles = pd.DataFrame(dict(
+                    lower=elo,
+                    upper=elo,
+                ))
 
         bars = pd.DataFrame(dict(
-            elo=bootstrap_elo_lu.quantile(.5),
+            elo=elo,
         ))
 
         if include_quantiles:
-            bars_quantiles = pd.DataFrame(dict(
-                lower=bootstrap_elo_lu.quantile(.025),
-                upper=bootstrap_elo_lu.quantile(.975),
-            ))
-            bars['elo+'] = bars_quantiles['upper'] - bars["elo"]
-            bars['elo-'] = bars['elo'] - bars_quantiles["lower"]
+            assert bars_quantiles is not None
+            if use_bootstrap_median_for_quantiles:
+                relative_to = bootstrap_median
+            else:
+                relative_to = elo
+            bars['elo+'] = bars_quantiles['upper'] - relative_to
+            bars['elo-'] = relative_to - bars_quantiles["lower"]
+
+            if clip_negative_ci:
+                bars['elo+'] = bars['elo+'].clip(lower=0)
+                bars['elo-'] = bars['elo-'].clip(lower=0)
+
         bars = bars.sort_values(by="elo", ascending=False)
         if round_decimals is not None:
             bars['elo'] = np.round(bars['elo'], round_decimals)
