@@ -495,28 +495,68 @@ class TabArena:
         SCALE: int = 400,
         include_quantiles: bool = True,
         round_decimals: int | None = 1,
+        use_bootstrap_median: bool = False,
+        use_bootstrap_median_for_quantiles: bool = False,
+        clip_negative_ci: bool = True,
     ) -> pd.DataFrame:
         elo_helper = EloHelper(method_col=self.method_col, task_col=self.task_col, error_col=self.error_col)
-        bootstrap_elo_lu = elo_helper.compute_elo_ratings(
-            results_ranked_fillna_df=results_per_task,
-            calibration_framework=calibration_framework,
-            calibration_elo=calibration_elo,
-            INIT_RATING=INIT_RATING,
-            BOOTSTRAP_ROUNDS=BOOTSTRAP_ROUNDS,
-            SCALE=SCALE,
-        )
+        battles = elo_helper.convert_results_to_battles(results_df=results_per_task)
+
+        bootstrap_median = None
+        bootstrap_elo_lu = None
+        bars_quantiles = None
+        if use_bootstrap_median or (include_quantiles and BOOTSTRAP_ROUNDS > 1):
+            bootstrap_elo_lu = elo_helper.compute_elo_ratings(
+                battles=battles,
+                calibration_framework=calibration_framework,
+                calibration_elo=calibration_elo,
+                INIT_RATING=INIT_RATING,
+                BOOTSTRAP_ROUNDS=BOOTSTRAP_ROUNDS,
+                SCALE=SCALE,
+            )
+            bootstrap_median = bootstrap_elo_lu.quantile(.5)
+
+        if use_bootstrap_median:
+            elo = bootstrap_median
+        else:
+            elo = elo_helper.compute_mle_elo(
+                battles=battles,
+                INIT_RATING=INIT_RATING,
+                SCALE=SCALE,
+                calibration_framework=calibration_framework,
+                calibration_elo=calibration_elo,
+            )
+
+        if include_quantiles:
+            if BOOTSTRAP_ROUNDS > 1:
+                assert bootstrap_elo_lu is not None
+                bars_quantiles = pd.DataFrame(dict(
+                    lower=bootstrap_elo_lu.quantile(.025),
+                    upper=bootstrap_elo_lu.quantile(.975),
+                ))
+            else:
+                bars_quantiles = pd.DataFrame(dict(
+                    lower=elo,
+                    upper=elo,
+                ))
 
         bars = pd.DataFrame(dict(
-            elo=bootstrap_elo_lu.quantile(.5),
+            elo=elo,
         ))
 
         if include_quantiles:
-            bars_quantiles = pd.DataFrame(dict(
-                lower=bootstrap_elo_lu.quantile(.025),
-                upper=bootstrap_elo_lu.quantile(.975),
-            ))
-            bars['elo+'] = bars_quantiles['upper'] - bars["elo"]
-            bars['elo-'] = bars['elo'] - bars_quantiles["lower"]
+            assert bars_quantiles is not None
+            if use_bootstrap_median_for_quantiles:
+                relative_to = bootstrap_median
+            else:
+                relative_to = elo
+            bars['elo+'] = bars_quantiles['upper'] - relative_to
+            bars['elo-'] = relative_to - bars_quantiles["lower"]
+
+            if clip_negative_ci:
+                bars['elo+'] = bars['elo+'].clip(lower=0)
+                bars['elo-'] = bars['elo-'].clip(lower=0)
+
         bars = bars.sort_values(by="elo", ascending=False)
         if round_decimals is not None:
             bars['elo'] = np.round(bars['elo'], round_decimals)
