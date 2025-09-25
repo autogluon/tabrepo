@@ -111,7 +111,7 @@ def format_leaderboard(df_leaderboard: pd.DataFrame, include_type: bool = False)
     # select only the columns we want to display
     df_leaderboard["normalized-score"] = 1 - df_leaderboard["normalized-error"]
     df_leaderboard["hmr"] = 1 / df_leaderboard["mrr"]
-    df_leaderboard["improvability"] = 100 * df_leaderboard["champ_delta"]
+    df_leaderboard["improvability"] = 100 * df_leaderboard["improvability"]
 
     # Imputed logic
     if "imputed" in df_leaderboard.columns:

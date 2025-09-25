@@ -15,7 +15,7 @@ from tabrepo.tabarena.elo_utils import EloHelper
 RANK = "rank"
 ERROR_COUNT = "error_count"
 RANK_1 = "rank=1_count"
-CHAMP_DELTA = "champ_delta"
+IMPROVABILITY = "improvability"
 LOSS_RESCALED = "loss_rescaled"
 TIME_TRAIN_S = "time_train_s"
 TIME_INFER_S = "time_infer_s"
@@ -63,7 +63,7 @@ class TabArena:
         self,
         data: pd.DataFrame,
         include_error: bool = False,
-        include_champ_delta: bool = True,
+        include_improvability: bool = True,
         include_rescaled_loss: bool = True,
         include_rank_counts: bool = False,
         include_failure_counts: bool = False,
@@ -114,30 +114,29 @@ class TabArena:
                     self.compute_skill_score(results_per_task=results_per_task, method_baseline=baseline_relative_error)
                 )
 
-        if include_champ_delta:
+        if include_improvability:
             tasks = list(results_per_task[self.task_col].unique())
-            champ_delta_bootstrap = get_bootstrap_result_lst(
+            improvability_bootstrap = get_bootstrap_result_lst(
                 data=tasks,
                 func_=self._weighted_groupby_mean,
-                func_kwargs={"data": results_per_task, "agg_column": CHAMP_DELTA},
+                func_kwargs={"data": results_per_task, "agg_column": IMPROVABILITY},
                 num_round=100,
             )
-            champ_delta_quantiles = pd.DataFrame({
-                f"{CHAMP_DELTA}-": champ_delta_bootstrap.quantile(.025),
-                f"{CHAMP_DELTA}+": champ_delta_bootstrap.quantile(.975),
+            improvability_quantiles = pd.DataFrame({
+                f"{IMPROVABILITY}-": results_agg[IMPROVABILITY] - improvability_bootstrap.quantile(.025),
+                f"{IMPROVABILITY}+": improvability_bootstrap.quantile(.975) - results_agg[IMPROVABILITY],
             })
-            results_lst.append(champ_delta_quantiles)
+            results_lst.append(improvability_quantiles)
 
         # FIXME: fillna should occur after failure counts?
-        # FIXME: Not everything
         results = pd.concat(results_lst, axis=1)
 
         if not include_error:
             results = results.drop(columns=[self.error_col])
         if not include_rescaled_loss:
             results = results.drop(columns=[LOSS_RESCALED])
-        if not include_champ_delta:
-            results = results.drop(columns=[CHAMP_DELTA])
+        if not include_improvability:
+            results = results.drop(columns=[IMPROVABILITY])
         if sort_by is not None:
             results = results.sort_values(by=sort_by)
         results.index.name = self.method_col
@@ -386,8 +385,8 @@ class TabArena:
         results_per_task[BEST_ERROR] = results_per_task[self.task_col].map(best_error_per_task)
         results_per_task[WORST_ERROR] = results_per_task[self.task_col].map(worst_error_per_task)
 
-        results_per_task[CHAMP_DELTA] = 1 - (results_per_task[BEST_ERROR] / results_per_task[self.error_col])
-        results_per_task[CHAMP_DELTA] = results_per_task[CHAMP_DELTA].fillna(0)
+        results_per_task[IMPROVABILITY] = 1 - (results_per_task[BEST_ERROR] / results_per_task[self.error_col])
+        results_per_task[IMPROVABILITY] = results_per_task[IMPROVABILITY].fillna(0)
 
         results_per_task[LOSS_RESCALED] = (results_per_task[self.error_col] - results_per_task[BEST_ERROR]) / (
                 results_per_task[WORST_ERROR] - results_per_task[BEST_ERROR]
@@ -778,10 +777,10 @@ class TabArena:
         return column_mean
 
 
-def get_bootstrap_result_lst(data: list, func_, rng=None, num_round: int = None, func_kwargs=None):
+def get_bootstrap_result_lst(data: list, func_, rng=None, num_round: int = None, func_kwargs=None, seed: int = 0):
     rows = []
     if rng is None:
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(seed=seed)
     if func_kwargs is None:
         func_kwargs = {}
     if num_round is None:
