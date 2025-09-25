@@ -774,7 +774,7 @@ class PaperRunTabArena(PaperRun):
                 print(f"WARNING: autogluon_benchmark failed to import... skipping extra figure generation")
             else:
                 results_per_task_ag_benchmark = results_per_task.rename(columns={
-                    "champ_delta": "bestdiff",
+                    "improvability": "bestdiff",
                 })
                 self.run_autogluon_benchmark_logic(
                     results_per_task=results_per_task_ag_benchmark,
@@ -1008,7 +1008,7 @@ class PaperRunTabArena(PaperRun):
         df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:.1f}' for rank in df["rank"]]
         df_new["Harm.\nmean\n" + r"rank ($\downarrow$)"] = [f'{1/val:.1f}' for val in df["mrr"]]
         df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
-        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["champ_delta"]]
+        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["improvability"]]
         df_new[r"Train time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
         df_new[r"Predict time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
 
