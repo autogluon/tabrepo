@@ -70,6 +70,8 @@ class TabArena:
         include_elo: bool = False,
         include_winrate: bool = False,
         include_mrr: bool = False,
+        include_relative_error: bool = False,
+        include_skill_score: bool = False,
         baseline_relative_error: str | None = None,
         relative_error_kwargs: dict | None = None,
         elo_kwargs: dict | None = None,
@@ -79,28 +81,8 @@ class TabArena:
             elo_kwargs = {}
         if relative_error_kwargs is None:
             relative_error_kwargs = {}
-
-        # TODO: Unnecessary, only used to remove the "seed" column
-        # TODO: Needed for fillna though
-        # TODO: Assert no negative metric_error values, set negative values to 0 or epsilon
-        # benchmark_evaluator = BenchmarkEvaluator(
-        #     output_suffix=None,
-        #     framework_nan_fill=None,
-        #     worst_nan_fill=True,
-        #     filter_errors=False,
-        #     task_metadata=None,
-        # )
-        #
-        # data = benchmark_evaluator.load_data(
-        #     paths=data,
-        #     frameworks=None,
-        #     folds=None,
-        #     problem_type=None,
-        #     banned_datasets=None,
-        #     infer_batch_size=None,
-        #     treat_folds_as_datasets=False,
-        #     clean_data=False,
-        # )
+        if baseline_relative_error is None:
+            baseline_relative_error = elo_kwargs.get("calibration_framework", None)
 
         self.verify_data(data=data)
         results_per_task = self.compute_results_per_task(data=data)
@@ -119,9 +101,32 @@ class TabArena:
         if include_mrr:
             results_lst.append(self.compute_mrr(results_per_task=results_per_task).to_frame())
         if baseline_relative_error is not None:
-            results_lst.append(
-                self.compute_relative_error(results_per_task=results_per_task, method_baseline=baseline_relative_error, **relative_error_kwargs).to_frame()
+            if include_relative_error:
+                results_lst.append(
+                    self.compute_relative_error(
+                        results_per_task=results_per_task,
+                        method_baseline=baseline_relative_error,
+                        **relative_error_kwargs
+                    ).to_frame()
+                )
+            if include_skill_score:
+                results_lst.append(
+                    self.compute_skill_score(results_per_task=results_per_task, method_baseline=baseline_relative_error)
+                )
+
+        if include_champ_delta:
+            tasks = list(results_per_task[self.task_col].unique())
+            champ_delta_bootstrap = get_bootstrap_result_lst(
+                data=tasks,
+                func_=self._weighted_groupby_mean,
+                func_kwargs={"data": results_per_task, "agg_column": CHAMP_DELTA},
+                num_round=100,
             )
+            champ_delta_quantiles = pd.DataFrame({
+                f"{CHAMP_DELTA}-": champ_delta_bootstrap.quantile(.025),
+                f"{CHAMP_DELTA}+": champ_delta_bootstrap.quantile(.975),
+            })
+            results_lst.append(champ_delta_quantiles)
 
         # FIXME: fillna should occur after failure counts?
         # FIXME: Not everything
@@ -485,6 +490,18 @@ class TabArena:
         framework_failure_counts = framework_failure_counts.reindex(frameworks)
         return framework_failure_counts
 
+    def compute_skill_score(
+        self,
+        results_per_task: pd.DataFrame,
+        method_baseline: str,
+    ) -> pd.Series:
+        relative_error_gmean = self.compute_relative_error(
+            results_per_task=results_per_task, method_baseline=method_baseline, agg="gmean",
+        )
+        skill_score = 1 - relative_error_gmean
+        skill_score.name = "skill_score"
+        return skill_score
+
     def compute_elo(
         self,
         results_per_task: pd.DataFrame,
@@ -631,10 +648,20 @@ class TabArena:
 
         return bars
 
-    def compute_relative_error(self, results_per_task: pd.DataFrame, method_baseline: str, agg: str = "mean") -> pd.Series:
+    def compute_relative_error(
+        self,
+        results_per_task: pd.DataFrame,
+        method_baseline: str | None,
+        agg: str = "mean",
+        use_optimal: bool = False,
+    ) -> pd.Series:
         assert agg in ["mean", "gmean"]
         results_per_task = results_per_task.copy()
-        results_per_task["relative_error"] = self._relative_error_per_task(results_per_task=results_per_task, method_baseline=method_baseline)
+        results_per_task["relative_error"] = self._relative_error_per_task(
+            results_per_task=results_per_task,
+            method_baseline=method_baseline,
+            use_optimal=use_optimal,
+        )
         if agg == "mean":
             relative_error = results_per_task.groupby(self.method_col)["relative_error"].mean()
         elif agg == "gmean":
@@ -643,14 +670,27 @@ class TabArena:
             raise ValueError(f"Invalid value for `agg`: {agg}")
         return relative_error
 
-    def _relative_error_per_task(self, results_per_task: pd.DataFrame, method_baseline: str) -> pd.Series:
+    def _relative_error_per_task(
+        self,
+        results_per_task: pd.DataFrame,
+        method_baseline: str | None,
+        use_optimal: bool = False,
+    ) -> pd.Series:
         tasks = set(results_per_task[self.task_col].unique().tolist())
-        baseline_result = results_per_task[results_per_task[self.method_col] == method_baseline]
-        assert len(baseline_result) > 0, f"Baseline '{method_baseline}' does not exist!"
-        tasks_baseline = set(baseline_result[self.task_col].unique().tolist())
-        assert tasks == tasks_baseline, f"Baseline '{method_baseline}' missing results for {len(tasks) - len(tasks_baseline)}/{len(tasks)} tasks!"
-        # TODO: Assert baseline in all dataset results
-        baseline_result = baseline_result.set_index(self.task_col)[self.error_col]
+
+        if use_optimal:
+            baseline_result = results_per_task.groupby(self.task_col)[self.error_col].min()
+        else:
+            assert method_baseline is not None, f"method_baseline must not be None!"
+            baseline_result = results_per_task[results_per_task[self.method_col] == method_baseline]
+            assert len(baseline_result) > 0, f"Baseline '{method_baseline}' does not exist!"
+            tasks_baseline = set(baseline_result[self.task_col].unique().tolist())
+            assert tasks == tasks_baseline, (
+                f"Baseline '{method_baseline}' missing results for "
+                f"{len(tasks) - len(tasks_baseline)}/{len(tasks)} tasks!"
+            )
+            # TODO: Assert baseline in all dataset results
+            baseline_result = baseline_result.set_index(self.task_col)[self.error_col]
         baseline_error = results_per_task[self.task_col].map(baseline_result)
         relative_error = results_per_task[self.error_col] / baseline_error
         return relative_error
@@ -723,3 +763,33 @@ class TabArena:
                 plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
             if show:
                 plt.show()
+
+    def _weighted_groupby_mean(self, tasks: list[str], data: pd.DataFrame, agg_column: str) -> pd.Series:
+        num_tasks = len(tasks)
+        data = data[[self.method_col, self.task_col, agg_column]].copy()
+
+        counts = {}
+        for task in tasks:
+            counts[task] = counts.get(task, 0) + 1
+        counts = {k: v / num_tasks for k, v in counts.items()}
+        weights = data[self.task_col].map(counts).fillna(0)
+        data["_weighted_column"] = data[agg_column] * weights
+        column_mean = data.groupby(self.method_col)["_weighted_column"].sum()
+        return column_mean
+
+
+def get_bootstrap_result_lst(data: list, func_, rng=None, num_round: int = None, func_kwargs=None):
+    rows = []
+    if rng is None:
+        rng = np.random.default_rng()
+    if func_kwargs is None:
+        func_kwargs = {}
+    if num_round is None:
+        rows.append(func_(data, **func_kwargs))
+    else:
+        num_data = len(data)
+        for i in range(num_round):
+            data_new = rng.choice(data, size=num_data, replace=True)
+            rows.append(func_(data_new, **func_kwargs))
+    df = pd.DataFrame(rows)
+    return df[df.median().sort_values(ascending=False).index]
