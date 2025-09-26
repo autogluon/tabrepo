@@ -10,7 +10,7 @@ manual_configs = [
     {"ag_args_ensemble": {"refit_folds": True}},
 ]
 search_space = {
-    'temperature': Real(0.05, 1.25, default=0.3),
+    'temperature': Real(0.05, 1.5, default=0.8),
     'context_size': Categorical(2048, 768, 256),
     'permute_classes': Categorical(True, False)
 }
