@@ -277,7 +277,7 @@ class TabArenaEvaluator:
         if self.banned_model_types:
             df_results = df_results[~df_results["config_type"].isin(self.banned_model_types)]
             # framework_types = [f for f in framework_types if f not in self.banned_model_types]
-        framework_types = self._get_config_types(df_results=df_results)
+        framework_types = self._get_config_types(df_results=df_results[~df_results["method"].isin(baselines)])
 
         # ----- add times per 1K samples -----
         dataset_to_n_samples_train = self.task_metadata.set_index("name")["n_samples_train_per_fold"].to_dict()
@@ -512,7 +512,7 @@ class TabArenaEvaluator:
                 print(f"WARNING: autogluon_benchmark failed to import... skipping extra figure generation")
             else:
                 results_per_task_ag_benchmark = results_per_task.rename(columns={
-                    "champ_delta": "bestdiff",
+                    "improvability": "bestdiff",
                 })
                 self.run_autogluon_benchmark_logic(
                     results_per_task=results_per_task_ag_benchmark,
@@ -632,7 +632,7 @@ class TabArenaEvaluator:
         data_x = results_per_task.copy()
         data_x[x_name] = data_x["time_infer_s_per_1K"]
         data = results_per_task.copy()
-        data[y_name] = data["champ_delta"] * 100
+        data[y_name] = data["improvability"] * 100
         plot_pareto_aggregated(
             data=data,
             data_x=data_x,
@@ -661,7 +661,7 @@ class TabArenaEvaluator:
         data_x = results_per_task.copy()
         data_x[x_name] = data_x["time_train_s_per_1K"]
         data = results_per_task.copy()
-        data[y_name] = data["champ_delta"] * 100
+        data[y_name] = data["improvability"] * 100
         plot_pareto_aggregated(
             data=data,
             data_x=data_x,
@@ -786,7 +786,7 @@ class TabArenaEvaluator:
         df_new[r"Avg." + "\n" + r"rank ($\downarrow$)"] = [f'{rank:.1f}' for rank in df["rank"]]
         df_new["Harm.\nmean\n" + r"rank ($\downarrow$)"] = [f'{1/val:.1f}' for val in df["mrr"]]
         df_new[r"\#wins ($\uparrow$)"] = [str(cnt) for cnt in df["rank=1_count"]]
-        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["champ_delta"]]
+        df_new[f"Improva-\n" + r"bility ($\downarrow$)"] = [f'{100*val:.1f}\\%' for val in df["improvability"]]
         df_new[r"Train time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_train_s_per_1K"]]
         df_new[r"Predict time" + "\n" + r"per 1K [s]"] = [f'{t:.2f}' for t in df["median_time_infer_s_per_1K"]]
 
@@ -935,6 +935,7 @@ class TabArenaEvaluator:
             assert len(baselines) == len(
                 baseline_colors), f"A color must be specified for each baseline via the `baseline_colors` argument."
 
+        has_non_baselines = len(framework_types) != 0
         framework_types = baselines + framework_types
 
         df["framework_type"] = df["framework_type"].map(f_map_type_name).fillna(df["framework_type"])
@@ -1242,9 +1243,10 @@ class TabArenaEvaluator:
                     # Add newline to every second label
                     new_labels = [label if i % 2 == 0 else r'$\uparrow$' + '\n' + label for i, label in enumerate(labels)]
 
-                    # Apply modified labels
-                    boxplot.set_xticks(labels)
-                    boxplot.set_xticklabels(new_labels)
+                    if has_non_baselines:
+                        # Apply modified labels
+                        boxplot.set_xticks(labels)
+                        boxplot.set_xticklabels(new_labels)
 
                 # remove unnecessary extra space on the sides
                 if use_y:
