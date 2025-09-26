@@ -149,12 +149,20 @@ def get_unified_param_grid_hyperopt() -> dict:
     return search_space
 
 
+def prepare_tabpfnv2_config(raw_config: dict, *, refit_folds: bool = True) -> dict:
+    """Set refit folds to True and convert tuples to lists."""
+    raw_config = {
+        k: list(v) if isinstance(v, tuple) else v for k, v in raw_config.items()
+    }
+    return raw_config
+
+
 def search_space_func(num_random_configs: int = 200, seed=1234) -> list[dict]:
     search_space = get_unified_param_grid_hyperopt()
     rng = np.random.default_rng(seed)
     stochastic.sample(search_space, rng=rng)
     return [
-        dict(stochastic.sample(search_space, rng=rng))
+        prepare_tabpfnv2_config(dict(stochastic.sample(search_space, rng=rng)))
         for _ in range(num_random_configs)
     ]
 
