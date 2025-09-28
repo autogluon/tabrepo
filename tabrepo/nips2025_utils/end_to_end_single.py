@@ -133,7 +133,7 @@ class EndToEndSingle:
 
     @classmethod
     def clean_raw(cls, results_lst: list[BaselineResult | dict]) -> list[BaselineResult]:
-        return [r if not isinstance(r, dict) else BaselineResult.from_dict(result=r) for r in results_lst]
+        return [BaselineResult.from_dict(result=r) for r in results_lst]
 
     @classmethod
     def from_raw(
@@ -144,7 +144,9 @@ class EndToEndSingle:
         cache: bool = True,
         cache_raw: bool = True,
         name: str | None = None,
+        name_prefix: str | None = None,
         name_suffix: str | None = None,
+        model_key: str | None = None,
         method: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
@@ -179,10 +181,20 @@ class EndToEndSingle:
         name : str or None = None
             If specified, will overwrite the name of the method.
             Will raise an exception if more than one config is present.
+        name_prefix : str or None = None
+            If specified, will be prepended to the name of the method (including all configs of the method).
+            Useful for ensuring a unique name compared to prior results for a given model type,
+            such as when re-running LightGBM.
+            Will also update the model_key.
         name_suffix : str or None = None
             If specified, will be appended to the name of the method (including all configs of the method).
             Useful for ensuring a unique name compared to prior results for a given model type,
             such as when re-running LightGBM.
+            Will also update the model_key.
+        model_key : str or None = None
+            If specified, will overwrite the model_key of the method (result.model_type).
+            This is the `ag_key` value, used to distinguish between different config families
+            during portfolio simulation.
         method : str or None = None
             The name of the lower directory in the cache:
                 ~/.cache/tabarena/artifacts/{artifact_name}/methods/{method}/
@@ -206,7 +218,13 @@ class EndToEndSingle:
 
         # raw
         results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
-        results_lst = cls._rename(results_lst=results_lst, name=name, name_suffix=name_suffix)
+        results_lst = cls._rename(
+            results_lst=results_lst,
+            name=name,
+            name_prefix=name_prefix,
+            name_suffix=name_suffix,
+            model_key=model_key,
+        )
         if method_metadata is None:
             method_metadata: MethodMetadata = MethodMetadata.from_raw(
                 results_lst=results_lst,
@@ -272,8 +290,10 @@ class EndToEndSingle:
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         method: str | None = None,
         artifact_name: str | None = None,
         backend: Literal["ray", "native"] = "ray",
@@ -291,7 +311,9 @@ class EndToEndSingle:
         cache
         cache_raw
         name
+        name_prefix
         name_suffix
+        model_key
         method
         artifact_name
         backend
@@ -310,7 +332,9 @@ class EndToEndSingle:
             cache=cache,
             cache_raw=cache_raw,
             name=name,
+            name_prefix=name_prefix,
             name_suffix=name_suffix,
+            model_key=model_key,
             method=method,
             artifact_name=artifact_name,
             backend=backend,
@@ -322,16 +346,21 @@ class EndToEndSingle:
         cls,
         results_lst: list[BaselineResult],
         name: str = None,
+        name_prefix: str = None,
         name_suffix: str = None,
+        model_key: str = None,
         inplace: bool = True
     ) -> list[BaselineResult]:
         if not inplace:
             results_lst = copy.deepcopy(results_lst)
-        if name is not None or name_suffix is not None:
+        rename = any([name, name_prefix, name_suffix])
+        rename_model_key = any([model_key, name_prefix, name_suffix])
+        if rename or rename_model_key:
             for r in results_lst:
-                r.update_name(name=name, name_suffix=name_suffix)
-                if isinstance(r, ConfigResult):
-                    r.update_model_type(name=name, name_suffix=name_suffix)
+                if rename:
+                    r.update_name(name=name, name_prefix=name_prefix, name_suffix=name_suffix)
+                if rename_model_key and isinstance(r, ConfigResult):
+                    r.update_model_type(name=model_key, name_prefix=name_prefix, name_suffix=name_suffix)
         return results_lst
 
     @classmethod
@@ -366,8 +395,10 @@ class EndToEndSingle:
         method_metadata: MethodMetadata | None = None,
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
-        name: str = None,
-        name_suffix: str = None,
+        name: str | None = None,
+        name_prefix: str | None = None,
+        name_suffix: str | None = None,
+        model_key: str | None = None,
         method: str | None = None,
         artifact_name: str | None = None,
         num_cpus: int | None = None,
@@ -448,7 +479,9 @@ class EndToEndSingle:
                 method_metadata=method_metadata,
                 task_metadata=task_metadata,
                 name=name,
+                name_prefix=name_prefix,
                 name_suffix=name_suffix,
+                model_key=model_key,
                 method=method,
                 artifact_name=artifact_name,
             ),
@@ -503,6 +536,7 @@ class EndToEndResultsSingle:
         only_valid_tasks: bool = False,
         subset: str | None | list = None,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
@@ -519,6 +553,7 @@ class EndToEndResultsSingle:
         """
         results = self.get_results(
             new_result_prefix=new_result_prefix,
+            use_artifact_name_in_prefix=use_artifact_name_in_prefix,
             use_model_results=use_model_results,
             fillna=not only_valid_tasks,
         )
@@ -533,6 +568,7 @@ class EndToEndResultsSingle:
     def get_results(
         self,
         new_result_prefix: str | None = None,
+        use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
         fillna: bool = False,
     ) -> pd.DataFrame:
@@ -546,10 +582,17 @@ class EndToEndResultsSingle:
         use_model_results = self.method_metadata.method_type != "config" or use_model_results
 
         if use_model_results:
-            df_results = self.model_results
+            df_results = copy.deepcopy(self.model_results)
         else:
-            df_results = self.hpo_results
+            df_results = copy.deepcopy(self.hpo_results)
 
+        if use_artifact_name_in_prefix is None:
+            use_artifact_name_in_prefix = self.method_metadata.use_artifact_name_in_prefix
+
+        if use_artifact_name_in_prefix:
+            if new_result_prefix is None:
+                new_result_prefix = ""
+            new_result_prefix = new_result_prefix + f"[{self.method_metadata.artifact_name}] "
         if new_result_prefix is not None:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
                 df_results[col] = new_result_prefix + df_results[col]
@@ -576,10 +619,6 @@ class EndToEndResultsSingle:
         df_fillna = df_fillna[df_fillna["method"] == fillna_method]
         assert not df_fillna.empty
 
-        # FIXME: Nick: After imputing: ta_name, ta_suite, config_type, etc. are incorrect,
-        #  need to use original, not filled values
-        #  This doesn't impact the evaluation, but could introduce bugs in future if we use these columns
-        #  Fixing this is do-able, but requires some complex pandas tricks, so I haven't had time to implement it yet
         return TabArenaContext.fillna_metrics(
             df_to_fill=df_results,
             df_fillna=df_fillna,
@@ -626,8 +665,10 @@ def _process_result_list(
     file_paths_method: list[Path],
     method_metadata: MethodMetadata | None = None,
     task_metadata: pd.DataFrame,
-    name: str = None,
-    name_suffix: str = None,
+    name: str | None = None,
+    name_prefix: str | None = None,
+    name_suffix: str | None = None,
+    model_key: str | None = None,
     method: str | None = None,
     artifact_name: str | None = None,
 ) -> EndToEndResultsSingle:
@@ -642,7 +683,9 @@ def _process_result_list(
         cache=False,
         cache_raw=False,
         name=name,
+        name_prefix=name_prefix,
         name_suffix=name_suffix,
+        model_key=model_key,
         method=method,
         artifact_name=artifact_name,
         backend="native",

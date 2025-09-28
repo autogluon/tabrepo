@@ -15,17 +15,16 @@ from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
 from tabrepo.repository.abstract_repository import AbstractRepository
 from tabrepo.nips2025_utils.generate_repo import generate_repo_from_paths
-from tabrepo.loaders import Paths
 from tabrepo.paper.paper_runner_tabarena import PaperRunTabArena
-from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_map
+from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_collection
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
-from tabrepo.nips2025_utils.artifacts.tabarena51_artifact_loader import TabArena51ArtifactLoader
+from tabrepo.nips2025_utils.artifacts.method_metadata_collection import MethodMetadataCollection
 from tabrepo.nips2025_utils.eval_all import evaluate_all
 
 
 _methods_paper = [
     "AutoGluon_v130",
-    "Portfolio-N200-4h",
+    # "Portfolio-N200-4h",
 
     "CatBoost",
     # "Dummy",
@@ -38,50 +37,107 @@ _methods_paper = [
     "NeuralNetFastAI",
     "NeuralNetTorch",
     "RandomForest",
-    "RealMLP",
+    # "RealMLP",
     # "TabM",
     "XGBoost",
 
     # "Mitra_GPU",
     "ModernNCA_GPU",
-    # "RealMLP_GPU",
+    "RealMLP_GPU",
     "TabDPT_GPU",
     "TabICL_GPU",
     "TabM_GPU",
     "TabPFNv2_GPU",
+
+    "xRFM_GPU",
+    # "LimiX_GPU",
+    # "BetaTabPFN_GPU",
+    # "TabFlex_GPU",
 ]
 
 
 class TabArenaContext:
     def __init__(
         self,
+        methods: list[MethodMetadata] | str = "tabarena",
+        extra_methods: list[MethodMetadata] = None,
         include_ag_140: bool = True,
         include_mitra: bool = True,
+        include_unverified: bool = False,
         backend: Literal["ray", "native"] = "ray",
     ):
-        self.name = "tabarena-2025-06-12"
-        self.method_metadata_map: dict[str, MethodMetadata] = tabarena_method_metadata_map
-        self.root_cache = Paths.artifacts_root_cache_tabarena
-        self.s3_cache_root_url = "https://tabarena.s3.us-west-2.amazonaws.com/cache"
         self.task_metadata = load_task_metadata(paper=True)  # FIXME: Instead download?
         assert backend in ["ray", "native"]
         self.backend = backend
         self.engine = "ray" if self.backend == "ray" else "sequential"
-        self._methods_paper = copy.deepcopy(_methods_paper)
-        if include_ag_140:
-            self._methods_paper.append("AutoGluon_v140")
-        if include_mitra:
-            self._methods_paper.append("Mitra_GPU")
+        if isinstance(methods, str):
+            if methods != "tabarena":
+                raise ValueError(f"Unknown methods preset '{methods}'.")
+            methods = copy.deepcopy(_methods_paper)
+            if include_ag_140:
+                methods.append("AutoGluon_v140")
+            if include_mitra:
+                methods.append("Mitra_GPU")
+            if include_unverified:
+                methods.extend([
+                    "LimiX_GPU",
+                    "BetaTabPFN_GPU",
+                    "TabFlex_GPU",
+                ])
+            method_metadata_lst: list[MethodMetadata] = copy.deepcopy(
+                tabarena_method_metadata_collection.method_metadata_lst
+            )
+        else:
+            method_metadata_lst = methods
+            methods = [m.method for m in method_metadata_lst]
+        method_metadata_name_set = {m.method for m in method_metadata_lst}
+        for m in methods:
+            assert m in method_metadata_name_set, f"Missing method {m!r} in method_metadata_lst!"
+        method_metadata_lst = [m for m in method_metadata_lst if m.method in set(methods)]
+
+        if extra_methods:
+            for method_metadata in extra_methods:
+                assert method_metadata.method not in methods
+                methods.append(method_metadata.method)
+                method_metadata_lst.append(method_metadata)
+
+        self.method_metadata_collection: MethodMetadataCollection = MethodMetadataCollection(method_metadata_lst)
+
+    def compare(
+        self,
+        output_dir: str | Path,
+        new_results: pd.DataFrame | None = None,
+        only_valid_tasks: bool = False,
+        subset: str | None = None,
+        folds: list[int] | None = None,
+    ) -> pd.DataFrame:
+        from tabrepo.nips2025_utils.compare import compare_on_tabarena
+        return compare_on_tabarena(
+            output_dir=output_dir,
+            new_results=new_results,
+            only_valid_tasks=only_valid_tasks,
+            subset=subset,
+            folds=folds,
+            tabarena_context=self,
+        )
 
     @property
     def methods(self) -> list[str]:
-        return list(self.method_metadata_map.keys())
+        return [m.method for m in self.method_metadata_collection.method_metadata_lst]
 
-    def method_metadata(self, method: str) -> MethodMetadata:
-        return self._method_metadata(method=method)
-
-    def _method_metadata(self, method: str) -> MethodMetadata:
-        return self.method_metadata_map[method]
+    def method_metadata(
+        self,
+        method: str,
+        artifact_name: str | None = None,
+        s3_bucket: str | None = None,
+        s3_prefix: str | None = None,
+    ) -> MethodMetadata:
+        return self.method_metadata_collection.get_method_metadata(
+            method=method,
+            artifact_name=artifact_name,
+            s3_bucket=s3_bucket,
+            s3_prefix=s3_prefix,
+        )
 
     def load_raw(self, method: str, as_holdout: bool = False) -> list[BaselineResult]:
         metadata: MethodMetadata = self.method_metadata(method=method)
@@ -103,7 +159,7 @@ class TabArenaContext:
         return repo
 
     def generate_repo(self, method: str) -> Path:
-        metadata = self._method_metadata(method=method)
+        metadata = self.method_metadata(method=method)
 
         path_raw = metadata.path_raw
         path_processed = metadata.path_processed
@@ -122,7 +178,7 @@ class TabArenaContext:
         return path_processed
 
     def generate_repo_holdout(self, method: str) -> Path:
-        metadata = self._method_metadata(method=method)
+        metadata = self.method_metadata(method=method)
 
         path_raw = metadata.path_raw
         path_processed = metadata.path_processed_holdout
@@ -153,7 +209,7 @@ class TabArenaContext:
             metadata = method
             method = metadata.method
         else:
-            metadata = self._method_metadata(method=method)
+            metadata = self.method_metadata(method=method)
 
         save_file = str(metadata.path_results_hpo(holdout=holdout))
         save_file_model = str(metadata.path_results_model(holdout=holdout))
@@ -172,7 +228,7 @@ class TabArenaContext:
             model_type = None
 
         if use_rf_config_fallback:
-            metadata_rf = self._method_metadata(method="RandomForest")
+            metadata_rf = self.method_metadata(method="RandomForest")
             if holdout:
                 config_fallback = "RandomForest_r1_BAG_L1_HOLDOUT"  # FIXME: Avoid hardcoding
                 path_processed_rf = metadata_rf.path_processed_holdout
@@ -218,7 +274,7 @@ class TabArenaContext:
     def simulate_portfolio(self, methods: list[str], config_fallback: str):
         repos = []
         for method in methods:
-            metadata = self._method_metadata(method=method)
+            metadata = self.method_metadata(method=method)
             cur_repo = EvaluationRepository.from_dir(path=metadata.path_processed)
             repos.append(cur_repo)
         repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
@@ -235,15 +291,15 @@ class TabArenaContext:
         return results
 
     def load_hpo_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
-        metadata = self._method_metadata(method=method)
+        metadata = self.method_metadata(method=method)
         return metadata.load_hpo_results(holdout=holdout)
 
     def load_config_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
-        metadata = self._method_metadata(method=method)
+        metadata = self.method_metadata(method=method)
         return metadata.load_model_results(holdout=holdout)
 
     def load_portfolio_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
-        metadata = self._method_metadata(method=method)
+        metadata = self.method_metadata(method=method)
         return metadata.load_portfolio_results(holdout=holdout)
 
     def load_results_paper(
@@ -254,10 +310,10 @@ class TabArenaContext:
         methods_drop: list[str] | None = None,
     ) -> pd.DataFrame:
         if methods is None:
-            methods = self._methods_paper
+            methods = self.methods
             if holdout:
                 # only include methods that can have holdout
-                methods = [m for m in methods if self._method_metadata(m).is_bag]
+                methods = [m for m in methods if self.method_metadata(m).is_bag]
         if methods_drop is not None:
             for method in methods_drop:
                 if method not in methods:
@@ -266,51 +322,49 @@ class TabArenaContext:
                         f"but '{method}' is not present in methods: {methods}"
                     )
             methods = [method for method in methods if method not in methods_drop]
-        if isinstance(download_results, bool) and download_results:
-            loader = TabArena51ArtifactLoader(methods=methods)
-            loader.download_results(holdout=holdout)
-        try:
-            df_results = self._load_results_paper(methods=methods, holdout=holdout)
-        except FileNotFoundError as err:
-            if isinstance(download_results, str) and download_results == "auto":
-                print(f"Missing local results files! Attempting to download them and retry... (download_results={download_results})")
-                loader = TabArena51ArtifactLoader(methods=methods)
-                loader.download_results(holdout=holdout)
-                df_results = self._load_results_paper(methods=methods, holdout=holdout)
-            else:
-                print(f"Missing local results files! Try setting `download_results=True` to get the required files.")
-                raise err
-        return df_results
 
-    def _load_results_paper(self, methods: list[str], holdout: bool = False) -> pd.DataFrame:
-        assert methods is not None and len(methods) > 0
-        df_metadata_lst = []
+        df_results_lst = []
         for method in methods:
-            metadata = self._method_metadata(method=method)
-            if metadata.method_type == "config":
-                df_metadata = self.load_hpo_results(method=method, holdout=holdout)
-            elif metadata.method_type == "baseline":
-                df_metadata = self.load_config_results(method=method, holdout=holdout)
-            elif metadata.method_type == "portfolio":
-                df_metadata = self.load_portfolio_results(method=method, holdout=holdout)
-            else:
-                raise ValueError(f"Unknown method_type: {metadata.method_type} for method {method}")
-            df_metadata_lst.append(df_metadata)
-        df_metadata = pd.concat(df_metadata_lst, ignore_index=True)
-        return df_metadata
+            method_metadata = self.method_metadata(method=method)
+            if isinstance(download_results, bool) and download_results:
+                method_downloader = method_metadata.method_downloader()
+                method_downloader.download_results(holdout=holdout)
+
+            try:
+                df_results = method_metadata.load_paper_results(holdout=holdout)
+            except FileNotFoundError as err:
+                if isinstance(download_results, str) and download_results == "auto":
+                    print(
+                        f"Missing local results files for method! "
+                        f"Attempting to download from s3 and retry... "
+                        f'(download_results={download_results}, method="{method_metadata.method}")'
+                    )
+                    method_downloader = method_metadata.method_downloader()
+                    method_downloader.download_results(holdout=holdout)
+                    df_results = method_metadata.load_paper_results(holdout=holdout)
+                else:
+                    print(
+                        f"Missing local results files for method {method_metadata.method}! "
+                        f"Try setting `download_results=True` to get the required files."
+                    )
+                    raise err
+            df_results_lst.append(df_results)
+
+        df_results = pd.concat(df_results_lst, ignore_index=True)
+        return df_results
 
     def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
         if methods is None:
-            methods = self._methods_paper
-            methods = [m for m in methods if self._method_metadata(m).method_type == "config"]
+            methods = self.methods
+            methods = [m for m in methods if self.method_metadata(m).method_type == "config"]
             if holdout:
                 # only include methods that can have holdout
-                methods = [m for m in methods if self._method_metadata(m).is_bag]
+                methods = [m for m in methods if self.method_metadata(m).is_bag]
         configs_hyperparameters_lst = []
         for method in methods:
-            metadata = self._method_metadata(method=method)
+            metadata = self.method_metadata(method=method)
             if isinstance(download, bool) and download:
-                metadata.download_configs_hyperparameters(s3_cache_root=self.s3_cache_root_url, holdout=holdout)
+                metadata.download_configs_hyperparameters(holdout=holdout)
             try:
                 configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
             except FileNotFoundError as err:
@@ -319,7 +373,7 @@ class TabArenaContext:
                         f"Cache miss detected for configs_hyperparameters.json "
                         f"(method={metadata.method}), attempting download..."
                     )
-                    metadata.download_configs_hyperparameters(s3_cache_root=self.s3_cache_root_url, holdout=holdout)
+                    metadata.download_configs_hyperparameters(holdout=holdout)
                     configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
                     print(f"\tDownload successful")
                 else:
@@ -362,7 +416,7 @@ class TabArenaContext:
 
         df_results_configs_lst = []
         for method_key in ta_names:
-            metadata = self.method_metadata_map[method_key]
+            metadata = self.method_metadata(method=method_key)
             if metadata.method_type == "config":
                 df_results_configs_lst.append(self.load_config_results(method_key))
         df_results_configs = pd.concat(df_results_configs_lst, ignore_index=True)
@@ -379,7 +433,7 @@ class TabArenaContext:
         )
 
     def find_missing(self, method: str):
-        metadata = self._method_metadata(method=method)
+        metadata = self.method_metadata(method=method)
         repo = EvaluationRepository.from_dir(path=metadata.path_processed)
 
         tasks = repo.tasks()
@@ -447,6 +501,30 @@ class TabArenaContext:
         split_col = "fold"
         dataset_col = "dataset"
 
+        columns_to_keep = [
+            "method_type",
+            "method_subtype",
+            "config_type",
+            "ta_name",
+            "ta_suite",
+        ]
+        columns_to_keep = [c for c in columns_to_keep if c in df_to_fill]
+        per_column: dict[str, dict] = {}
+        for c in columns_to_keep:
+            groupby_method = df_to_fill.groupby(method_col)[c]
+            nunique = groupby_method.nunique(dropna=False)
+            invalid = nunique[nunique != 1]
+            df_to_fill_invalid = df_to_fill[df_to_fill[method_col].isin(invalid.index)]
+            groupby_method_invalid = df_to_fill_invalid.groupby(method_col)[c]
+            if not invalid.empty:
+                raise AssertionError(
+                    f"Found a method with multiple values for column {c} (must be unique):\n"
+                    f"{groupby_method_invalid.value_counts()}"
+                )
+
+            # Using .first() is safe because nunique == 1 for every method
+            per_column[c] = groupby_method.first().to_dict()
+
         df_to_fill = df_to_fill.set_index([dataset_col, split_col, method_col], drop=True)
         df_fillna = df_fillna.set_index([dataset_col, split_col], drop=True).drop(columns=[method_col])
 
@@ -467,16 +545,19 @@ class TabArenaContext:
         df_filled[fill_cols] = df_filled[fill_cols].astype(df_to_fill.dtypes)
         df_filled.loc[df_to_fill.index] = df_to_fill
 
-        a = df_fillna.loc[nan_vals.droplevel(level=method_col)]
-        a.index = nan_vals
-        df_filled.loc[nan_vals] = a
+        df_fillna_to_use = df_fillna.loc[nan_vals.droplevel(level=method_col)].copy()
+        df_fillna_to_use.index = nan_vals
+        df_filled.loc[nan_vals] = df_fillna_to_use
 
         if "imputed" not in df_filled.columns:
             df_filled["imputed"] = False
         df_filled.loc[nan_vals, "imputed"] = True
 
-        df_to_fill = df_filled
+        df_filled = df_filled.reset_index(drop=False)
 
-        df_to_fill = df_to_fill.reset_index(drop=False)
+        # Overwrite values column-by-column while preserving order
+        for c in columns_to_keep:
+            mapping = per_column[c]
+            df_filled[c] = df_filled[method_col].map(mapping)
 
-        return df_to_fill
+        return df_filled

@@ -1,1 +1,1 @@
-from ._tabarena_method_metadata import tabarena_method_metadata_map
+from ._tabarena_method_metadata import tabarena_method_metadata_map, tabarena_method_metadata_collection

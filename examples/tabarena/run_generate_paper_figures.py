@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
+from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_collection
 
 
 if __name__ == '__main__':
@@ -13,14 +14,23 @@ if __name__ == '__main__':
 
     include_2025_09_03_results = True  # Set to True to include new results not in the paper preprint
 
+    # TODO: This is old, regenerate portfolio with new results (such as RealMLP_GPU)
+    extra_methods = [
+        "Portfolio-N200-4h",
+    ]
+
+    extra_methods = [tabarena_method_metadata_collection.get_method_metadata(method=m) for m in extra_methods]
+
     if include_2025_09_03_results:
         tabarena_context = TabArenaContext(
+            extra_methods=extra_methods,
             include_ag_140=True,
             include_mitra=True,
         )
         df_results_holdout = None  # TODO: Mitra does not yet have holdout results saved in S3, need to add
     else:
         tabarena_context = TabArenaContext(
+            extra_methods=extra_methods,
             include_ag_140=False,
             include_mitra=False,
         )
@@ -36,10 +46,18 @@ if __name__ == '__main__':
 
     cpu_methods = [
         "ModernNCA",
-        "RealMLP_GPU",  # GPU method, since RealMLP uses CPU
+        # TODO: Remove RealMLP CPU since new Sept GPU ver shouldn't be compared to CPU run in June.
+        "RealMLP",
         "TabM",
     ]
-    df_results_cpu = tabarena_context.load_results_paper(methods=cpu_methods, download_results=download_results)
+    extra_methods_cpu = [tabarena_method_metadata_collection.get_method_metadata(method=m) for m in cpu_methods]
+
+    tabarena_context_cpu = TabArenaContext(methods=extra_methods_cpu)
+    df_results_cpu = tabarena_context_cpu.load_results_paper(methods=cpu_methods, download_results=download_results)
+
+    tabarena_context = TabArenaContext(
+        methods=tabarena_context.method_metadata_collection.method_metadata_lst + tabarena_context_cpu.method_metadata_collection.method_metadata_lst
+    )
 
     configs_hyperparameters = tabarena_context.load_configs_hyperparameters(download=download_results)
 

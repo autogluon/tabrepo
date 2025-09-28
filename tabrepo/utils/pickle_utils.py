@@ -36,14 +36,18 @@ def fetch_all_pickles(
     for cur_dir_path in dir_path:
         root = Path(cur_dir_path).expanduser().resolve()
         if not root.is_dir():
-            raise NotADirectoryError(f"{root} is not a directory")
-
-        # Look for *.pkl
-        pattern = f"*{suffix}"
-        for file_path in tqdm.tqdm(
-            root.rglob(pattern), desc=f"Searching for pickles in {cur_dir_path}"
-        ):
-            file_paths.append(file_path)
+            if root.is_file():
+                assert str(root).endswith(suffix), f"{root} is a file that does not end in `{suffix}`."
+                file_paths.append(root)
+            else:
+                raise NotADirectoryError(f"{root} is not a directory")
+        else:
+            # Look for *.pkl
+            pattern = f"*{suffix}"
+            for file_path in tqdm.tqdm(
+                root.rglob(pattern), desc=f"Searching for pickles in {cur_dir_path}"
+            ):
+                file_paths.append(file_path)
 
     return file_paths
 

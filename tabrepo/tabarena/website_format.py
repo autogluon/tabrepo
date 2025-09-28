@@ -13,6 +13,7 @@ class Constants:
     # Not Used
     other: str = "Other"
 
+
 model_type_emoji = {
     Constants.tree: "🌳",
     Constants.foundational: "🧠⚡",
@@ -27,15 +28,15 @@ model_type_emoji = {
 def get_model_family(model_name: str) -> str:
     prefixes_mapping = {
         Constants.reference: ["AutoGluon"],
-        Constants.neural_network: ["REALMLP", "TABM", "FASTAI", "MNCA", "NN_TORCH", "MITRA"],
-        Constants.tree: ["GBM", "CAT", "EBM", "XGB", "XT", "RF"],
-        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA"],
+        Constants.neural_network: ["REALMLP", "TABM", "FASTAI", "MNCA", "NN_TORCH", "MITRA", "LIMIX"],
+        Constants.tree: ["GBM", "CAT", "EBM", "XGB", "XT", "RF", "XRFM"],
+        Constants.foundational: ["TABDPT", "TABICL", "TABPFN", "MITRA", "LIMIX", "BETA", "TABFLEX"],
         Constants.baseline: ["KNN", "LR"],
     }
 
     for method_type, prefixes in prefixes_mapping.items():
         for prefix in prefixes:
-            if prefix.lower() in model_name.lower():
+            if model_name.lower().startswith(prefix.lower()):
                 return method_type
     return Constants.other
 
@@ -58,13 +59,20 @@ def rename_map(model_name: str) -> str:
         "TABICL": "TabICL",
         "KNN": "KNN",
         "LR": "Linear",
-
         "MITRA": "Mitra",
+        "LIMIX": "LimiX",
+        "XRFM": "xRFM",
+        "TABFLEX": "TabFlex",
+        "BETA": "BetaTabPFN",
     }
 
-    for prefix in rename_map:
-        if prefix in model_name:
-            return model_name.replace(prefix, rename_map[prefix])
+    # Sort keys by descending length so longest prefixes are matched first
+    for prefix in sorted(rename_map, key=len, reverse=True):
+        if model_name.startswith(prefix):
+            if model_name == prefix:
+                return rename_map[prefix]
+            else:
+                return model_name.replace(prefix, rename_map[prefix], 1)
 
     return model_name
 
@@ -73,6 +81,7 @@ def compute_map(method: str) -> str:
     _compute_map = {
         "AutoGluon 1.3 (4h)": "CPU",
         "AutoGluon 1.4 (4h)": "GPU",
+        "LimiX (default)": "GPU",
     }
     gpu_postfix = "_GPU"
     if method in _compute_map:
@@ -102,7 +111,7 @@ def format_leaderboard(df_leaderboard: pd.DataFrame, include_type: bool = False)
     # select only the columns we want to display
     df_leaderboard["normalized-score"] = 1 - df_leaderboard["normalized-error"]
     df_leaderboard["hmr"] = 1 / df_leaderboard["mrr"]
-    df_leaderboard["improvability"] = 100 * df_leaderboard["champ_delta"]
+    df_leaderboard["improvability"] = 100 * df_leaderboard["improvability"]
 
     # Imputed logic
     if "imputed" in df_leaderboard.columns:

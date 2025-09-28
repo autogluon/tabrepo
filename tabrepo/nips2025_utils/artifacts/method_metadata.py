@@ -4,7 +4,7 @@ import io
 import json
 from pathlib import Path
 import requests
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from typing_extensions import Self
 
 from autogluon.common.utils.s3_utils import s3_path_to_bucket_prefix
@@ -17,6 +17,10 @@ from tabrepo.nips2025_utils.generate_repo import generate_repo_from_results_lst
 from tabrepo.benchmark.result import BaselineResult
 from tabrepo.nips2025_utils.method_processor import get_info_from_result, load_raw
 from tabrepo.utils.s3_utils import s3_get_object
+
+if TYPE_CHECKING:
+    from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
+    from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
 
 
 class MethodMetadata:
@@ -36,6 +40,9 @@ class MethodMetadata:
         has_raw: bool = False,
         has_processed: bool = False,
         has_results: bool = False,
+        use_artifact_name_in_prefix: bool = False,
+        s3_bucket: str = None,
+        s3_prefix: str = None,
         upload_as_public: bool = False,
     ):
         self.method = method
@@ -52,10 +59,13 @@ class MethodMetadata:
         self.has_raw = has_raw
         self.has_processed = has_processed
         self.has_results = has_results
-        self.upload_as_public = upload_as_public
+        self.use_artifact_name_in_prefix = use_artifact_name_in_prefix
         if can_hpo is None:
             can_hpo = self.method_type == "config"
         self.can_hpo = can_hpo
+        self.s3_bucket = s3_bucket
+        self.s3_prefix = s3_prefix
+        self.upload_as_public = upload_as_public
 
         assert isinstance(self.method, str) and len(self.method) > 0
         assert isinstance(self.artifact_name, str) and len(self.artifact_name) > 0
@@ -224,6 +234,10 @@ class MethodMetadata:
         return _method_metadata
 
     @property
+    def has_s3_cache(self) -> bool:
+        return self.s3_bucket is not None and self.s3_prefix is not None
+
+    @property
     def has_configs_hyperparameters(self) -> bool:
         return self.method_type == "config"
 
@@ -285,6 +299,41 @@ class MethodMetadata:
         s3_cache_path = f"{s3_cache_root}/{path_suffix}"
         return s3_cache_path
 
+    def method_downloader(self, verbose: bool = False) -> MethodDownloaderS3:
+        if not self.has_s3_cache:
+            raise AssertionError(
+                f"Tried to get MethodDownloaderS3 from MethodMetadata, "
+                f"but s3_bucket and/or s3_prefix were not specified!"
+                f"\n\t(method={self.method}, artifact_name={self.artifact_name}, "
+                f"s3_bucket={self.s3_bucket}, s3_prefix={self.s3_prefix})"
+                f"\nEnsure you initialize MethodMetadata with s3_bucket and s3_prefix to enable s3 artifact download."
+            )
+        from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
+        return MethodDownloaderS3(
+            method_metadata=self,
+            s3_bucket=self.s3_bucket,
+            s3_prefix=self.s3_prefix,
+            verbose=verbose,
+            clear_dirs=False,
+        )
+
+    def method_uploader(self) -> MethodUploaderS3:
+        if not self.has_s3_cache:
+            raise AssertionError(
+                f"Tried to get MethodUploaderS3 from MethodMetadata, "
+                f"but s3_bucket and/or s3_prefix were not specified!"
+                f"\n\t(method={self.method}, artifact_name={self.artifact_name}, "
+                f"s3_bucket={self.s3_bucket}, s3_prefix={self.s3_prefix})"
+                f"\nEnsure you initialize MethodMetadata with s3_bucket and s3_prefix to enable s3 artifact upload."
+            )
+        from tabrepo.nips2025_utils.artifacts.method_uploader import MethodUploaderS3
+        return MethodUploaderS3(
+            method_metadata=self,
+            s3_bucket=self.s3_bucket,
+            s3_prefix=self.s3_prefix,
+            upload_as_public=self.upload_as_public,
+        )
+
     def load_model_results(self, holdout: bool = False) -> pd.DataFrame:
         return pd.read_parquet(path=self.path_results_model(holdout=holdout))
 
@@ -293,6 +342,17 @@ class MethodMetadata:
 
     def load_portfolio_results(self, holdout: bool = False) -> pd.DataFrame:
         return pd.read_parquet(path=self.path_results_portfolio(holdout=holdout))
+
+    def load_paper_results(self, holdout: bool = False) -> pd.DataFrame:
+        if self.method_type == "config":
+            df_results = self.load_hpo_results(holdout=holdout)
+        elif self.method_type == "baseline":
+            df_results = self.load_model_results(holdout=holdout)
+        elif self.method_type == "portfolio":
+            df_results = self.load_portfolio_results(holdout=holdout)
+        else:
+            raise ValueError(f"Unknown method_type: {self.method_type} for method {self.method}")
+        return df_results
 
     def path_configs_hyperparameters(self, holdout: bool = False) -> Path:
         if holdout:
@@ -307,27 +367,9 @@ class MethodMetadata:
             out = json.load(f)
         return out
 
-    def download_configs_hyperparameters(self, s3_cache_root: str, holdout: bool = False):
-        path_local = self.path_configs_hyperparameters(holdout=holdout)
-        s3_path_loc = self.to_s3_cache_loc(path=path_local, s3_cache_root=s3_cache_root)
-        self._download_file(url=s3_path_loc, local_path=path_local)
-
-    def upload_configs_hyperparameters(self, s3_cache_root: str, holdout: bool = False):
-        path_local = self.path_configs_hyperparameters(holdout=holdout)
-        s3_path_loc = self.to_s3_cache_loc(path=path_local, s3_cache_root=s3_cache_root)
-        self._upload_file(file_name=path_local, s3_path=s3_path_loc)
-
-    def _upload_file(self, file_name: str | Path, s3_path: str):
-        import boto3
-
-        kwargs = {}
-        if self.upload_as_public:
-            kwargs = {"ExtraArgs": {"ACL": "public-read"}}
-        bucket, prefix = s3_path_to_bucket_prefix(s3_path)
-
-        # Upload the file
-        s3_client = boto3.client("s3")
-        s3_client.upload_file(Filename=file_name, Bucket=bucket, Key=prefix, **kwargs)
+    def download_configs_hyperparameters(self, holdout: bool = False):
+        method_downloader = self.method_downloader()
+        method_downloader.download_configs_hyperparameters(holdout=holdout)
 
     def _download_file(self, url: str, local_path: str | Path):
         local_path = Path(local_path)
@@ -383,24 +425,22 @@ class MethodMetadata:
 
     def generate_repo(
         self,
-        results_lst: list = None,
+        results_lst: list[BaselineResult] = None,
         task_metadata: pd.DataFrame = None,
         cache: bool = False,
         engine: str = "ray",
     ) -> EvaluationRepository:
         if results_lst is None:
             results_lst = self.load_raw(engine=engine)
-        path_processed = self.path_processed
-        name_suffix = self.name_suffix
 
         repo: EvaluationRepository = generate_repo_from_results_lst(
             results_lst=results_lst,
             task_metadata=task_metadata,
-            name_suffix=name_suffix,
+            name_suffix=self.name_suffix,
         )
 
         if cache:
-            repo.to_dir(path_processed)
+            repo.to_dir(self.path_processed)
         return repo
 
     @property
@@ -456,8 +496,8 @@ class MethodMetadata:
     def from_s3_cache(
         cls,
         method: str,
-        bucket: str,
-        s3_prefix_root: str = "cache",
+        s3_bucket: str,
+        s3_prefix: str = "cache",
         artifact_name: str = None,
     ) -> Self:
         metadata = MethodMetadata(
@@ -465,13 +505,30 @@ class MethodMetadata:
             artifact_name=artifact_name,
         )
         path_local = Path(metadata.path_metadata)
-        s3_cache_root = f"s3://{bucket}/{s3_prefix_root}"
+        s3_cache_root = f"s3://{s3_bucket}/{s3_prefix}"
         s3_path_loc = metadata.to_s3_cache_loc(path=Path(path_local), s3_cache_root=s3_cache_root)
         _, s3_key = s3_path_to_bucket_prefix(s3_path_loc)
         # Stream into memory
-        obj = s3_get_object(Bucket=bucket, Key=s3_key)
+        try:
+            obj = s3_get_object(Bucket=s3_bucket, Key=s3_key)
+        except Exception as e:
+            print(
+                f"Failed to fetch MethodMetadata yaml file from s3! Maybe it doesn't exist or is not public?"
+                f'\n\t(method="{method}", artifact_name="{artifact_name}", '
+                f's3_bucket="{s3_bucket}", s3_prefix="{s3_prefix}")'
+            )
+            raise e
+
         body = obj["Body"]  # file-like object (StreamingBody, BytesIO, etc.)
         kwargs = yaml.safe_load(body)
+
+        if "s3_bucket" not in kwargs:
+            # yaml created before s3_bucket existed
+            kwargs["s3_bucket"] = s3_bucket
+        if "s3_prefix" not in kwargs:
+            # yaml created before s3_prefix existed
+            kwargs["s3_prefix"] = s3_prefix
+
         return cls(**kwargs)
 
     def cache_raw(

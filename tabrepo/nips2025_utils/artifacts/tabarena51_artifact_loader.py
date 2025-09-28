@@ -5,11 +5,9 @@ from .abstract_artifact_loader import AbstractArtifactLoader
 
 import time
 
-from autogluon.common.utils.s3_utils import s3_bucket_prefix_to_path
-
 from tabrepo.loaders import Paths
 from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
-from . import tabarena_method_metadata_map
+from . import tabarena_method_metadata_collection
 from .method_metadata import MethodMetadata
 
 
@@ -17,11 +15,7 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
     def __init__(
         self,
         methods: list[str | MethodMetadata] | str = "auto",
-        bucket: str = "tabarena",
-        s3_prefix_root: str = "cache",
     ):
-        self.bucket = bucket
-        self.s3_prefix_root = s3_prefix_root
         self.local_paths = Paths
         if isinstance(methods, str) and methods == "auto":
             methods = [
@@ -58,7 +52,7 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
             if isinstance(m, MethodMetadata):
                 metadata = m
             else:
-                metadata = tabarena_method_metadata_map[m]
+                metadata = tabarena_method_metadata_collection.get_method_metadata(method=m)
             self.method_metadata_map[metadata.method] = metadata
             self.method_metadata_lst.append(metadata)
 
@@ -71,18 +65,13 @@ class TabArena51ArtifactLoader(AbstractArtifactLoader):
 
     def _method_downloader(self, method: str) -> MethodDownloaderS3:
         method_metadata = self._method_metadata(method=method)
-        downloader = MethodDownloaderS3(
-            method_metadata=method_metadata,
-            bucket=self.bucket,
-            s3_prefix_root=self.s3_prefix_root,
-        )
-        return downloader
+        return method_metadata.method_downloader()
 
     def download_raw(self):
         print(
             f"======================== READ THIS ========================\n"
             f"Note: Starting download of the complete raw artifacts for the tabarena51 benchmark...\n"
-            f"Files will be downloaded from {s3_bucket_prefix_to_path(self.bucket, self.s3_prefix_root)}\n"
+            f"Files will be downloaded from s3\n"
             f"Files will be saved to {Paths._tabarena_root_cache}\n"
             f"This will require ~833 GB of disk space and 64+ GB of memory.\n"
             f"With a fast internet connection, this will take about 7 hours.\n"
