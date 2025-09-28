@@ -30,7 +30,7 @@ extras_require = {
         "pytabkit>=1.5.0,<2.0",
     ],
     "tabdpt": [
-        "tabdpt>=1.1.4"
+        "tabdpt>=1.1.5"
     ],
     "tabm": [
         "torch",
