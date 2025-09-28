@@ -42,10 +42,13 @@ class TabDPTModel(AbstractModel):
         from tabdpt import TabDPTClassifier, TabDPTRegressor
 
         model_cls = TabDPTClassifier if self.problem_type in [BINARY, MULTICLASS] else TabDPTRegressor
+        supported_hps = ('context_size', 'permute_classes', 'temperature') \
+                if model_cls is TabDPTClassifier \
+                else ('context_size',)
 
         hps = self._get_model_params()
         self._predict_hps = {
-            k:v for k,v in hps.items() if k in ('context_size', 'permute_classes', 'temperature')
+            k:v for k,v in hps.items() if k in supported_hps
         }
         self._predict_hps['seed'] = 42
         X = self.preprocess(X)
