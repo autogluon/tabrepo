@@ -113,11 +113,11 @@ class EloHelper:
             tie = False
             if row.winner == 'tie':
                 tie = True
-                w_index, l_index = models[row.method_1], models[row.method_2]
+                w_index, l_index = models[row[self.method_1]], models[row[self.method_2]]
             elif row.winner == '1':
-                w_index, l_index = models[row.method_1], models[row.method_2]
+                w_index, l_index = models[row[self.method_1]], models[row[self.method_2]]
             else:
-                w_index, l_index = models[row.method_2], models[row.method_1]
+                w_index, l_index = models[row[self.method_2]], models[row[self.method_1]]
             w_rating, l_rating = elo_scores[w_index], elo_scores[l_index]
             if tie:
                 elo_scores[w_index] += K_factor * (0.5 - expected_result(w_rating, l_rating))
