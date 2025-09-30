@@ -423,6 +423,7 @@ class MethodMetadata:
         path_processed: str | Path = None,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
         as_holdout: bool = False,
+        verbose: bool = False,
     ) -> EvaluationRepository:
         if path_processed is None:
             if as_holdout:
@@ -432,6 +433,7 @@ class MethodMetadata:
         repo = EvaluationRepository.from_dir(
             path=path_processed,
             prediction_format=prediction_format,
+            verbose=verbose,
         )
         return repo
 

@@ -335,6 +335,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         path: str | Path,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
         update_relative_path: bool = True,
+        verbose: bool = True,
     ) -> Self:
         from tabrepo.contexts.context import BenchmarkContext
 
@@ -343,7 +344,7 @@ class EvaluationRepository(AbstractRepository, EnsembleMixin, GroundTruthMixin):
         if update_relative_path:
             context.benchmark_paths.relative_path = str(Path(path))
 
-        repo = context.load_repo(prediction_format=prediction_format)
+        repo = context.load_repo(prediction_format=prediction_format, verbose=verbose)
         return repo
 
     @classmethod

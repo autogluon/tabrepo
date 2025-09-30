@@ -406,37 +406,36 @@ class BenchmarkContext:
         for f in folds:
             assert f in self.folds, f'Fold {f} does not exist in available folds! self.folds={self.folds}'
 
-        with catchtime("Loading ZS Context"):
+        if verbose:
+            print(f'Loading BenchmarkContext:\n'
+                  f'\tname: {self.name}\n'
+                  f'\tdescription: {self.description}\n'
+                  f'\tdate: {self.date}\n'
+                  f'\tfolds: {folds}')
+        if download_files and exists == 'ignore':
+            if self.benchmark_paths.exists_all(check_zs=load_predictions):
+                download_files = False
+        if download_files:
             if verbose:
-                print(f'Loading BenchmarkContext:\n'
-                      f'\tname: {self.name}\n'
-                      f'\tdescription: {self.description}\n'
-                      f'\tdate: {self.date}\n'
-                      f'\tfolds: {folds}')
-            if download_files and exists == 'ignore':
-                if self.benchmark_paths.exists_all(check_zs=load_predictions):
-                    download_files = False
-            if download_files:
-                if verbose:
-                    self.benchmark_paths.print_summary()
-                if self.s3_download_map is None:
-                    missing_files = self.benchmark_paths.missing_files()
-                    if missing_files:
-                        missing_files_str = [f'\n\t"{m}"' for m in missing_files]
-                        raise FileNotFoundError(f'Missing {len(missing_files)} required files: \n[{",".join(missing_files_str)}\n]')
-                if verbose:
-                    print(f'Downloading input files from s3...')
-                self.download(include_zs=load_predictions, exists=exists, use_s3=use_s3, verbose=verbose)
-            self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
+                self.benchmark_paths.print_summary()
+            if self.s3_download_map is None:
+                missing_files = self.benchmark_paths.missing_files()
+                if missing_files:
+                    missing_files_str = [f'\n\t"{m}"' for m in missing_files]
+                    raise FileNotFoundError(f'Missing {len(missing_files)} required files: \n[{",".join(missing_files_str)}\n]')
+            if verbose:
+                print(f'Downloading input files from s3...')
+            self.download(include_zs=load_predictions, exists=exists, use_s3=use_s3, verbose=verbose)
+        self.benchmark_paths.assert_exists_all(check_zs=load_predictions)
 
-            configs_hyperparameters = self.load_configs_hyperparameters()
-            zsc = self._load_zsc(folds=folds, configs_hyperparameters=configs_hyperparameters, verbose=verbose)
+        configs_hyperparameters = self.load_configs_hyperparameters()
+        zsc = self._load_zsc(folds=folds, configs_hyperparameters=configs_hyperparameters, verbose=verbose)
 
-            if load_predictions:
-                zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format, verbose=verbose)
-            else:
-                zeroshot_pred_proba = None
-                zeroshot_gt = None
+        if load_predictions:
+            zeroshot_pred_proba, zeroshot_gt, zsc = self._load_predictions(zsc=zsc, prediction_format=prediction_format, verbose=verbose)
+        else:
+            zeroshot_pred_proba = None
+            zeroshot_gt = None
 
         return zsc, zeroshot_pred_proba, zeroshot_gt
 
