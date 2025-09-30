@@ -2,15 +2,6 @@ from typing import Dict, List
 
 from .context import BenchmarkContext
 from .subcontext import BenchmarkSubcontext
-from .context_2023_08_21 import (
-    D244_F3_C1416,
-    D244_F3_C1416_200,
-    D244_F3_C1416_175,
-    D244_F3_C1416_100,
-    D244_F3_C1416_30,
-    D244_F3_C1416_10,
-    D244_F3_C1416_3,
-)
 from .context_2023_11_14 import (
     D244_F3_C1530,
     D244_F3_C1530_200,
@@ -40,13 +31,6 @@ def _add_subcontext(subcontext: BenchmarkSubcontext):
 
 
 for c in [
-    D244_F3_C1416,
-    D244_F3_C1416_200,
-    D244_F3_C1416_175,
-    D244_F3_C1416_100,
-    D244_F3_C1416_30,
-    D244_F3_C1416_10,
-    D244_F3_C1416_3,
     D244_F3_C1530,
     D244_F3_C1530_200,
     D244_F3_C1530_175,
