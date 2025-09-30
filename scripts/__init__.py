@@ -6,7 +6,7 @@ from tabrepo import load_repository, EvaluationRepository
 output_path = Path(__file__).parent
 
 
-def load_context(version: str = "D244_F3_C1416_200", as_paper: bool = True, ignore_cache: bool = False) -> EvaluationRepository:
+def load_context(version: str = "D244_F3_C1530_200", as_paper: bool = True, ignore_cache: bool = False) -> EvaluationRepository:
     def _load_fun():
         return load_repository(version=version)
     repo: EvaluationRepository = cache_function(_load_fun, cache_name=f"repo_{version}", ignore_cache=ignore_cache)

@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import copy
 import itertools
 from typing import List
 
 import numpy as np
-import pandas as pd
 from dataclasses import dataclass
-
-from tqdm import tqdm
 
 from tabrepo.portfolio.zeroshot_selection import zeroshot_configs
 from tabrepo.repository import EvaluationRepository
@@ -17,8 +13,6 @@ from tabrepo.utils.parallel_for import parallel_for
 default_ensemble_size = 40
 n_portfolios_default = 200
 default_runtime = 3600 * 4
-
-backup_fast_config = "ExtraTrees_c1_BAG_L1"
 
 
 @dataclass
@@ -115,154 +109,6 @@ def evaluate_configs(
             ensemble_weight=ensemble_weights_dict,
         ))
     return rows
-
-
-def framework_name(framework_type, max_runtime=None, ensemble_size=default_ensemble_size, tuned: bool=True, all: bool = False, prefix: str = None) -> str:
-    method = framework_type if framework_type else "All"
-    if prefix is None:
-        prefix = ""
-    if all:
-        method = "All"
-    if not tuned:
-        suffix = " (default)"
-    else:
-        suffix = " (tuned + ensemble)" if ensemble_size > 1 else " (tuned)"
-        suffix += time_suffix(max_runtime=max_runtime)
-    method = f"{method}{prefix}{suffix}"
-    return method
-
-
-def framework_default_results(repo: EvaluationRepository,
-                              dataset_names: List[str],
-                              framework_types: List[str],
-                              n_eval_folds: int,
-                              rank_scorer,
-                              normalized_scorer,
-                              engine: str,
-                              **kwargs) -> List[ResultRow]:
-    """
-    :return: evaluations of default models (e.g. 'CatBoost_c1_BAG_L1') and the best/ensemble of all default models
-    """
-
-    def evaluate_tid(dataset_name, default, repo, rank_scorer, normalized_scorer):
-        name, configs, ensemble_size = default
-        return evaluate_configs(
-            repo=repo,
-            rank_scorer=rank_scorer,
-            normalized_scorer=normalized_scorer,
-            configs=configs,
-            ensemble_size=ensemble_size,
-            tid=repo.dataset_to_tid(dataset_name),
-            folds=range(n_eval_folds),
-            method=name,
-        )
-
-    defaults = [
-        (framework_name(framework_type, tuned=False), [f'{framework_type}_c1_BAG_L1'], 1)
-        for framework_type in framework_types
-    ]
-
-    list_rows = parallel_for(
-        evaluate_tid,
-        inputs=list(itertools.product(dataset_names, defaults)),
-        context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer),
-        engine=engine,
-    )
-    return [x for l in list_rows for x in l]
-
-
-def framework_best_results(
-        repo: EvaluationRepository,
-        dataset_names: List[str],
-        framework_types: List[str],
-        n_eval_folds: int,
-        rank_scorer,
-        normalized_scorer,
-        all: bool = False,
-        max_runtimes: float = [3600],
-        ensemble_size: int = default_ensemble_size,
-        method_prefix: str = None,
-        engine: str = 'ray',
-        random_state: int = 0,
-        **kwargs) -> List[ResultRow]:
-    """
-    Evaluates best configurations among `n_configs` random draws and ensemble built with `ensemble_size`
-    configurations with highest validation scores among the `n_configs` configurations.
-    """
-
-    def evaluate_tid(dataset_name, max_runtime, framework_type, ensemble_size, repo, rank_scorer, normalized_scorer, random_state, all):
-        tid = repo.dataset_to_tid(dataset_name)
-        rows = []
-
-        for fold in range(n_eval_folds):
-            df_score_val = repo._zeroshot_context.df_configs_ranked
-
-            # gets rows with desired task and framework
-            mask = (df_score_val['dataset'] == dataset_name) & (df_score_val.fold == fold)
-            if framework_type:
-                if isinstance(framework_type, list):
-                    mask &= (df_score_val.framework.str.contains('|'.join(framework_type)))
-                else:
-                    mask &= (df_score_val.framework.str.contains(framework_type))
-            df_sub = df_score_val[mask]
-            configs = df_sub["framework"].tolist()
-
-            # evaluate them
-            rows += evaluate_configs(
-                repo=repo,
-                rank_scorer=rank_scorer,
-                normalized_scorer=normalized_scorer,
-                configs=configs,
-                ensemble_size=ensemble_size,
-                time_limit=max_runtime,
-                fit_order="random",
-                seed=random_state,
-                tid=tid,
-                folds=[fold],
-                method=framework_name(framework_type, max_runtime, ensemble_size, tuned=True, all=all, prefix=method_prefix),
-            )
-        return rows
-
-    ensemble_sizes = [1, ensemble_size]
-    list_rows = parallel_for(
-        evaluate_tid,
-        inputs=list(itertools.product(dataset_names, max_runtimes, framework_types, ensemble_sizes)),
-        context=dict(repo=repo, rank_scorer=rank_scorer, normalized_scorer=normalized_scorer, random_state=random_state, all=all),
-        engine=engine,
-    )
-    return [x for l in list_rows for x in l]
-
-
-def automl_results(repo: EvaluationRepository, dataset_names: List[str], n_eval_folds: int, rank_scorer,
-                   normalized_scorer, **kwargs) -> List[ResultRow]:
-    """
-    :return: evaluation of AutoGluon medium/high/best quality.
-    """
-    automl_df = copy.deepcopy(repo._zeroshot_context.df_baselines)
-
-    rows_automl = []
-    for dataset in tqdm(dataset_names):
-        tid = repo.dataset_to_tid(dataset)
-        for fold in range(n_eval_folds):
-            task = repo.task_name(dataset=dataset, fold=fold)
-            automl_df_fold = automl_df[automl_df['task'] == task]
-            task_automl_dict = automl_df_fold.T.to_dict()
-
-            for k, v in task_automl_dict.items():
-                assert tid == v['tid']
-                metric_error = v['metric_error']
-                rows_automl.append(ResultRow(
-                    dataset=dataset,
-                    fold=v['fold'],
-                    method=v['framework'],
-                    test_error=metric_error,
-                    rank=rank_scorer.rank(task, metric_error),
-                    normalized_error=normalized_scorer.rank(task, metric_error),
-                    time_train_s=v['time_train_s'],
-                    time_infer_s=v['time_infer_s'],
-                ))
-
-    return rows_automl
 
 
 def time_suffix(max_runtime: float) -> str:
