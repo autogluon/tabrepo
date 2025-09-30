@@ -1,7 +1,8 @@
 
+from __future__ import annotations
+
 import copy
 
-from autogluon.core.metrics import get_metric
 import numpy as np
 import pandas as pd
 
@@ -13,6 +14,52 @@ class AGBagResult(ConfigResult):
     @property
     def bag_info(self) -> dict:
         return self.simulation_artifacts["bag_info"]
+
+    @property
+    def y_pred_proba_test_per_child(self) -> list[np.ndarray]:
+        return self.bag_info["pred_test_per_child"]
+
+    @property
+    def y_pred_proba_val_per_child(self) -> list[np.ndarray]:
+        return self.bag_info["pred_val_per_child"]
+
+    def y_pred_proba_test_child(self, idx: int) -> np.ndarray:
+        return self.y_pred_proba_test_per_child[idx]
+
+    def y_pred_proba_val_child(self, idx: int) -> np.ndarray:
+        return self.y_pred_proba_val_per_child[idx]
+
+    @property
+    def val_idx_per_child(self) -> list[np.ndarray]:
+        return self.bag_info["val_idx_per_child"]
+
+    def val_idx_child(self, idx: int) -> np.ndarray:
+        return self.val_idx_per_child[idx]
+
+    def y_pred_proba_val_child_as_pd(self, idx: int) -> pd.DataFrame | pd.Series:
+        y_pred_proba_val_child = self.y_pred_proba_val_child(idx=idx)
+        val_idx_child = self.val_idx_child(idx=idx)
+
+        if self.problem_type == "multiclass":
+            ordered_class_labels = self.simulation_artifacts["ordered_class_labels"]
+            out = pd.DataFrame(data=y_pred_proba_val_child, index=val_idx_child, columns=ordered_class_labels)
+        elif self.problem_type in ["binary", "regression"]:
+            out = pd.Series(data=y_pred_proba_val_child, index=val_idx_child, name=self.simulation_artifacts["label"])
+        else:
+            raise ValueError(f"Unsupported problem_type={self.problem_type}")
+        return out
+
+    def y_pred_proba_test_child_as_pd(self, idx: int) -> pd.DataFrame | pd.Series:
+        y_pred_proba_test_child = self.y_pred_proba_test_child(idx=idx)
+
+        if self.problem_type == "multiclass":
+            ordered_class_labels = self.simulation_artifacts["ordered_class_labels"]
+            out = pd.DataFrame(data=y_pred_proba_test_child, index=self.y_test_idx, columns=ordered_class_labels)
+        elif self.problem_type in ["binary", "regression"]:
+            out = pd.Series(data=y_pred_proba_test_child, index=self.y_test_idx, name=self.simulation_artifacts["label"])
+        else:
+            raise ValueError(f"Unsupported problem_type={self.problem_type}")
+        return out
 
     def _align_result_input_format(self) -> dict:
         self.result = super()._align_result_input_format()
@@ -90,6 +137,17 @@ class AGBagResult(ConfigResult):
         return len(self.bag_info["pred_test_per_child"])
 
     def bag_artifacts(self, as_baseline: bool = True) -> list[BaselineResult]:
+        """
+        Logic that gets the holdout artifact from the bag by only using the first child model.
+
+        Parameters
+        ----------
+        as_baseline
+
+        Returns
+        -------
+
+        """
         results_new = []
         sim_artifact = self.simulation_artifacts
         pred_proba_test_per_child = sim_artifact["bag_info"]["pred_test_per_child"]

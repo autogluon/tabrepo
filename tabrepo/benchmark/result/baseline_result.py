@@ -109,6 +109,10 @@ class BaselineResult(AbstractResult):
         return self.task_metadata["fold"]
 
     @property
+    def sample(self) -> int:
+        return self.task_metadata["sample"]
+
+    @property
     def task_metadata(self) -> dict:
         return self.result["task_metadata"]
 
