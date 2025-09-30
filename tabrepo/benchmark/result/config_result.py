@@ -15,6 +15,7 @@ class ConfigResult(BaselineResult):
 
         required_keys = [
             "simulation_artifacts",
+            "method_metadata",
             "metric_error_val",
         ]
         for key in required_keys:
