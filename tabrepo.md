@@ -72,7 +72,7 @@ You are all set!
 
 ## Quick-start
 
-**Recommended: Refer to [examples/run_quickstart.py](examples/run_quickstart.py) for a full runnable tutorial.**
+**Recommended: Refer to [examples/tabrepo/run_quickstart.py](examples/tabrepo/run_quickstart.py) for a full runnable tutorial.**
 
 Now lets see how to do basic things with TabRepo.
 
@@ -166,7 +166,7 @@ To run a subset of experiments on a Colab notebook, refer to [https://colab.rese
 
 To reproduce the entire TabRepo dataset (context `"D244_F3_C1530"`) from scratch, refer to the [benchmark execution README](scripts/execute_benchmarks/README.md).
 
-To instead reproduce a small subset of the TabRepo dataset in a few minutes, run [examples/run_quickstart_from_scratch.py](examples/run_quickstart_from_scratch.py).
+To instead reproduce a small subset of the TabRepo dataset in a few minutes, run [examples/tabrepo/run_quickstart_from_scratch.py](examples/tabrepo/run_quickstart_from_scratch.py).
 
 ## Running HPO experiments with TabRepo
 
