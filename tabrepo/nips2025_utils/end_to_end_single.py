@@ -595,7 +595,8 @@ class EndToEndResultsSingle:
             new_result_prefix = new_result_prefix + f"[{self.method_metadata.artifact_name}] "
         if new_result_prefix is not None:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
-                df_results[col] = new_result_prefix + df_results[col]
+                if col in df_results:
+                    df_results[col] = new_result_prefix + df_results[col]
 
         if fillna:
             df_results = self.fillna_results_on_tabarena(df_results=df_results)
