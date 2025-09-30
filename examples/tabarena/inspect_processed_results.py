@@ -54,14 +54,26 @@ Outputs at a Glance
 
 
 if __name__ == "__main__":
+    # ----------------------------------------------------------------------
     # 1) Surface available methods so users can pick a target method quickly.
+    #    This prints a markdown table with identifying fields for each method.
+    # ----------------------------------------------------------------------
     methods_info = tabarena_method_metadata_collection.info()
     print(methods_info.to_markdown())
 
-    # Choose a method to validate.
-    method = "LightGBM"  # you can instead use "Mitra_GPU" for a very small download, but because it only has 1 config, it won't showcase the full functionality.
+    # ----------------------------------------------------------------------
+    # 2) Choose a method to validate.
+    #
+    #    - "Mitra_GPU" -> tiny download, single config (fast smoke test).
+    #    - "LightGBM"  -> larger download, multiple configs (better demo).
+    # ----------------------------------------------------------------------
+    method = "LightGBM"
     method_metadata = tabarena_method_metadata_collection.get_method_metadata(method=method)
 
+    # ----------------------------------------------------------------------
+    # 3) Ensure processed artifacts are available locally. If not, download.
+    #    NOTE: Some methods may require large downloads (up to ~15 GB).
+    # ----------------------------------------------------------------------
     if not method_metadata.path_processed_exists:
         print(
             f"Downloading processed data to {method_metadata.path_processed} ... "
@@ -69,10 +81,15 @@ if __name__ == "__main__":
         )
         method_metadata.method_downloader().download_processed()
 
+    # ----------------------------------------------------------------------
+    # 4) Open the processed repository view for programmatic inspection.
+    # ----------------------------------------------------------------------
     repo: EvaluationRepository = method_metadata.load_processed()
+    repo.print_info()  # high-level repository summary
 
-    repo.print_info()
-
+    # ----------------------------------------------------------------------
+    # 5) Explore datasets and per-dataset metadata.
+    # ----------------------------------------------------------------------
     datasets = repo.datasets()
     print(f"Datasets: {datasets}")
 
@@ -83,6 +100,9 @@ if __name__ == "__main__":
     dataset_metadata = repo.dataset_metadata(dataset=dataset)
     print(f"Dataset Metadata: {dataset_metadata}")
 
+    # ----------------------------------------------------------------------
+    # 6) Explore configs (individual model settings evaluated within a method).
+    # ----------------------------------------------------------------------
     configs = repo.configs()
     print(f"Configs (first 10): {configs[:10]}")
 
@@ -90,20 +110,31 @@ if __name__ == "__main__":
     config_type = repo.config_type(config=config)
     config_hyperparameters = repo.config_hyperparameters(config=config)
 
-    # You can pass the below autogluon_hyperparameters into AutoGluon's TabularPredictor.fit call to fit the specific config on a new dataset:
+    # You can pass the below autogluon_hyperparameters into AutoGluon’s TabularPredictor.fit
+    # to train this exact config on your own dataset:
+    #
     # from autogluon.tabular import TabularPredictor
     # predictor = TabularPredictor(...).fit(..., hyperparameters=autogluon_hyperparameters)
     autogluon_hyperparameters = repo.autogluon_hyperparameters_dict(configs=[config])
-    print(f"Config Info:\n"
-          f"\t                     Name: {config}\n"
-          f"\t                     Type: {config_type}\n"
-          f"\t          Hyperparameters: {config_hyperparameters}\n"
-          f"\tAutoGluon Hyperparameters: {autogluon_hyperparameters}\n")
+    print(
+        "Config Info:\n"
+        f"\t                     Name: {config}\n"
+        f"\t                     Type: {config_type}\n"
+        f"\t          Hyperparameters: {config_hyperparameters}\n"
+        f"\tAutoGluon Hyperparameters: {autogluon_hyperparameters}\n"
+    )
 
+    # ----------------------------------------------------------------------
+    # 7) Inspect metrics for a small slice of (datasets × configs).
+    # ----------------------------------------------------------------------
     metrics = repo.metrics(datasets=datasets[:2], configs=configs[:2])
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
         print(f"Config Metrics Example:\n{metrics}")
 
+    # ----------------------------------------------------------------------
+    # 8) Peek at predictions and ground-truth labels (validation and test).
+    #    These are per-dataset, per-fold, per-config artifacts.
+    # ----------------------------------------------------------------------
     predictions_test = repo.predict_test(dataset=dataset, fold=0, config=config)
     print(f"Predictions Test (config={config}, dataset={dataset}, fold=0):\n{predictions_test[:10]}")
 
@@ -116,7 +147,17 @@ if __name__ == "__main__":
     y_val = repo.labels_val(dataset=dataset, fold=0)
     print(f"Ground Truth Val (dataset={dataset}, fold=0):\n{y_val[:10]}")
 
-    df_result, df_ensemble_weights = repo.evaluate_ensemble(dataset=dataset, fold=0, configs=configs, ensemble_size=100)
+    # ----------------------------------------------------------------------
+    # 9) Build a simple ensemble over many configs for the chosen dataset/fold.
+    #    Returns (result_df, weights_df). Here we average weights across folds
+    #    and show the highest-weighted configs.
+    # ----------------------------------------------------------------------
+    df_result, df_ensemble_weights = repo.evaluate_ensemble(
+        dataset=dataset,
+        fold=0,
+        configs=configs,
+        ensemble_size=100,
+    )
     print(f"Ensemble result:\n{df_result}")
 
     df_ensemble_weights_mean_sorted = df_ensemble_weights.mean(axis=0).sort_values(ascending=False)
