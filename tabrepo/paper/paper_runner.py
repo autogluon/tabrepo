@@ -25,8 +25,6 @@ from matplotlib.patches import Patch
 from tabrepo import EvaluationRepository, Evaluator
 from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from tabrepo.paper.paper_utils import make_scorers, generate_sensitivity_plots, get_framework_type_method_names
-
-from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from scripts.dataset_analysis import generate_dataset_analysis
 
 import matplotlib.colors as mcolors
