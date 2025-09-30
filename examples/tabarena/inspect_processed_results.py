@@ -1,0 +1,123 @@
+from __future__ import annotations
+
+import pandas as pd
+
+from tabrepo import EvaluationRepository
+from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_collection
+
+
+"""
+TabArena Processed-Artifact Quickstart
+=====================================
+
+This script demonstrates how to:
+1) Discover available tabular ML **methods** integrated into TabArena.
+2) Download **processed artifacts** (predictions/labels/metadata) for a chosen method.
+3) Open an `EvaluationRepository` and inspect datasets, configs, metrics, and predictions.
+4) Evaluate a simple **ensemble** across configurations.
+
+It is designed as a readable "tour" rather than a benchmark runner.
+
+Why "processed" artifacts?
+--------------------------
+Processed artifacts are ready-to-use evaluation assets (e.g., out-of-fold predictions,
+test predictions, labels, and metadata). They allow you to:
+- Inspect per-dataset/per-fold predictions without re-training.
+- Compute metrics, compare configurations, and build ensembles instantly.
+- Export AutoGluon-ready hyperparameters for a given config.
+
+Typical Uses
+------------
+- Validate that an integrated method (e.g., LightGBM, Mitra_GPU, TabPFNv2, etc.) is
+  properly wired into your local environment.
+- Prototype ensembling strategies on top of cached predictions.
+- Extract a method's **AutoGluon** hyperparameters and re-train that exact config on
+  your own dataset with `TabularPredictor.fit(hyperparameters=...)`.
+  
+Data Volume Tips
+----------------
+- For a very small, fast download use: `method = "Mitra_GPU"`.
+  This is great for connectivity checks and a quick end-to-end smoke test,
+  but it has only a single config (so it won’t showcase multi-config features).
+- For a richer demonstration (multiple configs), try `method = "LightGBM"`.
+
+Outputs at a Glance
+-------------------
+- Prints a markdown table of available methods.
+- Shows dataset list, dataset info/metadata, and the first few configs.
+- Displays metrics for a small slice of (datasets × configs).
+- Prints head of predictions/labels for validation and test.
+- Builds a simple top-N ensemble (size 100 by default) and prints its result.
+- Reports the mean ensemble weight per config (top 10).
+
+"""
+
+
+if __name__ == "__main__":
+    # 1) Surface available methods so users can pick a target method quickly.
+    methods_info = tabarena_method_metadata_collection.info()
+    print(methods_info.to_markdown())
+
+    # Choose a method to validate.
+    method = "LightGBM"  # you can instead use "Mitra_GPU" for a very small download, but because it only has 1 config, it won't showcase the full functionality.
+    method_metadata = tabarena_method_metadata_collection.get_method_metadata(method=method)
+
+    if not method_metadata.path_processed_exists:
+        print(
+            f"Downloading processed data to {method_metadata.path_processed} ... "
+            f"Ensure you have a fast internet connection. This download can be up to 15 GB."
+        )
+        method_metadata.method_downloader().download_processed()
+
+    repo: EvaluationRepository = method_metadata.load_processed()
+
+    repo.print_info()
+
+    datasets = repo.datasets()
+    print(f"Datasets: {datasets}")
+
+    dataset = datasets[0]
+    dataset_info = repo.dataset_info(dataset=dataset)
+    print(f"Dataset Info    : {dataset_info}")
+
+    dataset_metadata = repo.dataset_metadata(dataset=dataset)
+    print(f"Dataset Metadata: {dataset_metadata}")
+
+    configs = repo.configs()
+    print(f"Configs (first 10): {configs[:10]}")
+
+    config = configs[0]
+    config_type = repo.config_type(config=config)
+    config_hyperparameters = repo.config_hyperparameters(config=config)
+
+    # You can pass the below autogluon_hyperparameters into AutoGluon's TabularPredictor.fit call to fit the specific config on a new dataset:
+    # from autogluon.tabular import TabularPredictor
+    # predictor = TabularPredictor(...).fit(..., hyperparameters=autogluon_hyperparameters)
+    autogluon_hyperparameters = repo.autogluon_hyperparameters_dict(configs=[config])
+    print(f"Config Info:\n"
+          f"\t                     Name: {config}\n"
+          f"\t                     Type: {config_type}\n"
+          f"\t          Hyperparameters: {config_hyperparameters}\n"
+          f"\tAutoGluon Hyperparameters: {autogluon_hyperparameters}\n")
+
+    metrics = repo.metrics(datasets=datasets[:2], configs=configs[:2])
+    with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
+        print(f"Config Metrics Example:\n{metrics}")
+
+    predictions_test = repo.predict_test(dataset=dataset, fold=0, config=config)
+    print(f"Predictions Test (config={config}, dataset={dataset}, fold=0):\n{predictions_test[:10]}")
+
+    y_test = repo.labels_test(dataset=dataset, fold=0)
+    print(f"Ground Truth Test (dataset={dataset}, fold=0):\n{y_test[:10]}")
+
+    predictions_val = repo.predict_val(dataset=dataset, fold=0, config=config)
+    print(f"Predictions Val (config={config}, dataset={dataset}, fold=0):\n{predictions_val[:10]}")
+
+    y_val = repo.labels_val(dataset=dataset, fold=0)
+    print(f"Ground Truth Val (dataset={dataset}, fold=0):\n{y_val[:10]}")
+
+    df_result, df_ensemble_weights = repo.evaluate_ensemble(dataset=dataset, fold=0, configs=configs, ensemble_size=100)
+    print(f"Ensemble result:\n{df_result}")
+
+    df_ensemble_weights_mean_sorted = df_ensemble_weights.mean(axis=0).sort_values(ascending=False)
+    print(f"Top 10 highest mean ensemble weight configs:\n{df_ensemble_weights_mean_sorted.head(10)}")
