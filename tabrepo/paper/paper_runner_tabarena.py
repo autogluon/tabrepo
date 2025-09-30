@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
+from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
 from .paper_runner import PaperRun
 from tabrepo.tabarena.tabarena import TabArena
 from .paper_utils import get_framework_type_method_names

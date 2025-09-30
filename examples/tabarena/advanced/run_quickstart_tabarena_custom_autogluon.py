@@ -64,7 +64,7 @@ if __name__ == '__main__':
                 "fit_kwargs": dict(
                     time_limit=3600,
                     hyperparameters={"GBM": [{}]},
-                    num_bag_folds=0,
+                    num_bag_folds=8,
                 )
             }
         ),
