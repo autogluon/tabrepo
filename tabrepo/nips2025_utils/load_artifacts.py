@@ -3,14 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from autogluon.common.loaders import load_pkl
-from tabrepo.benchmark.result import AGBagResult, BaselineResult, ExperimentResults
+from tabrepo.benchmark.result import AGBagResult, BaselineResult
 from tabrepo.utils.parallel_for import parallel_for
-import time
 
 
 def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
     data: dict | BaselineResult = load_pkl.load(path)
-    data_aligned = ExperimentResults._align_result_input_format(data)
+    data_aligned = BaselineResult.from_dict(data)
     if convert_to_holdout:
         assert isinstance(data_aligned, AGBagResult)
         result_holdout = data_aligned.bag_artifacts(as_baseline=False)
@@ -23,7 +22,12 @@ def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
     return data_aligned
 
 
-def load_all_artifacts(file_paths: list[str | Path], engine: str = "sequential", convert_to_holdout: bool = False) -> list:
+def load_all_artifacts(
+    file_paths: list[str | Path],
+    engine: str = "sequential",
+    convert_to_holdout: bool = False,
+    progress_bar: bool = True,
+) -> list[BaselineResult]:
     file_paths_lst = []
     for file_path in file_paths:
         file_paths_lst.append(
@@ -33,12 +37,10 @@ def load_all_artifacts(file_paths: list[str | Path], engine: str = "sequential",
             }
         )
 
-    ts = time.time()
-    results_lst = parallel_for(
+    results_lst: list[BaselineResult] = parallel_for(
         f=load_and_align,
         inputs=file_paths_lst,
         engine=engine,
+        progress_bar=progress_bar,
     )
-    te = time.time()
-    print(f"{te - ts:.2f}s\t{engine}")
     return results_lst

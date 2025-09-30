@@ -46,6 +46,8 @@ def get_configs_generator_from_name(model_name: str):
         # "TabPFN": lambda: importlib.import_module("tabrepo.models.tabpfn.generate").gen_tabpfn, # not supported in TabArena
         "TabPFNv2": lambda: importlib.import_module("tabrepo.models.tabpfnv2.generate").gen_tabpfnv2,
         "XGBoost": lambda: importlib.import_module("tabrepo.models.xgboost.generate").gen_xgboost,
+        "Mitra": lambda: importlib.import_module("tabrepo.models.mitra.generate").gen_mitra,
+        "xRFM": lambda: importlib.import_module("tabrepo.models.xrfm.generate").gen_xrfm,
     }
 
     if model_name not in name_to_import_map:

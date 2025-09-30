@@ -157,19 +157,19 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
     use_methods_ordered = [   
         # default
         'RF (default)', 'XT (default)','XGB (default)','GBM (default)','CAT (default)','EBM (default)',
-        'FASTAI (default)','NN_TORCH (default)','REALMLP (default)','TABM_GPU (default)','MNCA_GPU (default)',
+        'FASTAI (default)','NN_TORCH (default)','REALMLP_GPU (default)','TABM_GPU (default)','MNCA_GPU (default)',
         'TABPFNV2_GPU (default)','TABDPT_GPU (default)','TABICL_GPU (default)',
         'LR (default)','KNN (default)',
         
         ######### tuned
         'RF (tuned)','XT (tuned)','XGB (tuned)','GBM (tuned)','CAT (tuned)','EBM (tuned)',
-        'FASTAI (tuned)','NN_TORCH (tuned)','REALMLP (tuned)','TABM_GPU (tuned)','MNCA_GPU (tuned)',
+        'FASTAI (tuned)','NN_TORCH (tuned)','REALMLP_GPU (tuned)','TABM_GPU (tuned)','MNCA_GPU (tuned)',
         'TABPFNV2_GPU (tuned)',# 'TABDPT (tuned)', 'TABICL (tuned)',
         'LR (tuned)','KNN (tuned)',
         
         ######## tuned  ensemble
         'RF (tuned + ensemble)','XT (tuned + ensemble)','XGB (tuned + ensemble)','GBM (tuned + ensemble)','CAT (tuned + ensemble)','EBM (tuned + ensemble)',
-        'FASTAI (tuned + ensemble)','NN_TORCH (tuned + ensemble)','REALMLP (tuned + ensemble)','TABM_GPU (tuned + ensemble)','MNCA_GPU (tuned + ensemble)',
+        'FASTAI (tuned + ensemble)','NN_TORCH (tuned + ensemble)','REALMLP_GPU (tuned + ensemble)','TABM_GPU (tuned + ensemble)','MNCA_GPU (tuned + ensemble)',
         'TABPFNV2_GPU (tuned + ensemble)',# 'TABDPT (tuned + ensemble)', 'TABICL (tuned + ensemble)',
         'LR (tuned + ensemble)','KNN (tuned + ensemble)',
 
@@ -249,7 +249,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
             df_mean = (df_mean/10).round(0).astype(int).astype(str)
         
 
-        df_latex = df_mean + " $\pm$ " + df_std
+        df_latex = df_mean + " $\\pm$ " + df_std
 
         df_latex.columns = [dataset_name]
         if metric_dir == "min":
@@ -300,7 +300,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
 
             "FASTAI": "FastAIMLP",
             "NN_TORCH": "TorchMLP",
-            "REALMLP": "RealMLP",
+            "REALMLP_GPU": "RealMLP",
             "TABM_GPU": "TabM",
             "MNCA_GPU": "MNCA",
 

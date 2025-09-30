@@ -41,6 +41,7 @@ def evaluate_all(
 
     tabicl_type = "TABICL_GPU"
     tabpfn_type = "TABPFNV2_GPU"
+    mitra_type = "MITRA_GPU"
 
     portfolio_name = "TabArena ensemble (4h)"
 
@@ -131,8 +132,11 @@ def evaluate_all(
 
         folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
             if use_tabicl else ("tabpfn" if use_tabpfn else "full")
-        baselines = ["AutoGluon 1.3 (4h)"]
-        baseline_colors = ["black"]
+        baselines = [
+            "AutoGluon 1.3 (4h)",
+            "AutoGluon 1.4 (4h)",
+        ]
+        baseline_colors = ["black", "tab:purple"]
         if include_portfolio:
             baselines.append("TabArena ensemble (4h)")
             baseline_colors.append("tab:purple")
@@ -158,6 +162,8 @@ def evaluate_all(
         if not use_tabpfn:
             banned_model_types.add(tabpfn_type)
             imputed_models.append("TabPFNv2")
+            banned_model_types.add(mitra_type)
+            imputed_models.append("Mitra")
 
         datasets = (
             list(set(datasets_tabpfn).intersection(datasets_tabicl)) if use_tabpfn else datasets_tabicl) \
@@ -205,7 +211,7 @@ def evaluate_all(
             baselines=baselines,
             baseline_colors=baseline_colors,
             imputed_names=imputed_models,
-            only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl},
+            only_datasets_for_method={'TabPFNv2': datasets_tabpfn, 'TabICL': datasets_tabicl, "Mitra": datasets_tabpfn},
             plot_extra_barplots=False,
             include_norm_score=not include_portfolio,
             plot_times=True,
@@ -321,8 +327,8 @@ def eval_cpu_vs_gpu_ablation(
         )
 
         df_results_configs_only_cpu_gpu = df_results_configs[df_results_configs["config_type"].isin([
-            "REALMLP",
-            "REALMLP_GPU",
+            # "REALMLP",
+            # "REALMLP_GPU",
             "TABM",
             "TABM_GPU",
             "MNCA",

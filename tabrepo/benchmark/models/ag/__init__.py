@@ -8,7 +8,7 @@ from tabrepo.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
 from tabrepo.benchmark.models.ag.tabm.tabm_model import TabMModel
 from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_client_model import TabPFNV2ClientModel
 from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
-
+from tabrepo.benchmark.models.ag.xrfm.xrfm_model import XRFMModel
 __all__ = [
     "ExplainableBoostingMachineModel",
     "ModernNCAModel",
@@ -18,4 +18,5 @@ __all__ = [
     "TabMModel",
     "TabPFNV2ClientModel",
     "TabPFNV2Model",
+    "XRFMModel",
 ]

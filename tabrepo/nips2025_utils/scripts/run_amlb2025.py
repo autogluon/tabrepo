@@ -107,6 +107,7 @@ if __name__ == '__main__':
         "training_duration": "time_train_s",
         "predict_duration": "time_infer_s",
         arena.error_col: "metric_error",
+        "improvability": "bestdiff",
     })
 
     from autogluon_benchmark.plotting.plotter import Plotter

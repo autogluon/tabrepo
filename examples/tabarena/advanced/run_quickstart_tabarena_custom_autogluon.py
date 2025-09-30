@@ -10,7 +10,7 @@ from tabrepo.benchmark.experiment import ExperimentBatchRunner, Experiment
 from tabrepo.benchmark.models.wrapper import AGWrapper
 from tabrepo.benchmark.result import ExperimentResults
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
-from tabrepo.nips2025_utils import load_results
+from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 
 
 class MyCustomAGWrapper(AGWrapper):
@@ -96,7 +96,8 @@ if __name__ == '__main__':
     metrics: pd.DataFrame = evaluator.compare_metrics().reset_index().rename(columns={"framework": "method"})
 
     # load the TabArena paper results
-    tabarena_results: pd.DataFrame = load_results()
+    tabarena_context = TabArenaContext()
+    tabarena_results = tabarena_context.load_results_paper(download_results="auto")
     tabarena_results = tabarena_results[[c for c in tabarena_results.columns if c in metrics.columns]]
 
     dataset_fold_map = metrics.groupby("dataset")["fold"].apply(set)

@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 import re
 import yaml
 
 from itertools import islice
 
 
-def create_batch(tasks, batch_size):
+def create_batch(tasks: list[tuple[str, int, int, dict]], batch_size) -> list[list[tuple[str, int, int, dict]]]:
     """Convert all tasks into batches"""
     it = iter(tasks)
     for batch in iter(lambda: tuple(islice(it, batch_size)), ()):
-        yield batch
+        yield list(batch)
 
 
 def sanitize_job_name(name: str) -> str:

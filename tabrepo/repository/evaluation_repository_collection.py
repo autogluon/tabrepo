@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from collections import defaultdict
 from typing import Literal
+from functools import reduce
 
 import numpy as np
 import pandas as pd
@@ -280,7 +281,17 @@ def merge_zeroshot(zeroshot_contexts: list[ZeroshotSimulatorContext], require_ma
     df_metadata_lst = [z.df_metadata for z in zeroshot_contexts]
     df_metadata_lst = [df_metadata for df_metadata in df_metadata_lst if df_metadata is not None and len(df_metadata) > 0]
     if df_metadata_lst:
-        df_metadata = pd.concat([z.df_metadata for z in zeroshot_contexts], ignore_index=True)
+        # The merge operation combines all available information in the metadata from different contexts, without loss of information.
+        df_metadata = reduce(
+            lambda left, right: pd.merge(
+                left,
+                right,
+                on=[col for col in left.columns if col in right.columns],
+                how='outer'
+            ),
+            df_metadata_lst
+        )
+        
         df_metadata = df_metadata.drop_duplicates(ignore_index=True)
     else:
         df_metadata = None

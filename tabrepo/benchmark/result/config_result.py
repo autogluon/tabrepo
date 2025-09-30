@@ -20,25 +20,71 @@ class ConfigResult(BaselineResult):
         for key in required_keys:
             assert key in self.result, f"Missing {key} in result dict!"
 
-    def update_name(self, name: str = None, name_suffix: str = None):
-        if name is not None:
-            assert name_suffix is None, f"Must only specify one of `name`, `name_suffix`."
-            self.result["framework"] = name
-            return
-        elif name_suffix is not None:
-            og_name_prefix = self.result["method_metadata"]["name_prefix"]
-            og_name = self.framework
-            assert og_name.startswith(og_name_prefix), (f"Tried updating name with `name_suffix='{name_suffix}'`, "
-                                                        f"but name did not contain expected prefix '{og_name_prefix}'!"
-                                                        f"\n\tname: '{og_name}'")
-            new_name = f"{og_name_prefix}{name_suffix}{og_name.removeprefix(og_name_prefix)}"
-            self.result["framework"] = new_name
-            return
+    @property
+    def name_prefix(self) -> str:
+        return self.result["method_metadata"].get("name_prefix", "")
 
-    def update_model_type(self, name_suffix: str):
-        ag_key = self.result["method_metadata"]["model_type"]
-        self.result["method_metadata"]["ag_key"] = ag_key
-        self.result["method_metadata"]["model_type"] = f"{ag_key}{name_suffix}"
+    @property
+    def name_suffix(self) -> str:
+        return self.framework.removeprefix(self.name_prefix)
+
+    @property
+    def model_type(self) -> str:
+        return self.result["method_metadata"]["model_type"]
+
+    @property
+    def ag_key(self) -> str:
+        return self.result["method_metadata"].get("ag_key", self.model_type)
+
+    def update_name(self, name: str = None, name_prefix: str = None, name_suffix: str = None, keep_suffix: bool = True):
+        assert name is not None or name_prefix is not None or name_suffix is not None, \
+            f"Must specify one of `name`, `name_prefix`, `name_suffix`."
+        assert name is None or name_prefix is None, f"Must only specify one of `name`, `name_prefix`."
+        assert name is None or name_suffix is None, f"Must only specify one of `name`, `name_suffix`."
+        if name is not None:
+            if keep_suffix:
+                self.result["framework"] = f"{name}{self.name_suffix}"
+            else:
+                self.result["framework"] = name
+            self.result["method_metadata"]["name_prefix"] = name
+            return
+        if name_prefix is not None:
+            og_name = self.framework
+            assert og_name.startswith(self.name_prefix), (
+                f"Tried updating name with `name_prefix='{name_prefix}'`, "
+                f"but name did not contain expected prefix '{self.name_prefix}'!"
+                f"\n\tname: '{og_name}'"
+            )
+            new_name_prefix = f"{name_prefix}{self.name_prefix}"
+            new_name = f"{new_name_prefix}{og_name.removeprefix(self.name_prefix)}"
+            self.result["method_metadata"]["name_prefix"] = new_name_prefix
+            self.result["framework"] = new_name
+        if name_suffix is not None:
+            og_name = self.framework
+            assert og_name.startswith(self.name_prefix), (
+                f"Tried updating name with `name_suffix='{name_suffix}'`, "
+                f"but name did not contain expected prefix '{self.name_prefix}'!"
+                f"\n\tname: '{og_name}'"
+            )
+            new_name_prefix = f"{self.name_prefix}{name_suffix}"
+            new_name = f"{new_name_prefix}{og_name.removeprefix(self.name_prefix)}"
+            self.result["method_metadata"]["name_prefix"] = new_name_prefix
+            self.result["framework"] = new_name
+
+    def update_model_type(self, name: str = None, name_prefix: str = None, name_suffix: str = None):
+        assert name is not None or name_prefix is not None or name_suffix is not None, \
+            f"Must specify one of `name`, `name_prefix`, `name_suffix`."
+        assert name is None or name_prefix is None, f"Must only specify one of `name`, `name_prefix`."
+        assert name is None or name_suffix is None, f"Must only specify one of `name`, `name_suffix`."
+        if "ag_key" not in self.result["method_metadata"]:
+            self.result["method_metadata"]["ag_key"] = self.model_type
+        if name is not None:
+            self.result["method_metadata"]["model_type"] = name
+            return
+        if name_prefix is not None:
+            self.result["method_metadata"]["model_type"] = f"{name_prefix}{self.model_type}"
+        if name_suffix is not None:
+            self.result["method_metadata"]["model_type"] = f"{self.model_type}{name_suffix}"
 
     @property
     def simulation_artifacts(self) -> dict:

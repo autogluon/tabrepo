@@ -13,22 +13,84 @@ def aggregate_stats(df, on: str, groupby="method", method=["mean", "median", "st
     return df[[groupby, on]].groupby(groupby).agg(method)[on]
 
 
-def get_pareto_frontier(Xs, Ys, max_X=True, max_Y=True):
-    sorted_list = sorted([[Xs[i], Ys[i]] for i in range(len(Xs))], reverse=max_X)
-    pareto_front = [sorted_list[0]]
-    for pair in sorted_list[1:]:
-        if max_Y:
-            if pair[1] >= pareto_front[-1][1]:
-                if len(pareto_front) != 0:
-                    pareto_front.append([pair[0], pareto_front[-1][1]])
-                pareto_front.append(pair)
-        else:
-            if pair[1] <= pareto_front[-1][1]:
-                if len(pareto_front) != 0:
-                    pareto_front.append([pair[0], pareto_front[-1][1]])
-                pareto_front.append(pair)
-    pareto_front.append([sorted_list[-1][0], pareto_front[-1][1]])
-    return pareto_front
+def get_pareto_frontier(
+    Xs,
+    Ys,
+    names=None,            # ← new
+    *,
+    max_X=True,
+    max_Y=True,
+    include_boundary_edges=True,
+):
+    """
+    Compute the (piece‑wise constant) Pareto frontier and, in parallel,
+    return the label associated with each frontier vertex.
+
+    Parameters
+    ----------
+    Xs, Ys : Sequence[float]
+        Coordinates of the points to consider.
+    names : Sequence[str] or None, optional
+        Label for each (X, Y) pair – e.g. `data["method"]`.
+        If omitted, a list of ``None`` is used.
+    max_X, max_Y : bool, default True
+        If True the frontier favours larger values on that axis,
+        otherwise it favours smaller values.
+    include_boundary_edges : bool, default True
+        If True, will include pareto front edges to the worst x and y values observed.
+
+    Returns
+    -------
+    pareto_front : list[tuple[float, float]]
+        The vertices that define the frontier, including the vertical
+        “drop” segments needed for a step‑like plot.
+    pareto_names : list[str | None]
+        A label for each element in ``pareto_front``.
+        Entries corresponding to the artificially inserted vertical
+        drops are ``None``.
+    """
+    if names is None:
+        names = [None] * len(Xs)
+    if not (len(Xs) == len(Ys) == len(names)):
+        raise ValueError("Xs, Ys and names must have the same length")
+
+    # Sort primarily by X (descending if we maximise), secondarily by Y.
+    pts = sorted(
+        zip(Xs, Ys, names),
+        key=lambda t: (t[0], t[1]),
+        reverse=max_X,
+    )
+
+    pareto_front = [(pts[0][0], pts[0][1])]
+    pareto_names = [pts[0][2]]
+    best_y = pts[0][1]
+    worst_y = pts[0][1]
+
+    for x, y, label in pts[1:]:
+        is_better = (y >= best_y) if max_Y else (y <= best_y)
+
+        if is_better:
+            # vertical segment to keep the frontier piece‑wise constant in X
+            pareto_front.append((x, best_y))
+            pareto_names.append(None)
+            pareto_front.append((x, y))
+            pareto_names.append(label)
+            best_y = y
+
+        is_worst = (y < worst_y) if max_Y else (y > worst_y)
+        if is_worst:
+            worst_y = y
+
+    if include_boundary_edges:
+        # add final horizontal segment to the worst point on X‑axis
+        pareto_front.append((pts[-1][0], best_y))
+        pareto_names.append(None)
+
+        # add final vertical segment to the worst point on Y‑axis
+        pareto_front.insert(0, (pts[0][0], worst_y))
+        pareto_names.insert(0, None)
+
+    return pareto_front, pareto_names
 
 
 def plot_pareto(
@@ -74,10 +136,42 @@ def plot_pareto(
 
     Xs = list(data[x_name])
     Ys = list(data[y_name])
-    pareto_front = get_pareto_frontier(Xs=Xs, Ys=Ys, max_X=max_X, max_Y=max_Y)
+    labels = list(data[hue])
+    pareto_front, pareto_names = get_pareto_frontier(Xs=Xs, Ys=Ys, names=labels, max_X=max_X, max_Y=max_Y)
     pf_X = [pair[0] for pair in pareto_front]
     pf_Y = [pair[1] for pair in pareto_front]
     plt.plot(pf_X, pf_Y)
+
+    # ------------------------------------------------------------------
+    # Label every real vertex on the Pareto frontier
+    # ------------------------------------------------------------------
+    import matplotlib.transforms as mtrans
+
+    ax = plt.gca()                                  # current Axes
+    offset_pts = 5                                  # ± points to nudge labels
+
+    for (x, y), label in zip(pareto_front, pareto_names):
+        if label is None:                           # skip dummy vertices
+            continue
+
+        # Decide which quadrant to nudge the text toward so labels sit
+        # “outside” the frontier step.
+        dx = offset_pts if max_X else -offset_pts
+        dy = offset_pts if max_Y else -offset_pts
+        ha = 'left' if max_X else 'right'
+        va = 'bottom' if max_Y else 'top'
+
+        # Use Axes.annotate with textcoords='offset points' so the offset
+        # is interpreted in display points, independent of axis scaling.
+        ax.annotate(
+            label,
+            xy=(x, y),                  # data point
+            xytext=(dx, dy),            # offset in points
+            textcoords='offset points',
+            ha=ha,
+            va=va,
+            fontsize=9,
+        )
 
     if ylim is not None:
         plt.ylim(ylim)

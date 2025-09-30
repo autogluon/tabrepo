@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
@@ -92,6 +93,20 @@ class TabDPTModel(AbstractModel):
 
         return str(final_model_path)
 
+    def _get_default_resources(self) -> tuple[int, int]:
+        # Use only physical cores for better performance based on benchmarks
+        num_cpus = ResourceManager.get_cpu_count(only_physical_cores=True)
+
+        num_gpus = min(1, ResourceManager.get_gpu_count_torch(cuda_only=True))
+
+        return num_cpus, num_gpus
+
+    def get_minimum_resources(self, is_gpu_available: bool = False) -> dict[str, int | float]:
+        return {
+            "num_cpus": 1,
+            "num_gpus": 1 if is_gpu_available else 0,
+        }
+
     def _predict_proba(self, X, **kwargs) -> np.ndarray:
         X = self.preprocess(X, **kwargs)
 
@@ -126,6 +141,15 @@ class TabDPTModel(AbstractModel):
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
 
+    @classmethod
+    def _get_default_ag_args_ensemble(cls, **kwargs) -> dict:
+        default_ag_args_ensemble = super()._get_default_ag_args_ensemble(**kwargs)
+        extra_ag_args_ensemble = {
+            "fold_fitting_strategy": "sequential_local",
+            "refit_folds": True,
+        }
+        default_ag_args_ensemble.update(extra_ag_args_ensemble)
+        return default_ag_args_ensemble
 
 # Vendored from TabPFNv2 Code
 def _user_cache_dir(platform: str, appname: str = "tabpfn") -> Path:
@@ -174,3 +198,4 @@ def _user_cache_dir(platform: str, appname: str = "tabpfn") -> Path:
         stacklevel=2,
     )
     return use_instead_path
+

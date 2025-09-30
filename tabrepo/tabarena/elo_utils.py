@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import List
 import logging
@@ -30,10 +32,10 @@ class EloHelper:
 
     def compute_mle_elo(
         self,
-        df: pd.DataFrame,
-        SCALE: int = 400,
+        battles: pd.DataFrame,
+        SCALE: int | float = 400,
         BASE: int = 10,
-        INIT_RATING: int = 1000,
+        INIT_RATING: int | float = 1000,
         calibration_framework: str = None,
         calibration_elo: float = None,
         force_iterative_elo: bool = False,
@@ -44,7 +46,7 @@ class EloHelper:
 
         Parameters
         ----------
-        df
+        battles
         SCALE
         BASE
         INIT_RATING
@@ -57,26 +59,26 @@ class EloHelper:
         -------
 
         """
-        models = pd.concat([df[self.method_1], df[self.method_2]]).unique()
+        models = pd.concat([battles[self.method_1], battles[self.method_2]]).unique()
         models = pd.Series(np.arange(len(models)), index=models)
-        df_original = df
+        df_original = battles
 
         # duplicate battles
-        df = pd.concat([df, df], ignore_index=True)
+        battles = pd.concat([battles, battles], ignore_index=True)
         p = len(models.index)
-        n = df.shape[0]
+        n = battles.shape[0]
 
         X = np.zeros([n, p])
-        X[np.arange(n), models[df[self.method_1]]] = +math.log(BASE)
-        X[np.arange(n), models[df[self.method_2]]] = -math.log(BASE)
+        X[np.arange(n), models[battles[self.method_1]]] = +math.log(BASE)
+        X[np.arange(n), models[battles[self.method_2]]] = -math.log(BASE)
 
         # one A win => two A win
         Y = np.zeros(n)
-        Y[df["winner"] == "1"] = 1.0
+        Y[battles["winner"] == "1"] = 1.0
 
         # one tie => one A win + one B win
         # find tie + tie (both bad) index
-        tie_idx = df["winner"] == "tie"
+        tie_idx = battles["winner"] == "tie"
         tie_idx[len(tie_idx)//2:] = False
         Y[tie_idx] = 1.0
 
@@ -192,7 +194,7 @@ class EloHelper:
 
     def compute_elo_ratings(
         self,
-        results_ranked_fillna_df: pd.DataFrame,
+        battles: pd.DataFrame,
         seed: int = 0,
         calibration_framework=None,
         calibration_elo=None,
@@ -200,7 +202,6 @@ class EloHelper:
         BOOTSTRAP_ROUNDS: int = 100,
         SCALE: int = 400,
     ) -> pd.DataFrame:
-        battles = self.convert_results_to_battles(results_df=results_ranked_fillna_df)
         rng = np.random.default_rng(seed=seed)
         bootstrap_elo_lu = self.get_bootstrap_result(
             battles=battles,

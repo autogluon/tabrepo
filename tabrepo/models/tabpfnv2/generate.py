@@ -4,7 +4,7 @@ import numpy as np
 from hyperopt import hp
 from hyperopt.pyll import stochastic
 
-from autogluon.tabular.models import TabPFNV2Model
+from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
 from tabrepo.utils.config_utils import CustomAGConfigGenerator
 
 
@@ -154,10 +154,6 @@ def prepare_tabpfnv2_config(raw_config: dict, *, refit_folds: bool = True) -> di
     raw_config = {
         k: list(v) if isinstance(v, tuple) else v for k, v in raw_config.items()
     }
-    if "ag_args_ensemble" not in raw_config:
-        raw_config["ag_args_ensemble"] = {}
-    raw_config["ag_args_ensemble"]["refit_folds"] = True
-
     return raw_config
 
 
@@ -174,7 +170,7 @@ def search_space_func(num_random_configs: int = 200, seed=1234) -> list[dict]:
 gen_tabpfnv2 = CustomAGConfigGenerator(
     model_cls=TabPFNV2Model,
     search_space_func=search_space_func,
-    manual_configs=[prepare_tabpfnv2_config({})],
+    manual_configs=[{}],
 )
 
 if __name__ == "__main__":

@@ -9,7 +9,14 @@
   </ul>
 </div>
 
-## A  Living Benchmark for Machine Learning on Tabular Data 💫
+## A Living Benchmark for Machine Learning on Tabular Data 💫
+
+---
+
+| 🚀 [Leaderboard](https://huggingface.co/spaces/TabArena/leaderboard) | 📂 [Example Scripts](https://github.com/TabArena/tabarena_benchmarking_examples/tree/main) | 📊 [Dataset Curation](https://github.com/TabArena/tabarena_dataset_curation) | 📄 [ArXiv Paper](https://arxiv.org/abs/2506.16791) |
+|:-------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
+
+---
 </div>
 
 TabArena is a living benchmarking system that makes benchmarking tabular machine learning models a reliable experience. TabArena implements best practices to ensure methods are represented at their peak potential, including cross-validated ensembles, strong hyperparameter search spaces contributed by the method authors, early stopping, model refitting, parallel bagging, memory usage estimation, and more.
@@ -34,7 +41,7 @@ Please refer to our [dataset curation repository](https://github.com/TabArena/ta
 ### Evaluation & Reproducing Results
 To locally reproduce individual configurations and compare with the TabArena results of those configurations, refer to [examples/tabarena/run_quickstart_tabarena.py](examples/tabarena/run_quickstart_tabarena.py).
 
-To locally reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_tabarena_eval.py](examples/tabarena/run_tabarena_eval.py)
+To locally reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_generate_paper_figures.py](examples/tabarena/run_generate_paper_figures.py)
 
 ### More Documentation
 TabArena code is currently being polished. Documentation for TabArena will be available soon.
