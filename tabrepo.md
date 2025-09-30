@@ -24,9 +24,9 @@ The key features of the repo are:
   * fast metric evaluations with specific optimized cpp code (for instance to compute roc auc)
   * efficient format that loads model evaluation on the fly with low memory footprint
 
-![tuning-impact.png](data/tuning-impact.png)
-![sensitivity.png](data/sensitivity.png)
-![paper-figure.png](data/paper-figure.png)
+![tuning-impact.png](https://raw.githubusercontent.com/autogluon/tabrepo/refs/heads/AutoML2024/data/tuning-impact.png)
+![sensitivity.png](https://raw.githubusercontent.com/autogluon/tabrepo/refs/heads/AutoML2024/data/sensitivity.png)
+![paper-figure.png](https://raw.githubusercontent.com/autogluon/tabrepo/refs/heads/AutoML2024/data/paper-figure.png)
 
  
 ## Installation
