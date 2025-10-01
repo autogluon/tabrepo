@@ -51,6 +51,8 @@ class StatisticalTextFeatureGenerator(AbstractFeatureGenerator):
         else:
             X = self._vectorizer.transform(X)
 
+        X.columns = [f"__statistical_embedding__{col_name}" for col_name in X.columns]
+
         return X
 
     @staticmethod

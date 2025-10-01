@@ -94,7 +94,6 @@ def default_model_specific_pca(experiment):
     # TODO: figure out if this generalizes to having experiments with multiple models?
     #   ... and figure out if experiments with multiple models even exist
     # set to a large number such that max_features filter does not trigger before PCA
-    hps["ag.max_features"] = 10000000000
     hps["ag.model_specific_feature_generator_kwargs"] = {
             "feature_generators": [dr_pipeline],
         }
