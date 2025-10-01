@@ -11,6 +11,7 @@ from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 
 
 class AGWrapper(AbstractExecModel):
+    can_get_error_val = True
     can_get_oof = True
 
     def __init__(
@@ -66,6 +67,8 @@ class AGWrapper(AbstractExecModel):
         # FIXME: this shouldn't be calculating its own val score, that should be external. This should simply give val pred and val pred proba
         leaderboard = self.predictor.leaderboard(score_format="error")
         metric_error_val = leaderboard.set_index("model").loc[self.predictor.model_best]["metric_error_val"]
+        if metric_error_val is not None and not np.isnan(metric_error_val):
+            metric_error_val = float(metric_error_val)
         return metric_error_val
 
     def cleanup(self):
