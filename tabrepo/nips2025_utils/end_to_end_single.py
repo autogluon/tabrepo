@@ -538,6 +538,7 @@ class EndToEndResultsSingle:
         new_result_prefix: str | None = None,
         use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
+        score_on_val: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
 
@@ -563,6 +564,7 @@ class EndToEndResultsSingle:
             output_dir=output_dir,
             only_valid_tasks=only_valid_tasks,
             subset=subset,
+            score_on_val=score_on_val,
         )
 
     def get_results(

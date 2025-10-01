@@ -17,7 +17,8 @@ def compare_on_tabarena(
     subset: str | list[str] | None = None,
     folds: list[int] | None = None,
     tabarena_context: TabArenaContext | None = None,
-    fillna: str | pd.DataFrame | None = "RF (default)"
+    fillna: str | pd.DataFrame | None = "RF (default)",
+    score_on_val: bool = False,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     if tabarena_context is None:
@@ -57,6 +58,7 @@ def compare_on_tabarena(
         task_metadata=task_metadata,
         fillna=fillna,
         calibration_framework=fillna,
+        score_on_val=score_on_val,
     )
 
 
@@ -66,6 +68,7 @@ def compare(
     task_metadata: pd.DataFrame = None,
     calibration_framework: str | None = None,
     fillna: str | pd.DataFrame | None = None,
+    score_on_val: bool = False,
 ):
     df_results = df_results.copy()
     if "method_type" not in df_results:
@@ -83,6 +86,12 @@ def compare(
             df_fillna=fillna,
         )
 
+    if score_on_val:
+        error_col = "metric_error_val"
+        df_results = df_results[~df_results["metric_error_val"].isna()]
+    else:
+        error_col = "metric_error"
+
     imputed_names = get_imputed_names(df_results=df_results)
 
     baselines = list(
@@ -95,6 +104,7 @@ def compare(
     plotter = TabArenaEvaluator(
         output_dir=output_dir,
         task_metadata=task_metadata,
+        error_col=error_col,
     )
 
     return plotter.eval(
