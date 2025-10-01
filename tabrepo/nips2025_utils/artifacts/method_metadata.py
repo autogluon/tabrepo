@@ -273,6 +273,18 @@ class MethodMetadata:
     def path_results_holdout(self) -> Path:
         return self.path_results / "holdout"
 
+    @property
+    def path_raw_exists(self) -> bool:
+        return self.path_raw.is_dir()
+
+    @property
+    def path_processed_exists(self) -> bool:
+        return self.path_processed.is_dir()
+
+    @property
+    def path_results_exists(self) -> bool:
+        return self.path_results.is_dir()
+
     def path_results_hpo(self, holdout: bool = False) -> Path:
         path_prefix = self.path_results_holdout if holdout else self.path_results
         return path_prefix / "hpo_results.parquet"
@@ -411,6 +423,7 @@ class MethodMetadata:
         path_processed: str | Path = None,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
         as_holdout: bool = False,
+        verbose: bool = False,
     ) -> EvaluationRepository:
         if path_processed is None:
             if as_holdout:
@@ -420,6 +433,7 @@ class MethodMetadata:
         repo = EvaluationRepository.from_dir(
             path=path_processed,
             prediction_format=prediction_format,
+            verbose=verbose,
         )
         return repo
 

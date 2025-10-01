@@ -6,7 +6,6 @@ from typing import Type, Literal
 from autogluon.core.searcher.local_random_searcher import LocalRandomSearcher
 from autogluon.core.models import AbstractModel
 
-from ..constants.model_constants import MODEL_TYPE_DICT
 from tabrepo.benchmark.experiment import AGModelBagExperiment
 
 
@@ -128,16 +127,13 @@ class ConfigGenerator(AGConfigGenerator):
     def __init__(
         self,
         search_space: dict,
-        model_cls: Type[AbstractModel] | None = None,
+        model_cls: Type[AbstractModel],
         name: str | None = None,
         manual_configs: list[dict] | None = None,
     ):
-        if model_cls is not None:
-            if name is None:
-                name = model_cls.ag_name
-            model_type = model_cls.ag_key
-        else:
-            model_type = MODEL_TYPE_DICT[name]
+        if name is None:
+            name = model_cls.ag_name
+        model_type = model_cls.ag_key
         assert name is not None, "set `ag_name` and `ag_key` in the model class!"
         super().__init__(
             name=name,
