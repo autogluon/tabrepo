@@ -65,7 +65,7 @@ class AGWrapper(AbstractExecModel):
 
     def get_metric_error_val(self) -> float:
         # FIXME: this shouldn't be calculating its own val score, that should be external. This should simply give val pred and val pred proba
-        leaderboard = self.predictor.leaderboard(score_format="error")
+        leaderboard = self.predictor.leaderboard(score_format="error", set_refit_score_to_parent=True)
         metric_error_val = leaderboard.set_index("model").loc[self.predictor.model_best]["metric_error_val"]
         if metric_error_val is not None and not np.isnan(metric_error_val):
             metric_error_val = float(metric_error_val)
