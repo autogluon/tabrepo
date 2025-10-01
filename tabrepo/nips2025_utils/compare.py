@@ -17,19 +17,15 @@ def compare_on_tabarena(
     subset: str | list[str] | None = None,
     folds: list[int] | None = None,
     tabarena_context: TabArenaContext | None = None,
+    fillna: str | pd.DataFrame | None = "RF (default)"
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     if tabarena_context is None:
         tabarena_context = TabArenaContext()
-    fillna_method = "RF (default)"
+    task_metadata = tabarena_context.task_metadata
 
     paper_results = tabarena_context.load_results_paper(
         download_results="auto",
-    )
-
-    paper_results = TabArenaContext.fillna_metrics(
-        df_to_fill=paper_results,
-        df_fillna=paper_results[paper_results["method"] == fillna_method],
     )
 
     if new_results is not None:
@@ -43,11 +39,7 @@ def compare_on_tabarena(
                 df_filter=new_results,
             )
 
-        new_results = TabArenaContext.fillna_metrics(
-            df_to_fill=new_results,
-            df_fillna=paper_results[paper_results["method"] == fillna_method],
-        )
-
+    if new_results is not None:
         df_results = pd.concat([paper_results, new_results], ignore_index=True)
     else:
         df_results = paper_results
@@ -58,6 +50,38 @@ def compare_on_tabarena(
         if isinstance(subset, str):
             subset = [subset]
         df_results = subset_tasks(df_results=df_results, subset=subset, folds=folds)
+
+    return compare(
+        df_results=df_results,
+        output_dir=output_dir,
+        task_metadata=task_metadata,
+        fillna=fillna,
+        calibration_framework=fillna,
+    )
+
+
+def compare(
+    df_results: pd.DataFrame,
+    output_dir: str | Path,
+    task_metadata: pd.DataFrame = None,
+    calibration_framework: str | None = None,
+    fillna: str | pd.DataFrame | None = None,
+):
+    df_results = df_results.copy()
+    if "method_type" not in df_results:
+        df_results["method_type"] = "baseline"
+    if "method_subtype" not in df_results:
+        df_results["method_subtype"] = np.nan
+    if "config_type" not in df_results:
+        df_results["config_type"] = None
+
+    if isinstance(fillna, str):
+        fillna = df_results[df_results["method"] == fillna]
+    if fillna is not None:
+        df_results = TabArenaContext.fillna_metrics(
+            df_to_fill=df_results,
+            df_fillna=fillna,
+        )
 
     imputed_names = get_imputed_names(df_results=df_results)
 
@@ -70,7 +94,9 @@ def compare_on_tabarena(
 
     plotter = TabArenaEvaluator(
         output_dir=output_dir,
+        task_metadata=task_metadata,
     )
+
     return plotter.eval(
         df_results=df_results,
         baselines=baselines,
@@ -78,6 +104,7 @@ def compare_on_tabarena(
         plot_extra_barplots=False,
         plot_times=True,
         plot_other=False,
+        calibration_framework=calibration_framework,
     )
 
 
