@@ -76,7 +76,13 @@ class Evaluator:
             df_tr = convert_time_infer_s_from_sample_to_batch(df_tr, repo=self.repo)
 
         if self.repo._zeroshot_context.df_baselines is not None:
-            df_baselines = self.repo._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[columns]
+            df_baselines = self.repo._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])
+            baseline_columns = columns
+            if include_metric_error_val:
+                baseline_columns = baseline_columns + ["metric_error_val"]
+                if "metric_error_val" not in df_baselines:
+                    df_baselines["metric_error_val"] = np.nan
+            df_baselines = df_baselines[baseline_columns]
 
             mask = df_baselines.index.get_level_values("dataset").isin(datasets)
             if folds is not None:

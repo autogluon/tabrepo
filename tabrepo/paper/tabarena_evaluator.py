@@ -49,6 +49,7 @@ class TabArenaEvaluator:
         task_metadata: pd.DataFrame | None = None,
         config_types: dict[str, str] = None,
         method_col: str = "method",
+        error_col: str = "metric_error",
         methods: list[str] | None = None,
         folds: list[int] | None = None,
         datasets: list[str] | None = None,
@@ -81,6 +82,7 @@ class TabArenaEvaluator:
         self.output_dir = output_dir
         self.task_metadata = task_metadata
         self.method_col = method_col
+        self.error_col = error_col
         self.config_types = config_types
         self.figure_file_type = figure_file_type
 
@@ -111,7 +113,7 @@ class TabArenaEvaluator:
 
         method_col = self.method_col
 
-        df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(
+        df_results_per_dataset = df_results.groupby([method_col, "dataset"])[self.error_col].mean().reset_index(
             drop=False)
 
         # Alternative, this also incorporates Portfolios and HPO into the normalized scoring. This makes normalized-error dependent on what simulations we run.
@@ -122,6 +124,7 @@ class TabArenaEvaluator:
             baseline=None,
             task_col="dataset",
             framework_col=method_col,
+            metric_error_col=self.error_col,
         )
 
         all_tasks = df_results[["dataset", "fold"]].drop_duplicates().values.tolist()
@@ -138,11 +141,11 @@ class TabArenaEvaluator:
         df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for
                                                (dataset, fold, error) in
                                                zip(df_results["dataset"], df_results["fold"],
-                                                   df_results["metric_error"])]
+                                                   df_results[self.error_col])]
 
         df_results_per_dataset["normalized-error-dataset"] = [
             normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in
-            zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])
+            zip(df_results_per_dataset["dataset"], df_results_per_dataset[self.error_col])
         ]
 
         df_results_per_dataset = df_results_per_dataset.set_index(["dataset", method_col], drop=True)[
@@ -395,7 +398,7 @@ class TabArenaEvaluator:
             method_col=method_col,
             task_col="dataset",
             seed_column="fold",
-            error_col="metric_error",
+            error_col=self.error_col,
             columns_to_agg_extra=[
                 "time_train_s",
                 "time_infer_s",
