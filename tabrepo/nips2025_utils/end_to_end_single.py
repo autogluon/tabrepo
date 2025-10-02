@@ -538,6 +538,7 @@ class EndToEndResultsSingle:
         new_result_prefix: str | None = None,
         use_artifact_name_in_prefix: bool | None = None,
         use_model_results: bool = False,
+        score_on_val: bool = False,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
 
@@ -563,6 +564,7 @@ class EndToEndResultsSingle:
             output_dir=output_dir,
             only_valid_tasks=only_valid_tasks,
             subset=subset,
+            score_on_val=score_on_val,
         )
 
     def get_results(
@@ -595,7 +597,8 @@ class EndToEndResultsSingle:
             new_result_prefix = new_result_prefix + f"[{self.method_metadata.artifact_name}] "
         if new_result_prefix is not None:
             for col in ["method", "config_type", "ta_name", "ta_suite"]:
-                df_results[col] = new_result_prefix + df_results[col]
+                if col in df_results:
+                    df_results[col] = new_result_prefix + df_results[col]
 
         if fillna:
             df_results = self.fillna_results_on_tabarena(df_results=df_results)

@@ -5,7 +5,7 @@ from tabrepo.simulation.sim_runner import run_zs_simulation_debug
 
 # TODO: Refactor to use EvaluationRepository, this is old code
 if __name__ == '__main__':
-    context_name = 'BAG_D244_F3_C1416_small'
+    context_name = 'D244_F3_C1530_10'
     benchmark_context = get_context(context_name)
     zsc, zeroshot_pred_proba, zeroshot_gt = benchmark_context.load()
     zsc.print_info()

@@ -10,9 +10,11 @@ from tabrepo.utils.time_utils import Timer
 
 
 class AbstractExecModel:
+    can_get_error_val = False
     can_get_oof = False
     can_get_per_child_oof = False
     can_get_per_child_test = False
+    can_get_per_child_val_idx = False
 
     # TODO: Prateek: Find a way to put AutoGluon as default - in the case the user does not want their own class
     def __init__(
@@ -129,3 +131,6 @@ class AbstractExecModel:
 
     def cleanup(self):
         pass
+
+    def get_metric_error_val(self) -> float:
+        raise NotImplementedError

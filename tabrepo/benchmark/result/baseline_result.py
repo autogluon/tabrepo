@@ -47,7 +47,8 @@ class BaselineResult(AbstractResult):
         assert isinstance(result, dict)
         result_cls = BaselineResult
         sim_artifacts = result.get("simulation_artifacts", None)
-        if sim_artifacts is not None:
+        method_metadata = result.get("method_metadata", None)
+        if sim_artifacts is not None and method_metadata is not None:
             assert isinstance(sim_artifacts, dict)
             if "task_metadata" in result:
                 dataset = result["task_metadata"]["name"]
@@ -106,6 +107,10 @@ class BaselineResult(AbstractResult):
     @property
     def fold(self) -> int:
         return self.task_metadata["fold"]
+
+    @property
+    def sample(self) -> int:
+        return self.task_metadata["sample"]
 
     @property
     def task_metadata(self) -> dict:

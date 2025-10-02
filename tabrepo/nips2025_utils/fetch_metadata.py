@@ -57,7 +57,7 @@ def load_task_metadata(paper: bool = True, subset: str = None, path: str = None)
         if paper:
             path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena51.csv"
         else:
-            path = f"{tabrepo_root}/tabrepo/nips2025_utils/metadata/task_metadata_tabarena61.csv"
+            raise ValueError(f"paper == True is required")
     task_metadata = load_pd.load(path=path)
 
     task_metadata["n_folds"] = 3

@@ -110,6 +110,7 @@ class TabArenaContext:
         only_valid_tasks: bool = False,
         subset: str | None = None,
         folds: list[int] | None = None,
+        score_on_val: bool = False,
     ) -> pd.DataFrame:
         from tabrepo.nips2025_utils.compare import compare_on_tabarena
         return compare_on_tabarena(
@@ -119,6 +120,7 @@ class TabArenaContext:
             subset=subset,
             folds=folds,
             tabarena_context=self,
+            score_on_val=score_on_val,
         )
 
     @property

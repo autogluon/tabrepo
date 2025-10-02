@@ -1,6 +1,6 @@
 import pandas as pd
 
-from tabrepo import load_repository, get_context, list_contexts, EvaluationRepository
+from tabrepo import get_context, list_contexts, EvaluationRepository
 
 
 if __name__ == '__main__':
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     context_name = "D244_F3_C1530_30"
     context = get_context(name=context_name)
 
-    repo: EvaluationRepository = load_repository(context_name, cache=True)
+    repo: EvaluationRepository = EvaluationRepository.from_context(version=context_name, cache=True)
 
     repo.print_info()
 
