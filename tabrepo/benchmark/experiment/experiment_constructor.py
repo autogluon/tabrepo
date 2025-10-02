@@ -319,6 +319,7 @@ class AGModelExperiment(Experiment):
         The kwargs passed to the init of `experiment_cls`.
     """
     _method_cls = AGSingleWrapper
+    _experiment_cls = OOFExperimentRunner
 
     def __init__(
         self,
@@ -356,7 +357,7 @@ class AGModelExperiment(Experiment):
                 "model_hyperparameters": model_hyperparameters,
                 **method_kwargs,
             },
-            experiment_cls=OOFExperimentRunner,
+            experiment_cls=self._experiment_cls,
             experiment_kwargs=experiment_kwargs,
         )
 
