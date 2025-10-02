@@ -1,5 +1,5 @@
 from autogluon.common.space import Real, Int, Categorical
-from tabrepo.benchmark.models.ag.knn.knn_model import KNN_NewModel
+from tabrepo.benchmark.models.ag.knn_new.knn_model import KNNNewModel
 
 from ...utils.config_utils import ConfigGenerator
 
@@ -15,7 +15,7 @@ search_space = {
     'p': Categorical(2, 1),
 }
 
-gen_knn_new = ConfigGenerator(model_cls=KNN_NewModel, manual_configs=[{}], search_space=search_space)
+gen_knn_new = ConfigGenerator(model_cls=KNNNewModel, manual_configs=[{}], search_space=search_space)
 
 
 def generate_configs_knn(num_random_configs=200):

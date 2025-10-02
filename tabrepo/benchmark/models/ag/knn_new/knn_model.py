@@ -21,7 +21,12 @@ logger = logging.getLogger(__name__)
 from tabprep.preprocessors.numerical.scaling import StandardScalerPreprocessor, QuantileScalerPreprocessor
 
 # TODO: Normalize data!
-class KNN_NewModel(AbstractModel):
+
+# from autogluon.tabular.src.autogluon.tabular.models.knn import KNNModel as knn_base
+# class KNNNewModel(knn_base):
+
+
+class KNNNewModel(AbstractModel):
     """
     KNearestNeighbors model (scikit-learn): https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html
     """
@@ -55,12 +60,11 @@ class KNN_NewModel(AbstractModel):
     def _preprocess(self, X, 
                     is_train: bool = False,
                     **kwargs):
-        X = super()._preprocess(X, **kwargs)
-
         if is_train:
             X = self.scaler.fit_transform(X)
         else:
             X = self.scaler.transform(X)
+        X = super()._preprocess(X, **kwargs)
         X = X.fillna(0).to_numpy(dtype=np.float32)
         return X
 
@@ -104,7 +108,7 @@ class KNN_NewModel(AbstractModel):
     def _fit(self, X, y, num_cpus=-1, time_limit=None, sample_weight=None, **kwargs):
         time_start = time.time()
         
-        X = self.preprocess(X)
+        X = self.preprocess(X, is_train=True)
         params = self._get_model_params()
         if "n_jobs" not in params:
             params["n_jobs"] = num_cpus
