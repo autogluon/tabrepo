@@ -22,8 +22,6 @@ class KNNNewModel(KNNModel):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if not hasattr(self, 'random_seed'):
-            self.random_seed = 42
 
     def _preprocess(self, X, 
                     is_train: bool = False,
