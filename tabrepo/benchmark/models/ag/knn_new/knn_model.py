@@ -8,7 +8,7 @@ from typing import Dict, Union
 import numpy as np
 import pandas as pd
 
-from autogluon.common.features.types import R_FLOAT, R_INT, S_BOOL
+from autogluon.common.features.types import R_INT, R_FLOAT, R_CATEGORY, R_OBJECT, S_BOOL
 from autogluon.common.utils.log_utils import fix_sklearnex_logging_if_kaggle
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
@@ -18,13 +18,7 @@ from autogluon.core.utils.utils import normalize_pred_probas
 
 logger = logging.getLogger(__name__)
 
-from tabprep.preprocessors.numerical.scaling import StandardScalerPreprocessor, QuantileScalerPreprocessor
-
-# TODO: Normalize data!
-
-# from autogluon.tabular.src.autogluon.tabular.models.knn import KNNModel as knn_base
-# class KNNNewModel(knn_base):
-
+from tabrepo.benchmark.models.ag.knn_new.knn_preprocessing import MixedCategoricalEncoder
 
 class KNNNewModel(AbstractModel):
     """
@@ -37,8 +31,8 @@ class KNNNewModel(AbstractModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._X_unused_index = None  # Keeps track of unused training data indices, necessary for LOO OOF generation
-        self.scaler = StandardScalerPreprocessor()
-
+        if not hasattr(self, 'random_seed'):
+            self.random_seed = 42
     def _get_model_type(self):
         if self.params_aux.get("use_daal", True):
             try:
@@ -60,17 +54,21 @@ class KNNNewModel(AbstractModel):
     def _preprocess(self, X, 
                     is_train: bool = False,
                     **kwargs):
-        if is_train:
-            X = self.scaler.fit_transform(X)
-        else:
-            X = self.scaler.transform(X)
+
         X = super()._preprocess(X, **kwargs)
+        if is_train:
+            X = self.knn_preprocessor.fit_transform(X)
+        else:
+            X = self.knn_preprocessor.transform(X)
+
         X = X.fillna(0).to_numpy(dtype=np.float32)
         return X
 
     def _set_default_params(self):
         default_params = {
             "weights": "uniform",
+            'scaler': 'standard',
+            'cat_threshold': 1,
         }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
@@ -78,8 +76,8 @@ class KNNNewModel(AbstractModel):
     def _get_default_auxiliary_params(self) -> dict:
         default_auxiliary_params = super()._get_default_auxiliary_params()
         extra_auxiliary_params = dict(
-            valid_raw_types=[R_INT, R_FLOAT],  # TODO: Eventually use category features
-            ignored_type_group_special=[S_BOOL],
+            valid_raw_types=[R_INT, R_FLOAT, R_CATEGORY, R_OBJECT],  
+            ignored_type_group_special=[],
         )
         default_auxiliary_params.update(extra_auxiliary_params)
         return default_auxiliary_params
@@ -108,14 +106,27 @@ class KNNNewModel(AbstractModel):
     def _fit(self, X, y, num_cpus=-1, time_limit=None, sample_weight=None, **kwargs):
         time_start = time.time()
         
-        X = self.preprocess(X, is_train=True)
         params = self._get_model_params()
         if "n_jobs" not in params:
             params["n_jobs"] = num_cpus
         if sample_weight is not None:  # TODO: support
             logger.log(15, "sample_weight not yet supported for KNNModel, this model will ignore them in training.")
 
+        cat_cols = self._feature_metadata.get_features(
+                    invalid_raw_types=["int", "float"]
+                )
+        self.knn_preprocessor = MixedCategoricalEncoder(cat_threshold=params['cat_threshold'], categorical_features=cat_cols, numeric_strategy=params['scaler'])
+        params.pop('cat_threshold')
+        params.pop('scaler')
+
+        X = self.preprocess(X, is_train=True)
+
         num_rows_max = len(X)
+
+        # Fix for small datasets
+        if num_rows_max < params['n_neighbors']:
+            params['n_neighbors'] = min(params['n_neighbors'], num_rows_max - 1)
+        
         # FIXME: v0.1 Must store final num rows for refit_full or else will use everything! Worst case refit_full could train far longer than the original model.
         if time_limit is None or num_rows_max <= 10000:
             self.model = self._get_model_type()(**params).fit(X, y)
@@ -155,7 +166,7 @@ class KNNNewModel(AbstractModel):
         return y_oof_pred_proba
 
     def _predict_proba_oof(self, X, **kwargs):
-        from ._knn_loo_variants import KNeighborsClassifierLOOMixin, KNeighborsRegressorLOOMixin
+        from autogluon.tabular.models.knn._knn_loo_variants import KNeighborsClassifierLOOMixin, KNeighborsRegressorLOOMixin
 
         if self.problem_type in [BINARY, MULTICLASS]:
             y_oof_pred_proba = KNeighborsClassifierLOOMixin.predict_proba_loo(self.model)
