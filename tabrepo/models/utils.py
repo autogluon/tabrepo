@@ -34,6 +34,7 @@ def get_configs_generator_from_name(model_name: str):
         "FastaiMLP": lambda: importlib.import_module("tabrepo.models.fastai.generate").gen_fastai,
         "FTTransformer": lambda: importlib.import_module("tabrepo.models.ftt.generate").gen_fttransformer,
         "KNN": lambda: importlib.import_module("tabrepo.models.knn.generate").gen_knn,
+        "KNN_new": lambda: importlib.import_module("tabrepo.models.knn_new.generate").gen_knn_new,
         "LightGBM": lambda: importlib.import_module("tabrepo.models.lightgbm.generate").gen_lightgbm,
         "Linear": lambda: importlib.import_module("tabrepo.models.lr.generate").gen_linear,
         "ModernNCA": lambda: importlib.import_module("tabrepo.models.modernnca.generate").gen_modernnca,

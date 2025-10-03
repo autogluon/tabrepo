@@ -14,6 +14,7 @@ from tabrepo.benchmark.models.ag import (
     TabPFNV2ClientModel,
     TabPFNV2Model,
     XRFMModel,
+    KNNNewModel,
 )
 
 tabrepo_model_register: ModelRegistry = copy.deepcopy(ag_model_registry)
@@ -28,6 +29,7 @@ _models_to_add = [
     TabMModel,
     ModernNCAModel,
     XRFMModel,
+    KNNNewModel,
 ]
 
 for _model_cls in _models_to_add:
