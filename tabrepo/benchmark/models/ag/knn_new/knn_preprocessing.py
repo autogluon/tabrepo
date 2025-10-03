@@ -9,8 +9,8 @@ from sklearn.preprocessing import (
 )
 from typing import List, Literal, Optional
 
-
-class MixedCategoricalEncoder(BaseEstimator, TransformerMixin):
+# NOTE: code is mostly AI-generated and sanity-checked afterwards.
+class KNNPreprocessor(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         categorical_features: List[str],

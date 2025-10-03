@@ -18,7 +18,7 @@ from autogluon.core.utils.utils import normalize_pred_probas
 
 logger = logging.getLogger(__name__)
 
-from tabrepo.benchmark.models.ag.knn_new.knn_preprocessing import MixedCategoricalEncoder
+from tabrepo.benchmark.models.ag.knn_new.knn_preprocessing import KNNPreprocessor
 
 class KNNNewModel(AbstractModel):
     """
@@ -117,7 +117,7 @@ class KNNNewModel(AbstractModel):
         cat_cols = self._feature_metadata.get_features(
                     invalid_raw_types=["int", "float"]
                 )
-        self.knn_preprocessor = MixedCategoricalEncoder(cat_threshold=params['cat_threshold'], categorical_features=cat_cols, numeric_strategy=params['scaler'])
+        self.knn_preprocessor = KNNPreprocessor(cat_threshold=params['cat_threshold'], categorical_features=cat_cols, numeric_strategy=params['scaler'])
         params.pop('cat_threshold')
         params.pop('scaler')
 
