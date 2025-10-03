@@ -13,7 +13,7 @@ from autogluon.common.savers import save_pd, save_json
 from autogluon.core.utils import generate_train_test_split
 
 from .task_utils import get_task_data, get_ag_problem_type, get_task_with_retry
-from ....utils.s3_utils import download_task_from_s3
+from ....utils.s3_utils import download_task_from_s3, upload_task_to_s3
 
 logger = logging.getLogger(__name__)
 
@@ -193,3 +193,8 @@ class OpenMLS3TaskWrapper(OpenMLTaskWrapper):
         download_task_from_s3(task_id, s3_dataset_cache=s3_dataset_cache)
         task = get_task_with_retry(task_id=task_id)
         return cls(task)
+
+    @classmethod
+    def update_s3_cache(cls, task_id: int, dataset_id: int, s3_dataset_cache: str):
+        assert s3_dataset_cache is not None
+        upload_task_to_s3(task_id=task_id, dataset_id=dataset_id, s3_dataset_cache=s3_dataset_cache)
