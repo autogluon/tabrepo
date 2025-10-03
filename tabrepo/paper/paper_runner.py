@@ -195,7 +195,7 @@ class PaperRun:
     def run_baselines(self) -> pd.DataFrame | None:
         if not self.repo.baselines():
             return None
-        df_results_baselines = self.evaluator.compare_metrics(configs=[]).reset_index()
+        df_results_baselines = self.evaluator.compare_metrics(configs=[], include_metric_error_val=True).reset_index()
         df_results_baselines["method_type"] = "baseline"
         return df_results_baselines
 
