@@ -71,6 +71,10 @@ class MixedCategoricalEncoder(BaseEstimator, TransformerMixin):
             c for c in self.feature_names_in_ if c not in self.categorical_features
         ]
 
+        if len(self.categorical_features) == len(X.columns) and self.cat_threshold == 0:
+            print("Warning: All features are categorical and cat_threshold=0. Fallback to ordinal encoding is used.")
+            self.cat_threshold = 1  # fallback to ordinal encoding
+
         # reset
         self.encoders_.clear()
         self.low_card_cols_.clear()

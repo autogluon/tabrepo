@@ -69,6 +69,8 @@ class KNNNewModel(AbstractModel):
             "weights": "uniform",
             'scaler': 'standard',
             'cat_threshold': 1,
+            'n_neighbors': 5,
+            'p': 2,
         }
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
