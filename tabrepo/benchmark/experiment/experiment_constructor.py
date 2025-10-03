@@ -200,9 +200,9 @@ class AGModelOuterExperiment(Experiment):
 
     @classmethod
     def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
-        model_cls = infer_model_cls(model_cls)
         if _context is None:
             _context = globals()
+        model_cls = _context.get(model_cls, infer_model_cls(model_cls))
 
         # Evaluate all values in ag_args_fit
         if "model_hyperparameters" in kwargs:
@@ -371,9 +371,9 @@ class AGModelExperiment(Experiment):
 
     @classmethod
     def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
-        model_cls = infer_model_cls(model_cls)
         if _context is None:
             _context = globals()
+        model_cls = _context.get(model_cls, infer_model_cls(model_cls))
 
         # Evaluate all values in ag_args_fit
         if "model_hyperparameters" in kwargs:
@@ -493,7 +493,7 @@ class YamlSingleExperimentSerializer:
             context = globals()
 
         method_type = eval(method_config.pop('type'), context)
-        method_obj = method_type.from_yaml(**method_config)
+        method_obj = method_type.from_yaml(**method_config, _context=context)
         return method_obj
 
     @classmethod

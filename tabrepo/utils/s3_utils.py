@@ -96,7 +96,7 @@ def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
 
         logger.info(f"Attempting to download task {task_id} from S3 bucket {s3_bucket}")
         s3_key_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
-
+        logger.info(f"s3_key_prefix set to: " + s3_key_prefix)
         try:
             task_xml_path = task_cache_dir / "task.xml"
             if not task_xml_path.exists():
