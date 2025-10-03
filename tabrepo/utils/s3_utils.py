@@ -75,6 +75,46 @@ def parse_s3_uri(s3_uri: str = None):
     return bucket, prefix
 
 
+def upload_task_to_s3(task_id: int, dataset_id: int, s3_dataset_cache: str = None) -> bool:
+    import boto3
+    """
+    Uploads the task and dataset to S3.
+    """
+    if s3_dataset_cache is None:
+        return False
+    # OpenML cache directory location for tasks + datasets
+    local_cache_dir = Path(os.path.expanduser("~/.cache/openml/org/openml/www"))
+    assert local_cache_dir.is_dir()
+
+    try:
+        s3_client = boto3.client('s3')
+        s3_bucket, s3_prefix = parse_s3_uri(s3_uri=s3_dataset_cache)
+        logger.info(f"Attempting to upload task {task_id} to S3 bucket {s3_bucket}")
+
+        task_cache_dir = local_cache_dir / "tasks" / str(task_id)
+        s3_task_key_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
+        cache_dirs = [task_cache_dir]
+        s3_key_prefixes = [s3_task_key_prefix]
+        if dataset_id is not None:
+            dataset_cache_dir = local_cache_dir / "datasets" / str(dataset_id)
+            s3_dataset_key_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/datasets/{dataset_id}"
+            cache_dirs.append(dataset_cache_dir)
+            s3_key_prefixes.append(s3_dataset_key_prefix)
+        for cache_dir, s3_key_prefix in zip(cache_dirs, s3_key_prefixes):
+            for root, _, files in os.walk(cache_dir):
+                for filename in files:
+                    local_path = os.path.join(root, filename)
+                    relative_path = os.path.relpath(local_path, cache_dir)
+                    s3_key = os.path.join(s3_key_prefix, relative_path).replace("\\", "/")
+                    print(f"Uploading {local_path} to s3://{s3_bucket}/{s3_key}")
+                    s3_client.upload_file(local_path, s3_bucket, s3_key)
+        logger.info(f"Task {task_id} successfully uploaded to S3 at s3://{s3_bucket}/{s3_key}.")
+        return True
+    except Exception as e:
+        logger.error(f"Error upaloading to S3 for task {task_id}: {str(e)}")
+        return False
+
+
 def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
     import boto3
     """
@@ -98,30 +138,31 @@ def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
         s3_key_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
         logger.info(f"s3_key_prefix set to: " + s3_key_prefix)
         try:
-            task_xml_path = task_cache_dir / "task.xml"
-            if not task_xml_path.exists():
-                s3_client.download_file(
-                    Bucket=s3_bucket,
-                    Key=f"{s3_key_prefix}/task.xml",
-                    Filename=str(task_cache_dir / "task.xml")
-                )
-                logger.info(f"Downloaded task.xml for task {task_id} from S3")
-            else:
-                logger.info(f"task.xml already exists for task {task_id}, skipping download")
+            s3_task_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
+            response = s3_client.list_objects_v2(
+                Bucket=s3_bucket,
+                Prefix=f"{s3_task_prefix}/"
+            )
 
-            datasplits_path = task_cache_dir / "datasplits.arff"
-            if not datasplits_path.exists():
-                try:
-                    s3_client.download_file(
-                        Bucket=s3_bucket,
-                        Key=f"{s3_key_prefix}/datasplits.arff",
-                        Filename=str(task_cache_dir / "datasplits.arff")
-                    )
-                    logger.info(f"Downloaded datasplits.arff for task {task_id} from S3")
-                except s3_client.exceptions.ClientError:
-                    logger.info(f"No datasplits.arff found in S3 for task {task_id}")
-            else:
-                logger.info(f"datasplits.arff already exists for task {task_id}, skipping download")
+            for obj in response['Contents']:
+                s3_key = obj['Key']
+                filename = os.path.basename(s3_key)
+                if filename == '':
+                    continue
+
+                local_file_path = task_cache_dir / filename
+                if not local_file_path.exists():
+                    try:
+                        s3_client.download_file(
+                            Bucket=s3_bucket,
+                            Key=s3_key,
+                            Filename=str(local_file_path)
+                        )
+                        logger.info(f"Downloaded {filename} for task {task_id} from S3")
+                    except s3_client.exceptions.ClientError as e:
+                        logger.info(f"Error downloading {filename} for task {task_id}: {e}")
+                else:
+                    logger.info(f"{filename} already exists for task {task_id}, skipping download")
 
             with open(task_cache_dir / "task.xml", 'r') as f:
                 task_xml = f.read()
