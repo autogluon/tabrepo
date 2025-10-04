@@ -23,6 +23,7 @@ from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
 from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map
+from tabrepo.plot.dataset_analysis import plot_train_time_deep_dive
 from tabrepo.plot.plot_ens_weights import create_heatmap
 from tabrepo.plot.plot_pareto_frontier import plot_pareto as _plot_pareto, plot_pareto_aggregated
 
@@ -1634,7 +1635,6 @@ class TabArenaEvaluator:
 
     # FIXME: clean this up
     def generate_runtime_plot(self, df_results: pd.DataFrame):
-        from scripts.dataset_analysis import plot_train_time_deep_dive  # FIXME
         df_results_configs = df_results[df_results["method_type"] == "config"]
         df_results_configs = df_results_configs.copy(deep=True)
 

@@ -6,10 +6,7 @@ from typing import Literal
 import matplotlib
 import numpy as np
 from matplotlib import ticker
-from matplotlib.container import BarContainer
-from tueplots import bundles, fonts, fontsizes, figsizes
-
-from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
+from tueplots import bundles, fonts, fontsizes
 
 matplotlib.rcParams.update(fontsizes.neurips2024())
 
@@ -23,9 +20,9 @@ import seaborn as sns
 from matplotlib.patches import Patch
 
 from tabrepo import EvaluationRepository, Evaluator
-from scripts.baseline_comparison.evaluate_utils import plot_family_proportion
+from tabrepo.plot.plot_family_proportion import plot_family_proportion
 from tabrepo.paper.paper_utils import make_scorers, generate_sensitivity_plots, get_framework_type_method_names
-from scripts.dataset_analysis import generate_dataset_analysis
+from tabrepo.plot.dataset_analysis import generate_dataset_analysis
 
 import matplotlib.colors as mcolors
 
@@ -990,7 +987,7 @@ class PaperRun:
 
     # FIXME: clean this up
     def generate_runtime_plot(self, df_results: pd.DataFrame):
-        from scripts.dataset_analysis import plot_train_time_deep_dive
+        from tabrepo.plot.dataset_analysis import plot_train_time_deep_dive
         df_results_configs = df_results[df_results["method_type"] == "config"]
         df_results_configs = df_results_configs.copy(deep=True)
         # df_results_configs["method"] = df_results_configs["config_type"]

@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from tabrepo import EvaluationRepository
-from scripts import load_context
-from scripts.baseline_comparison.plot_utils import figure_path, save_latex_table
+from tabrepo.plot.plot_utils import figure_path, save_latex_table
 
 
 def order_clustermap(df, allow_nan=True):
@@ -194,7 +193,7 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     ax.set_title("Training runtime distribution", fontdict={'size': title_size})
 
     plt.tight_layout()
-    fig_save_path = figure_path(prefix=expname_outdir) / f"data-analysis.pdf"
+    fig_save_path = figure_path(path=expname_outdir) / f"data-analysis.pdf"
     plt.savefig(fig_save_path)
     plt.show()
 
@@ -392,10 +391,3 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_me
     plt.savefig(fig_save_path)
     if show:
         plt.show()
-
-
-if __name__ == "__main__":
-    repo_version = "D244_F3_C1530_200"
-    repo: EvaluationRepository = load_context(version=repo_version)
-    expname_outdir = str(Path("output") / repo_version)
-    generate_dataset_analysis(repo=repo, expname_outdir=expname_outdir)
