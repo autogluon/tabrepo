@@ -16,7 +16,7 @@ from tabrepo.benchmark.models.ag import (
     XRFMModel,
 )
 
-tabrepo_model_register: ModelRegistry = copy.deepcopy(ag_model_registry)
+tabarena_model_registry: ModelRegistry = copy.deepcopy(ag_model_registry)
 
 _models_to_add = [
     ExplainableBoostingMachineModel,
@@ -31,12 +31,12 @@ _models_to_add = [
 ]
 
 for _model_cls in _models_to_add:
-    tabrepo_model_register.add(_model_cls)
+    tabarena_model_registry.add(_model_cls)
 
 
 def infer_model_cls(model_cls: str, model_register: ModelRegistry = None):
     if model_register is None:
-        model_register = tabrepo_model_register
+        model_register = tabarena_model_registry
     if isinstance(model_cls, str):
         if model_cls in model_register.key_to_cls_map():
             model_cls = model_register.key_to_cls(key=model_cls)
