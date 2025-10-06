@@ -26,8 +26,7 @@ class KNNNewModel(AbstractModel):
     """
     ag_key = "KNN_new"
     ag_name = "KNeighbors_new"
-    ag_priority = 1000
-
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._X_unused_index = None  # Keeps track of unused training data indices, necessary for LOO OOF generation
@@ -78,7 +77,7 @@ class KNNNewModel(AbstractModel):
     def _get_default_auxiliary_params(self) -> dict:
         default_auxiliary_params = super()._get_default_auxiliary_params()
         extra_auxiliary_params = dict(
-            valid_raw_types=[R_INT, R_FLOAT, R_CATEGORY, R_OBJECT],  
+            valid_raw_types=[R_INT, R_FLOAT, R_CATEGORY],  
             ignored_type_group_special=[],
         )
         default_auxiliary_params.update(extra_auxiliary_params)
