@@ -26,6 +26,7 @@ def main():
 
     for task_id in tids:
         task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
+        task.get_split_indices()  # force OpenML splits file download
         # Cache OpenML files to S3
         OpenMLS3TaskWrapper.update_s3_cache(
             task_id=task.task_id,
