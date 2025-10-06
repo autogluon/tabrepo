@@ -95,7 +95,7 @@ class ExperimentRunner:
     def run_model_fit(self) -> dict:
         return self.model.fit_custom(X=self.X, y=self.y, X_test=self.X_test)
 
-    def run(self):
+    def run(self) -> dict:
         out = self._run()
         if self.cleanup:
             self._cleanup()
@@ -115,7 +115,7 @@ class ExperimentRunner:
         cacher: AbstractCacheFunction | None = None,
         debug_mode: bool = True,
         **kwargs,
-    ):
+    ) -> dict:
         obj = cls(
             method_cls=method_cls,
             task=task,
@@ -131,7 +131,7 @@ class ExperimentRunner:
         )
         return obj.run()
 
-    def _run(self):
+    def _run(self) -> dict:
         utc_time = datetime.datetime.now(datetime.timezone.utc)
         time_start_str = utc_time.strftime('%Y-%m-%d %H:%M:%S')
         time_start = utc_time.timestamp()

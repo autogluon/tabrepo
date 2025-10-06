@@ -140,7 +140,7 @@ class Experiment:
         cacher: AbstractCacheFunction | None = None,
         ignore_cache: bool = False,
         **experiment_kwargs,
-    ) -> object:
+    ) -> dict:
         if cacher is None:
             cacher = CacheFunctionDummy()
         if task is not None:
