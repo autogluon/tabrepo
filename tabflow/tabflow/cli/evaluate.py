@@ -162,7 +162,8 @@ if __name__ == '__main__':
     parser.add_argument('--custom_model_s3_path', type=str, required=False, default=None,
                         help="S3 path for a Python class that extends AbstractExecModel")
     parser.add_argument('--raise_on_failure', type=bool, required=False, default=False, help="Crashes if the program fails")
-    parser.add_argument('--ignore_cache', type=bool, required=False, default=False, help="Crashes if the program fails")
+    parser.add_argument('--ignore_cache', type=bool, required=False, default=False,
+                        help="If True, will run the experiments regardless if the cache exists already.")
 
     args = parser.parse_args()
     if args.s3_dataset_cache == "":

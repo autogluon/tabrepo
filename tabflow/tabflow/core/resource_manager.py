@@ -128,6 +128,7 @@ class TrainingJobResourceManager:
             removed_jobs = self.remove_completed_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
             self._print_status()
             if stop_wait_on_fail and self.job_statuses['Failed'] > 0:
+                # TODO: Consider implementing shutoff logic for the non-failed nodes
                 return
             if removed_jobs == 0:
                 print(f"Waiting for {len(self.job_names)} jobs to complete...")
