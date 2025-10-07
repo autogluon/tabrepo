@@ -355,7 +355,12 @@ class TabArenaContext:
         df_results = pd.concat(df_results_lst, ignore_index=True)
         return df_results
 
-    def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
+    def load_configs_hyperparameters(
+        self,
+        methods: list[str] | None = None,
+        holdout: bool = False,
+        download: bool | str = False,
+    ) -> dict[str, dict]:
         if methods is None:
             methods = self.methods
             methods = [m for m in methods if self.method_metadata(m).method_type == "config"]
@@ -365,21 +370,7 @@ class TabArenaContext:
         configs_hyperparameters_lst = []
         for method in methods:
             metadata = self.method_metadata(method=method)
-            if isinstance(download, bool) and download:
-                metadata.download_configs_hyperparameters(holdout=holdout)
-            try:
-                configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
-            except FileNotFoundError as err:
-                if isinstance(download, str) and download == "auto":
-                    print(
-                        f"Cache miss detected for configs_hyperparameters.json "
-                        f"(method={metadata.method}), attempting download..."
-                    )
-                    metadata.download_configs_hyperparameters(holdout=holdout)
-                    configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
-                    print(f"\tDownload successful")
-                else:
-                    raise err
+            configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout, download=download)
             configs_hyperparameters_lst.append(configs_hyperparameters)
 
         def merge_dicts_no_duplicates(dicts: list[dict]) -> dict:
