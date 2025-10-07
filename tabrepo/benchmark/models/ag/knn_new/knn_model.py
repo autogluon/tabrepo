@@ -40,10 +40,10 @@ class KNNNewModel(KNNModel):
 
     def _set_default_params(self):
         default_params = {
-            "weights": "uniform",
+            "weights": "distance",
             'scaler': 'standard',
-            'cat_threshold': 1,
-            'n_neighbors': 5,
+            'cat_threshold': 10,
+            'n_neighbors': 20,
             'p': 2,
         }
         for param, val in default_params.items():
