@@ -20,11 +20,7 @@ if __name__ == '__main__':
             s3_bucket=bucket,
             s3_prefix=s3_prefix_root,
         )
-        downloader = MethodDownloaderS3(
-            method_metadata=metadata,
-            s3_bucket=bucket,
-            s3_prefix=s3_prefix_root,
-        )
+        downloader: MethodDownloaderS3 = metadata.method_downloader()
         downloader.download_all()
         # Nick: Note that LightGBM_aio_0812 will skip processed and results due to invalid raw contents.
 

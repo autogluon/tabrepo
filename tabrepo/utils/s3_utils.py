@@ -138,30 +138,31 @@ def download_task_from_s3(task_id: int, s3_dataset_cache: str = None) -> bool:
         s3_key_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
         logger.info(f"s3_key_prefix set to: " + s3_key_prefix)
         try:
-            task_xml_path = task_cache_dir / "task.xml"
-            if not task_xml_path.exists():
-                s3_client.download_file(
-                    Bucket=s3_bucket,
-                    Key=f"{s3_key_prefix}/task.xml",
-                    Filename=str(task_cache_dir / "task.xml")
-                )
-                logger.info(f"Downloaded task.xml for task {task_id} from S3")
-            else:
-                logger.info(f"task.xml already exists for task {task_id}, skipping download")
+            s3_task_prefix = f"{s3_prefix}/tasks/{task_id}/org/openml/www/tasks/{task_id}"
+            response = s3_client.list_objects_v2(
+                Bucket=s3_bucket,
+                Prefix=f"{s3_task_prefix}/"
+            )
 
-            datasplits_path = task_cache_dir / "datasplits.arff"
-            if not datasplits_path.exists():
-                try:
-                    s3_client.download_file(
-                        Bucket=s3_bucket,
-                        Key=f"{s3_key_prefix}/datasplits.arff",
-                        Filename=str(task_cache_dir / "datasplits.arff")
-                    )
-                    logger.info(f"Downloaded datasplits.arff for task {task_id} from S3")
-                except s3_client.exceptions.ClientError:
-                    logger.info(f"No datasplits.arff found in S3 for task {task_id}")
-            else:
-                logger.info(f"datasplits.arff already exists for task {task_id}, skipping download")
+            for obj in response['Contents']:
+                s3_key = obj['Key']
+                filename = os.path.basename(s3_key)
+                if filename == '':
+                    continue
+
+                local_file_path = task_cache_dir / filename
+                if not local_file_path.exists():
+                    try:
+                        s3_client.download_file(
+                            Bucket=s3_bucket,
+                            Key=s3_key,
+                            Filename=str(local_file_path)
+                        )
+                        logger.info(f"Downloaded {filename} for task {task_id} from S3")
+                    except s3_client.exceptions.ClientError as e:
+                        logger.info(f"Error downloading {filename} for task {task_id}: {e}")
+                else:
+                    logger.info(f"{filename} already exists for task {task_id}, skipping download")
 
             with open(task_cache_dir / "task.xml", 'r') as f:
                 task_xml = f.read()

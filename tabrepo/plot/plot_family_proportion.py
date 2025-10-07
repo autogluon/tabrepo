@@ -7,34 +7,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from tabrepo import EvaluationRepository
-from tabrepo.utils.normalized_scorer import NormalizedScorer
-from tabrepo.utils.rank_utils import RankScorer
-
-
-def make_scorers(repo: EvaluationRepository, only_baselines=False):
-    if only_baselines:
-        df_results_baselines = repo._zeroshot_context.df_baselines
-    else:
-        dfs_to_concat = []
-        if len(repo._zeroshot_context.df_configs_ranked) != 0:
-            dfs_to_concat.append(repo._zeroshot_context.df_configs_ranked)
-        if len(repo._zeroshot_context.df_baselines) != 0:
-            dfs_to_concat.append(repo._zeroshot_context.df_baselines)
-        if len(dfs_to_concat) > 1:
-            df_results_baselines = pd.concat(dfs_to_concat, ignore_index=True)
-        else:
-            df_results_baselines = dfs_to_concat[0]
-
-    unique_dataset_folds = [
-        f"{repo.dataset_to_tid(dataset)}_{fold}"
-        for dataset in repo.datasets()
-        for fold in repo.dataset_to_folds(dataset=dataset)
-    ]
-    rank_scorer = RankScorer(df_results_baselines, tasks=unique_dataset_folds, pct=False)
-    normalized_scorer = NormalizedScorer(df_results_baselines, tasks=unique_dataset_folds, baseline=None)
-    return rank_scorer, normalized_scorer
-
 
 def plot_family_proportion(df, method="Portfolio-N200 (ensemble) (4h)", save_prefix: str = None, show: bool = True, hue_order: list = None):
     df_family = df[df["method"] == method].copy()

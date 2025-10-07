@@ -8,6 +8,8 @@ import pandas as pd
 
 from autogluon.common.savers import save_pd
 
+from tabrepo.evaluation.evaluate_utils import make_scorers
+from tabrepo.portfolio.greedy_portfolio_generator import zeroshot_results
 from ..repository import EvaluationRepository, EvaluationRepositoryCollection
 from ..repository.repo_utils import convert_time_infer_s_from_sample_to_batch
 
@@ -410,9 +412,6 @@ class Evaluator:
         n_eval_folds: int | None = None,
     ) -> pd.DataFrame:
         repo = self.repo
-
-        from scripts.baseline_comparison.baselines import zeroshot_results
-        from scripts.baseline_comparison.evaluate_utils import make_scorers
 
         rank_scorer, normalized_scorer = make_scorers(repo)
 
