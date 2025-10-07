@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Literal, Type
 
+import json
 import pandas as pd
+from pathlib import Path
+import traceback
 
 from tabrepo.benchmark.result import BaselineResult, ExperimentResults
 from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
@@ -332,7 +335,6 @@ def check_cache_hit(
     cacher = cache_cls(cache_name=cache_name, cache_path=cache_path, **cache_cls_kwargs)
 
     if delete_cache:
-        from pathlib import Path
         Path(cacher.cache_file).unlink(missing_ok=True)
 
     return cacher.exists
@@ -530,6 +532,9 @@ def run_experiments(
                             **run_kwargs,
                         )
                     except Exception as exc:
+                        error_cacher = cache_cls(cache_name="error", cache_path=cache_path, **cache_cls_kwargs)
+                        exception_info = json.dumps({"error": str(exc), "traceback": traceback.format_exc()})
+                        error_cacher.save_cache(exception_info)
                         if raise_on_failure:
                             raise
                         print(exc.__class__)

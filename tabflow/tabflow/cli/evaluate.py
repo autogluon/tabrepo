@@ -51,7 +51,7 @@ def load_tasks(
         fold = task["fold"]
         method_name = task["method_name"]
         method_kwargs = find_method_by_name(methods_config, method_name)
-        context = expanded_globals(custom_model_path) if custom_model_path else globals()
+        context = expanded_globals(custom_model_path) if custom_model_path else None
         method: Experiment = YamlSingleExperimentSerializer.parse_method(method_kwargs, context)
 
         task_dict = dict(
@@ -77,10 +77,10 @@ def evaluate(
     s3_dataset_cache: str = None,
     task_metadata_path: str = None,
     custom_model_s3_path: str = None,
+    ignore_cache: bool = False,
 ):
     # Load Context
     expname = experiment_name
-    ignore_cache = False  # set to True to overwrite existing caches and re-run experiments from scratch
 
     if task_metadata_path is not None:
         assert context_name is None
@@ -162,6 +162,7 @@ if __name__ == '__main__':
     parser.add_argument('--custom_model_s3_path', type=str, required=False, default=None,
                         help="S3 path for a Python class that extends AbstractExecModel")
     parser.add_argument('--raise_on_failure', type=bool, required=False, default=False, help="Crashes if the program fails")
+    parser.add_argument('--ignore_cache', type=bool, required=False, default=False, help="Crashes if the program fails")
 
     args = parser.parse_args()
     if args.s3_dataset_cache == "":

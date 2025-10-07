@@ -114,7 +114,7 @@ class TrainingJobResourceManager:
         print()
 
 
-    def wait_for_all_jobs(self, s3_client, s3_bucket, poll_interval=10):
+    def wait_for_all_jobs(self, s3_client, s3_bucket, poll_interval=10, stop_wait_on_fail=False):
         """
         Wait for all jobs to complete.
         
@@ -127,7 +127,8 @@ class TrainingJobResourceManager:
         while self.job_names:
             removed_jobs = self.remove_completed_jobs(s3_client=s3_client, s3_bucket=s3_bucket)
             self._print_status()
-
+            if stop_wait_on_fail and self.job_statuses['Failed'] > 0:
+                return
             if removed_jobs == 0:
                 print(f"Waiting for {len(self.job_names)} jobs to complete...")
                 time.sleep(poll_interval)
