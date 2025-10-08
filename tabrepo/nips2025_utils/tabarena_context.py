@@ -153,9 +153,7 @@ class TabArenaContext:
                 metadata = method
             else:
                 metadata = self.method_metadata(method=method)
-            cur_repo = EvaluationRepository.from_dir(
-                path=metadata.path_processed,
-            )
+            cur_repo = metadata.load_processed()
             repos.append(cur_repo)
         repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
         return repo
@@ -273,13 +271,9 @@ class TabArenaContext:
 
         return hpo_results, model_results
 
-    def simulate_portfolio(self, methods: list[str], config_fallback: str):
-        repos = []
-        for method in methods:
-            metadata = self.method_metadata(method=method)
-            cur_repo = EvaluationRepository.from_dir(path=metadata.path_processed)
-            repos.append(cur_repo)
-        repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
+    def simulate_portfolio(self, methods: list[str], config_fallback: str, repo: EvaluationRepositoryCollection = None):
+        if repo is None:
+            repo = self.load_repo(methods=methods, config_fallback=config_fallback)
         simulator = PaperRunTabArena(repo=repo, backend=self.backend)
 
         df_results_n_portfolio = []
