@@ -146,7 +146,9 @@ class TabArenaContext:
         results_lst = metadata.load_raw(engine=self.engine, as_holdout=as_holdout)
         return results_lst
 
-    def load_repo(self, methods: list[str | MethodMetadata], config_fallback: str | None = None) -> EvaluationRepositoryCollection:
+    def load_repo(self, methods: list[str | MethodMetadata] | None = None, config_fallback: str | None = None) -> EvaluationRepositoryCollection:
+        if methods is None:
+            methods = self.methods
         repos = []
         for method in methods:
             if isinstance(method, MethodMetadata):
@@ -196,6 +198,31 @@ class TabArenaContext:
 
         repo.to_dir(path_processed)
         return path_processed
+
+    def run_hpo(
+        self,
+        method: str,
+        repo: EvaluationRepository,
+        n_iterations: int = 40,
+        n_configs: int | None = None,
+        time_limit: float | None = None,
+        fit_order: Literal["original", "random"] = "original",
+        seed: int = 0,
+    ) -> pd.DataFrame:
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+        df_results_family_hpo = simulator.run_ensemble_config_type(
+            config_type=method,
+            n_iterations=n_iterations,
+            n_configs=n_configs,
+            time_limit=time_limit,
+            fit_order=fit_order,
+            seed=seed,
+        )
+        df_results_family_hpo = df_results_family_hpo.rename(columns={
+            "framework": "method",
+        })
+        df_results_family_hpo["method"] = f"HPO-N{n_configs}-{method}"
+        return df_results_family_hpo
 
     def simulate_repo(
         self,
@@ -270,6 +297,23 @@ class TabArenaContext:
             save_pd.save(path=save_file_model, df=model_results)
 
         return hpo_results, model_results
+
+    def simulate_portfolio_from_configs(
+        self,
+        configs: list[str],
+        config_fallback: str | None = None,
+        repo: EvaluationRepositoryCollection = None,
+    ):
+        if repo is None:
+            repo = self.load_repo(config_fallback=config_fallback)
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+
+        results = simulator.evaluate_ensembles(
+            configs=configs,
+        )
+
+        results = results.rename(columns={"framework": "method"})
+        return results
 
     def simulate_portfolio(self, methods: list[str], config_fallback: str, repo: EvaluationRepositoryCollection = None):
         if repo is None:

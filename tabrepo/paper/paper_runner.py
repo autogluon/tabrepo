@@ -116,13 +116,19 @@ class PaperRun:
         # FIXME: Don't recompute this each call, implement `self.repo.configs(config_types=[config_type])`
         config_type_groups = self.get_config_type_groups()
         configs = config_type_groups[config_type]
+
+        if fit_order == "random":
+            # randomly shuffle the configs
+            rng = np.random.default_rng(seed=seed)
+            configs = list(rng.permuted(configs))
+
         if n_configs is not None:
             configs = configs[:n_configs]
         df_results_family_hpo, _ = self.repo.evaluate_ensembles(
             configs=configs,
-            fit_order=fit_order,
             ensemble_size=n_iterations,
-            seed=seed,
+            fit_order="original",
+            seed=0,
             time_limit=time_limit,
             backend=self.backend,
         )
@@ -147,6 +153,43 @@ class PaperRun:
         df_results_family_hpo["method_metadata"] = [method_metadata] * len(df_results_family_hpo)
 
         return df_results_family_hpo
+
+    def evaluate_ensembles(
+        self,
+        configs: list[str] | None = None,
+        time_limit: float | None = None,
+        n_iterations: int = 40,
+        fit_order: Literal["original", "random"] = "original",
+        seed: int = 0,
+    ) -> pd.DataFrame:
+        if configs is None:
+            configs = self.repo.configs()
+        df_results, _ = self.repo.evaluate_ensembles(
+            configs=configs,
+            fit_order=fit_order,
+            ensemble_size=n_iterations,
+            seed=seed,
+            time_limit=time_limit,
+            backend=self.backend,
+        )
+        df_results = df_results.reset_index()
+        df_results["method_type"] = "portfolio"
+
+        if n_iterations == 1:
+            method_subtype = "tuned"
+        else:
+            method_subtype = "tuned_ensemble"
+        df_results["method_subtype"] = method_subtype
+
+        method_metadata = dict(
+            n_iterations=n_iterations,
+            time_limit=time_limit,
+            fit_order=fit_order,
+        )
+
+        df_results["method_metadata"] = [method_metadata] * len(df_results)
+
+        return df_results
 
     def run_zs(
             self,
