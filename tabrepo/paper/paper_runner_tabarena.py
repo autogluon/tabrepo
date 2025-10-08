@@ -97,14 +97,16 @@ class PaperRunTabArena(PaperRun):
         return self.run_zs(n_portfolios=n_portfolio, n_ensemble=None, n_ensemble_in_name=False)
 
     # FIXME: This is a hack
-    def _config_default(self, config_type: str, return_none_if_missing=False) -> str | None:
+    def _config_default(self, config_type: str, use_first_if_missing=False, return_none_if_missing=False) -> str | None:
         configs = self.repo.configs(config_types=[config_type])
-        configs_default = [c for c in configs if "_c1_" in c]
+        configs_default = [c for c in configs if "_c1_" in c or c.endswith("_c1")]
         if len(configs_default) == 1:
             return configs_default[0]
         elif len(configs_default) == 0:
-            configs_default = [c for c in configs if "_r1_" in c]
+            configs_default = [c for c in configs if "_r1_" in c or c.endswith("_r1")]
             if len(configs_default) == 0:
+                if (len(configs) > 0) and use_first_if_missing:
+                    return configs[0]
                 if return_none_if_missing:
                     return None
                 raise ValueError(
@@ -139,7 +141,7 @@ class PaperRunTabArena(PaperRun):
         return df_results_config
 
     def run_config_default(self, model_type: str) -> pd.DataFrame:
-        config_default = self._config_default(config_type=model_type)
+        config_default = self._config_default(config_type=model_type, use_first_if_missing=True)
         df_results_config = self.run_config(config=config_default)
         configs_types = self.repo.configs_type()
         df_results_config["method_type"] = "config"
@@ -188,7 +190,7 @@ class PaperRunTabArena(PaperRun):
         -------
 
         """
-        config_default = self._config_default(config_type=model_type, return_none_if_missing=True)
+        config_default = self._config_default(config_type=model_type, use_first_if_missing=True)
         if config_default is not None:
             df_results_config_default = self.run_config_default(model_type=model_type)
         else:

@@ -197,7 +197,7 @@ class TabArena:
             print(f"Unused columns: {unused_columns}")
 
         for c in self.groupby_columns:
-            assert data[c].isnull().sum() == 0
+            assert data[c].isnull().sum() == 0, f"groupby column {c!r} contains NaN!"
         for c in self.columns_to_agg:
             assert is_numeric_dtype(data[c]), f"aggregation columns must be numeric!"
         for c in self.columns_to_agg:
