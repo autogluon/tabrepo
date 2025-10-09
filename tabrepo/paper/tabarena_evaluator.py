@@ -204,6 +204,7 @@ class TabArenaEvaluator:
         plot_pareto: bool = True,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
+        tmp_treat_tasks_independently: bool = False,  # FIXME: Need to make a weighted elo logic
     ) -> pd.DataFrame:
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
@@ -394,6 +395,11 @@ class TabArenaEvaluator:
                     plot_tune_types=plot_tune_types,
                     show=False,
                 )
+
+        if tmp_treat_tasks_independently:
+            # df_results_rank_compare = df_results_rank_compare[df_results_rank_compare["fold"] < 9]
+            df_results_rank_compare["dataset"] = df_results_rank_compare["dataset"] + "_" + df_results_rank_compare["fold"].astype(str)
+            df_results_rank_compare["fold"] = 0
 
         tabarena = TabArena(
             method_col=method_col,
