@@ -197,18 +197,101 @@ class EloHelper:
 
         return elo_scores
 
-    def get_bootstrap_result(self, battles: pd.DataFrame, func_compute_elo, rng=None, num_round: int = None, func_kwargs=None):
-        rows = []
+    def get_bootstrap_result(
+        self,
+        battles: pd.DataFrame,
+        func_compute_elo,
+        rng=None,
+        num_round: int | None = None,
+        func_kwargs=None,
+    ):
+        """
+        Task-level (cluster) bootstrap with multiplicity up-weighting.
+
+        For each bootstrap draw:
+          1) Sample tasks with replacement (size = #unique tasks).
+          2) Concatenate each *unique* sampled task's rows once (no duplication).
+          3) Multiply each row's 'weight' by the task's multiplicity in the draw.
+
+        Notes
+        -----
+        - This is mathematically equivalent to duplicating rows k times per sampled
+          task for the MLE (logistic-regression) path, and practically indistinguishable
+          for the iterative ELO path (especially with small K, shuffle, epochs).
+        - If the input `battles` has no 'weight' column, it is treated as 1.0
+          before multiplicity scaling.
+
+        Parameters
+        ----------
+        battles : pd.DataFrame
+            Battles DF produced by convert_results_to_battles; must include self.task_col.
+        func_compute_elo : callable
+            Callable(battles_df, **kwargs) -> pd.Series of ELO ratings.
+        rng : int | np.random.Generator | None
+            Random seed or Generator for deterministic bootstraps.
+        num_round : int | None
+            Number of bootstrap draws. If None, compute a single point estimate.
+        func_kwargs : dict | None
+            Extra kwargs forwarded to func_compute_elo.
+
+        Returns
+        -------
+        pd.DataFrame
+            Rows = bootstrap draws; columns = model names. Columns are sorted by
+            bootstrap median (descending).
+        """
         if func_kwargs is None:
             func_kwargs = {}
-        if num_round is None:
-            rows.append(func_compute_elo(battles, **func_kwargs))
+
+        # RNG handling
+        if isinstance(rng, np.random.Generator):
+            _rng = rng
+        elif rng is None:
+            _rng = np.random.default_rng()
         else:
-            num_battles = len(battles)
-            for i in tqdm(range(num_round), desc="bootstrap"):
-                battles_new = battles.sample(n=num_battles, replace=True, random_state=rng, axis=0)
-                rows.append(func_compute_elo(battles_new, **func_kwargs))
+            _rng = np.random.default_rng(int(rng))
+
+        # Single (non-bootstrap) run
+        if num_round is None:
+            res = func_compute_elo(battles, **func_kwargs)
+            df = pd.DataFrame([res])
+            return df[df.median().sort_values(ascending=False).index]
+
+        task_col = self.task_col
+        if task_col not in battles.columns:
+            raise ValueError(f"Expected column '{task_col}' in battles for task-level bootstrap.")
+
+        # Pre-group once for efficiency
+        grouped = {t: g for t, g in battles.groupby(task_col, sort=False)}
+        tasks = np.array(list(grouped.keys()))
+        n_tasks = len(tasks)
+        if n_tasks == 0:
+            raise ValueError("No tasks present in battles; cannot bootstrap.")
+
+        rows = []
+        for _ in tqdm(range(num_round), desc="Calculating Elo 95% CI via Bootstrap"):
+            # Sample tasks with replacement; compute multiplicities
+            sampled = _rng.choice(tasks, size=n_tasks, replace=True)
+            uniq, counts = np.unique(sampled, return_counts=True)
+            multiplicity = dict(zip(uniq, counts))
+
+            # Concatenate each unique sampled task once
+            parts = [grouped[t] for t in uniq]
+            battles_boot = pd.concat(parts, axis=0, ignore_index=True)
+
+            # Ensure a weight column exists (treated as 1.0 if missing)
+            if "weight" not in battles_boot.columns:
+                battles_boot["weight"] = 1.0
+
+            # Up-weight by task multiplicity (vectorized)
+            battles_boot["weight"] = battles_boot["weight"].to_numpy(dtype=float) * \
+                                     battles_boot[task_col].map(multiplicity).to_numpy(dtype=float)
+
+            # Compute ELO on the bootstrap sample
+            rows.append(func_compute_elo(battles_boot, **func_kwargs))
+
         df = pd.DataFrame(rows)
+        # Stable, tidy column order: sort by bootstrap median descending
         return df[df.median().sort_values(ascending=False).index]
 
     def calc_battle_outcome(self, error_1: float, error_2: float) -> str:
