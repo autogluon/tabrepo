@@ -77,6 +77,8 @@ def compare(
         df_results["method_subtype"] = np.nan
     if "config_type" not in df_results:
         df_results["config_type"] = None
+    if "imputed" not in df_results:
+        df_results["imputed"] = False
 
     if isinstance(fillna, str):
         fillna = df_results[df_results["method"] == fillna]
