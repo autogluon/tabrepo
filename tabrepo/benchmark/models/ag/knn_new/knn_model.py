@@ -17,8 +17,8 @@ class KNNNewModel(KNNModel):
     """
     KNearestNeighbors model (scikit-learn): https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html
     """
-    ag_key = "KNN_new"
-    ag_name = "KNeighbors_new"
+    ag_key = "TA-KNN"
+    ag_name = "KNeighbors"
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
