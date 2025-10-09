@@ -204,6 +204,7 @@ class TabArenaEvaluator:
         plot_pareto: bool = True,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
+        per_split_elo: bool = False,
         tmp_treat_tasks_independently: bool = False,  # FIXME: Need to make a weighted elo logic
     ) -> pd.DataFrame:
         if calibration_framework is not None and calibration_framework == "auto":
@@ -396,10 +397,17 @@ class TabArenaEvaluator:
                     show=False,
                 )
 
+        elo_kwargs = dict(
+            calibration_framework=calibration_framework,
+            calibration_elo=1000,
+            BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
+        )
+
         if tmp_treat_tasks_independently:
-            # df_results_rank_compare = df_results_rank_compare[df_results_rank_compare["fold"] < 9]
             df_results_rank_compare["dataset"] = df_results_rank_compare["dataset"] + "_" + df_results_rank_compare["fold"].astype(str)
             df_results_rank_compare["fold"] = 0
+        if per_split_elo:
+            elo_kwargs["per_split"] = True
 
         tabarena = TabArena(
             method_col=method_col,
@@ -427,11 +435,7 @@ class TabArenaEvaluator:
             include_mrr=True,
             include_rank_counts=True,
             include_elo=True,
-            elo_kwargs=dict(
-                calibration_framework=calibration_framework,
-                calibration_elo=1000,
-                BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
-            )
+            elo_kwargs=elo_kwargs,
         )
         elo_map = leaderboard["elo"]
         leaderboard = leaderboard.reset_index(drop=False)
