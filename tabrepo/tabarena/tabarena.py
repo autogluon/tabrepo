@@ -95,7 +95,11 @@ class TabArena:
         if include_failure_counts:
             results_lst.append(self.compute_failure_count(results_per_task=results_per_task).to_frame())
         if include_elo:
-            results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
+            per_split = elo_kwargs.get("per_split", False)
+            if per_split:
+                results_lst.append(self.compute_elo(results_per_task=data, **elo_kwargs))
+            else:
+                results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
         if include_winrate:
             results_lst.append(self.compute_winrate(results_per_task=results_per_task).to_frame())
         if include_mrr:
@@ -514,6 +518,7 @@ class TabArena:
         use_bootstrap_median: bool = False,
         use_bootstrap_median_for_quantiles: bool = False,
         clip_negative_ci: bool = True,
+        per_split: bool | None = None,
     ) -> pd.DataFrame:
         """
         Compute Elo ratings for methods evaluated across multiple tasks.
@@ -574,7 +579,13 @@ class TabArena:
 
             When ``BOOTSTRAP_ROUNDS == 1``, ``elo+`` and ``elo-`` will be 0.
         """
-        elo_helper = EloHelper(method_col=self.method_col, task_col=self.task_col, error_col=self.error_col)
+        if per_split:
+            assert self.seed_column is not None, f"self.seed_column cannot be None when `per_split=True`!"
+            split_col = self.seed_column
+        else:
+            split_col = None
+
+        elo_helper = EloHelper(method_col=self.method_col, task_col=self.task_col, error_col=self.error_col, split_col=split_col)
         battles = elo_helper.convert_results_to_battles(results_df=results_per_task)
 
         bootstrap_median = None

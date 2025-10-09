@@ -19,16 +19,15 @@ class EloHelper:
         method_col: str = "method",
         task_col: str = "task",
         error_col: str = "metric_error",
+        split_col: str | None = None,
     ):
         self.method_col = method_col
         self.task_col = task_col
         self.error_col = error_col
+        self.split_col = split_col
 
         self.method_1 = f"{self.method_col}_1"
         self.method_2 = f"{self.method_col}_2"
-
-        self.error_1 = f"{self.error_col}_1"
-        self.error_2 = f"{self.error_col}_2"
 
     def compute_mle_elo(
         self,
@@ -39,25 +38,11 @@ class EloHelper:
         calibration_framework: str = None,
         calibration_elo: float = None,
         force_iterative_elo: bool = False,
-        K_factor: int = 32,
     ) -> pd.Series:
         """
+        MLE ELO with per-task equal weighting via sample_weight.
+
         Adapted from ChatBot Arena: https://colab.research.google.com/drive/1KdwokPjirkTmpO_P1WByFNFiqxWQquwH#scrollTo=4_x-vXL4yxvC
-
-        Parameters
-        ----------
-        battles
-        SCALE
-        BASE
-        INIT_RATING
-        calibration_framework
-        calibration_elo
-        force_iterative_elo
-        K_factor
-
-        Returns
-        -------
-
         """
         models = pd.concat([battles[self.method_1], battles[self.method_2]]).unique()
         models = pd.Series(np.arange(len(models)), index=models)
@@ -72,61 +57,144 @@ class EloHelper:
         X[np.arange(n), models[battles[self.method_1]]] = +math.log(BASE)
         X[np.arange(n), models[battles[self.method_2]]] = -math.log(BASE)
 
-        # one A win => two A win
         Y = np.zeros(n)
         Y[battles["winner"] == "1"] = 1.0
 
-        # one tie => one A win + one B win
-        # find tie + tie (both bad) index
+        # tie handling: make half wins for each side
         tie_idx = battles["winner"] == "tie"
-        tie_idx[len(tie_idx)//2:] = False
+        tie_idx[len(tie_idx) // 2:] = False
         Y[tie_idx] = 1.0
 
-        if len(np.unique(Y)) == 1 or force_iterative_elo:
-            # The input dataframe only contain wins, preventing lr fit; default to the iterative ELO formula
-            logger.warning(f"compute_mle_elo failed due to one framework dominating the other. Defaulting to iterative calculation...")
-            elo_scores = self.compute_iterative_elo_scores(df_original, INIT_RATING=INIT_RATING, SCALE=SCALE, K_factor=K_factor, models=models)
+        # Build sample weights so each task contributes total weight 1 across its splits
+        if "weight" in battles.columns:
+            sample_weight = battles["weight"].to_numpy(dtype=float).copy()
         else:
-            # Obtain ELO through ChatBot Arena-style fit
+            sample_weight = np.ones(n, dtype=float)
+
+        if len(np.unique(Y)) == 1 or force_iterative_elo:
+            logger.warning(
+                "compute_mle_elo fell back to iterative ELO (dominance in labels or forced)."
+            )
+            elo_scores = self.compute_iterative_elo_scores(
+                df_original,
+                INIT_RATING=INIT_RATING,
+                SCALE=SCALE,
+                models=models,
+            )
+        else:
             lr = LogisticRegression(fit_intercept=False)
-            lr.fit(X, Y)
+            lr.fit(X, Y, sample_weight=sample_weight)
             elo_scores = SCALE * lr.coef_[0] + INIT_RATING
 
         if calibration_framework is not None:
             if calibration_elo is None:
                 calibration_elo = INIT_RATING
-            # calibrate random forest to 800
-            elo_scores += (calibration_elo-elo_scores[models[calibration_framework]])
+            elo_scores += (calibration_elo - elo_scores[models[calibration_framework]])
         return pd.Series(elo_scores, index=models.index).sort_values(ascending=False)
 
-    def compute_iterative_elo_scores(self, df: pd.DataFrame, INIT_RATING: int = 1000, SCALE: int = 400,
-                                     K_factor: int = 32, models: pd.Series = None, **kwargs):
+    def compute_iterative_elo_scores(
+        self,
+        battles: pd.DataFrame,
+        INIT_RATING: int = 1000,
+        SCALE: int = 400,
+        K_factor: float = 1,
+        models: pd.Series = None,
+        *,
+        epochs: int = 10,
+        shuffle: bool = True,
+        seed: int | np.random.Generator | None = 0,
+    ):
         """
-        Default K_factor was manually tuned to be similar to LR ELO under default configurations.
+        Iterative ELO with optional deterministic shuffling and multi-epoch passes.
+
+        Parameters
+        ----------
+        battles : pd.DataFrame
+            Battles dataframe (from convert_results_to_battles). If present,
+            uses df['weight'] to scale each update so tasks contribute equally.
+        INIT_RATING : int
+            Initial rating for all models.
+        SCALE : int
+            ELO scale (e.g., 400).
+        K_factor : float
+            Step size per update (will be multiplied by per-row 'weight' if present).
+        models : pd.Series
+            Mapping: index=model name, value=integer id. Built if None.
+        epochs : int, default=10
+            Number of full passes over the (possibly shuffled) battles.
+        shuffle : bool, default=True
+            Shuffle battle order each epoch.
+        seed : int | np.random.Generator | None, default=0
+            Controls the shuffle order. If an int or Generator is provided and
+            shuffle=True, the traversal order is deterministic across runs.
+
+        Returns
+        -------
+        np.ndarray
+            ELO scores aligned to `models.index` order.
         """
         if models is None:
-            models = pd.concat([df[self.method_1], df[self.method_2]]).unique()
-            models = pd.Series(np.arange(len(models)), index=models)
+            model_names = pd.concat([battles[self.method_1], battles[self.method_2]]).unique()
+            models = pd.Series(np.arange(len(model_names)), index=model_names)
 
-        expected_result = lambda r1, r2: 1/(1+10**((r2-r1)/SCALE))
-        elo_scores = np.ones(len(models.index)) * INIT_RATING
+        # Build numeric arrays for fast iteration
+        # Map methods -> indices
+        m1_idx = battles[self.method_1].map(models).to_numpy()
+        m2_idx = battles[self.method_2].map(models).to_numpy()
 
-        for _, row in df.iterrows():
-            tie = False
-            if row.winner == 'tie':
-                tie = True
-                w_index, l_index = models[row[self.method_1]], models[row[self.method_2]]
-            elif row.winner == '1':
-                w_index, l_index = models[row[self.method_1]], models[row[self.method_2]]
+        # Winner encoding: 1 -> m1 wins, 2 -> m2 wins, tie -> 0
+        winner_raw = battles["winner"].to_numpy()
+        # encode: 1, 2, tie
+        w_code = np.zeros(len(winner_raw), dtype=np.int8)
+        w_code[winner_raw == "1"] = 1
+        w_code[winner_raw == "2"] = 2
+        # weight per row (defaults to 1)
+        if "weight" in battles.columns:
+            w_row = battles["weight"].to_numpy(dtype=float, copy=False)
+        else:
+            w_row = np.ones(len(battles), dtype=float)
+
+        def expected_result(r1, r2):
+            return 1.0 / (1.0 + 10.0 ** ((r2 - r1) / SCALE))
+
+        elo_scores = np.full(len(models.index), float(INIT_RATING))
+
+        # RNG (only used if shuffle=True)
+        if isinstance(seed, np.random.Generator):
+            rng = seed
+        else:
+            rng = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
+
+        n = len(battles)
+        base_order = np.arange(n)
+
+        for _ in range(max(1, int(epochs))):
+            if shuffle:
+                order = rng.permutation(n)
             else:
-                w_index, l_index = models[row[self.method_2]], models[row[self.method_1]]
-            w_rating, l_rating = elo_scores[w_index], elo_scores[l_index]
-            if tie:
-                elo_scores[w_index] += K_factor * (0.5 - expected_result(w_rating, l_rating))
-                elo_scores[l_index] += K_factor * (0.5 - expected_result(l_rating, w_rating))
-            else:
-                elo_scores[w_index] += K_factor * (1 - expected_result(w_rating, l_rating))
-                elo_scores[l_index] += K_factor * (0 - expected_result(l_rating, w_rating))
+                order = base_order
+
+            for i in order:
+                a = m1_idx[i]
+                b = m2_idx[i]
+                w = float(w_row[i])
+                outcome = w_code[i]
+
+                ra = elo_scores[a]
+                rb = elo_scores[b]
+                ea = expected_result(ra, rb)
+                eb = 1.0 - ea  # symmetry
+
+                if outcome == 0:  # tie
+                    elo_scores[a] += (K_factor * w) * (0.5 - ea)
+                    elo_scores[b] += (K_factor * w) * (0.5 - eb)
+                elif outcome == 1:  # m1 wins
+                    elo_scores[a] += (K_factor * w) * (1.0 - ea)
+                    elo_scores[b] += (K_factor * w) * (0.0 - eb)
+                else:  # outcome == 2, m2 wins
+                    elo_scores[b] += (K_factor * w) * (1.0 - eb)
+                    elo_scores[a] += (K_factor * w) * (0.0 - ea)
+
         return elo_scores
 
     def get_bootstrap_result(self, battles: pd.DataFrame, func_compute_elo, rng=None, num_round: int = None, func_kwargs=None):
@@ -158,39 +226,77 @@ class EloHelper:
         frameworks: List[str] = None,
         datasets: List[str] = None,
     ) -> pd.DataFrame:
-        results_df = results_df[[self.method_col, self.task_col, self.error_col]]
+        # Keep only needed columns (+ split if available)
+        cols = [self.method_col, self.task_col, self.error_col]
+        if self.split_col is not None:
+            cols.append(self.split_col)
+        results_df = results_df[cols].copy()
+
         if datasets is not None:
             results_df = results_df[results_df[self.task_col].isin(datasets)]
         if frameworks is not None:
             results_df = results_df[results_df[self.method_col].isin(frameworks)]
 
-        # Pair each method with every other method on the same task
-        results_pairs_df = pd.merge(results_df, results_df, on=self.task_col, suffixes=('_1', '_2'))
+        # Determine how to pair: by (task, split) if split_col is given; else by task only
+        if self.split_col is not None:
+            on_cols = [self.task_col, self.split_col]
+        else:
+            on_cols = [self.task_col]
+
+        results_df_after_dedupe = results_df.drop_duplicates(subset=[self.method_col, *on_cols])
+        if len(results_df_after_dedupe) != len(results_df):
+            raise AssertionError(f"Found {len(results_df) - len(results_df_after_dedupe)} duplicate rows!")
+
+        # Pair each method with every other method on the same task (and split if provided)
+        results_pairs_df = pd.merge(
+            results_df,
+            results_df,
+            on=on_cols,
+            suffixes=('_1', '_2'),
+            how='inner',
+        )
 
         # Keep only pairs with different methods
         mask_diff_method = results_pairs_df[self.method_1] != results_pairs_df[self.method_2]
         results_pairs_df = results_pairs_df.loc[mask_diff_method].copy()
+
+        # Winner of the pair
         results_pairs_df["winner"] = [
-            self.calc_battle_outcome(
-                error_1=error_1,
-                error_2=error_2,
-            ) for error_1, error_2 in zip(results_pairs_df[self.error_1], results_pairs_df[self.error_2])
+            self.calc_battle_outcome(e1, e2)
+            for e1, e2 in zip(results_pairs_df[f"{self.error_col}_1"], results_pairs_df[f"{self.error_col}_2"])
         ]
 
-        # Avoid counting each battle twice (dedupe A vs B with B vs A)
-        frameworks_unique = list(results_pairs_df[self.method_1].unique())
-        valid_framework_pairs = []
-        for i in range(len(frameworks_unique)):
-            f1 = frameworks_unique[i]
-            for j in range(i+1, len(frameworks_unique)):
-                f2 = frameworks_unique[j]
-                valid_framework_pairs.append((f1, f2))
-        valid_framework_pairs = set(valid_framework_pairs)
-        pairs_to_keep = [
-            (framework_1, framework_2) in valid_framework_pairs for framework_1, framework_2 in zip(results_pairs_df[self.method_1], results_pairs_df[self.method_2])
-        ]
-        results_pairs_df = results_pairs_df.iloc[pairs_to_keep]
-        return results_pairs_df[[self.method_1, self.method_2, "winner", self.task_col]]
+        # Avoid counting each battle twice (dedupe A vs B with B vs A) by method pair (orderless) within the same on_cols
+        # Build a canonical key for the unordered pair
+        pair_key = list(zip(
+            np.minimum(results_pairs_df[self.method_1], results_pairs_df[self.method_2]),
+            np.maximum(results_pairs_df[self.method_1], results_pairs_df[self.method_2]),
+        ))
+
+        # Create a boolean mask that keeps the first occurrence of each (task[, split], unordered pair)
+        # Easiest way: use a DataFrame of keys and drop_duplicates, then reindex
+        key_df = pd.DataFrame({**{c: results_pairs_df[c].values for c in on_cols},
+                               "__a": [k[0] for k in pair_key],
+                               "__b": [k[1] for k in pair_key]})
+        keep_idx = key_df.drop_duplicates(subset=on_cols + ["__a", "__b"]).index
+        results_pairs_df = results_pairs_df.iloc[keep_idx].copy()
+
+        # Compute per-task weights so each task contributes total weight 1.
+        # If split_col exists: n_splits = nunique splits per task, else n_splits := 1
+        if self.split_col is not None:
+            splits_per_task = results_df.groupby(self.task_col)[self.split_col].nunique()
+        else:
+            splits_per_task = results_df.groupby(self.task_col).size()
+            splits_per_task[:] = 1  # treat as 1 split per task
+
+        # Map weight = 1 / n_splits(task)
+        results_pairs_df["weight"] = 1.0 / results_pairs_df[self.task_col].map(splits_per_task).astype(float)
+
+        # Final output columns (keep weight; keep split if present for debugging/analysis)
+        out_cols = [self.method_1, self.method_2, "winner", self.task_col, "weight"]
+        if self.split_col is not None and self.split_col in results_pairs_df.columns:
+            out_cols.append(self.split_col)
+        return results_pairs_df[out_cols]
 
     def compute_elo_ratings(
         self,
