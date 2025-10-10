@@ -332,6 +332,24 @@ class TabArenaContext:
         results = results.rename(columns={"framework": "method"})
         return results
 
+    def run_portfolio_from_config_types(
+        self,
+        repo: AbstractRepository,
+        config_types: list[str],
+        n_portfolio: int,
+        n_ensemble: int | None = None,
+        time_limit: int | None = None,
+    ) -> pd.DataFrame:
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+        cur_result = simulator.run_zs_from_types(
+            config_types=config_types,
+            n_portfolios=n_portfolio,
+            n_ensemble=n_ensemble,
+            n_ensemble_in_name=True,
+            time_limit=time_limit,
+        )
+        return cur_result
+
     def load_hpo_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
         metadata = self.method_metadata(method=method)
         return metadata.load_hpo_results(holdout=holdout)

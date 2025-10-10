@@ -215,6 +215,10 @@ class PaperRun:
         # df_zeroshot_portfolio = self.evaluator.compare_metrics(results_df=df_zeroshot_portfolio, configs=[], baselines=[])
         return df_zeroshot_portfolio
 
+    def run_zs_from_types(self, config_types: list[str], **kwargs):
+        configs = self.evaluator.repo.configs(config_types=config_types)
+        return self.run_zs(configs=configs, **kwargs)
+
     def run_zs_single_best(self) -> pd.DataFrame:
         df_zeroshot_portfolio = self.evaluator.zeroshot_portfolio(
             n_portfolios=200,
