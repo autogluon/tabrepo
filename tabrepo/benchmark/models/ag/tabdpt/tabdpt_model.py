@@ -42,20 +42,25 @@ class TabDPTModel(AbstractModel):
         from tabdpt import TabDPTClassifier, TabDPTRegressor
 
         model_cls = TabDPTClassifier if self.problem_type in [BINARY, MULTICLASS] else TabDPTRegressor
-        supported_hps = ('context_size', 'permute_classes', 'temperature') \
+        supported_predict_hps = ('context_size', 'permute_classes', 'temperature') \
                 if model_cls is TabDPTClassifier \
                 else ('context_size',)
 
         hps = self._get_model_params()
         self._predict_hps = {
-            k:v for k,v in hps.items() if k in supported_hps
+            k:v for k,v in hps.items() if k in supported_predict_hps
         }
         self._predict_hps['seed'] = 42
         X = self.preprocess(X)
         y = y.to_numpy()
         self.model = model_cls(
             device=device,
-            use_flash=self._use_flash()
+            use_flash=self._use_flash(),
+            normalizer=hps.get("normalizer", "standard"),
+            missing_indicators=hps.get("missing_indicators", False),
+            clip_sigma=hps.get("clip_sigma", 4),
+            feature_reduction=hps.get("feature_reduction", "pca"),
+            faiss_metric=hps.get("faiss_metric", "l2")
         )
         self.model.fit(X=X, y=y)
 

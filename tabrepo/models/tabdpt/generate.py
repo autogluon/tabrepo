@@ -10,9 +10,14 @@ manual_configs = [
     {"ag_args_ensemble": {"refit_folds": True}},
 ]
 search_space = {
-    'temperature': Real(0.05, 1.5, default=0.8),
+    'temperature': Categorical(0.8, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.9, 1.0, 1.25, 1.5),
     'context_size': Categorical(2048, 768, 256),
-    'permute_classes': Categorical(True, False)
+    'permute_classes': Categorical(True, False),
+    'normalizer': Categorical("standard", None, "minmax", "robust", "power", "quantile-uniform", "quantile-normal", "log1p"),
+    'missing_indicators': Categorical(False, True),
+    'clip_sigma': Categorical(4, 2, 6, 8),
+    'feature_reduction': Categorical("pca", "subsample"),
+    'faiss_metric': Categorical("l2", "ip")
 }
 
 gen_tabdpt = ConfigGenerator(
