@@ -37,6 +37,7 @@ class EloHelper:
         INIT_RATING: int | float = 1000,
         calibration_framework: str = None,
         calibration_elo: float = None,
+        use_pair_aggregation: bool = True,
         force_iterative_elo: bool = False,
     ) -> pd.Series:
         """
@@ -48,49 +49,73 @@ class EloHelper:
         models = pd.Series(np.arange(len(models)), index=models)
         df_original = battles
 
-        # duplicate battles
-        battles = pd.concat([battles, battles], ignore_index=True)
-        p = len(models.index)
-        n = battles.shape[0]
-
-        X = np.zeros([n, p])
-        X[np.arange(n), models[battles[self.method_1]]] = +math.log(BASE)
-        X[np.arange(n), models[battles[self.method_2]]] = -math.log(BASE)
-
-        Y = np.zeros(n)
-        Y[battles["winner"] == "1"] = 1.0
-
-        # tie handling: make half wins for each side
-        tie_idx = battles["winner"] == "tie"
-        tie_idx[len(tie_idx) // 2:] = False
-        Y[tie_idx] = 1.0
-
-        # Build sample weights so each task contributes total weight 1 across its splits
-        if "weight" in battles.columns:
-            sample_weight = battles["weight"].to_numpy(dtype=float).copy()
+        if use_pair_aggregation and not force_iterative_elo:
+            X, Y, sample_weight, model_to_idx = self._aggregate_battles_for_mle(battles, BASE=BASE)
+            if len(Y) == 0 or (np.unique(Y).size < 2):
+                # Degenerate draw (e.g., total dominance in a bootstrap): fall back.
+                logger.warning(
+                    "compute_mle_elo: only one class present after aggregation; falling back to iterative ELO.")
+                elo_scores = self.compute_iterative_elo_scores(
+                    df_original, INIT_RATING=INIT_RATING, SCALE=SCALE, models=models
+                )
+                SeriesOut = pd.Series(elo_scores, index=models.index)
+            else:
+                lr = LogisticRegression(fit_intercept=False)
+                lr.fit(X, Y, sample_weight=sample_weight)
+                coef = lr.coef_[0]
+                # map coef -> ELO
+                elo_vec = SCALE * coef + INIT_RATING
+                # place into full model order
+                out = np.ones(len(models)) * INIT_RATING
+                out[model_to_idx.values] = elo_vec[model_to_idx.values]
+                SeriesOut = pd.Series(out, index=models.index)
         else:
-            sample_weight = np.ones(n, dtype=float)
+            # duplicate battles
+            battles = pd.concat([battles, battles], ignore_index=True)
+            p = len(models.index)
+            n = battles.shape[0]
 
-        if len(np.unique(Y)) == 1 or force_iterative_elo:
-            logger.warning(
-                "compute_mle_elo fell back to iterative ELO (dominance in labels or forced)."
-            )
-            elo_scores = self.compute_iterative_elo_scores(
-                df_original,
-                INIT_RATING=INIT_RATING,
-                SCALE=SCALE,
-                models=models,
-            )
-        else:
-            lr = LogisticRegression(fit_intercept=False)
-            lr.fit(X, Y, sample_weight=sample_weight)
-            elo_scores = SCALE * lr.coef_[0] + INIT_RATING
+            X = np.zeros([n, p])
+            X[np.arange(n), models[battles[self.method_1]]] = +math.log(BASE)
+            X[np.arange(n), models[battles[self.method_2]]] = -math.log(BASE)
+
+            Y = np.zeros(n)
+            Y[battles["winner"] == "1"] = 1.0
+
+            # tie handling: make half wins for each side
+            tie_idx = battles["winner"] == "tie"
+            tie_idx[len(tie_idx) // 2:] = False
+            Y[tie_idx] = 1.0
+
+            # Build sample weights so each task contributes total weight 1 across its splits
+            if "weight" in battles.columns:
+                sample_weight = battles["weight"].to_numpy(dtype=float).copy()
+            else:
+                sample_weight = np.ones(n, dtype=float)
+
+            if len(np.unique(Y)) == 1 or force_iterative_elo:
+                logger.warning(
+                    "compute_mle_elo fell back to iterative ELO (dominance in labels or forced)."
+                )
+                elo_scores = self.compute_iterative_elo_scores(
+                    df_original,
+                    INIT_RATING=INIT_RATING,
+                    SCALE=SCALE,
+                    models=models,
+                )
+            else:
+                lr = LogisticRegression(fit_intercept=False)
+                lr.fit(X, Y, sample_weight=sample_weight)
+                elo_scores = SCALE * lr.coef_[0] + INIT_RATING
+
+            SeriesOut = pd.Series(elo_scores, index=models.index)
 
         if calibration_framework is not None:
             if calibration_elo is None:
                 calibration_elo = INIT_RATING
-            elo_scores += (calibration_elo - elo_scores[models[calibration_framework]])
-        return pd.Series(elo_scores, index=models.index).sort_values(ascending=False)
+            SeriesOut += (calibration_elo - SeriesOut[calibration_framework])
+
+        return SeriesOut.sort_values(ascending=False)
 
     def compute_iterative_elo_scores(
         self,
@@ -589,6 +614,84 @@ class EloHelper:
         model_names = list(prop_wins.keys())
         row_beats_col = row_beats_col_freq.loc[model_names, model_names]
         return row_beats_col
+
+    def _aggregate_battles_for_mle(self, battles: pd.DataFrame, BASE: int = 10):
+        """
+        Compress battles to two rows per unordered (A,B) pair for exact MLE equivalence.
+
+        For each unordered pair (A,B):
+          - Build features X for "A vs B" once: +log(BASE) at A, -log(BASE) at B.
+          - Create two rows with the *same X*:
+              y=1, weight = w_Awins + 0.5 * w_ties
+              y=0, weight = w_Bwins + 0.5 * w_ties
+        """
+        # model index mapping
+        all_models = pd.concat([battles[self.method_1], battles[self.method_2]]).unique()
+        model_to_idx = pd.Series(np.arange(len(all_models)), index=all_models)
+
+        a = battles[self.method_1].to_numpy()
+        b = battles[self.method_2].to_numpy()
+        w = battles["weight"].to_numpy(dtype=float) if "weight" in battles.columns else np.ones(len(battles), float)
+        win = battles["winner"].to_numpy()  # '1','2','tie'
+
+        # canonical unordered keys u<=v
+        u = np.where(a < b, a, b)
+        v = np.where(a < b, b, a)
+
+        # accumulate weighted wins/ties in canonical coordinates
+        wins_u = {}  # A-side under (u,v)
+        wins_v = {}
+        for ui, vi, ai, bi, wi, yi in zip(u, v, a, b, w, win):
+            key = (ui, vi)
+            su = wins_u.get(key, 0.0)
+            sv = wins_v.get(key, 0.0)
+            if yi == '1':  # method_1 (ai) beat method_2 (bi)
+                if ui == ai:
+                    su += wi
+                else:
+                    sv += wi
+            elif yi == '2':  # method_2 (bi) beat method_1 (ai)
+                if ui == bi:
+                    su += wi
+                else:
+                    sv += wi
+            else:  # tie: half win each side
+                su += 0.5 * wi
+                sv += 0.5 * wi
+            wins_u[key] = su
+            wins_v[key] = sv
+
+        # build compressed design: one X per pair; two rows with y in {0,1}
+        pairs = list(wins_u.keys())
+        p = len(all_models)
+        X_rows, y_rows, sw_rows = [], [], []
+        logB = math.log(BASE)
+
+        for (ui, vi) in pairs:
+            su = wins_u[(ui, vi)]
+            sv = wins_v[(ui, vi)]
+            if su == 0.0 and sv == 0.0:
+                continue  # no information
+
+            x = np.zeros(p, dtype=float)
+            x[model_to_idx[ui]] = +logB
+            x[model_to_idx[vi]] = -logB
+
+            # y=1 row with A-side effective wins
+            if su > 0.0:
+                X_rows.append(x)
+                y_rows.append(1.0)
+                sw_rows.append(su)
+            # y=0 row with B-side effective wins
+            if sv > 0.0:
+                X_rows.append(x)
+                y_rows.append(0.0)
+                sw_rows.append(sv)
+
+        X = np.vstack(X_rows) if X_rows else np.zeros((0, p))
+        y = np.asarray(y_rows, dtype=float)
+        sample_weight = np.asarray(sw_rows, dtype=float)
+        return X, y, sample_weight, model_to_idx
 
     def get_arena_leaderboard(self, bootstrap_elo_lu: pd.DataFrame, results_df: pd.DataFrame):
         bars = pd.DataFrame(dict(
