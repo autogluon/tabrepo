@@ -56,7 +56,7 @@ class TabArenaEvaluator:
         datasets: list[str] | None = None,
         problem_types: list[str] | None = None,
         banned_model_types: list[str] | None = None,
-        elo_bootstrap_rounds: int = 100,
+        elo_bootstrap_rounds: int = 200,
         keep_best: bool = False,
         figure_file_type: str = "pdf",
         use_latex: bool = False,

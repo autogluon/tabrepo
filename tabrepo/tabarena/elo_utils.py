@@ -39,6 +39,7 @@ class EloHelper:
         calibration_elo: float = None,
         use_pair_aggregation: bool = True,
         force_iterative_elo: bool = False,
+        max_iter: int = 1000,
     ) -> pd.Series:
         """
         MLE ELO with per-task equal weighting via sample_weight.
@@ -60,7 +61,7 @@ class EloHelper:
                 )
                 SeriesOut = pd.Series(elo_scores, index=models.index)
             else:
-                lr = LogisticRegression(fit_intercept=False)
+                lr = LogisticRegression(fit_intercept=False, max_iter=max_iter, C=1e6)
                 lr.fit(X, Y, sample_weight=sample_weight)
                 coef = lr.coef_[0]
                 # map coef -> ELO
@@ -104,7 +105,7 @@ class EloHelper:
                     models=models,
                 )
             else:
-                lr = LogisticRegression(fit_intercept=False)
+                lr = LogisticRegression(fit_intercept=False, max_iter=max_iter, C=1e6)
                 lr.fit(X, Y, sample_weight=sample_weight)
                 elo_scores = SCALE * lr.coef_[0] + INIT_RATING
 
@@ -225,50 +226,22 @@ class EloHelper:
     def get_bootstrap_result(
         self,
         battles: pd.DataFrame,
-        func_compute_elo,
+        func_compute_elo,  # kept for API symmetry when not using compression
         rng=None,
         num_round: int | None = None,
         func_kwargs=None,
+        *,
+        BASE: int = 10,
+        solver: str = "lbfgs",
+        max_iter: int = 1000,
     ):
         """
-        Task-level (cluster) bootstrap with multiplicity up-weighting.
-
-        For each bootstrap draw:
-          1) Sample tasks with replacement (size = #unique tasks).
-          2) Concatenate each *unique* sampled task's rows once (no duplication).
-          3) Multiply each row's 'weight' by the task's multiplicity in the draw.
-
-        Notes
-        -----
-        - This is mathematically equivalent to duplicating rows k times per sampled
-          task for the MLE (logistic-regression) path, and practically indistinguishable
-          for the iterative ELO path (especially with small K, shuffle, epochs).
-        - If the input `battles` has no 'weight' column, it is treated as 1.0
-          before multiplicity scaling.
-
-        Parameters
-        ----------
-        battles : pd.DataFrame
-            Battles DF produced by convert_results_to_battles; must include self.task_col.
-        func_compute_elo : callable
-            Callable(battles_df, **kwargs) -> pd.Series of ELO ratings.
-        rng : int | np.random.Generator | None
-            Random seed or Generator for deterministic bootstraps.
-        num_round : int | None
-            Number of bootstrap draws. If None, compute a single point estimate.
-        func_kwargs : dict | None
-            Extra kwargs forwarded to func_compute_elo.
-
-        Returns
-        -------
-        pd.DataFrame
-            Rows = bootstrap draws; columns = model names. Columns are sorted by
-            bootstrap median (descending).
+        Task-level bootstrap with pair-compressed MLE.
         """
         if func_kwargs is None:
             func_kwargs = {}
 
-        # RNG handling
+        # RNG
         if isinstance(rng, np.random.Generator):
             _rng = rng
         elif rng is None:
@@ -276,47 +249,43 @@ class EloHelper:
         else:
             _rng = np.random.default_rng(int(rng))
 
-        # Single (non-bootstrap) run
+        # Non-bootstrap or legacy path
         if num_round is None:
             res = func_compute_elo(battles, **func_kwargs)
             df = pd.DataFrame([res])
             return df[df.median().sort_values(ascending=False).index]
 
-        task_col = self.task_col
-        if task_col not in battles.columns:
-            raise ValueError(f"Expected column '{task_col}' in battles for task-level bootstrap.")
-
-        # Pre-group once for efficiency
-        grouped = {t: g for t, g in battles.groupby(task_col, sort=False)}
-        tasks = np.array(list(grouped.keys()))
-        n_tasks = len(tasks)
-        if n_tasks == 0:
-            raise ValueError("No tasks present in battles; cannot bootstrap.")
+        # One-time precompute
+        model_to_idx, pairs, X2, Y2, SU, SV, task_ids = self._precompute_pair_agg_for_bootstrap(
+            battles=battles, BASE=BASE
+        )
+        n_tasks = SU.shape[0]
+        if SU.shape[1] == 0:
+            raise ValueError("No (method_1, method_2) pairs present; cannot bootstrap.")
 
         rows = []
-        for _ in tqdm(range(num_round), desc="Calculating Elo 95% CI via Bootstrap"):
-            # Sample tasks with replacement; compute multiplicities
-            sampled = _rng.choice(tasks, size=n_tasks, replace=True)
-            uniq, counts = np.unique(sampled, return_counts=True)
-            multiplicity = dict(zip(uniq, counts))
+        for _ in tqdm(range(num_round), desc="bootstrap"):
+            # Sample task indices with replacement; convert to multiplicity vector
+            sampled = _rng.choice(np.arange(n_tasks), size=n_tasks, replace=True)
+            counts = np.bincount(sampled, minlength=n_tasks).astype(float)
 
-            # Concatenate each unique sampled task once
-            parts = [grouped[t] for t in uniq]
-            battles_boot = pd.concat(parts, axis=0, ignore_index=True)
-
-            # Ensure a weight column exists (treated as 1.0 if missing)
-            if "weight" not in battles_boot.columns:
-                battles_boot["weight"] = 1.0
-
-            # Up-weight by task multiplicity (vectorized)
-            battles_boot["weight"] = battles_boot["weight"].to_numpy(dtype=float) * \
-                                     battles_boot[task_col].map(multiplicity).to_numpy(dtype=float)
-
-            # Compute ELO on the bootstrap sample
-            rows.append(func_compute_elo(battles_boot, **func_kwargs))
+            # Delegate per-draw work to the helper
+            ser = self._bootstrap_draw_compressed(
+                counts=counts,
+                task_ids=task_ids,
+                SU=SU,
+                SV=SV,
+                X2=X2,
+                Y2=Y2,
+                model_to_idx=model_to_idx,
+                battles=battles,
+                solver=solver,
+                max_iter=max_iter,
+                **func_kwargs,
+            )
+            rows.append(ser)
 
         df = pd.DataFrame(rows)
-        # Stable, tidy column order: sort by bootstrap median descending
         return df[df.median().sort_values(ascending=False).index]
 
     def calc_battle_outcome(self, error_1: float, error_2: float) -> str:
@@ -757,3 +726,192 @@ class EloHelper:
         ]]
 
         return leaderboard, leaderboard_print
+
+    def _precompute_pair_agg_for_bootstrap(
+        self,
+        battles: pd.DataFrame,
+        BASE: int = 10,
+    ):
+        """
+        Precompute sufficient statistics for MLE ELO under task-cluster bootstrap.
+
+        Returns
+        -------
+        model_to_idx : pd.Series
+            Index mapping for models -> column index in design matrix.
+        pairs : List[Tuple[str,str]]
+            Canonical unordered pairs (u<=v), in a stable order.
+        X2 : np.ndarray, shape (2 * n_pairs, n_models)
+            Fixed design matrix. For each pair i:
+              - Row 2*i   : features for (u beats v)  -> y=1
+              - Row 2*i+1 : same features            -> y=0 (v beats u row)
+        Y2 : np.ndarray, shape (2 * n_pairs,)
+            Fixed targets (1,0,1,0,...) aligned with X2 rows.
+        SU : np.ndarray, shape (n_tasks, n_pairs)
+            Per-task effective wins for the 'u' side of each pair (wins + 0.5*ties).
+        SV : np.ndarray, shape (n_tasks, n_pairs)
+            Per-task effective wins for the 'v' side of each pair (wins + 0.5*ties).
+        task_ids : np.ndarray, shape (n_tasks,)
+            Array of task identifiers aligned with SU/SV rows.
+        """
+        # map models -> columns
+        all_models = pd.concat([battles[self.method_1], battles[self.method_2]]).unique()
+        model_to_idx = pd.Series(np.arange(len(all_models)), index=all_models)
+
+        # pull arrays
+        a = battles[self.method_1].to_numpy()
+        b = battles[self.method_2].to_numpy()
+        win = battles["winner"].to_numpy()  # '1','2','tie'
+        task = battles[self.task_col].to_numpy()
+        w = battles["weight"].to_numpy(dtype=float) if "weight" in battles.columns else np.ones(len(battles), float)
+
+        # canonicalize unordered pair keys and compute (u,v), also keep which side was m1/m2
+        u = np.where(a < b, a, b)
+        v = np.where(a < b, b, a)
+
+        # enumerate tasks
+        uniq_tasks, task_inverse = np.unique(task, return_inverse=True)
+        n_tasks = uniq_tasks.shape[0]
+
+        # index unordered pairs
+        pair_keys = np.core.defchararray.add(u.astype(str), "||")
+        pair_keys = np.core.defchararray.add(pair_keys, v.astype(str))
+        uniq_pairs, pair_inverse = np.unique(pair_keys, return_inverse=True)
+        # recover the actual (u,v) strings in the uniq_pairs order
+        # (fast: take the first occurrence indices)
+        first_idx = np.zeros_like(uniq_pairs, dtype=int)
+        seen = {}
+        for i, k in enumerate(pair_keys):
+            if k not in seen:
+                seen[k] = i
+        for j, k in enumerate(uniq_pairs):
+            first_idx[j] = seen[k]
+        pairs = list(zip(u[first_idx], v[first_idx]))
+        n_pairs = len(pairs)
+
+        # accumulate per-task, per-pair effective wins for u and v sides
+        SU = np.zeros((n_tasks, n_pairs), dtype=float)
+        SV = np.zeros((n_tasks, n_pairs), dtype=float)
+
+        for ti, pi, ai, bi, ui, vi, yi, wi in zip(task_inverse, pair_inverse, a, b, u, v, win, w):
+            if yi == '1':  # method_1 (a) beat method_2 (b)
+                if ui == ai:
+                    SU[ti, pi] += wi
+                else:
+                    SV[ti, pi] += wi
+            elif yi == '2':
+                if ui == bi:
+                    SU[ti, pi] += wi
+                else:
+                    SV[ti, pi] += wi
+            else:  # tie
+                SU[ti, pi] += 0.5 * wi
+                SV[ti, pi] += 0.5 * wi
+
+        # Build fixed design matrix X2 and Y2: two rows per pair with identical features
+        p = len(all_models)
+        X2 = np.zeros((2 * n_pairs, p), dtype=float)
+        Y2 = np.empty(2 * n_pairs, dtype=float)
+        logB = math.log(BASE)
+        for i, (ui, vi) in enumerate(pairs):
+            ui_idx = model_to_idx[ui]
+            vi_idx = model_to_idx[vi]
+            # row for y=1 (u beats v)
+            X2[2 * i, ui_idx] = +logB
+            X2[2 * i, vi_idx] = -logB
+            Y2[2 * i] = 1.0
+            # row for y=0 (v beats u) has identical X
+            X2[2 * i + 1, ui_idx] = +logB
+            X2[2 * i + 1, vi_idx] = -logB
+            Y2[2 * i + 1] = 0.0
+
+        return model_to_idx, pairs, X2, Y2, SU, SV, uniq_tasks
+
+    def _bootstrap_draw_compressed(
+        self,
+        *,
+        counts: np.ndarray,             # shape (n_tasks,)
+        task_ids: np.ndarray,           # shape (n_tasks,), aligns with counts
+        SU: np.ndarray,                 # shape (n_tasks, n_pairs)
+        SV: np.ndarray,                 # shape (n_tasks, n_pairs)
+        X2: np.ndarray,                 # shape (2*n_pairs, n_models)
+        Y2: np.ndarray,                 # shape (2*n_pairs,)
+        model_to_idx: pd.Series,        # index = model names, values = col indices
+        battles: pd.DataFrame,          # original battles (used only for fallback)
+        SCALE: int,
+        INIT_RATING: float,
+        solver: str,
+        max_iter: int,
+        calibration_framework: str | None,
+        calibration_elo: float | None,
+    ) -> pd.Series:
+        """
+        One bootstrap draw using the pair-compressed MLE path.
+        Returns a pd.Series of ELO scores indexed by model names.
+        """
+        # Totals per unordered pair from task multiplicities
+        SU_tot = counts @ SU    # (n_pairs,)
+        SV_tot = counts @ SV    # (n_pairs,)
+
+        # If one class is missing, fall back to iterative path for this draw
+        has_pos = np.any(SU_tot > 0.0)
+        has_neg = np.any(SV_tot > 0.0)
+        if not (has_pos and has_neg):
+            # Build multiplicity map for tasks in this draw
+            mult_map = dict(zip(task_ids, counts))
+            battles_boot = battles.copy()
+            if "weight" not in battles_boot.columns:
+                battles_boot["weight"] = 1.0
+            battles_boot["weight"] = (
+                battles_boot["weight"].to_numpy(dtype=float)
+                * battles_boot[self.task_col].map(mult_map).fillna(0.0).to_numpy(dtype=float)
+            )
+            elo_scores = self.compute_iterative_elo_scores(
+                battles_boot,
+                INIT_RATING=INIT_RATING,
+                SCALE=SCALE,
+                models=pd.Series(np.arange(len(model_to_idx)), index=model_to_idx.index),
+            )
+            ser = pd.Series(elo_scores, index=model_to_idx.index)
+        else:
+            # Interleaved sample weights: [SU_tot[0], SV_tot[0], SU_tot[1], SV_tot[1], ...]
+            n_pairs = SU_tot.size
+            sw = np.empty(2 * n_pairs, dtype=float)
+            sw[0::2] = SU_tot
+            sw[1::2] = SV_tot
+
+            # Optionally drop zero-weight pairs to shrink the fit
+            active_pairs = (SU_tot + SV_tot) > 0.0
+            if not np.all(active_pairs):
+                idx_pairs = np.flatnonzero(active_pairs)
+                row_idx = np.empty(2 * idx_pairs.size, dtype=int)
+                row_idx[0::2] = 2 * idx_pairs
+                row_idx[1::2] = 2 * idx_pairs + 1
+                X_fit, Y_fit, sw_fit = X2[row_idx], Y2[row_idx], sw[row_idx]
+            else:
+                X_fit, Y_fit, sw_fit = X2, Y2, sw
+
+            # Fit LR on the fixed design with per-draw weights
+            lr = LogisticRegression(fit_intercept=False, C=1e6, solver=solver, max_iter=max_iter)
+            lr.fit(X_fit, Y_fit, sample_weight=sw_fit)
+
+            # Map coefficients -> ELO
+            coef = lr.coef_[0]                  # aligned with model_to_idx order
+            elo_vec = SCALE * coef + INIT_RATING
+            out = np.ones(len(model_to_idx), dtype=float) * INIT_RATING
+            out[:] = elo_vec
+            ser = pd.Series(out, index=model_to_idx.index)
+
+        # ---- Per-draw calibration (apply to the Series) ----
+        if calibration_framework is not None:
+            target = INIT_RATING if calibration_elo is None else float(calibration_elo)
+            if calibration_framework in ser.index:
+                ser = ser + (target - ser[calibration_framework])
+            else:
+                # Optional: warn once; skip calibration if anchor missing in this draw
+                logger.warning(
+                    "Calibration framework '%s' not present in bootstrap draw; skipping calibration for this draw.",
+                    calibration_framework,
+                )
+
+        return ser
