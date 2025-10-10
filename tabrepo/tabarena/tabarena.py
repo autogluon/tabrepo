@@ -519,6 +519,7 @@ class TabArena:
         use_bootstrap_median_for_quantiles: bool = False,
         clip_negative_ci: bool = True,
         per_split: bool | None = None,
+        post_calibrate: bool = True,
     ) -> pd.DataFrame:
         """
         Compute Elo ratings for methods evaluated across multiple tasks.
@@ -560,6 +561,11 @@ class TabArena:
         clip_negative_ci
             If ``True``, negative widths for ``elo+``/``elo-`` are clipped to 0.
             Negative width can occur if ``use_bootstrap_median=False`` and ``use_bootstrap_median_for_quantiles=False``.
+        post_calibrate
+            If ``True``, will perform bootstrapping and elo calculation without calibration to determine the 95% CI.
+            After determining the 95% CI, the returned `elo` will be adjusted
+            so that the `calibration_framework` has an elo of `calibration_elo`.
+            This makes the 95% CI +/- independent of the calibration_framework.
 
         Returns
         -------
@@ -584,6 +590,14 @@ class TabArena:
             split_col = self.seed_column
         else:
             split_col = None
+
+        if post_calibrate:
+            post_calibration_framework = calibration_framework
+            calibration_framework = None
+        else:
+            post_calibration_framework = None
+        if calibration_elo is None:
+            calibration_elo = INIT_RATING
 
         elo_helper = EloHelper(method_col=self.method_col, task_col=self.task_col, error_col=self.error_col, split_col=split_col)
         battles = elo_helper.convert_results_to_battles(results_df=results_per_task)
@@ -646,6 +660,10 @@ class TabArena:
             if clip_negative_ci:
                 bars['elo+'] = bars['elo+'].clip(lower=0)
                 bars['elo-'] = bars['elo-'].clip(lower=0)
+
+        if post_calibrate and post_calibration_framework is not None:
+            offset = calibration_elo - elo.loc[post_calibration_framework]
+            bars["elo"] += offset
 
         bars = bars.sort_values(by="elo", ascending=False)
         if round_decimals is not None:

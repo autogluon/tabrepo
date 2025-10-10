@@ -842,8 +842,8 @@ class EloHelper:
         INIT_RATING: float,
         solver: str,
         max_iter: int,
-        calibration_framework: str | None,
-        calibration_elo: float | None,
+        calibration_framework: str | None = None,
+        calibration_elo: float | None = None,
     ) -> pd.Series:
         """
         One bootstrap draw using the pair-compressed MLE path.
