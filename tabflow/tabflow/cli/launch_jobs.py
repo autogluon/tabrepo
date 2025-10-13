@@ -55,6 +55,7 @@ class JobManager:
         hyperparameters: dict = None,
         add_timestamp: bool = False,
         wait: bool = True,
+        stop_wait_on_fail: bool = False,
         s3_dataset_cache: str = None,
     ):
         """
@@ -95,6 +96,8 @@ class JobManager:
             Whether to add a timestamp to the experiment name
         wait:
             Whether to wait for all jobs to complete (no-wait from CLI)
+        stop_wait_on_fail:
+            Whether to stop waiting if any of the jobs fail - only applied if wait=True
         batch_size:
             Number of models to batch for each task
         s3_dataset_cache:
@@ -138,6 +141,7 @@ class JobManager:
         self.hyperparameters = hyperparameters
         self.add_timestamp = add_timestamp
         self.wait = wait
+        self.stop_wait_on_fail = stop_wait_on_fail
         self.s3_dataset_cache = s3_dataset_cache
         self._job_count = 0  # Used to ensure unique job names
 
@@ -310,7 +314,9 @@ class JobManager:
             self.run_task_batch(tasks=task_batch, check_cache=check_cache)
 
         if self.wait:
-            self.resource_manager.wait_for_all_jobs(s3_client=self.s3_client, s3_bucket=self.s3_bucket)
+            self.resource_manager.wait_for_all_jobs(
+                s3_client=self.s3_client, s3_bucket=self.s3_bucket, stop_wait_on_fail=self.stop_wait_on_fail
+            )
 
     def batch_tasks(
         self,

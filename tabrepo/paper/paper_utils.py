@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import pandas as pd
 import matplotlib.pyplot as plt
+
+from tabrepo import EvaluationRepository
+from tabrepo.portfolio.greedy_portfolio_generator import zeroshot_name
+from tabrepo.nips2025_utils.file_path import figure_path
 from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.utils.rank_utils import RankScorer
-from tabrepo import EvaluationRepository
-from tabrepo.nips2025_utils.file_path import figure_path
-from scripts.baseline_comparison.baselines import zeroshot_name
 
 default_ensemble_size = 40
 

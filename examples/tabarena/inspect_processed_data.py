@@ -87,6 +87,12 @@ if __name__ == "__main__":
     repo: EvaluationRepository = method_metadata.load_processed()
     repo.print_info()  # high-level repository summary
 
+    if method_metadata.method_type != "config":
+        raise AssertionError(
+            f"This tutorial only supports config methods. "
+            f"(method={method_metadata.method!r}, method_type={method_metadata.method_type!r})"
+        )
+
     # ----------------------------------------------------------------------
     # 5) Explore datasets and per-dataset metadata.
     # ----------------------------------------------------------------------
@@ -105,6 +111,19 @@ if __name__ == "__main__":
     # ----------------------------------------------------------------------
     configs = repo.configs()
     print(f"Configs (first 10): {configs[:10]}")
+
+    config_types = repo.config_types()
+    assert len(config_types) == 1, (
+        f"There should be exactly 1 config_type for method "
+        "{method_metadata.method}: {config_types}"
+    )
+    repo_config_type = config_types[0]
+    if repo_config_type != method_metadata.config_type:
+        print(
+            f"Warning: Misaligned processed config_type with method_metadata config_type!\n"
+            f"\tmethod_metadata config_type: {method_metadata.config_type}\n"
+            f"\t      processed config_type: {repo_config_type}\n"
+        )
 
     config = configs[0]
     config_type = repo.config_type(config=config)

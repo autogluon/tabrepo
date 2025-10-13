@@ -23,6 +23,7 @@ from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
 from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map
+from tabrepo.plot.dataset_analysis import plot_train_time_deep_dive
 from tabrepo.plot.plot_ens_weights import create_heatmap
 from tabrepo.plot.plot_pareto_frontier import plot_pareto as _plot_pareto, plot_pareto_aggregated
 
@@ -203,6 +204,7 @@ class TabArenaEvaluator:
         plot_pareto: bool = True,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
+        tmp_treat_tasks_independently: bool = False,  # FIXME: Need to make a weighted elo logic
     ) -> pd.DataFrame:
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
@@ -393,6 +395,11 @@ class TabArenaEvaluator:
                     plot_tune_types=plot_tune_types,
                     show=False,
                 )
+
+        if tmp_treat_tasks_independently:
+            # df_results_rank_compare = df_results_rank_compare[df_results_rank_compare["fold"] < 9]
+            df_results_rank_compare["dataset"] = df_results_rank_compare["dataset"] + "_" + df_results_rank_compare["fold"].astype(str)
+            df_results_rank_compare["fold"] = 0
 
         tabarena = TabArena(
             method_col=method_col,
@@ -1634,7 +1641,6 @@ class TabArenaEvaluator:
 
     # FIXME: clean this up
     def generate_runtime_plot(self, df_results: pd.DataFrame):
-        from scripts.dataset_analysis import plot_train_time_deep_dive  # FIXME
         df_results_configs = df_results[df_results["method_type"] == "config"]
         df_results_configs = df_results_configs.copy(deep=True)
 

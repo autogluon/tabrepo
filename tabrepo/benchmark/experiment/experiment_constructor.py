@@ -13,7 +13,7 @@ from tabrepo.benchmark.models.wrapper.abstract_class import AbstractExecModel
 from tabrepo.benchmark.models.wrapper.AutoGluon_class import AGWrapper, AGSingleWrapper, AGSingleBagWrapper
 from tabrepo.benchmark.models.wrapper.ag_model import AGModelWrapper
 from tabrepo.benchmark.experiment.experiment_runner import ExperimentRunner, OOFExperimentRunner
-from tabrepo.benchmark.models.model_register import infer_model_cls
+from tabrepo.benchmark.models.model_registry import infer_model_cls
 from tabrepo.utils.cache import AbstractCacheFunction, CacheFunctionDummy
 from tabrepo.benchmark.task.openml import OpenMLTaskWrapper
 
@@ -140,7 +140,7 @@ class Experiment:
         cacher: AbstractCacheFunction | None = None,
         ignore_cache: bool = False,
         **experiment_kwargs,
-    ) -> object:
+    ) -> dict:
         if cacher is None:
             cacher = CacheFunctionDummy()
         if task is not None:
@@ -200,9 +200,9 @@ class AGModelOuterExperiment(Experiment):
 
     @classmethod
     def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
-        model_cls = infer_model_cls(model_cls)
         if _context is None:
             _context = globals()
+        model_cls = _context.get(model_cls, infer_model_cls(model_cls))
 
         # Evaluate all values in ag_args_fit
         if "model_hyperparameters" in kwargs:
@@ -270,8 +270,8 @@ class AGExperiment(Experiment):
     def from_yaml(cls, _context=None, **kwargs) -> Self:
         if _context is None:
             _context = globals()
-        from tabrepo.benchmark.models.model_register import tabrepo_model_register
-        tabrepo_model_keys = tabrepo_model_register.keys
+        from tabrepo.benchmark.models.model_registry import tabarena_model_registry
+        tabrepo_model_keys = tabarena_model_registry.keys
 
         if "experiment_cls" in kwargs:
             kwargs["experiment_cls"] = eval(kwargs["experiment_cls"], _context)
@@ -283,7 +283,7 @@ class AGExperiment(Experiment):
                     for model in keys:
                         if model in tabrepo_model_keys:
                             val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
-                            kwargs["fit_kwargs"]["hyperparameters"][tabrepo_model_register.key_to_cls(model)] = val
+                            kwargs["fit_kwargs"]["hyperparameters"][tabarena_model_registry.key_to_cls(model)] = val
         obj = cls(**kwargs)
         return obj
 
@@ -319,6 +319,7 @@ class AGModelExperiment(Experiment):
         The kwargs passed to the init of `experiment_cls`.
     """
     _method_cls = AGSingleWrapper
+    _experiment_cls = OOFExperimentRunner
 
     def __init__(
         self,
@@ -356,7 +357,7 @@ class AGModelExperiment(Experiment):
                 "model_hyperparameters": model_hyperparameters,
                 **method_kwargs,
             },
-            experiment_cls=OOFExperimentRunner,
+            experiment_cls=self._experiment_cls,
             experiment_kwargs=experiment_kwargs,
         )
 
@@ -371,9 +372,9 @@ class AGModelExperiment(Experiment):
 
     @classmethod
     def from_yaml(cls, model_cls, _context=None, **kwargs) -> Self:
-        model_cls = infer_model_cls(model_cls)
         if _context is None:
             _context = globals()
+        model_cls = _context.get(model_cls, infer_model_cls(model_cls))
 
         # Evaluate all values in ag_args_fit
         if "model_hyperparameters" in kwargs:
@@ -493,7 +494,7 @@ class YamlSingleExperimentSerializer:
             context = globals()
 
         method_type = eval(method_config.pop('type'), context)
-        method_obj = method_type.from_yaml(**method_config)
+        method_obj = method_type.from_yaml(**method_config, _context=context)
         return method_obj
 
     @classmethod

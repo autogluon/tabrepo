@@ -111,6 +111,7 @@ class TabArenaContext:
         subset: str | None = None,
         folds: list[int] | None = None,
         score_on_val: bool = False,
+        tmp_treat_tasks_independently: bool = False,
     ) -> pd.DataFrame:
         from tabrepo.nips2025_utils.compare import compare_on_tabarena
         return compare_on_tabarena(
@@ -121,6 +122,7 @@ class TabArenaContext:
             folds=folds,
             tabarena_context=self,
             score_on_val=score_on_val,
+            tmp_treat_tasks_independently=tmp_treat_tasks_independently,
         )
 
     @property
@@ -146,16 +148,16 @@ class TabArenaContext:
         results_lst = metadata.load_raw(engine=self.engine, as_holdout=as_holdout)
         return results_lst
 
-    def load_repo(self, methods: list[str | MethodMetadata], config_fallback: str | None = None) -> EvaluationRepositoryCollection:
+    def load_repo(self, methods: list[str | MethodMetadata] | None = None, config_fallback: str | None = None) -> EvaluationRepositoryCollection:
+        if methods is None:
+            methods = self.methods
         repos = []
         for method in methods:
             if isinstance(method, MethodMetadata):
                 metadata = method
             else:
                 metadata = self.method_metadata(method=method)
-            cur_repo = EvaluationRepository.from_dir(
-                path=metadata.path_processed,
-            )
+            cur_repo = metadata.load_processed()
             repos.append(cur_repo)
         repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
         return repo
@@ -198,6 +200,31 @@ class TabArenaContext:
 
         repo.to_dir(path_processed)
         return path_processed
+
+    def run_hpo(
+        self,
+        method: str,
+        repo: EvaluationRepository,
+        n_iterations: int = 40,
+        n_configs: int | None = None,
+        time_limit: float | None = None,
+        fit_order: Literal["original", "random"] = "original",
+        seed: int = 0,
+    ) -> pd.DataFrame:
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+        df_results_family_hpo = simulator.run_ensemble_config_type(
+            config_type=method,
+            n_iterations=n_iterations,
+            n_configs=n_configs,
+            time_limit=time_limit,
+            fit_order=fit_order,
+            seed=seed,
+        )
+        df_results_family_hpo = df_results_family_hpo.rename(columns={
+            "framework": "method",
+        })
+        df_results_family_hpo["method"] = f"HPO-N{n_configs}-{method}"
+        return df_results_family_hpo
 
     def simulate_repo(
         self,
@@ -273,13 +300,26 @@ class TabArenaContext:
 
         return hpo_results, model_results
 
-    def simulate_portfolio(self, methods: list[str], config_fallback: str):
-        repos = []
-        for method in methods:
-            metadata = self.method_metadata(method=method)
-            cur_repo = EvaluationRepository.from_dir(path=metadata.path_processed)
-            repos.append(cur_repo)
-        repo = EvaluationRepositoryCollection(repos=repos, config_fallback=config_fallback)
+    def simulate_portfolio_from_configs(
+        self,
+        configs: list[str],
+        config_fallback: str | None = None,
+        repo: EvaluationRepositoryCollection = None,
+    ):
+        if repo is None:
+            repo = self.load_repo(config_fallback=config_fallback)
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+
+        results = simulator.evaluate_ensembles(
+            configs=configs,
+        )
+
+        results = results.rename(columns={"framework": "method"})
+        return results
+
+    def simulate_portfolio(self, methods: list[str], config_fallback: str, repo: EvaluationRepositoryCollection = None):
+        if repo is None:
+            repo = self.load_repo(methods=methods, config_fallback=config_fallback)
         simulator = PaperRunTabArena(repo=repo, backend=self.backend)
 
         df_results_n_portfolio = []
@@ -291,6 +331,24 @@ class TabArenaContext:
 
         results = results.rename(columns={"framework": "method"})
         return results
+
+    def run_portfolio_from_config_types(
+        self,
+        repo: AbstractRepository,
+        config_types: list[str],
+        n_portfolio: int,
+        n_ensemble: int | None = None,
+        time_limit: int | None = None,
+    ) -> pd.DataFrame:
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+        cur_result = simulator.run_zs_from_types(
+            config_types=config_types,
+            n_portfolios=n_portfolio,
+            n_ensemble=n_ensemble,
+            n_ensemble_in_name=True,
+            time_limit=time_limit,
+        )
+        return cur_result
 
     def load_hpo_results(self, method: str, holdout: bool = False) -> pd.DataFrame:
         metadata = self.method_metadata(method=method)
@@ -355,7 +413,12 @@ class TabArenaContext:
         df_results = pd.concat(df_results_lst, ignore_index=True)
         return df_results
 
-    def load_configs_hyperparameters(self, methods: list[str] | None = None, holdout: bool = False, download: bool | str = False) -> dict[str, dict]:
+    def load_configs_hyperparameters(
+        self,
+        methods: list[str] | None = None,
+        holdout: bool = False,
+        download: bool | str = False,
+    ) -> dict[str, dict]:
         if methods is None:
             methods = self.methods
             methods = [m for m in methods if self.method_metadata(m).method_type == "config"]
@@ -365,21 +428,7 @@ class TabArenaContext:
         configs_hyperparameters_lst = []
         for method in methods:
             metadata = self.method_metadata(method=method)
-            if isinstance(download, bool) and download:
-                metadata.download_configs_hyperparameters(holdout=holdout)
-            try:
-                configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
-            except FileNotFoundError as err:
-                if isinstance(download, str) and download == "auto":
-                    print(
-                        f"Cache miss detected for configs_hyperparameters.json "
-                        f"(method={metadata.method}), attempting download..."
-                    )
-                    metadata.download_configs_hyperparameters(holdout=holdout)
-                    configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout)
-                    print(f"\tDownload successful")
-                else:
-                    raise err
+            configs_hyperparameters = metadata.load_configs_hyperparameters(holdout=holdout, download=download)
             configs_hyperparameters_lst.append(configs_hyperparameters)
 
         def merge_dicts_no_duplicates(dicts: list[dict]) -> dict:

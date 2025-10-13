@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
-import requests
 from typing import Literal, TYPE_CHECKING
 from typing_extensions import Self
 
@@ -374,7 +373,20 @@ class MethodMetadata:
         path_configs_hyperparameters = path_processed / "configs_hyperparameters.json"
         return path_configs_hyperparameters
 
-    def load_configs_hyperparameters(self, holdout: bool = False) -> dict[str, dict]:
+    def load_configs_hyperparameters(self, holdout: bool = False, download: str | bool = "auto") -> dict[str, dict]:
+        if download == "auto":
+            try:
+                return self.load_configs_hyperparameters(holdout=holdout, download=False)
+            except FileNotFoundError as err:
+                print(
+                    f"Cache miss detected for configs_hyperparameters.json "
+                    f"(method={self.method}), attempting download..."
+                )
+                out = self.load_configs_hyperparameters(holdout=holdout, download=True)
+                print(f"\tDownload successful")
+                return out
+        elif isinstance(download, bool) and download:
+            self.download_configs_hyperparameters(holdout=holdout)
         with open(self.path_configs_hyperparameters(holdout=holdout), "r") as f:
             out = json.load(f)
         return out
@@ -382,18 +394,6 @@ class MethodMetadata:
     def download_configs_hyperparameters(self, holdout: bool = False):
         method_downloader = self.method_downloader()
         method_downloader.download_configs_hyperparameters(holdout=holdout)
-
-    def _download_file(self, url: str, local_path: str | Path):
-        local_path = Path(local_path)
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-
-        response = requests.get(url, stream=True)
-        response.raise_for_status()  # Check for HTTP request errors
-
-        with open(local_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:  # Filter out keep-alive chunks
-                    f.write(chunk)
 
     def load_raw(
         self,

@@ -605,14 +605,21 @@ class EndToEndResultsSingle:
                 new_result_prefix = ""
             new_result_prefix = new_result_prefix + f"[{self.method_metadata.artifact_name}] "
         if new_result_prefix is not None:
-            for col in ["method", "config_type", "ta_name", "ta_suite"]:
-                if col in df_results:
-                    df_results[col] = new_result_prefix + df_results[col]
+            df_results = self.add_prefix_to_results(results=df_results, prefix=new_result_prefix, inplace=True)
 
         if fillna:
             df_results = self.fillna_results_on_tabarena(df_results=df_results)
 
         return df_results
+
+    @classmethod
+    def add_prefix_to_results(cls, results: pd.DataFrame, prefix: str, inplace: bool = False) -> pd.DataFrame:
+        if not inplace:
+            results = results.copy()
+        for col in ["method", "config_type", "ta_name", "ta_suite"]:
+            if col in results:
+                results[col] = prefix + results[col]
+        return results
 
     def cache(self):
         self.method_metadata.to_yaml()
