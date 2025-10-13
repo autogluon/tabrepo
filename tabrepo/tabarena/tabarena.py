@@ -11,6 +11,7 @@ from pandas.api.types import is_numeric_dtype
 from scipy.stats import gmean
 
 from tabrepo.tabarena.elo_utils import EloHelper
+from tabrepo.tabarena.winrate_utils import compute_winrate, compute_winrate_matrix
 
 RANK = "rank"
 ERROR_COUNT = "error_count"
@@ -49,6 +50,7 @@ class TabArena:
         if groupby_columns is None:
             groupby_columns = []
         self.groupby_columns = [self.method_col, self.task_col] + groupby_columns
+        self.task_groupby_columns = [self.task_col] + groupby_columns
         self.seed_column = seed_column
         self.negative_error_threshold = negative_error_threshold
 
@@ -724,18 +726,70 @@ class TabArena:
         return relative_error
 
     def compute_winrate(self, results_per_task: pd.DataFrame) -> pd.Series:
-        """
-        This code is more complex than simply rescaling ranks as it accounts for missing (task, framework) results
-
-        If the results are dense, this method is equivalent to:
-        ```
-        results_winrate = 1 - ((results["rank"] - 1) / (len(results)-1))
-        ```
-        """
-        elo_helper = EloHelper(method_col=self.method_col, task_col=self.task_col, error_col=self.error_col)
-        battles = elo_helper.convert_results_to_battles(results_df=results_per_task)
-        results_winrate = elo_helper.compute_winrate_from_battles(battles=battles)
+        if self.seed_column is not None and self.seed_column not in results_per_task:
+            seed_col = None
+        else:
+            seed_col = self.seed_column
+        results_winrate = compute_winrate(
+            results_per_task=results_per_task,
+            task_col=self.task_groupby_columns,
+            method_col=self.method_col,
+            error_col=self.error_col,
+            seed_col=seed_col,
+        )
         return results_winrate
+
+    def compute_winrate_matrix(
+        self,
+        results_per_task: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Compute pairwise win-rates between methods.
+
+        Parameters
+        ----------
+        results_per_task : pd.DataFrame
+
+        Returns
+        -------
+        pd.DataFrame
+            Square DataFrame indexed and columned by methods.
+            Entry (i, j) = win-rate of method i vs method j.
+        """
+        if self.seed_column is not None and self.seed_column not in results_per_task:
+            seed_col = None
+        else:
+            seed_col = self.seed_column
+        winrate_matrix = compute_winrate_matrix(
+            results_per_task=results_per_task,
+            task_col=self.task_groupby_columns,
+            method_col=self.method_col,
+            error_col=self.error_col,
+            seed_col=seed_col,
+        )
+        return winrate_matrix
+
+    def plot_winrate_matrix(
+        self,
+        winrate_matrix: pd.DataFrame,
+        save_path: str | None,
+    ):
+        import plotly.express as px
+        fig = px.imshow(winrate_matrix, color_continuous_scale='RdBu',
+                        text_auto=".2f", title='Pairwise Winrate')
+        fig.update_layout(xaxis_title=" Model B: Loser",
+                          yaxis_title="Model A: Winner",
+                          xaxis_side="top", height=900, width=900,
+                          title_y=0.07, title_x=0.5)
+        fig.update_traces(
+            hovertemplate="Model A: %{y}<br>Model B: %{x}<br>Fraction of A Wins: %{z}<extra></extra>"
+        )
+
+        if save_path is not None:
+            if os.path.dirname(save_path):
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            fig.write_image(save_path)
+        return fig
 
     # FIXME: Rounding, parameterize
     #  Maybe rounding should be done as a preprocessing?
