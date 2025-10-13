@@ -19,6 +19,21 @@ def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
         else:
             result_holdout = None
         return result_holdout
+
+    # # FIXME: need to figure out why this is not in the artifact by itself
+    # #    This does not work, as it is triggered even for non name-suffix cases...
+    # if hasattr(data_aligned, "name_suffix"):
+    #     from tabrepo.benchmark.preprocessing.preprocessing_register import PREPROCESSING_METHODS
+    #
+    #     name_suffix = data_aligned.name_suffix
+    #     for method_name in PREPROCESSING_METHODS:
+    #         if method_name in name_suffix:
+    #             name_suffix = "_" + method_name
+    #             break
+    #     if name_suffix not in data_aligned.framework:
+    #         data_aligned.update_name(name_suffix=name_suffix)
+    #     if name_suffix not in data_aligned.model_type:
+    #         data_aligned.update_model_type(name_suffix=name_suffix)
     return data_aligned
 
 

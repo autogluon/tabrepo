@@ -8,7 +8,7 @@ import tqdm
 
 
 def fetch_all_pickles(
-    dir_path: str | Path | list[str | Path], suffix: str = ".pkl"
+    dir_path: str | Path | list[str | Path], suffix: str = ".pkl", suffix_start_with_star: bool = True
 ) -> list[Path]:
     """Recursively find every file ending in “.pkl” under *dir_path*
     and un‑pickle its contents.
@@ -43,7 +43,8 @@ def fetch_all_pickles(
                 raise NotADirectoryError(f"{root} is not a directory")
         else:
             # Look for *.pkl
-            pattern = f"*{suffix}"
+            pattern = f"*{suffix}" if suffix_start_with_star else suffix
+            print("Searching for pickles in", root, "with pattern", pattern)
             for file_path in tqdm.tqdm(
                 root.rglob(pattern), desc=f"Searching for pickles in {cur_dir_path}"
             ):

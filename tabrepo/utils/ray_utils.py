@@ -66,7 +66,7 @@ def ray_map_list(
         Track the progress of working on the list.
     tqdm_kwargs: dict | None, default=None
         Additional kwargs to pass to tqdm if `track_progress` is True.
-        For example, the decription for the progress bar: {"desc": "Processing list"}.
+        For example, the description for the progress bar: {"desc": "Processing list"}.
     """
     assert num_workers > 0, "Number of workers must be at least 1!"
     remote_kwargs = deepcopy(DEFAULT_REMOTE_KWARGS)

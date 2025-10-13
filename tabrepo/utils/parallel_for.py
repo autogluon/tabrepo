@@ -1,5 +1,6 @@
 from tqdm import tqdm
 from typing import TypeVar, Callable, List, Union
+import os
 
 A = TypeVar('A')
 B = TypeVar('B')
@@ -39,7 +40,7 @@ def parallel_for(
     if engine == "ray":
         import ray
         if not ray.is_initialized():
-            ray.init()
+            ray.init(len(os.sched_getaffinity(0)))
         @ray.remote
         def remote_f(x, context):
             return f(**x, **context) if isinstance(x, dict) else f(*x, **context)

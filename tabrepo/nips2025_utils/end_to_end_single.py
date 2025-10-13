@@ -402,7 +402,8 @@ class EndToEndSingle:
         method: str | None = None,
         artifact_name: str | None = None,
         num_cpus: int | None = None,
-    ) -> EndToEndResultsSingle:
+        pickle_suffix: str | None = None,
+    ) -> EndToEndResultsSingle | None:
         """
         Create and cache end-to-end results for the method in the given directory.
         Will not cache raw or processed data. To cache all artifacts, call `from_path_raw` instead.
@@ -443,14 +444,22 @@ class EndToEndSingle:
         num_cpus : int or None = None
             Number of CPUs to use for parallel processing.
             If None, it will use all available CPUs.
+        pickle_suffix: str or None = None
+            The suffix of the pickle files to look for in the raw directory.
+            Can be set as a rglob pattern to search only for speciifc files of indvidual methods.
         """
         if num_cpus is None:
             num_cpus = len(os.sched_getaffinity(0))
 
         print("Get results paths...")
+        suffix_start_with_star = pickle_suffix is not None
+        pickle_suffix = pickle_suffix if pickle_suffix is not None else "results.pkl"
         file_paths = fetch_all_pickles(
-            dir_path=path_raw, suffix="results.pkl"
+            dir_path=path_raw, suffix=pickle_suffix, suffix_start_with_star=suffix_start_with_star,
         )
+        print(f"Found {len(file_paths)} result files.")
+        if not file_paths:
+            return None
 
         all_file_paths_method = {}
         for file_path in file_paths:
