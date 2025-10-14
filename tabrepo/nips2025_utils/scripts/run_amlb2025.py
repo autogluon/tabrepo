@@ -94,7 +94,7 @@ if __name__ == '__main__':
             "calibration_elo": 1000,
             "BOOTSTRAP_ROUNDS": 100,
         },
-        baseline_relative_error=baseline_method,
+        baseline_method=baseline_method,
         relative_error_kwargs={"agg": "gmean"},
     )
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):

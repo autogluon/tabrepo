@@ -88,7 +88,7 @@ class TabArena:
         include_relative_error: bool = False,
         include_skill_score: bool = False,
         include_baseline_advantage: bool = False,
-        baseline_relative_error: str | None = None,
+        baseline_method: str | None = None,
         relative_error_kwargs: dict | None = None,
         elo_kwargs: dict | None = None,
         sort_by: str | list[str] | None = "rank",
@@ -97,8 +97,8 @@ class TabArena:
             elo_kwargs = {}
         if relative_error_kwargs is None:
             relative_error_kwargs = {}
-        if baseline_relative_error is None:
-            baseline_relative_error = elo_kwargs.get("calibration_framework", None)
+        if baseline_method is None:
+            baseline_method = elo_kwargs.get("calibration_framework", None)
 
         self.verify_data(data=data)
         results_per_task = self.compute_results_per_task(data=data)
@@ -135,25 +135,25 @@ class TabArena:
             })
 
             results_lst += [improvability, improvability_quantiles]
-        if include_baseline_advantage and baseline_relative_error is not None:
+        if include_baseline_advantage and baseline_method is not None:
             results_lst.append(self.compute_baseline_advantage(
                 results_per_task,
-                baseline_method=baseline_relative_error,
+                baseline_method=baseline_method,
             ))
         if include_mrr:
             results_lst.append(self.compute_mrr(results_per_task=results_per_task).to_frame())
-        if baseline_relative_error is not None:
+        if baseline_method is not None:
             if include_relative_error:
                 results_lst.append(
                     self.compute_relative_error(
                         results_per_task=results_per_task,
-                        method_baseline=baseline_relative_error,
+                        baseline_method=baseline_method,
                         **relative_error_kwargs
                     ).to_frame()
                 )
             if include_skill_score:
                 results_lst.append(
-                    self.compute_skill_score(results_per_task=results_per_task, method_baseline=baseline_relative_error)
+                    self.compute_skill_score(results_per_task=results_per_task, baseline_method=baseline_method)
                 )
 
         if include_rank_counts:
@@ -162,7 +162,6 @@ class TabArena:
         cols_to_use = [c for c in results_agg.columns if c != RANK]
         results_lst.append(results_agg[cols_to_use])
 
-        # FIXME: fillna should occur after failure counts?
         results = pd.concat(results_lst, axis=1)
 
         if sort_by is not None:
@@ -495,10 +494,10 @@ class TabArena:
     def compute_skill_score(
         self,
         results_per_task: pd.DataFrame,
-        method_baseline: str,
+        baseline_method: str,
     ) -> pd.Series:
         relative_error_gmean = self.compute_relative_error(
-            results_per_task=results_per_task, method_baseline=method_baseline, agg="gmean",
+            results_per_task=results_per_task, baseline_method=baseline_method, agg="gmean",
         )
         skill_score = 1 - relative_error_gmean
         skill_score.name = "skill_score"
@@ -679,48 +678,47 @@ class TabArena:
     def compute_relative_error(
         self,
         results_per_task: pd.DataFrame,
-        method_baseline: str | None,
+        baseline_method: str | None,
         agg: str = "mean",
         use_optimal: bool = False,
     ) -> pd.Series:
         assert agg in ["mean", "gmean"]
         results_per_task = results_per_task.copy()
-        results_per_task["relative_error"] = self._relative_error_per_task(
+        results_per_task["relative_error"] = self.compute_relative_error_per(
             results_per_task=results_per_task,
-            method_baseline=method_baseline,
+            baseline_method=baseline_method,
             use_optimal=use_optimal,
         )
+        relative_error_per_task = results_per_task.groupby(self.groupby_columns)["relative_error"].mean()
         if agg == "mean":
-            relative_error = results_per_task.groupby(self.method_col)["relative_error"].mean()
+            relative_error = relative_error_per_task.groupby(self.method_col).mean()
         elif agg == "gmean":
-            relative_error = results_per_task.groupby(self.method_col)["relative_error"].apply(gmean)
+            relative_error = relative_error_per_task.groupby(self.method_col).apply(gmean)
         else:
             raise ValueError(f"Invalid value for `agg`: {agg}")
         return relative_error
 
-    def _relative_error_per_task(
+    def compute_relative_error_per(
         self,
         results_per_task: pd.DataFrame,
-        method_baseline: str | None,
+        baseline_method: str | None,
         use_optimal: bool = False,
-    ) -> pd.Series:
-        tasks = set(results_per_task[self.task_col].unique().tolist())
-
+    ):
+        task_groupby_cols = self._get_task_groupby_cols(results=results_per_task)
         if use_optimal:
-            baseline_result = results_per_task.groupby(self.task_col)[self.error_col].min()
+            baseline_result = results_per_task.groupby(task_groupby_cols)[self.error_col].min()
         else:
-            assert method_baseline is not None, f"method_baseline must not be None!"
-            baseline_result = results_per_task[results_per_task[self.method_col] == method_baseline]
-            assert len(baseline_result) > 0, f"Baseline '{method_baseline}' does not exist!"
-            tasks_baseline = set(baseline_result[self.task_col].unique().tolist())
-            assert tasks == tasks_baseline, (
-                f"Baseline '{method_baseline}' missing results for "
-                f"{len(tasks) - len(tasks_baseline)}/{len(tasks)} tasks!"
-            )
-            # TODO: Assert baseline in all dataset results
-            baseline_result = baseline_result.set_index(self.task_col)[self.error_col]
-        baseline_error = results_per_task[self.task_col].map(baseline_result)
-        relative_error = results_per_task[self.error_col] / baseline_error
+            assert baseline_method is not None, f"baseline_method must not be None!"
+            # Collect the baseline error per task (one row per task group)
+            baseline_result = results_per_task.loc[results_per_task[self.method_col] == baseline_method, task_groupby_cols + [self.error_col]]
+            assert len(baseline_result) > 0, f"Baseline '{baseline_method}' does not exist!"
+
+        baseline_result = baseline_result.rename(columns={self.error_col: "baseline_error"})
+        # Map (join) the baseline error back onto every row of its task group
+        results_per_task = results_per_task.merge(baseline_result, on=task_groupby_cols, how="left")
+
+        relative_error = results_per_task[self.error_col] / results_per_task["baseline_error"]
+        relative_error.name = "relative_error"
         return relative_error
 
     def compute_winrate(self, results_per_task: pd.DataFrame) -> pd.Series:
