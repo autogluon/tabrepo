@@ -53,18 +53,41 @@ class TabArena:
             assert self.seed_column not in self.columns_to_agg
             assert self.seed_column not in self.groupby_columns
 
+    @property
+    def required_input_columns(self) -> list[str]:
+        required_input_columns = [
+            *self.groupby_columns,
+            *self.columns_to_agg,
+        ]
+        if self.seed_column is not None:
+            required_input_columns.append(self.seed_column)
+        return required_input_columns
+
+    def _get_task_groupby_cols(self, results: pd.DataFrame) -> list[str]:
+        task_groupby_cols = self.task_groupby_columns
+        if self.seed_column is not None and self.seed_column in results.columns:
+            task_groupby_cols = task_groupby_cols + [self.seed_column]
+        return task_groupby_cols
+
+    def _get_groupby_cols(self, results: pd.DataFrame) -> list[str]:
+        groupby_cols = self.groupby_columns
+        if self.seed_column is not None and self.seed_column in results.columns:
+            groupby_cols = groupby_cols + [self.seed_column]
+        return groupby_cols
+
     def leaderboard(
         self,
         data: pd.DataFrame,
         include_error: bool = False,
+        include_elo: bool = True,
+        include_winrate: bool = True,
         include_improvability: bool = True,
-        include_rescaled_loss: bool = True,
-        include_rank_counts: bool = False,
-        include_elo: bool = False,
-        include_winrate: bool = False,
         include_mrr: bool = False,
+        include_rescaled_loss: bool = False,
+        include_rank_counts: bool = False,
         include_relative_error: bool = False,
         include_skill_score: bool = False,
+        include_baseline_advantage: bool = False,
         baseline_relative_error: str | None = None,
         relative_error_kwargs: dict | None = None,
         elo_kwargs: dict | None = None,
@@ -112,6 +135,11 @@ class TabArena:
             })
 
             results_lst += [improvability, improvability_quantiles]
+        if include_baseline_advantage and baseline_relative_error is not None:
+            results_lst.append(self.compute_baseline_advantage(
+                results_per_task,
+                baseline_method=baseline_relative_error,
+            ))
         if include_mrr:
             results_lst.append(self.compute_mrr(results_per_task=results_per_task).to_frame())
         if baseline_relative_error is not None:
@@ -802,6 +830,56 @@ class TabArena:
         improvability = (1 - (best_error_per / results_per_task[self.error_col])).fillna(0)
         improvability.name = IMPROVABILITY
         return improvability
+
+    def compute_baseline_advantage(
+        self,
+        results_per_task: pd.DataFrame,
+        baseline_method: str,
+    ) -> pd.Series:
+        task_groupby_cols = self._get_task_groupby_cols(results=results_per_task)
+        seed_col = self.seed_column if self.seed_column in task_groupby_cols else None
+        results_per_task = results_per_task.copy()
+        results_per_task["baseline_advantage"] = self.compute_baseline_advantage_per(
+            results_per_task,
+            task_groupby_cols,
+            baseline_method,
+        )
+        results_baseline_advantage = compute_weighted_mean_by_task(
+            df=results_per_task,
+            value_col="baseline_advantage",
+            task_col=self.task_groupby_columns,
+            seed_col=seed_col,
+            method_col=self.method_col,
+            sort_asc=True,
+        )
+        return results_baseline_advantage
+
+    def compute_baseline_advantage_per(
+        self,
+        results_per_task: pd.DataFrame,
+        task_groupby_cols: list[str],
+        baseline_method: str,
+    ) -> pd.Series:
+        df = results_per_task.copy()
+
+        # Collect the baseline error per task (one row per task group)
+        base = (
+            df.loc[df[self.method_col] == baseline_method, task_groupby_cols + [self.error_col]]
+            .rename(columns={self.error_col: "baseline_error"})
+        )
+
+        # Map (join) the baseline error back onto every row of its task group
+        df = df.merge(base, on=task_groupby_cols, how="left")
+
+        # Denominator: max(baseline_error, this_row_error) per row
+        denom = df[[self.error_col, "baseline_error"]].max(axis=1).replace(0, pd.NA)
+
+        # Baseline advantage: (baseline - current) / denom
+        baseline_advantage = ((df["baseline_error"] - df[self.error_col]) / denom).fillna(0)
+
+        baseline_advantage.name = "baseline_advantage"
+        baseline_advantage.index = results_per_task.index  # preserve original alignment
+        return baseline_advantage
 
     def compute_loss_rescaled_per(self, results_per_task: pd.DataFrame, task_groupby_cols: list[str]) -> pd.Series:
         best_error_per = results_per_task.groupby(task_groupby_cols)[self.error_col].transform("min")
