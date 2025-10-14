@@ -584,6 +584,7 @@ class TabArena:
                 INIT_RATING=INIT_RATING,
                 BOOTSTRAP_ROUNDS=BOOTSTRAP_ROUNDS,
                 SCALE=SCALE,
+                show_process=False,
             )
             bootstrap_median = bootstrap_elo_lu.quantile(.5)
 
