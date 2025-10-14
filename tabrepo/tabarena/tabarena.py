@@ -436,7 +436,10 @@ class TabArena:
         """Compute mean reciprocal rank"""
         results_per_task = results_per_task.copy()
         results_per_task["mrr"] = 1 / results_per_task["rank"]
-        results_mrr = results_per_task.groupby(self.method_col)["mrr"].mean()
+        results_mrr_per_task = results_per_task.groupby(self.groupby_columns)["mrr"].mean()
+
+        results_mrr = results_mrr_per_task.groupby(self.method_col).mean()
+        results_mrr.name = "mrr"
         return results_mrr
 
     def compute_failure_count(self, results_per_task: pd.DataFrame) -> pd.Series:
