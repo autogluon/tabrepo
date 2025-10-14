@@ -111,7 +111,7 @@ class TabArenaContext:
         subset: str | None = None,
         folds: list[int] | None = None,
         score_on_val: bool = False,
-        per_split_elo: bool = False,
+        average_seeds: bool = True,
         tmp_treat_tasks_independently: bool = False,
     ) -> pd.DataFrame:
         from tabrepo.nips2025_utils.compare import compare_on_tabarena
@@ -123,7 +123,7 @@ class TabArenaContext:
             folds=folds,
             tabarena_context=self,
             score_on_val=score_on_val,
-            per_split_elo=per_split_elo,
+            average_seeds=average_seeds,
             tmp_treat_tasks_independently=tmp_treat_tasks_independently,
         )
 

@@ -11,22 +11,15 @@ from pandas.api.types import is_numeric_dtype
 from scipy.stats import gmean
 
 from tabrepo.tabarena.elo_utils import EloHelper
+from tabrepo.tabarena.mean_utils import compute_weighted_mean_by_task
 from tabrepo.tabarena.winrate_utils import compute_winrate, compute_winrate_matrix
 
 RANK = "rank"
-ERROR_COUNT = "error_count"
-RANK_1 = "rank=1_count"
 IMPROVABILITY = "improvability"
 LOSS_RESCALED = "loss_rescaled"
-TIME_TRAIN_S = "time_train_s"
-TIME_INFER_S = "time_infer_s"
-BEST_ERROR = "BEST_ERROR"
-WORST_ERROR = "WORST_ERROR"
 
 
 # TODO: Should "data" be an init arg? Probably not.
-# TODO: "fold" what to do?
-# TODO: raise_on_missing?
 class TabArena:
     def __init__(
         self,
@@ -59,22 +52,44 @@ class TabArena:
         if self.seed_column is not None:
             assert self.seed_column not in self.columns_to_agg
             assert self.seed_column not in self.groupby_columns
-        # FIXME: Folds
+
+    @property
+    def required_input_columns(self) -> list[str]:
+        required_input_columns = [
+            *self.groupby_columns,
+            *self.columns_to_agg,
+        ]
+        if self.seed_column is not None:
+            required_input_columns.append(self.seed_column)
+        return required_input_columns
+
+    def _get_task_groupby_cols(self, results: pd.DataFrame) -> list[str]:
+        task_groupby_cols = self.task_groupby_columns
+        if self.seed_column is not None and self.seed_column in results.columns:
+            task_groupby_cols = task_groupby_cols + [self.seed_column]
+        return task_groupby_cols
+
+    def _get_groupby_cols(self, results: pd.DataFrame) -> list[str]:
+        groupby_cols = self.groupby_columns
+        if self.seed_column is not None and self.seed_column in results.columns:
+            groupby_cols = groupby_cols + [self.seed_column]
+        return groupby_cols
 
     def leaderboard(
         self,
         data: pd.DataFrame,
+        average_seeds: bool = True,
         include_error: bool = False,
+        include_elo: bool = True,
+        include_winrate: bool = True,
         include_improvability: bool = True,
-        include_rescaled_loss: bool = True,
-        include_rank_counts: bool = False,
-        include_failure_counts: bool = False,
-        include_elo: bool = False,
-        include_winrate: bool = False,
         include_mrr: bool = False,
+        include_rescaled_loss: bool = False,
+        include_rank_counts: bool = False,
         include_relative_error: bool = False,
         include_skill_score: bool = False,
-        baseline_relative_error: str | None = None,
+        include_baseline_advantage: bool = False,
+        baseline_method: str | None = None,
         relative_error_kwargs: dict | None = None,
         elo_kwargs: dict | None = None,
         sort_by: str | list[str] | None = "rank",
@@ -83,68 +98,82 @@ class TabArena:
             elo_kwargs = {}
         if relative_error_kwargs is None:
             relative_error_kwargs = {}
-        if baseline_relative_error is None:
-            baseline_relative_error = elo_kwargs.get("calibration_framework", None)
+        if baseline_method is None:
+            baseline_method = elo_kwargs.get("calibration_framework", None)
 
         self.verify_data(data=data)
-        results_per_task = self.compute_results_per_task(data=data)
+
+        if average_seeds:
+            # average each method's task error across the seeds
+            # Calculate all metrics on the averaged error for the task.
+            results_per_task = self.compute_results_per_task(data=data)
+        else:
+            # Keep each method's task error for each seed, don't average the error.
+            # Calculate all metrics on each seed, then average across seeds to get the metric value for the task.
+            results_per_task = self.compute_results_per_task(data=data, include_seed_col=True)
 
         results_agg = self.aggregate(results_by_dataset=results_per_task)
-        results_lst = [results_agg]
+        results_lst = []
 
-        if include_rank_counts:
-            results_lst.append(self.compute_ranks(results_per_task=results_per_task))
-        if include_failure_counts:
-            results_lst.append(self.compute_failure_count(results_per_task=results_per_task).to_frame())
         if include_elo:
-            per_split = elo_kwargs.get("per_split", False)
-            if per_split:
-                results_lst.append(self.compute_elo(results_per_task=data, **elo_kwargs))
-            else:
-                results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
+            results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
+        results_lst.append(results_agg[RANK])
         if include_winrate:
             results_lst.append(self.compute_winrate(results_per_task=results_per_task).to_frame())
+        if include_improvability:
+            tasks = list(results_per_task[self.task_col].unique())
+            results_per_task_avg = results_per_task.groupby(self.groupby_columns)[IMPROVABILITY].mean().reset_index()
+            improvability_bootstrap = get_bootstrap_result_lst(
+                data=tasks,
+                func_=self._weighted_groupby_mean,
+                func_kwargs={"data": results_per_task_avg, "agg_column": IMPROVABILITY},
+                num_round=100,
+            )
+            improvability = results_agg[IMPROVABILITY]
+            results_agg = results_agg.drop(columns=[IMPROVABILITY])
+            improvability_quantiles = pd.DataFrame({
+                f"{IMPROVABILITY}+": improvability_bootstrap.quantile(.975) - improvability,
+                f"{IMPROVABILITY}-": improvability - improvability_bootstrap.quantile(.025),
+            })
+
+            results_lst += [improvability, improvability_quantiles]
+        if include_baseline_advantage and baseline_method is not None:
+            results_lst.append(self.compute_baseline_advantage(
+                results_per_task,
+                baseline_method=baseline_method,
+            ))
         if include_mrr:
             results_lst.append(self.compute_mrr(results_per_task=results_per_task).to_frame())
-        if baseline_relative_error is not None:
+        if baseline_method is not None:
             if include_relative_error:
                 results_lst.append(
                     self.compute_relative_error(
                         results_per_task=results_per_task,
-                        method_baseline=baseline_relative_error,
+                        baseline_method=baseline_method,
                         **relative_error_kwargs
                     ).to_frame()
                 )
             if include_skill_score:
                 results_lst.append(
-                    self.compute_skill_score(results_per_task=results_per_task, method_baseline=baseline_relative_error)
+                    self.compute_skill_score(results_per_task=results_per_task, baseline_method=baseline_method)
                 )
 
-        if include_improvability:
-            tasks = list(results_per_task[self.task_col].unique())
-            improvability_bootstrap = get_bootstrap_result_lst(
-                data=tasks,
-                func_=self._weighted_groupby_mean,
-                func_kwargs={"data": results_per_task, "agg_column": IMPROVABILITY},
-                num_round=100,
-            )
-            improvability_quantiles = pd.DataFrame({
-                f"{IMPROVABILITY}-": results_agg[IMPROVABILITY] - improvability_bootstrap.quantile(.025),
-                f"{IMPROVABILITY}+": improvability_bootstrap.quantile(.975) - results_agg[IMPROVABILITY],
-            })
-            results_lst.append(improvability_quantiles)
+        if include_rank_counts:
+            results_lst.append(self.compute_ranks(results_per_task=results_per_task))
 
-        # FIXME: fillna should occur after failure counts?
+        cols_to_use = [c for c in results_agg.columns if c != RANK]
+        results_lst.append(results_agg[cols_to_use])
+
         results = pd.concat(results_lst, axis=1)
 
+        if sort_by is not None:
+            results = results.sort_values(by=sort_by)
         if not include_error:
             results = results.drop(columns=[self.error_col])
         if not include_rescaled_loss:
             results = results.drop(columns=[LOSS_RESCALED])
         if not include_improvability:
             results = results.drop(columns=[IMPROVABILITY])
-        if sort_by is not None:
-            results = results.sort_values(by=sort_by)
         results.index.name = self.method_col
 
         return results
@@ -325,15 +354,24 @@ class TabArena:
         fillna_method: str = "worst",
     ) -> pd.DataFrame:
         """
-        Fills missing (dataset, fold, framework) rows in data with the (dataset, fold) row in df_fillna.
+        Fills missing (task, seed, method) rows in data with the (task, seed) row in df_fillna.
 
         Parameters
         ----------
-        data
-        df_fillna
+        data : pd.DataFrame
+            The data to fill.
+        df_fillna : pd.DataFrame | None, default None
+            If specified, will fill methods with missing results in `data` with the results in `df_fillna`.
+            If specified, `fillna_method` is ignored.
+        fillna_method : str, default "worst"
+            Either "worst" or the name of a method in self.method_col.
+            If "worst", will fill with the result of the method with the worst error on a given task.
+            Ignored if `df_fillna` is specified.
 
         Returns
         -------
+        pd.DataFrame
+            The filled data.
 
         """
         if self.seed_column:
@@ -343,16 +381,22 @@ class TabArena:
 
         unique_methods = list(data[self.method_col].unique())
 
-        if fillna_method == "worst":
-            assert df_fillna is None, f"df_fillna must be None if fillna_method='worst'"
-            idx_worst = data.groupby(task_columns)[self.error_col].idxmax()
-            df_fillna = data.loc[idx_worst]
+        if df_fillna is None:
+            if fillna_method == "worst":
+                assert df_fillna is None, f"df_fillna must be None if fillna_method='worst'"
+                idx_worst = data.groupby(task_columns)[self.error_col].idxmax()
+                df_fillna = data.loc[idx_worst]
+            elif isinstance(fillna_method, str) and fillna_method in data[self.method_col].unique():
+                df_fillna = data.loc[data[self.method_col] == fillna_method]
+            else:
+                raise AssertionError(
+                    f"df_fillna is None and fillna_method {fillna_method!r} is not present in data."
+                    f"\n\tValid methods: {list(data[self.method_col].unique())}"
+                )
+        if self.method_col in df_fillna.columns:
             df_fillna = df_fillna.drop(columns=[self.method_col])
-            pass
 
         data = data.set_index([*task_columns, self.method_col], drop=True)
-
-        assert self.method_col not in df_fillna.columns, f"Method column '{self.method_col}' must not be in df_fillna"
 
         df_filled = df_fillna[task_columns].merge(
             pd.Series(data=unique_methods, name=self.method_col),
@@ -379,66 +423,31 @@ class TabArena:
 
         return data
 
-    # FIXME: Don't hard-code time_train_s time_infer_s
-    # FIXME: Failures, mean when folds are missing is wrong, prevent duplicates
-    def compute_results_per_task(self, data: pd.DataFrame) -> pd.DataFrame:
+    def compute_results_per_task(self, data: pd.DataFrame, include_seed_col: bool = False) -> pd.DataFrame:
         groupby_cols = self.groupby_columns
+        task_groupby_cols = self.task_groupby_columns
+        if include_seed_col and self.seed_column is not None:
+            groupby_cols = groupby_cols + [self.seed_column]
+            task_groupby_cols = task_groupby_cols + [self.seed_column]
         columns_to_agg = self.columns_to_agg
         results_per_task = data[groupby_cols + columns_to_agg].groupby(groupby_cols).mean().reset_index()
 
-        best_error_per_task, worst_error_per_task = self.compute_best_and_worst_error_per_task(results_per_task=results_per_task)
+        # TODO: Remove `task_groupby_cols` as argument, infer it automatically
+        results_per_task_metrics = pd.DataFrame(index=results_per_task.index)
+        results_per_task_metrics[RANK] = self.compare_rank_per(results_per_task, task_groupby_cols=task_groupby_cols)
+        results_per_task_metrics[IMPROVABILITY] = self.compute_improvability_per(results_per_task, task_groupby_cols)
+        results_per_task_metrics[LOSS_RESCALED] = self.compute_loss_rescaled_per(results_per_task, task_groupby_cols)
 
-        results_per_task[BEST_ERROR] = results_per_task[self.task_col].map(best_error_per_task)
-        results_per_task[WORST_ERROR] = results_per_task[self.task_col].map(worst_error_per_task)
-
-        results_per_task[IMPROVABILITY] = 1 - (results_per_task[BEST_ERROR] / results_per_task[self.error_col])
-        results_per_task[IMPROVABILITY] = results_per_task[IMPROVABILITY].fillna(0)
-
-        results_per_task[LOSS_RESCALED] = (results_per_task[self.error_col] - results_per_task[BEST_ERROR]) / (
-                results_per_task[WORST_ERROR] - results_per_task[BEST_ERROR]
-        )
-        results_per_task[LOSS_RESCALED] = results_per_task[LOSS_RESCALED].fillna(0)
-        results_per_task = results_per_task.drop([BEST_ERROR, WORST_ERROR], axis=1)
-
-        for time_attr in [TIME_TRAIN_S, TIME_INFER_S]:
-            if time_attr in columns_to_agg:
-                best_time_attr = "BEST_" + time_attr
-                best_speed = (
-                    results_per_task[[self.task_col, time_attr]].sort_values(time_attr, ascending=True).drop_duplicates(self.task_col)
-                )
-                best_speed.columns = [self.task_col, best_time_attr]
-                results_per_task = results_per_task.merge(best_speed, on=self.task_col)
-                results_per_task[time_attr + "_rescaled"] = results_per_task[time_attr] / results_per_task[best_time_attr]
-                results_per_task = results_per_task.drop([best_time_attr], axis=1)
-
-        results_per_task = self.rank_result(results_per_task)
+        results_per_task = pd.concat([
+            results_per_task_metrics,
+            results_per_task,
+        ], axis=1)
         return results_per_task
 
-    def compute_best_and_worst_error_per_task(self, results_per_task: pd.DataFrame) -> tuple[dict[str, float], dict[str, float]]:
-        """
-
-        Parameters
-        ----------
-        results_per_task: pd.DataFrame
-
-        Returns
-        -------
-        best_error_per_task: dict[str, float]
-            Mapping of task to error, where error is the lowest (best) error value of all methods in `results_per_task`.
-        worst_error_per_task: dict[str, float]
-            Mapping of task to error, where error is the highest (worst) error value of all methods in `results_per_task`.
-        """
-        best_error_per_task = results_per_task[[self.task_col, self.error_col]].sort_values(
-            self.error_col, ascending=True,
-        ).drop_duplicates(self.task_col).set_index(self.task_col)[self.error_col].to_dict()
-        worst_error_per_task = results_per_task[[self.task_col, self.error_col]].sort_values(
-            self.error_col, ascending=False,
-        ).drop_duplicates(self.task_col).set_index(self.task_col)[self.error_col].to_dict()
-        return best_error_per_task, worst_error_per_task
-
     def aggregate(self, results_by_dataset: pd.DataFrame) -> pd.DataFrame:
-        results_by_dataset = copy.deepcopy(results_by_dataset)
-        results_agg = results_by_dataset.groupby([self.method_col, self.task_col]).mean(numeric_only=True)
+        if self.seed_column is not None and self.seed_column in results_by_dataset.columns:
+            results_by_dataset = results_by_dataset.drop(columns=[self.seed_column])
+        results_agg = results_by_dataset.groupby(self.groupby_columns).mean(numeric_only=True)
         # Compute mean
         mean_df = results_agg.groupby([self.method_col]).mean(numeric_only=True)
 
@@ -448,60 +457,64 @@ class TabArena:
 
         # Combine mean and median
         results_agg = pd.concat([mean_df, median_df], axis=1)
-        # results_agg = results_by_dataset.groupby([self.method_col]).mean(numeric_only=True)
         return results_agg
 
     def compute_ranks(self, results_per_task: pd.DataFrame) -> pd.DataFrame:
-        results_ranked = pd.DataFrame(index=list(results_per_task[self.method_col].unique()))
-        rank_1 = results_per_task[results_per_task[RANK] == 1]
-        rank_1_count = rank_1[self.method_col].value_counts()
-        results_ranked["rank=1_count"] = rank_1_count
-        results_ranked["rank=1_count"] = results_ranked["rank=1_count"].fillna(0).astype(int)
+        df = results_per_task.copy()
 
-        rank_2 = results_per_task[(results_per_task[RANK] > 1) & (results_per_task[RANK] <= 2)]
-        rank_2_count = rank_2[self.method_col].value_counts()
+        group_cols = self.groupby_columns  # e.g., ["task"] or ["task", "seed"]
+        task_cols = self.task_groupby_columns
+        if self.seed_column is not None and self.seed_column in results_per_task.columns:
+            task_seed_cols = task_cols + [self.seed_column]
+        else:
+            task_seed_cols = task_cols
 
-        results_ranked["rank=2_count"] = rank_2_count
-        results_ranked["rank=2_count"] = results_ranked["rank=2_count"].fillna(0).astype(int)
+        # Per-(group) min/max ranks (1 = best); ties span [min_rank, max_rank]
+        min_rank = df.groupby(task_seed_cols)[RANK].rank(method="min", ascending=True)
+        max_rank = df.groupby(task_seed_cols)[RANK].rank(method="max", ascending=True)
 
-        rank_3 = results_per_task[(results_per_task[RANK] > 2) & (results_per_task[RANK] <= 3)]
-        rank_3_count = rank_3[self.method_col].value_counts()
+        # Size of the tie a row belongs to (within group and exact error value)
+        tie_size = (
+            df.groupby(task_seed_cols + [RANK])[RANK]
+            .transform("size")
+            .astype(float)
+        )
 
-        results_ranked["rank=3_count"] = rank_3_count
-        results_ranked["rank=3_count"] = results_ranked["rank=3_count"].fillna(0).astype(int)
+        # Each position k contributes 1 unit per group; split equally across ties covering k
+        df["rank=1_count"] = ((min_rank <= 1) & (max_rank >= 1)).astype(float) / tie_size
+        df["rank=2_count"] = ((min_rank <= 2) & (max_rank >= 2)).astype(float) / tie_size
+        df["rank=3_count"] = ((min_rank <= 3) & (max_rank >= 3)).astype(float) / tie_size
 
-        rank_l3 = results_per_task[(results_per_task[RANK] > 3)]
-        rank_l3_count = rank_l3[self.method_col].value_counts()
+        # Whatever isn't in top-3 goes to >3
+        df["rank>3_count"] = 1.0 - (df["rank=1_count"] + df["rank=2_count"] + df["rank=3_count"])
 
-        results_ranked["rank>3_count"] = rank_l3_count
-        results_ranked["rank>3_count"] = results_ranked["rank>3_count"].fillna(0).astype(int)
+        # Equal-task weighting: average over group_cols (e.g., seeds) then sum per method across tasks
+        results_ranked = (
+            df.groupby(group_cols)[["rank=1_count", "rank=2_count", "rank=3_count", "rank>3_count"]]
+            .mean()
+            .groupby(self.method_col)
+            .sum()
+        )
+
         return results_ranked
 
     def compute_mrr(self, results_per_task: pd.DataFrame) -> pd.Series:
         """Compute mean reciprocal rank"""
         results_per_task = results_per_task.copy()
         results_per_task["mrr"] = 1 / results_per_task["rank"]
-        results_mrr = results_per_task.groupby(self.method_col)["mrr"].mean()
-        return results_mrr
+        results_mrr_per_task = results_per_task.groupby(self.groupby_columns)["mrr"].mean()
 
-    def compute_failure_count(self, results_per_task: pd.DataFrame) -> pd.Series:
-        datasets = sorted(list(results_per_task[self.task_col].unique()))
-        frameworks = list(results_per_task[self.method_col].unique())
-        num_datasets = len(datasets)
-        results_framework = results_per_task.drop_duplicates(self.groupby_columns)
-        framework_counts = results_framework[self.method_col].value_counts()
-        framework_failure_counts = -framework_counts + num_datasets
-        framework_failure_counts.name = "error_count"
-        framework_failure_counts = framework_failure_counts.reindex(frameworks)
-        return framework_failure_counts
+        results_mrr = results_mrr_per_task.groupby(self.method_col).mean()
+        results_mrr.name = "mrr"
+        return results_mrr
 
     def compute_skill_score(
         self,
         results_per_task: pd.DataFrame,
-        method_baseline: str,
+        baseline_method: str,
     ) -> pd.Series:
         relative_error_gmean = self.compute_relative_error(
-            results_per_task=results_per_task, method_baseline=method_baseline, agg="gmean",
+            results_per_task=results_per_task, baseline_method=baseline_method, agg="gmean",
         )
         skill_score = 1 - relative_error_gmean
         skill_score.name = "skill_score"
@@ -520,7 +533,6 @@ class TabArena:
         use_bootstrap_median: bool = False,
         use_bootstrap_median_for_quantiles: bool = False,
         clip_negative_ci: bool = True,
-        per_split: bool | None = None,
         post_calibrate: bool = True,
     ) -> pd.DataFrame:
         """
@@ -587,8 +599,7 @@ class TabArena:
 
             When ``BOOTSTRAP_ROUNDS == 1``, ``elo+`` and ``elo-`` will be 0.
         """
-        if per_split:
-            assert self.seed_column is not None, f"self.seed_column cannot be None when `per_split=True`!"
+        if self.seed_column is not None and self.seed_column in results_per_task.columns:
             split_col = self.seed_column
         else:
             split_col = None
@@ -615,6 +626,7 @@ class TabArena:
                 INIT_RATING=INIT_RATING,
                 BOOTSTRAP_ROUNDS=BOOTSTRAP_ROUNDS,
                 SCALE=SCALE,
+                show_process=False,
             )
             bootstrap_median = bootstrap_elo_lu.quantile(.5)
 
@@ -681,51 +693,54 @@ class TabArena:
     def compute_relative_error(
         self,
         results_per_task: pd.DataFrame,
-        method_baseline: str | None,
+        baseline_method: str | None,
         agg: str = "mean",
         use_optimal: bool = False,
     ) -> pd.Series:
         assert agg in ["mean", "gmean"]
         results_per_task = results_per_task.copy()
-        results_per_task["relative_error"] = self._relative_error_per_task(
+        results_per_task["relative_error"] = self.compute_relative_error_per(
             results_per_task=results_per_task,
-            method_baseline=method_baseline,
+            baseline_method=baseline_method,
             use_optimal=use_optimal,
         )
+        relative_error_per_task = results_per_task.groupby(self.groupby_columns)["relative_error"].mean()
         if agg == "mean":
-            relative_error = results_per_task.groupby(self.method_col)["relative_error"].mean()
+            relative_error = relative_error_per_task.groupby(self.method_col).mean()
         elif agg == "gmean":
-            relative_error = results_per_task.groupby(self.method_col)["relative_error"].apply(gmean)
+            relative_error = relative_error_per_task.groupby(self.method_col).apply(gmean)
         else:
             raise ValueError(f"Invalid value for `agg`: {agg}")
         return relative_error
 
-    def _relative_error_per_task(
+    def compute_relative_error_per(
         self,
         results_per_task: pd.DataFrame,
-        method_baseline: str | None,
+        baseline_method: str | None,
         use_optimal: bool = False,
-    ) -> pd.Series:
-        tasks = set(results_per_task[self.task_col].unique().tolist())
-
+    ):
+        task_groupby_cols = self._get_task_groupby_cols(results=results_per_task)
         if use_optimal:
-            baseline_result = results_per_task.groupby(self.task_col)[self.error_col].min()
+            baseline_result = results_per_task.groupby(task_groupby_cols)[self.error_col].min()
         else:
-            assert method_baseline is not None, f"method_baseline must not be None!"
-            baseline_result = results_per_task[results_per_task[self.method_col] == method_baseline]
-            assert len(baseline_result) > 0, f"Baseline '{method_baseline}' does not exist!"
-            tasks_baseline = set(baseline_result[self.task_col].unique().tolist())
-            assert tasks == tasks_baseline, (
-                f"Baseline '{method_baseline}' missing results for "
-                f"{len(tasks) - len(tasks_baseline)}/{len(tasks)} tasks!"
-            )
-            # TODO: Assert baseline in all dataset results
-            baseline_result = baseline_result.set_index(self.task_col)[self.error_col]
-        baseline_error = results_per_task[self.task_col].map(baseline_result)
-        relative_error = results_per_task[self.error_col] / baseline_error
+            assert baseline_method is not None, f"baseline_method must not be None!"
+            # Collect the baseline error per task (one row per task group)
+            baseline_result = results_per_task.loc[results_per_task[self.method_col] == baseline_method, task_groupby_cols + [self.error_col]]
+            assert len(baseline_result) > 0, f"Baseline '{baseline_method}' does not exist!"
+
+        baseline_result = baseline_result.rename(columns={self.error_col: "baseline_error"})
+        # Map (join) the baseline error back onto every row of its task group
+        results_per_task = results_per_task.merge(baseline_result, on=task_groupby_cols, how="left")
+
+        relative_error = results_per_task[self.error_col] / results_per_task["baseline_error"]
+        relative_error.name = "relative_error"
         return relative_error
 
     def compute_winrate(self, results_per_task: pd.DataFrame) -> pd.Series:
+        """
+        results_winrate = 1 - ((results_rank - 1) / (len(results)-1))
+        results_rank = len(results_winrate) - results_winrate * (len(results_winrate) - 1)
+        """
         if self.seed_column is not None and self.seed_column not in results_per_task:
             seed_col = None
         else:
@@ -791,28 +806,119 @@ class TabArena:
             fig.write_image(save_path)
         return fig
 
-    # FIXME: Rounding, parameterize
-    #  Maybe rounding should be done as a preprocessing?
-    # FIXME: Why a for-loop?
-    #  Can we simply groupby rank?
-    def rank_result(self, result_df: pd.DataFrame) -> pd.DataFrame:
-        datasets = list(result_df[self.task_col].unique())
-        result_df = result_df.copy()
-        result_df[self.error_col] = [round(x[0], 5) for x in zip(result_df[self.error_col])]
-        num_frameworks = len(result_df[self.method_col].unique())
-        if num_frameworks == 1:
-            sorted_df_full = result_df
-            sorted_df_full[RANK] = 1
-        else:
-            dfs = []
-            for dataset in datasets:
-                dataset_df = result_df[result_df[self.task_col] == dataset]
-                sorted_df = dataset_df.copy()
-                sorted_df[RANK] = sorted_df[self.error_col].rank()
-                dfs.append(sorted_df)
-            sorted_df_full = pd.concat(dfs, ignore_index=True)
+    def compare_rank_per(
+        self,
+        df: pd.DataFrame,
+        task_groupby_cols: list[str],
+    ) -> pd.Series:
+        """
+        Add a per-(task, seed) rank column based on error (lower is better).
+        - Ties receive average ranks.
+        - If `seed_col` is None, each task is treated as a single group.
 
-        return sorted_df_full
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Must contain task_groupby_cols, self.error_col.
+
+        Returns
+        -------
+        pd.Series
+            Ranks for each method on each task/split.
+        """
+        # FIXME: Rounding, parameterize
+        #  Maybe rounding should be done as preprocessing?
+        # df = df.copy()
+        # df[self.error_col] = [round(x[0], 5) for x in zip(df[self.error_col])]
+
+        # Rank within each (task, seed) group; lower error => better (rank 1)
+        # groupby(...).rank(...) preserves the original index order
+        rank = df.groupby(task_groupby_cols, sort=False)[self.error_col].rank(method="average", ascending=True)
+        rank.name = RANK
+
+        return rank
+
+    def compute_improvability_per(self, results_per_task: pd.DataFrame, task_groupby_cols: list[str]) -> pd.Series:
+        best_error_per = results_per_task.groupby(task_groupby_cols)[self.error_col].transform("min")
+        improvability = (1 - (best_error_per / results_per_task[self.error_col])).fillna(0)
+        improvability.name = IMPROVABILITY
+        return improvability
+
+    def compute_baseline_advantage(
+        self,
+        results_per_task: pd.DataFrame,
+        baseline_method: str,
+    ) -> pd.Series:
+        task_groupby_cols = self._get_task_groupby_cols(results=results_per_task)
+        seed_col = self.seed_column if self.seed_column in task_groupby_cols else None
+        results_per_task = results_per_task.copy()
+        results_per_task["baseline_advantage"] = self.compute_baseline_advantage_per(
+            results_per_task,
+            task_groupby_cols,
+            baseline_method,
+        )
+        results_baseline_advantage = compute_weighted_mean_by_task(
+            df=results_per_task,
+            value_col="baseline_advantage",
+            task_col=self.task_groupby_columns,
+            seed_col=seed_col,
+            method_col=self.method_col,
+            sort_asc=True,
+        )
+        return results_baseline_advantage
+
+    def compute_baseline_advantage_per(
+        self,
+        results_per_task: pd.DataFrame,
+        task_groupby_cols: list[str],
+        baseline_method: str,
+    ) -> pd.Series:
+        df = results_per_task.copy()
+
+        # Collect the baseline error per task (one row per task group)
+        base = (
+            df.loc[df[self.method_col] == baseline_method, task_groupby_cols + [self.error_col]]
+            .rename(columns={self.error_col: "baseline_error"})
+        )
+
+        # Map (join) the baseline error back onto every row of its task group
+        df = df.merge(base, on=task_groupby_cols, how="left")
+
+        # Denominator: max(baseline_error, this_row_error) per row
+        denom = df[[self.error_col, "baseline_error"]].max(axis=1).replace(0, pd.NA)
+
+        # Baseline advantage: (baseline - current) / denom
+        baseline_advantage = ((df["baseline_error"] - df[self.error_col]) / denom).fillna(0)
+
+        baseline_advantage.name = "baseline_advantage"
+        baseline_advantage.index = results_per_task.index  # preserve original alignment
+        return baseline_advantage
+
+    def compute_loss_rescaled_per(self, results_per_task: pd.DataFrame, task_groupby_cols: list[str]) -> pd.Series:
+        best_error_per = results_per_task.groupby(task_groupby_cols)[self.error_col].transform("min")
+        worst_error_per = results_per_task.groupby(task_groupby_cols)[self.error_col].transform("max")
+        loss_rescaled = (results_per_task[self.error_col] - best_error_per) / (
+            worst_error_per - best_error_per
+        ).fillna(0)
+        loss_rescaled.name = LOSS_RESCALED
+        return loss_rescaled
+
+    def compute_rank(self, results_per_task: pd.DataFrame) -> pd.Series:
+        if self.seed_column is not None and self.seed_column not in results_per_task:
+            seed_col = None
+        else:
+            seed_col = self.seed_column
+
+        results_rank = compute_weighted_mean_by_task(
+            df=results_per_task,
+            value_col=RANK,
+            task_col=self.task_groupby_columns,
+            seed_col=seed_col,
+            method_col=self.method_col,
+            sort_asc=True,
+        )
+        results_rank.name = RANK
+        return results_rank
 
     def dataset_outlier(self, results_per_task: pd.DataFrame):
         # Compute how much of an outlier the results of a given dataset are (squared rank differential?)
@@ -846,9 +952,10 @@ class TabArena:
             if show:
                 plt.show()
 
+    # TODO: Make faster, can be 100x faster if vectorized properly.
     def _weighted_groupby_mean(self, tasks: list[str], data: pd.DataFrame, agg_column: str) -> pd.Series:
         num_tasks = len(tasks)
-        data = data[[self.method_col, self.task_col, agg_column]].copy()
+        data = data.copy()
 
         counts = {}
         for task in tasks:
@@ -857,6 +964,7 @@ class TabArena:
         weights = data[self.task_col].map(counts).fillna(0)
         data["_weighted_column"] = data[agg_column] * weights
         column_mean = data.groupby(self.method_col)["_weighted_column"].sum()
+        column_mean.index.name = agg_column
         return column_mean
 
 

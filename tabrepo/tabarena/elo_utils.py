@@ -234,6 +234,7 @@ class EloHelper:
         BASE: int = 10,
         solver: str = "lbfgs",
         max_iter: int = 1000,
+        show_process: bool = True,
     ):
         """
         Task-level bootstrap with pair-compressed MLE.
@@ -264,7 +265,7 @@ class EloHelper:
             raise ValueError("No (method_1, method_2) pairs present; cannot bootstrap.")
 
         rows = []
-        for _ in tqdm(range(num_round), desc="bootstrap"):
+        for _ in tqdm(range(num_round), desc="bootstrap", disable=not show_process):
             # Sample task indices with replacement; convert to multiplicity vector
             sampled = _rng.choice(np.arange(n_tasks), size=n_tasks, replace=True)
             counts = np.bincount(sampled, minlength=n_tasks).astype(float)
@@ -384,6 +385,7 @@ class EloHelper:
         INIT_RATING: float = 1000,
         BOOTSTRAP_ROUNDS: int = 100,
         SCALE: int = 400,
+        show_process: bool = True,
     ) -> pd.DataFrame:
         rng = np.random.default_rng(seed=seed)
         bootstrap_elo_lu = self.get_bootstrap_result(
@@ -396,7 +398,8 @@ class EloHelper:
                 "SCALE": SCALE,
                 "calibration_framework": calibration_framework,
                 "calibration_elo": calibration_elo,
-            }
+            },
+            show_process=show_process,
         )
         return bootstrap_elo_lu
 
