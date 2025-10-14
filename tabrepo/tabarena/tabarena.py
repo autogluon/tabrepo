@@ -117,11 +117,11 @@ class TabArena:
 
         if include_improvability:
             tasks = list(results_per_task[self.task_col].unique())
-            # TODO: Bootstrap on datasets
+            results_per_task_avg = results_per_task.groupby(self.groupby_columns)[IMPROVABILITY].mean().reset_index()
             improvability_bootstrap = get_bootstrap_result_lst(
                 data=tasks,
                 func_=self._weighted_groupby_mean,
-                func_kwargs={"data": results_per_task, "agg_column": IMPROVABILITY},
+                func_kwargs={"data": results_per_task_avg, "agg_column": IMPROVABILITY},
                 num_round=100,
             )
             improvability_quantiles = pd.DataFrame({
@@ -861,9 +861,10 @@ class TabArena:
             if show:
                 plt.show()
 
+    # TODO: Make faster, can be 100x faster if vectorized properly.
     def _weighted_groupby_mean(self, tasks: list[str], data: pd.DataFrame, agg_column: str) -> pd.Series:
         num_tasks = len(tasks)
-        data = data[[self.method_col, self.task_col, agg_column]].copy()
+        data = data.copy()
 
         counts = {}
         for task in tasks:
@@ -872,6 +873,7 @@ class TabArena:
         weights = data[self.task_col].map(counts).fillna(0)
         data["_weighted_column"] = data[agg_column] * weights
         column_mean = data.groupby(self.method_col)["_weighted_column"].sum()
+        column_mean.index.name = agg_column
         return column_mean
 
 
