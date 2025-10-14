@@ -84,18 +84,34 @@ class TabArena:
         # results_per_split = self.compute_results_per_task(data=data, include_seed_col=True)
 
         results_agg = self.aggregate(results_by_dataset=results_per_task)
-        results_lst = [results_agg]
+        results_lst = []
 
-        if include_rank_counts:
-            results_lst.append(self.compute_ranks(results_per_task=results_per_task))
         if include_elo:
             per_split = elo_kwargs.get("per_split", False)
             if per_split:
                 results_lst.append(self.compute_elo(results_per_task=data, **elo_kwargs))
             else:
                 results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
+        results_lst.append(results_agg[RANK])
         if include_winrate:
             results_lst.append(self.compute_winrate(results_per_task=results_per_task).to_frame())
+        if include_improvability:
+            tasks = list(results_per_task[self.task_col].unique())
+            results_per_task_avg = results_per_task.groupby(self.groupby_columns)[IMPROVABILITY].mean().reset_index()
+            improvability_bootstrap = get_bootstrap_result_lst(
+                data=tasks,
+                func_=self._weighted_groupby_mean,
+                func_kwargs={"data": results_per_task_avg, "agg_column": IMPROVABILITY},
+                num_round=100,
+            )
+            improvability = results_agg[IMPROVABILITY]
+            results_agg = results_agg.drop(columns=[IMPROVABILITY])
+            improvability_quantiles = pd.DataFrame({
+                f"{IMPROVABILITY}+": improvability_bootstrap.quantile(.975) - improvability,
+                f"{IMPROVABILITY}-": improvability - improvability_bootstrap.quantile(.025),
+            })
+
+            results_lst += [improvability, improvability_quantiles]
         if include_mrr:
             results_lst.append(self.compute_mrr(results_per_task=results_per_task).to_frame())
         if baseline_relative_error is not None:
@@ -112,32 +128,23 @@ class TabArena:
                     self.compute_skill_score(results_per_task=results_per_task, method_baseline=baseline_relative_error)
                 )
 
-        if include_improvability:
-            tasks = list(results_per_task[self.task_col].unique())
-            results_per_task_avg = results_per_task.groupby(self.groupby_columns)[IMPROVABILITY].mean().reset_index()
-            improvability_bootstrap = get_bootstrap_result_lst(
-                data=tasks,
-                func_=self._weighted_groupby_mean,
-                func_kwargs={"data": results_per_task_avg, "agg_column": IMPROVABILITY},
-                num_round=100,
-            )
-            improvability_quantiles = pd.DataFrame({
-                f"{IMPROVABILITY}-": results_agg[IMPROVABILITY] - improvability_bootstrap.quantile(.025),
-                f"{IMPROVABILITY}+": improvability_bootstrap.quantile(.975) - results_agg[IMPROVABILITY],
-            })
-            results_lst.append(improvability_quantiles)
+        if include_rank_counts:
+            results_lst.append(self.compute_ranks(results_per_task=results_per_task))
+
+        cols_to_use = [c for c in results_agg.columns if c != RANK]
+        results_lst.append(results_agg[cols_to_use])
 
         # FIXME: fillna should occur after failure counts?
         results = pd.concat(results_lst, axis=1)
 
+        if sort_by is not None:
+            results = results.sort_values(by=sort_by)
         if not include_error:
             results = results.drop(columns=[self.error_col])
         if not include_rescaled_loss:
             results = results.drop(columns=[LOSS_RESCALED])
         if not include_improvability:
             results = results.drop(columns=[IMPROVABILITY])
-        if sort_by is not None:
-            results = results.sort_values(by=sort_by)
         results.index.name = self.method_col
 
         return results
@@ -382,9 +389,15 @@ class TabArena:
         results_per_task = data[groupby_cols + columns_to_agg].groupby(groupby_cols).mean().reset_index()
 
         # TODO: Remove `task_groupby_cols` as argument, infer it automatically
-        results_per_task[RANK] = self.compare_rank_per(results_per_task, task_groupby_cols=task_groupby_cols)
-        results_per_task[IMPROVABILITY] = self.compute_improvability_per(results_per_task, task_groupby_cols)
-        results_per_task[LOSS_RESCALED] = self.compute_loss_rescaled_per(results_per_task, task_groupby_cols)
+        results_per_task_metrics = pd.DataFrame(index=results_per_task.index)
+        results_per_task_metrics[RANK] = self.compare_rank_per(results_per_task, task_groupby_cols=task_groupby_cols)
+        results_per_task_metrics[IMPROVABILITY] = self.compute_improvability_per(results_per_task, task_groupby_cols)
+        results_per_task_metrics[LOSS_RESCALED] = self.compute_loss_rescaled_per(results_per_task, task_groupby_cols)
+
+        results_per_task = pd.concat([
+            results_per_task_metrics,
+            results_per_task,
+        ], axis=1)
         return results_per_task
 
     def aggregate(self, results_by_dataset: pd.DataFrame) -> pd.DataFrame:
