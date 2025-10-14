@@ -376,12 +376,10 @@ class TabArena:
             assert df_fillna is None, f"df_fillna must be None if fillna_method='worst'"
             idx_worst = data.groupby(task_columns)[self.error_col].idxmax()
             df_fillna = data.loc[idx_worst]
+        if self.method_col in df_fillna.columns:
             df_fillna = df_fillna.drop(columns=[self.method_col])
-            pass
 
         data = data.set_index([*task_columns, self.method_col], drop=True)
-
-        assert self.method_col not in df_fillna.columns, f"Method column '{self.method_col}' must not be in df_fillna"
 
         df_filled = df_fillna[task_columns].merge(
             pd.Series(data=unique_methods, name=self.method_col),
