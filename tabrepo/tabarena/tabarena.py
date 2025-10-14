@@ -375,7 +375,7 @@ class TabArena:
     def compute_results_per_task(self, data: pd.DataFrame, include_seed_col: bool = False) -> pd.DataFrame:
         groupby_cols = self.groupby_columns
         task_groupby_cols = self.task_groupby_columns
-        if include_seed_col:
+        if include_seed_col and self.seed_column is not None:
             groupby_cols = groupby_cols + [self.seed_column]
             task_groupby_cols = task_groupby_cols + [self.seed_column]
         columns_to_agg = self.columns_to_agg
