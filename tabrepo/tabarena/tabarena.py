@@ -60,7 +60,6 @@ class TabArena:
         include_improvability: bool = True,
         include_rescaled_loss: bool = True,
         include_rank_counts: bool = False,
-        include_failure_counts: bool = False,
         include_elo: bool = False,
         include_winrate: bool = False,
         include_mrr: bool = False,
@@ -89,8 +88,6 @@ class TabArena:
 
         if include_rank_counts:
             results_lst.append(self.compute_ranks(results_per_task=results_per_task))
-        if include_failure_counts:
-            results_lst.append(self.compute_failure_count(results_per_task=results_per_task).to_frame())
         if include_elo:
             per_split = elo_kwargs.get("per_split", False)
             if per_split:
@@ -453,17 +450,6 @@ class TabArena:
         results_mrr = results_mrr_per_task.groupby(self.method_col).mean()
         results_mrr.name = "mrr"
         return results_mrr
-
-    def compute_failure_count(self, results_per_task: pd.DataFrame) -> pd.Series:
-        datasets = sorted(list(results_per_task[self.task_col].unique()))
-        frameworks = list(results_per_task[self.method_col].unique())
-        num_datasets = len(datasets)
-        results_framework = results_per_task.drop_duplicates(self.groupby_columns)
-        framework_counts = results_framework[self.method_col].value_counts()
-        framework_failure_counts = -framework_counts + num_datasets
-        framework_failure_counts.name = "error_count"
-        framework_failure_counts = framework_failure_counts.reindex(frameworks)
-        return framework_failure_counts
 
     def compute_skill_score(
         self,

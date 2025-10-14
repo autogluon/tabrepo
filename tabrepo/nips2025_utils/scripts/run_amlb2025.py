@@ -85,7 +85,7 @@ if __name__ == '__main__':
         data=df_results_fillna,
         # include_error=True,
         include_elo=True,
-        include_failure_counts=True,
+        # include_failure_counts=True,
         include_mrr=True,
         include_rank_counts=True,
         include_winrate=True,
