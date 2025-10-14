@@ -339,6 +339,7 @@ class EndToEndResults:
         use_model_results: bool = False,
         score_on_val: bool = False,
         average_seeds: bool = True,
+        leaderboard_kwargs: dict | None = None,
     ) -> pd.DataFrame:
         """Compare results on TabArena leaderboard.
 
@@ -366,6 +367,7 @@ class EndToEndResults:
             subset=subset,
             score_on_val=score_on_val,
             average_seeds=average_seeds,
+            leaderboard_kwargs=leaderboard_kwargs,
         )
 
     def get_results(

@@ -113,6 +113,7 @@ class TabArenaContext:
         score_on_val: bool = False,
         average_seeds: bool = True,
         tmp_treat_tasks_independently: bool = False,
+        leaderboard_kwargs: dict | None = None,
     ) -> pd.DataFrame:
         from tabrepo.nips2025_utils.compare import compare_on_tabarena
         return compare_on_tabarena(
@@ -125,6 +126,7 @@ class TabArenaContext:
             score_on_val=score_on_val,
             average_seeds=average_seeds,
             tmp_treat_tasks_independently=tmp_treat_tasks_independently,
+            leaderboard_kwargs=leaderboard_kwargs,
         )
 
     @property

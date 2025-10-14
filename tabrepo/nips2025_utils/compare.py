@@ -21,6 +21,7 @@ def compare_on_tabarena(
     score_on_val: bool = False,
     average_seeds: bool = True,
     tmp_treat_tasks_independently: bool = False,
+    leaderboard_kwargs: dict | None = None,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
     if tabarena_context is None:
@@ -63,6 +64,7 @@ def compare_on_tabarena(
         score_on_val=score_on_val,
         average_seeds=average_seeds,
         tmp_treat_tasks_independently=tmp_treat_tasks_independently,
+        leaderboard_kwargs=leaderboard_kwargs,
     )
 
 
@@ -75,6 +77,7 @@ def compare(
     score_on_val: bool = False,
     average_seeds: bool = True,
     tmp_treat_tasks_independently: bool = False,  # FIXME: Update
+    leaderboard_kwargs: dict | None = None,
 ):
     df_results = df_results.copy()
     if "method_type" not in df_results:
@@ -125,6 +128,7 @@ def compare(
         calibration_framework=calibration_framework,
         average_seeds=average_seeds,
         tmp_treat_tasks_independently=tmp_treat_tasks_independently,
+        leaderboard_kwargs=leaderboard_kwargs,
     )
 
 

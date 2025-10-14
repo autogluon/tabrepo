@@ -206,7 +206,11 @@ class TabArenaEvaluator:
         calibration_framework: str | None = "auto",
         average_seeds: bool = True,
         tmp_treat_tasks_independently: bool = False,  # FIXME: Need to make a weighted elo logic
+        leaderboard_kwargs: dict | None = None,
     ) -> pd.DataFrame:
+        if leaderboard_kwargs is None:
+            leaderboard_kwargs = {}
+        leaderboard_kwargs = leaderboard_kwargs.copy()
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
         if baselines is None:
@@ -427,14 +431,17 @@ class TabArenaEvaluator:
             ],
         )
 
+        leaderboard_kwargs.setdefault("include_elo", True)
+        leaderboard_kwargs.setdefault("include_winrate", True)
+        leaderboard_kwargs.setdefault("include_mrr", True)
+        leaderboard_kwargs.setdefault("include_rank_counts", True)
+        leaderboard_kwargs.setdefault("baseline_method", calibration_framework)
+        leaderboard_kwargs.setdefault("elo_kwargs", elo_kwargs)
+        leaderboard_kwargs.setdefault("average_seeds", average_seeds)
+
         leaderboard = tabarena.leaderboard(
             data=df_results_rank_compare,
-            average_seeds=average_seeds,
-            include_winrate=True,
-            include_mrr=True,
-            include_rank_counts=True,
-            include_elo=True,
-            elo_kwargs=elo_kwargs,
+            **leaderboard_kwargs,
         )
         elo_map = leaderboard["elo"]
         leaderboard = leaderboard.reset_index(drop=False)
