@@ -19,7 +19,7 @@ def compare_on_tabarena(
     tabarena_context: TabArenaContext | None = None,
     fillna: str | pd.DataFrame | None = "RF (default)",
     score_on_val: bool = False,
-    per_split_elo: bool = False,
+    average_seeds: bool = True,
     tmp_treat_tasks_independently: bool = False,
 ) -> pd.DataFrame:
     output_dir = Path(output_dir)
@@ -61,7 +61,7 @@ def compare_on_tabarena(
         fillna=fillna,
         calibration_framework=fillna,
         score_on_val=score_on_val,
-        per_split_elo=per_split_elo,
+        average_seeds=average_seeds,
         tmp_treat_tasks_independently=tmp_treat_tasks_independently,
     )
 
@@ -73,7 +73,7 @@ def compare(
     calibration_framework: str | None = None,
     fillna: str | pd.DataFrame | None = None,
     score_on_val: bool = False,
-    per_split_elo: bool = False,
+    average_seeds: bool = True,
     tmp_treat_tasks_independently: bool = False,  # FIXME: Update
 ):
     df_results = df_results.copy()
@@ -123,7 +123,7 @@ def compare(
         plot_times=True,
         plot_other=False,
         calibration_framework=calibration_framework,
-        per_split_elo=per_split_elo,
+        average_seeds=average_seeds,
         tmp_treat_tasks_independently=tmp_treat_tasks_independently,
     )
 

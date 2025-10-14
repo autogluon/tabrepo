@@ -78,6 +78,7 @@ class TabArena:
     def leaderboard(
         self,
         data: pd.DataFrame,
+        average_seeds: bool = True,
         include_error: bool = False,
         include_elo: bool = True,
         include_winrate: bool = True,
@@ -101,20 +102,21 @@ class TabArena:
             baseline_method = elo_kwargs.get("calibration_framework", None)
 
         self.verify_data(data=data)
-        results_per_task = self.compute_results_per_task(data=data)
 
-        # TODO: make all metrics support results_per_split
-        # results_per_split = self.compute_results_per_task(data=data, include_seed_col=True)
+        if average_seeds:
+            # average each method's task error across the seeds
+            # Calculate all metrics on the averaged error for the task.
+            results_per_task = self.compute_results_per_task(data=data)
+        else:
+            # Keep each method's task error for each seed, don't average the error.
+            # Calculate all metrics on each seed, then average across seeds to get the metric value for the task.
+            results_per_task = self.compute_results_per_task(data=data, include_seed_col=True)
 
         results_agg = self.aggregate(results_by_dataset=results_per_task)
         results_lst = []
 
         if include_elo:
-            per_split = elo_kwargs.get("per_split", False)
-            if per_split:
-                results_lst.append(self.compute_elo(results_per_task=data, **elo_kwargs))
-            else:
-                results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
+            results_lst.append(self.compute_elo(results_per_task=results_per_task, **elo_kwargs))
         results_lst.append(results_agg[RANK])
         if include_winrate:
             results_lst.append(self.compute_winrate(results_per_task=results_per_task).to_frame())
@@ -516,7 +518,6 @@ class TabArena:
         use_bootstrap_median: bool = False,
         use_bootstrap_median_for_quantiles: bool = False,
         clip_negative_ci: bool = True,
-        per_split: bool | None = None,
         post_calibrate: bool = True,
     ) -> pd.DataFrame:
         """
@@ -583,8 +584,7 @@ class TabArena:
 
             When ``BOOTSTRAP_ROUNDS == 1``, ``elo+`` and ``elo-`` will be 0.
         """
-        if per_split:
-            assert self.seed_column is not None, f"self.seed_column cannot be None when `per_split=True`!"
+        if self.seed_column is not None and self.seed_column in results_per_task.columns:
             split_col = self.seed_column
         else:
             split_col = None
