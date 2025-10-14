@@ -52,7 +52,6 @@ class TabArena:
         if self.seed_column is not None:
             assert self.seed_column not in self.columns_to_agg
             assert self.seed_column not in self.groupby_columns
-        # FIXME: Folds
 
     def leaderboard(
         self,
@@ -407,29 +406,42 @@ class TabArena:
         return results_agg
 
     def compute_ranks(self, results_per_task: pd.DataFrame) -> pd.DataFrame:
-        results_ranked = pd.DataFrame(index=list(results_per_task[self.method_col].unique()))
-        rank_1 = results_per_task[results_per_task[RANK] == 1]
-        rank_1_count = rank_1[self.method_col].value_counts()
-        results_ranked["rank=1_count"] = rank_1_count
-        results_ranked["rank=1_count"] = results_ranked["rank=1_count"].fillna(0).astype(int)
+        df = results_per_task.copy()
 
-        rank_2 = results_per_task[(results_per_task[RANK] > 1) & (results_per_task[RANK] <= 2)]
-        rank_2_count = rank_2[self.method_col].value_counts()
+        group_cols = self.groupby_columns  # e.g., ["task"] or ["task", "seed"]
+        task_cols = self.task_groupby_columns
+        if self.seed_column is not None and self.seed_column in results_per_task.columns:
+            task_seed_cols = task_cols + [self.seed_column]
+        else:
+            task_seed_cols = task_cols
 
-        results_ranked["rank=2_count"] = rank_2_count
-        results_ranked["rank=2_count"] = results_ranked["rank=2_count"].fillna(0).astype(int)
+        # Per-(group) min/max ranks (1 = best); ties span [min_rank, max_rank]
+        min_rank = df.groupby(task_seed_cols)[RANK].rank(method="min", ascending=True)
+        max_rank = df.groupby(task_seed_cols)[RANK].rank(method="max", ascending=True)
 
-        rank_3 = results_per_task[(results_per_task[RANK] > 2) & (results_per_task[RANK] <= 3)]
-        rank_3_count = rank_3[self.method_col].value_counts()
+        # Size of the tie a row belongs to (within group and exact error value)
+        tie_size = (
+            df.groupby(task_seed_cols + [RANK])[RANK]
+            .transform("size")
+            .astype(float)
+        )
 
-        results_ranked["rank=3_count"] = rank_3_count
-        results_ranked["rank=3_count"] = results_ranked["rank=3_count"].fillna(0).astype(int)
+        # Each position k contributes 1 unit per group; split equally across ties covering k
+        df["rank=1_count"] = ((min_rank <= 1) & (max_rank >= 1)).astype(float) / tie_size
+        df["rank=2_count"] = ((min_rank <= 2) & (max_rank >= 2)).astype(float) / tie_size
+        df["rank=3_count"] = ((min_rank <= 3) & (max_rank >= 3)).astype(float) / tie_size
 
-        rank_l3 = results_per_task[(results_per_task[RANK] > 3)]
-        rank_l3_count = rank_l3[self.method_col].value_counts()
+        # Whatever isn't in top-3 goes to >3
+        df["rank>3_count"] = 1.0 - (df["rank=1_count"] + df["rank=2_count"] + df["rank=3_count"])
 
-        results_ranked["rank>3_count"] = rank_l3_count
-        results_ranked["rank>3_count"] = results_ranked["rank>3_count"].fillna(0).astype(int)
+        # Equal-task weighting: average over group_cols (e.g., seeds) then sum per method across tasks
+        results_ranked = (
+            df.groupby(group_cols)[["rank=1_count", "rank=2_count", "rank=3_count", "rank>3_count"]]
+            .mean()
+            .groupby(self.method_col)
+            .sum()
+        )
+
         return results_ranked
 
     def compute_mrr(self, results_per_task: pd.DataFrame) -> pd.Series:
