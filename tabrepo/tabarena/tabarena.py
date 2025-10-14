@@ -354,15 +354,24 @@ class TabArena:
         fillna_method: str = "worst",
     ) -> pd.DataFrame:
         """
-        Fills missing (dataset, fold, framework) rows in data with the (dataset, fold) row in df_fillna.
+        Fills missing (task, seed, method) rows in data with the (task, seed) row in df_fillna.
 
         Parameters
         ----------
-        data
-        df_fillna
+        data : pd.DataFrame
+            The data to fill.
+        df_fillna : pd.DataFrame | None, default None
+            If specified, will fill methods with missing results in `data` with the results in `df_fillna`.
+            If specified, `fillna_method` is ignored.
+        fillna_method : str, default "worst"
+            Either "worst" or the name of a method in self.method_col.
+            If "worst", will fill with the result of the method with the worst error on a given task.
+            Ignored if `df_fillna` is specified.
 
         Returns
         -------
+        pd.DataFrame
+            The filled data.
 
         """
         if self.seed_column:
@@ -372,10 +381,18 @@ class TabArena:
 
         unique_methods = list(data[self.method_col].unique())
 
-        if fillna_method == "worst":
-            assert df_fillna is None, f"df_fillna must be None if fillna_method='worst'"
-            idx_worst = data.groupby(task_columns)[self.error_col].idxmax()
-            df_fillna = data.loc[idx_worst]
+        if df_fillna is None:
+            if fillna_method == "worst":
+                assert df_fillna is None, f"df_fillna must be None if fillna_method='worst'"
+                idx_worst = data.groupby(task_columns)[self.error_col].idxmax()
+                df_fillna = data.loc[idx_worst]
+            elif isinstance(fillna_method, str) and fillna_method in data[self.method_col].unique():
+                df_fillna = data.loc[data[self.method_col] == fillna_method]
+            else:
+                raise AssertionError(
+                    f"df_fillna is None and fillna_method {fillna_method!r} is not present in data."
+                    f"\n\tValid methods: {list(data[self.method_col].unique())}"
+                )
         if self.method_col in df_fillna.columns:
             df_fillna = df_fillna.drop(columns=[self.method_col])
 
