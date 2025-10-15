@@ -154,35 +154,39 @@ def generate_dataset_analysis(repo, expname_outdir: str):
     df_grouped["group_index"] = df_grouped.groupby("method")["time_train_s"].cumcount()
     df_grouped["group_index"] += 1
 
+    palette = [
+        '#1f77b4',  # blue
+        '#ff7f0e',  # orange
+        '#2ca02c',  # green
+        '#d62728',  # red
+        '#9467bd',  # purple
+        '#8c564b',  # brown
+        '#e377c2',  # pink
+        '#7f7f7f',  # gray
+        '#bcbd22',  # yellow-green
+        '#17becf',  # cyan
+        '#aec7e8',  # light blue
+        '#ffbb78',  # light orange
+        '#98df8a',  # light green
+        '#ff9896',  # light red
+        '#c5b0d5',  # light purple
+        '#c49c94',  # light brown
+        '#f7b6d2',  # light pink
+        '#c7c7c7',  # light gray
+        '#dbdb8d',  # light yellow-green
+        '#9edae5',  # light cyan
+    ]
+    hue_order = sorted(list(df_grouped["method"].unique()))
+    n_colors = len(hue_order)
+
     sns.lineplot(
         data=df_grouped,
         x="group_index",
         y="time_train_s",
         hue="method",
-        hue_order=sorted(list(df_grouped["method"].unique())),
+        hue_order=hue_order,
         linewidth=3,
-        palette=[
-            '#1f77b4',  # blue
-            '#ff7f0e',  # orange
-            '#2ca02c',  # green
-            '#d62728',  # red
-            '#9467bd',  # purple
-            '#8c564b',  # brown
-            '#e377c2',  # pink
-            '#7f7f7f',  # gray
-            '#bcbd22',  # yellow-green
-            '#17becf',  # cyan
-            '#aec7e8',  # light blue
-            '#ffbb78',  # light orange
-            '#98df8a',  # light green
-            '#ff9896',  # light red
-            '#c5b0d5',  # light purple
-            '#c49c94',  # light brown
-            '#f7b6d2',  # light pink
-            '#c7c7c7',  # light gray
-            '#dbdb8d',  # light yellow-green
-            '#9edae5',  # light cyan
-        ],
+        palette=palette[:n_colors],
         ax=ax,
     )
     ax.set_yscale('log')
@@ -284,35 +288,40 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_me
 
     ax = axes[cur_idx]
     cur_idx += 1
+    
+    palette = [
+        '#1f77b4',  # blue
+        '#ff7f0e',  # orange
+        '#2ca02c',  # green
+        '#d62728',  # red
+        '#9467bd',  # purple
+        '#8c564b',  # brown
+        '#e377c2',  # pink
+        '#7f7f7f',  # gray
+        '#bcbd22',  # yellow-green
+        '#17becf',  # cyan
+        '#aec7e8',  # light blue
+        '#ffbb78',  # light orange
+        '#98df8a',  # light green
+        '#ff9896',  # light red
+        '#c5b0d5',  # light purple
+        '#c49c94',  # light brown
+        '#f7b6d2',  # light pink
+        '#c7c7c7',  # light gray
+        '#dbdb8d',  # light yellow-green
+        '#9edae5',  # light cyan
+    ]
+
+    hue_order = sorted(list(df[family_col].unique()))
+    n_colors = len(hue_order)
     sns.lineplot(
         data=df_sorted_by_time,
         x="group_index",
         y="time_train_s",
         hue=family_col,
-        hue_order=sorted(list(df[family_col].unique())),
+        hue_order=hue_order,
         linewidth=3,
-        palette=[
-            '#1f77b4',  # blue
-            '#ff7f0e',  # orange
-            '#2ca02c',  # green
-            '#d62728',  # red
-            '#9467bd',  # purple
-            '#8c564b',  # brown
-            '#e377c2',  # pink
-            '#7f7f7f',  # gray
-            '#bcbd22',  # yellow-green
-            '#17becf',  # cyan
-            '#aec7e8',  # light blue
-            '#ffbb78',  # light orange
-            '#98df8a',  # light green
-            '#ff9896',  # light red
-            '#c5b0d5',  # light purple
-            '#c49c94',  # light brown
-            '#f7b6d2',  # light pink
-            '#c7c7c7',  # light gray
-            '#dbdb8d',  # light yellow-green
-            '#9edae5',  # light cyan
-        ],
+        palette=palette[:n_colors],
         ax=ax,
     )
     ax.set_yscale('log')
@@ -343,6 +352,10 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_me
 
     ax = axes[cur_idx]
     cur_idx += 1
+    
+    hue_order = sorted(list(df[family_col].unique()))
+    n_colors = len(hue_order)
+    
     sns.lineplot(
         data=df_sorted_by_time,
         x="group_index",
@@ -350,28 +363,7 @@ def plot_train_time_deep_dive(df: pd.DataFrame, expname_outdir: str, only_per_me
         hue=family_col,
         hue_order=sorted(list(df[family_col].unique())),
         linewidth=3,
-        palette=[
-            '#1f77b4',  # blue
-            '#ff7f0e',  # orange
-            '#2ca02c',  # green
-            '#d62728',  # red
-            '#9467bd',  # purple
-            '#8c564b',  # brown
-            '#e377c2',  # pink
-            '#7f7f7f',  # gray
-            '#bcbd22',  # yellow-green
-            '#17becf',  # cyan
-            '#aec7e8',  # light blue
-            '#ffbb78',  # light orange
-            '#98df8a',  # light green
-            '#ff9896',  # light red
-            '#c5b0d5',  # light purple
-            '#c49c94',  # light brown
-            '#f7b6d2',  # light pink
-            '#c7c7c7',  # light gray
-            '#dbdb8d',  # light yellow-green
-            '#9edae5',  # light cyan
-        ],
+        palette=palette[:n_colors],
         ax=ax,
     )
     ax.set_yscale('log')

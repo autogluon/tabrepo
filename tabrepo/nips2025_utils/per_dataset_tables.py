@@ -220,35 +220,40 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
         df_mean_raw = df_mean.copy()
         df_std_raw = df_std.copy()
 
-        if df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==1:
+        df_mean = df_mean["metric_error"]
+        df_std = df_std["metric_error"]
+
+        if df_mean.apply(lambda x: str(x).find('.')).max()==1:
             df_std = df_std.round(3)
             df_mean = df_mean.round(3)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.3f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.3f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==2:
+            df_mean = df_mean.apply(lambda x: format(x, '.3f'))
+            df_std = df_std.apply(lambda x: format(x, '.3f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==2:
             df_std = df_std.round(2)
             df_mean = df_mean.round(2)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.2f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.2f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==3:
+            df_mean = df_mean.apply(lambda x: format(x, '.2f'))
+            df_std = df_std.apply(lambda x: format(x, '.2f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==3:
             df_std = df_std.round(1)
             df_mean = df_mean.round(1)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.1f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.1f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==4:
+            df_mean = df_mean.apply(lambda x: format(x, '.1f'))
+            df_std = df_std.apply(lambda x: format(x, '.1f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==4:
             df_std = df_std.round(1)
             df_mean = df_mean.round(1)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.1f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.1f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==5:
+            df_mean = df_mean.apply(lambda x: format(x, '.1f'))
+            df_std = df_std.apply(lambda x: format(x, '.1f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==5:
             df_std = df_std.round(0).astype(int)#.astype(str)
             df_mean = df_mean.round(0).astype(int)#.astype(str)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.1f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.1f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==6:
+            df_mean = df_mean.apply(lambda x: format(x, '.1f'))
+            df_std = df_std.apply(lambda x: format(x, '.1f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==6:
             df_std = (df_std/10).round(0).astype(int).astype(str)
             df_mean = (df_mean/10).round(0).astype(int).astype(str)
-        
+
+        df_mean = df_mean.to_frame()
+        df_std = df_std.to_frame()
 
         df_latex = df_mean + " $\\pm$ " + df_std
         df_latex.columns = [dataset_name]
