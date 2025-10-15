@@ -452,7 +452,7 @@ class TabArena:
         mean_df = results_agg.groupby([self.method_col]).mean(numeric_only=True)
 
         # Compute median and prefix column names
-        median_df = results_by_dataset.groupby([self.method_col]).median(numeric_only=True)
+        median_df = results_agg.groupby([self.method_col]).median(numeric_only=True)
         median_df.columns = [f'median_{col}' for col in median_df.columns]
 
         # Combine mean and median
