@@ -460,6 +460,7 @@ class TabArenaContext:
         configs_hyperparameters: dict[str, dict] = None,
         elo_bootstrap_rounds: int = 100,
         use_latex: bool = False,
+        realmlp_cpu: bool = False,
     ):
 
         ta_names = list(df_results["ta_name"].unique())
@@ -485,6 +486,7 @@ class TabArenaContext:
             eval_save_path=save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             use_latex=use_latex,
+            realmlp_cpu=realmlp_cpu,
         )
 
     def find_missing(self, method: str):

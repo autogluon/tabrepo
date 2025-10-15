@@ -64,7 +64,14 @@ def get_method_rename_map() -> dict:
     }
 
 
-def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[int, str]] = None, include_default: bool = True, include_best: bool = True, include_holdout: bool = True):
+def get_framework_type_method_names(
+    framework_types,
+    max_runtimes: list[tuple[int, str]] = None,
+    include_default: bool = True,
+    include_best: bool = True,
+    include_holdout: bool = True,
+    f_map_type_name: dict | None = None,
+):
     """
 
     Parameters
@@ -87,7 +94,9 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
     f_map = dict()
     f_map_type = dict()
     f_map_inverse = dict()
-    f_map_type_name = get_method_rename_map()
+
+    if f_map_type_name is None:
+        f_map_type_name = get_method_rename_map()
     for framework_type in framework_types:
         f_map_cur = dict()
         for max_runtime, suffix in max_runtimes:

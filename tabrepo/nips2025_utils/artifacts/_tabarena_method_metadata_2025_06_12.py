@@ -146,7 +146,7 @@ methods_compute_map = {
 methods = [
     "CatBoost",
     "Dummy",
-    # "ExplainableBM",
+    "ExplainableBM",
     "ExtraTrees",
     "KNeighbors",
     "LightGBM",
@@ -160,11 +160,40 @@ methods = [
     "XGBoost",
 
     "ModernNCA_GPU",
-    # "RealMLP_GPU",
+    "RealMLP_GPU",
     "TabDPT_GPU",
     "TabICL_GPU",
     "TabM_GPU",
     "TabPFNv2_GPU",
+]
+
+methods_main_paper = [
+    "CatBoost",
+    "ExplainableBM",
+    "ExtraTrees",
+    "KNeighbors",
+    "LightGBM",
+    "LinearModel",
+    "NeuralNetFastAI",
+    "NeuralNetTorch",
+    "RandomForest",
+    "RealMLP",
+    "XGBoost",
+
+    "ModernNCA_GPU",
+    "TabDPT_GPU",
+    "TabICL_GPU",
+    "TabM_GPU",
+    "TabPFNv2_GPU",
+
+    "AutoGluon_v130",
+    "Portfolio-N200-4h",
+]
+
+methods_gpu_ablation = [
+    "ModernNCA",
+    "TabM",
+    "RealMLP_GPU",
 ]
 
 

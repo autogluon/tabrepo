@@ -126,7 +126,7 @@ def get_significance(best_results, curr_model_results, method="wilcoxon", alpha=
 
     return p_value
  
-def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
+def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cpu: bool = False):
 
 
     # df_results["method"] = df_results["method"].map({
@@ -178,6 +178,14 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
         ######### AutoGluon baseline
         # "Portfolio-N200 (ensemble) (4h)"
     ]
+
+    if realmlp_cpu:
+        _replace_map = {
+            'REALMLP_GPU (tuned + ensemble)': "REALMLP (tuned + ensemble)",
+            'REALMLP_GPU (tuned)': "REALMLP (tuned)",
+            'REALMLP_GPU (default)': "REALMLP (default)",
+        }
+        use_methods_ordered = [_replace_map.get(m, m) for m in use_methods_ordered]
 
     df_use = df_results.loc[df_results["method"].apply(lambda x: x in use_methods_ordered)]
     df_use_fold = df_use.loc[df_use["fold"]==0]
