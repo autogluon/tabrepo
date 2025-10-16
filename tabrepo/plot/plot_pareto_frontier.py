@@ -98,75 +98,116 @@ def plot_pareto(
     x_name: str,
     y_name: str,
     title: str,
-    palette='Paired',
+    palette='tab20',
     hue: str = "Method",
+    *,
+    style_col: str | None = None,
+    label_col: str = "Method",
     max_X: bool = False,
     max_Y: bool = True,
     sort_y: bool = False,
     ylim=None,
-    save_path: str = None,
+    save_path: str | None = None,
     add_optimal_arrow: bool = True,
     show: bool = True,
 ):
     if sort_y:
-        data_order = data.sort_values(by=y_name, ascending=False)
-        data = data.sort_values(by=y_name, ascending=max_Y)
-        hue_order = list(data_order[hue])
+        # Optionally sort for nicer vertical label spacing while preserving stable colors
+        plot_df = data.sort_values(by=y_name, ascending=not max_Y)
 
-        legend_order = list(data[hue])
-
-        base = sns.color_palette(palette, n_colors=len(legend_order))
-        if not max_Y:
-            palette = base[::-1]
-        else:
-            palette = base
+        # ------------------------------
+        # Compute hue_order inside here:
+        # ------------------------------
+        # For each hue category (e.g., method_type), take the "best" y value:
+        #   - max if higher is better (max_Y=True)
+        #   - min if lower is better (max_Y=False)
+        agg_fun = "max" if max_Y else "min"
+        y_per_hue = (plot_df.groupby(hue)[y_name]
+                              .agg(agg_fun)
+                              .sort_values(ascending=False))
+        hue_order = list(y_per_hue.index)
     else:
+        plot_df = data.copy()
         hue_order = None
+
+    # Build stable color mapping per hue category (here: method_type)
+    hue_levels = list(pd.unique(plot_df[hue]))
+
+    # Ensure ≥20 visually distinct colors for many method types
+    base_palette = sns.color_palette(palette, 20)
+    if len(hue_levels) > 20:
+        # Extend deterministically by combining tab20 + tab20b + tab20c if needed
+        extended_palette = (
+                sns.color_palette("tab20", 20)
+                + sns.color_palette("tab20b", 20)
+                + sns.color_palette("tab20c", 20)
+        )
+        colors = extended_palette[:len(hue_levels)]
+    else:
+        colors = base_palette[:len(hue_levels)]
+    palette_map = dict(zip(hue_levels, colors))
+
+    # Style (marker) mapping per run_type (optional; seaborn can auto-assign markers if you omit this dict)
+    style_order = None
+    if style_col is not None:
+        style_order = list(pd.unique(plot_df[style_col]))
+        # If you want explicit marker shapes, uncomment below (kept simple / portable):
+        # default_markers = ['o', 's', 'D', '^', 'v', 'P', 'X', '<', '>', '*']
+        # markers_map = {lvl: default_markers[i % len(default_markers)] for i, lvl in enumerate(style_order)}
+        # markers_arg = markers_map
+        # Otherwise let seaborn choose:
+        markers_arg = True
+    else:
+        markers_arg = None
 
     g = sns.relplot(
         x=x_name,
         y=y_name,
-        data=data,
-        palette=palette,
+        data=plot_df,
         hue=hue,
         hue_order=hue_order,
+        palette=palette_map,
+        style=style_col,
+        style_order=style_order,
+        markers=markers_arg,
         height=10,
         s=300,
+        edgecolor="black",
+        linewidth=0.4,
     )
 
-    Xs = list(data[x_name])
-    Ys = list(data[y_name])
-    labels = list(data[hue])
-    pareto_front, pareto_names = get_pareto_frontier(Xs=Xs, Ys=Ys, names=labels, max_X=max_X, max_Y=max_Y)
+    # Compute Pareto frontier (use the plotted order)
+    Xs = list(plot_df[x_name])
+    Ys = list(plot_df[y_name])
+    labels_for_front = list(plot_df[label_col])  # annotate with full method names
+    pareto_front, pareto_names = get_pareto_frontier(
+        Xs=Xs, Ys=Ys, names=labels_for_front, max_X=max_X, max_Y=max_Y
+    )
+
     pf_X = [pair[0] for pair in pareto_front]
     pf_Y = [pair[1] for pair in pareto_front]
-    plt.plot(pf_X, pf_Y)
+
+    # Draw Pareto frontier as a step-like polyline
+    ax = g.ax
+    ax.plot(pf_X, pf_Y, linewidth=2)
 
     # ------------------------------------------------------------------
     # Label every real vertex on the Pareto frontier
     # ------------------------------------------------------------------
     import matplotlib.transforms as mtrans
-
-    ax = plt.gca()                                  # current Axes
-    offset_pts = 5                                  # ± points to nudge labels
+    offset_pts = 5
 
     for (x, y), label in zip(pareto_front, pareto_names):
-        if label is None:                           # skip dummy vertices
+        if label is None:
             continue
-
-        # Decide which quadrant to nudge the text toward so labels sit
-        # “outside” the frontier step.
         dx = offset_pts if max_X else -offset_pts
         dy = offset_pts if max_Y else -offset_pts
         ha = 'left' if max_X else 'right'
         va = 'bottom' if max_Y else 'top'
-
-        # Use Axes.annotate with textcoords='offset points' so the offset
-        # is interpreted in display points, independent of axis scaling.
         ax.annotate(
             label,
-            xy=(x, y),                  # data point
-            xytext=(dx, dy),            # offset in points
+            xy=(x, y),
+            xytext=(dx, dy),
             textcoords='offset points',
             ha=ha,
             va=va,
@@ -174,32 +215,22 @@ def plot_pareto(
         )
 
     if ylim is not None:
-        plt.ylim(ylim)
-    g.set(xscale="log")
-    fig = g.fig
+        ax.set_ylim(ylim)
 
+    g.set(xscale="log")
     plt.grid()
 
     if add_optimal_arrow:
-        ax = g.ax
-
         best_low_x = not max_X
         best_low_y = not max_Y
-
-        corner_x = 0 if best_low_x else 1  # 0 = left, 1 = right  in axes fraction
-        corner_y = 0 if best_low_y else 1  # 0 = bottom, 1 = top  in axes fraction
-
-        # ------------------------------------------------------------
-        # Arrow coordinates in **axes‑fraction space**
-        offset = 0.10  # 10% in from the outer edge
+        corner_x = 0 if best_low_x else 1
+        corner_y = 0 if best_low_y else 1
+        offset = 0.10
         start = (
             corner_x + (+offset if corner_x == 0 else -offset),
             corner_y + (+offset if corner_y == 0 else -offset),
         )
-        end = (corner_x, corner_y)  # the actual “best” corner
-
-        # ------------------------------------------------------------
-        # Draw a wide, filled green arrow (10% inset, axes‑fraction coords)
+        end = (corner_x, corner_y)
         arrow = ax.annotate(
             "", xy=end, xytext=start,
             xycoords="axes fraction", textcoords="axes fraction",
@@ -207,20 +238,15 @@ def plot_pareto(
                 arrowstyle="Fancy,head_length=0.42,head_width=0.30,tail_width=0.30",
                 facecolor="forestgreen",
                 edgecolor="forestgreen",
-                linewidth=0,  # no outline
-                mutation_scale=100  # scales the sizes above
+                linewidth=0,
+                mutation_scale=100
             ),
         )
-
-        # ------------------------------------------------------------
-        # Place readable text *inside* the arrow
-        vec = np.array(end) - np.array(start)  # arrow vector (axes fraction)
+        vec = np.array(end) - np.array(start)
         angle = np.degrees(np.arctan2(vec[1], vec[0]))
-        if angle < -90 or angle > 90:  # keep text left→right
+        if angle < -90 or angle > 90:
             angle += 180
-
-        mid = (np.array(start) + np.array(end)) / 2  # midpoint of arrow
-
+        mid = (np.array(start) + np.array(end)) / 2
         ax.text(
             mid[0], mid[1], "Optimal",
             transform=ax.transAxes,
@@ -230,11 +256,11 @@ def plot_pareto(
             color="white",
         )
 
-    # Add a title to the Figure
-    fig.suptitle(title, fontsize=14)
+    # Title + save/show
+    g.fig.suptitle(title, fontsize=14)
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path)
+        plt.savefig(save_path, bbox_inches="tight")
     if show:
         plt.show()
 

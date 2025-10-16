@@ -482,6 +482,7 @@ class TabArenaEvaluator:
         )
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare)
+        results_per_split = tabarena.compute_results_per_task(data=df_results_rank_compare, include_seed_col=True)
 
         # FIXME: Is critical diagram incorrect?
         if plot_cdd:
@@ -502,6 +503,23 @@ class TabArenaEvaluator:
             # rename model part
             results_te_per_task.loc[:, self.method_col] = results_te_per_task[self.method_col].map(rename_model)
 
+            tune_methods = results_per_split[self.method_col].map(f_map_inverse)
+            method_types = results_per_split[self.method_col].map(f_map_type).fillna(results_per_split[self.method_col])
+            tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
+            results_te_per_split = results_per_split[(tune_methods == 'tuned_ensembled') | (
+                        (tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
+            results_te_per_split.loc[:, self.method_col] = results_te_per_split[self.method_col].map(rename_model)
+
+            if average_seeds:
+                _results_to_use_winrate_matrix = results_te_per_task
+            else:
+                _results_to_use_winrate_matrix = results_te_per_split
+
+            tabarena.plot_winrate_matrix(
+                winrate_matrix=tabarena.compute_winrate_matrix(results_per_task=_results_to_use_winrate_matrix),
+                save_path=str(Path(self.output_dir / f"winrate_matrix.{self.figure_file_type}")),
+            )
+
             try:
                 tabarena.plot_critical_diagrams(
                     results_per_task=results_te_per_task,
@@ -518,10 +536,14 @@ class TabArenaEvaluator:
             self.generate_runtime_plot(df_results=df_results_rank_compare)
 
         if plot_pareto:
-            self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard)
-            self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard)
-            self.plot_pareto_improvability_vs_time_infer(leaderboard=leaderboard)
-            self.plot_pareto_improvability_vs_time_train(leaderboard=leaderboard)
+            leaderboard_pareto = leaderboard.copy()
+            leaderboard_pareto["method_type"] = leaderboard_pareto[self.method_col].map(f_map_type).fillna(leaderboard_pareto[self.method_col])
+            leaderboard_pareto["run_type"] = leaderboard_pareto[self.method_col].map(f_map_inverse).fillna("baseline")
+            # leaderboard_pareto[self.method_col] = leaderboard_pareto[self.method_col].map(f_map_type_name).fillna(leaderboard_pareto[self.method_col])
+            self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard_pareto)
+            self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard_pareto)
+            self.plot_pareto_improvability_vs_time_infer(leaderboard=leaderboard_pareto)
+            self.plot_pareto_improvability_vs_time_train(leaderboard=leaderboard_pareto)
 
         if plot_other:
             try:
@@ -584,19 +606,18 @@ class TabArenaEvaluator:
             BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
         )
 
-    def plot_pareto_elo_vs_time_train(
-        self,
-        leaderboard: pd.DataFrame,
-    ):
+    def plot_pareto_elo_vs_time_train(self, leaderboard: pd.DataFrame):
         save_prefix = Path(self.output_dir)
         save_path = str(save_prefix / f"pareto_front_elo_vs_time_train.{self.figure_file_type}")
         y_name = "Elo"
         x_name = "Train time per 1K samples (s) (median)"
-        title = f"Elo vs Train Time"
+        title = "Elo vs Train Time"
+
         data = leaderboard.copy()
         data[x_name] = data["median_time_train_s_per_1K"]
         data[y_name] = data["elo"]
         data["Method"] = data["method"]
+
         _plot_pareto(
             data=data,
             x_name=x_name,
@@ -604,26 +625,26 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=True,
             sort_y=True,
-            hue="Method",
-            # ylim=(0, None),
+            hue="method_type",  # color by family
+            style_col="run_type",  # marker by run type
+            label_col="Method",  # annotate with full method name
             title=title,
             save_path=save_path,
             show=False,
         )
 
-    def plot_pareto_elo_vs_time_infer(
-        self,
-        leaderboard: pd.DataFrame,
-    ):
+    def plot_pareto_elo_vs_time_infer(self, leaderboard: pd.DataFrame):
         save_prefix = Path(self.output_dir)
         save_path = str(save_prefix / f"pareto_front_elo_vs_time_infer.{self.figure_file_type}")
         y_name = "Elo"
         x_name = "Inference time per 1K samples (s) (median)"
         title = f"Elo vs Inference Time"
+
         data = leaderboard.copy()
         data[x_name] = data["median_time_infer_s_per_1K"]
         data[y_name] = data["elo"]
-        data["Method"] = data["method"]
+        data["Method"] = data["method"]  # keep verbose label for annotations
+
         _plot_pareto(
             data=data,
             x_name=x_name,
@@ -631,26 +652,26 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=True,
             sort_y=True,
-            hue="Method",
-            # ylim=(0, None),
+            hue="method_type",  # <-- same color for same method_type
+            style_col="run_type",  # <-- different marker per run_type
+            label_col="Method",  # <-- annotate with full method name
             title=title,
             save_path=save_path,
             show=False,
         )
 
-    def plot_pareto_improvability_vs_time_infer(
-        self,
-        leaderboard: pd.DataFrame,
-    ):
+    def plot_pareto_improvability_vs_time_infer(self, leaderboard: pd.DataFrame):
         save_prefix = Path(self.output_dir)
         save_path = str(save_prefix / f"pareto_front_improvability_vs_time_infer.{self.figure_file_type}")
         y_name = "Improvability (%)"
         x_name = "Inference time per 1K samples (s) (median)"
-        title = f"Improvability vs Inference Time"
+        title = "Improvability vs Inference Time"
+
         data = leaderboard.copy()
         data[x_name] = data["median_time_infer_s_per_1K"]
         data[y_name] = data["improvability"] * 100
         data["Method"] = data["method"]
+
         _plot_pareto(
             data=data,
             x_name=x_name,
@@ -658,26 +679,27 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=False,
             sort_y=True,
-            hue="Method",
+            hue="method_type",  # color by family
+            style_col="run_type",  # marker by run type
+            label_col="Method",  # annotate with full method name
             ylim=(0, None),
             title=title,
             save_path=save_path,
             show=False,
         )
 
-    def plot_pareto_improvability_vs_time_train(
-        self,
-        leaderboard: pd.DataFrame,
-    ):
+    def plot_pareto_improvability_vs_time_train(self, leaderboard: pd.DataFrame):
         save_prefix = Path(self.output_dir)
         save_path = str(save_prefix / f"pareto_front_improvability_vs_time_train.{self.figure_file_type}")
         y_name = "Improvability (%)"
-        x_name = "Train time per 1K samples (s)"
-        title = f"Improvability vs Train Time"
+        x_name = "Train time per 1K samples (s) (median)"
+        title = "Improvability vs Train Time"
+
         data = leaderboard.copy()
         data[x_name] = data["median_time_train_s_per_1K"]
         data[y_name] = data["improvability"] * 100
         data["Method"] = data["method"]
+
         _plot_pareto(
             data=data,
             x_name=x_name,
@@ -685,7 +707,9 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=False,
             sort_y=True,
-            hue="Method",
+            hue="method_type",  # color by family
+            style_col="run_type",  # marker by run type
+            label_col="Method",  # annotate with full method name
             ylim=(0, None),
             title=title,
             save_path=save_path,
