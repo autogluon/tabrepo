@@ -589,7 +589,7 @@ class TabArenaEvaluator:
         leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_elo_vs_time_train.png")
+        save_path = str(save_prefix / f"pareto_front_elo_vs_time_train.{self.figure_file_type}")
         y_name = "Elo"
         x_name = "Train time per 1K samples (s) (median)"
         title = f"Elo vs Train Time"
@@ -616,7 +616,7 @@ class TabArenaEvaluator:
         leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_elo_vs_time_infer.png")
+        save_path = str(save_prefix / f"pareto_front_elo_vs_time_infer.{self.figure_file_type}")
         y_name = "Elo"
         x_name = "Inference time per 1K samples (s) (median)"
         title = f"Elo vs Inference Time"
@@ -643,7 +643,7 @@ class TabArenaEvaluator:
         leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_improvability_vs_time_infer.png")
+        save_path = str(save_prefix / f"pareto_front_improvability_vs_time_infer.{self.figure_file_type}")
         y_name = "Improvability (%)"
         x_name = "Inference time per 1K samples (s) (median)"
         title = f"Improvability vs Inference Time"
@@ -670,7 +670,7 @@ class TabArenaEvaluator:
         leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_improvability_vs_time_train.png")
+        save_path = str(save_prefix / f"pareto_front_improvability_vs_time_train.{self.figure_file_type}")
         y_name = "Improvability (%)"
         x_name = "Train time per 1K samples (s)"
         title = f"Improvability vs Train Time"

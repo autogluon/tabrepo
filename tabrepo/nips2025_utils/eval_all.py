@@ -125,7 +125,7 @@ def evaluate_all(
     use_imputation_lst = [False, True]
     problem_type_pst = [None, "cls", "reg", "binary", "multiclass"]
     include_portfolio_lst = [False, True]
-    with_baselines_lst = [False, True]
+    with_baselines_lst = [True, False]
     lite_lst = [False, True]
 
     all_combinations = list(product(
