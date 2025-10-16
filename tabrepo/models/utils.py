@@ -32,8 +32,8 @@ def get_configs_generator_from_name(model_name: str):
         "EBM": lambda: importlib.import_module("tabrepo.models.ebm.generate").gen_ebm,
         "ExtraTrees": lambda: importlib.import_module("tabrepo.models.extra_trees.generate").gen_extratrees,
         "FastaiMLP": lambda: importlib.import_module("tabrepo.models.fastai.generate").gen_fastai,
-        "FTTransformer": lambda: importlib.import_module("tabrepo.models.ftt.generate").gen_fttransformer,
         "KNN": lambda: importlib.import_module("tabrepo.models.knn.generate").gen_knn,
+        "KNN_new": lambda: importlib.import_module("tabrepo.models.knn_new.generate").gen_knn_new,
         "LightGBM": lambda: importlib.import_module("tabrepo.models.lightgbm.generate").gen_lightgbm,
         "Linear": lambda: importlib.import_module("tabrepo.models.lr.generate").gen_linear,
         "ModernNCA": lambda: importlib.import_module("tabrepo.models.modernnca.generate").gen_modernnca,
@@ -43,7 +43,6 @@ def get_configs_generator_from_name(model_name: str):
         "TabDPT": lambda: importlib.import_module("tabrepo.models.tabdpt.generate").gen_tabdpt,
         "TabICL": lambda: importlib.import_module("tabrepo.models.tabicl.generate").gen_tabicl,
         "TabM": lambda: importlib.import_module("tabrepo.models.tabm.generate").gen_tabm,
-        # "TabPFN": lambda: importlib.import_module("tabrepo.models.tabpfn.generate").gen_tabpfn, # not supported in TabArena
         "TabPFNv2": lambda: importlib.import_module("tabrepo.models.tabpfnv2.generate").gen_tabpfnv2,
         "XGBoost": lambda: importlib.import_module("tabrepo.models.xgboost.generate").gen_xgboost,
         "Mitra": lambda: importlib.import_module("tabrepo.models.mitra.generate").gen_mitra,

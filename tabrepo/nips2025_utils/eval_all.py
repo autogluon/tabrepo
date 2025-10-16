@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from itertools import product
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pandas as pd
 
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.nips2025_utils.per_dataset_tables import get_per_dataset_tables
-from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator
+from tabrepo.paper.tabarena_evaluator import TabArenaEvaluator, TabArenaEvaluator_2025_06_12
 
 
 def _get_problem_type(n_classes: int):
@@ -28,7 +29,13 @@ def evaluate_all(
     configs_hyperparameters: dict[str, dict] = None,
     elo_bootstrap_rounds: int = 100,
     use_latex: bool = False,
+    realmlp_cpu: bool = False,
 ):
+    if realmlp_cpu:
+        evaluator_cls = TabArenaEvaluator_2025_06_12
+    else:
+        evaluator_cls = TabArenaEvaluator
+
     evaluator_kwargs = {"use_latex": use_latex}
 
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
@@ -38,6 +45,12 @@ def evaluate_all(
     task_metadata["problem_type"] = task_metadata["NumberOfClasses"].apply(_get_problem_type)
 
     eval_save_path = Path(eval_save_path)
+
+    _baselines = ["AutoGluon 1.3 (4h)"]
+    _baseline_colors = ["black"]
+    if not realmlp_cpu:
+        _baselines.append("AutoGluon 1.4 (4h)")
+        _baseline_colors.append("tab:purple")
 
     tabicl_type = "TABICL_GPU"
     tabpfn_type = "TABPFNV2_GPU"
@@ -53,7 +66,7 @@ def evaluate_all(
     if df_results_configs is not None:
         config_types_valid = df_results["config_type"].unique()
         df_results_configs_only_valid = df_results_configs[df_results_configs["config_type"].isin(config_types_valid)]
-        plotter_runtime = TabArenaEvaluator(
+        plotter_runtime = evaluator_cls(
             output_dir=eval_save_path / "ablation" / "all-runtimes",
             **evaluator_kwargs,
         )
@@ -61,7 +74,7 @@ def evaluate_all(
 
     if configs_hyperparameters is not None:
         config_types = {k: v["model_type"] for k, v in configs_hyperparameters.items()}
-        plotter_ensemble_weights = TabArenaEvaluator(
+        plotter_ensemble_weights = evaluator_cls(
             output_dir=eval_save_path / Path("ablation") / "ensemble_weights",
             config_types=config_types,
             **evaluator_kwargs,
@@ -82,6 +95,9 @@ def evaluate_all(
             eval_save_path=eval_save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             evaluator_kwargs=evaluator_kwargs,
+            baselines=_baselines,
+            baseline_colors=_baseline_colors,
+            evaluator_cls=evaluator_cls,
         )
 
     if df_results_cpu is not None:
@@ -92,22 +108,28 @@ def evaluate_all(
             eval_save_path=eval_save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             evaluator_kwargs=evaluator_kwargs,
+            baselines=_baselines,
+            baseline_colors=_baseline_colors,
+            evaluator_cls=evaluator_cls,
         )
 
     get_per_dataset_tables(
         df_results=df_results,
-        save_path=eval_save_path / "per_dataset"
+        save_path=eval_save_path / "per_dataset",
+        realmlp_cpu=realmlp_cpu,
     )
 
+    average_seeds_lst = [True]
     use_tabpfn_lst = [False, True]
     use_tabicl_lst = [False, True]
     use_imputation_lst = [False, True]
     problem_type_pst = [None, "cls", "reg", "binary", "multiclass"]
     include_portfolio_lst = [False, True]
-    with_baselines_lst = [False, True]
+    with_baselines_lst = [True, False]
     lite_lst = [False, True]
 
     all_combinations = list(product(
+        average_seeds_lst,
         use_tabpfn_lst,
         use_tabicl_lst,
         use_imputation_lst,
@@ -120,7 +142,7 @@ def evaluate_all(
 
     # TODO: Use ray to speed up?
     # plots for sub-benchmarks, with and without imputation
-    for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite) in enumerate(all_combinations):
+    for i, (average_seeds, use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite) in enumerate(all_combinations):
         print(f"Running figure generation {i+1}/{n_combinations}...")
 
         # combinations to skip
@@ -132,11 +154,8 @@ def evaluate_all(
 
         folder_name = ("tabpfn-tabicl" if use_tabpfn else "tabicl") \
             if use_tabicl else ("tabpfn" if use_tabpfn else "full")
-        baselines = [
-            "AutoGluon 1.3 (4h)",
-            "AutoGluon 1.4 (4h)",
-        ]
-        baseline_colors = ["black", "tab:purple"]
+        baselines = copy.deepcopy(_baselines)
+        baseline_colors = copy.deepcopy(_baseline_colors)
         if include_portfolio:
             baselines.append("TabArena ensemble (4h)")
             baseline_colors.append("tab:purple")
@@ -196,7 +215,10 @@ def evaluate_all(
         if len(datasets) == 0:
             continue
 
-        plotter = TabArenaEvaluator(
+        if not average_seeds:
+            folder_name = str(Path("no_average_seeds") / folder_name)
+
+        plotter = evaluator_cls(
             output_dir=eval_save_path / folder_name,
             datasets=datasets,
             problem_types=problem_types,
@@ -216,6 +238,7 @@ def evaluate_all(
             include_norm_score=not include_portfolio,
             plot_times=True,
             plot_other=False,
+            average_seeds=average_seeds,
         )
 
 
@@ -223,8 +246,11 @@ def eval_holdout_ablation(
     df_results: pd.DataFrame,
     df_results_holdout: pd.DataFrame,
     eval_save_path: str | Path,
-    elo_bootstrap_rounds: int = 100,
+    elo_bootstrap_rounds: int = 200,
     evaluator_kwargs: dict = None,
+    baselines: list[str] = None,
+    baseline_colors: list[str] = None,
+    evaluator_cls=TabArenaEvaluator,
 ):
     if evaluator_kwargs is None:
         evaluator_kwargs = {}
@@ -249,10 +275,7 @@ def eval_holdout_ablation(
     # only these tune types will be part of the elo plot
     plot_tune_types = ["tuned_ensembled", "holdout_tuned_ensembled"]
 
-    baselines = ["AutoGluon 1.3 (4h)"]
-    baseline_colors = ["black"]
-
-    plotter = TabArenaEvaluator(
+    plotter = evaluator_cls(
         output_dir=eval_save_path / folder_name,
         elo_bootstrap_rounds=elo_bootstrap_rounds,
         **evaluator_kwargs,
@@ -286,6 +309,9 @@ def eval_cpu_vs_gpu_ablation(
     df_results_configs: pd.DataFrame = None,
     elo_bootstrap_rounds: int = 100,
     evaluator_kwargs: dict = None,
+    baselines: list[str] = None,
+    baseline_colors: list[str] = None,
+    evaluator_cls=TabArenaEvaluator,
 ):
     if evaluator_kwargs is None:
         evaluator_kwargs = {}
@@ -298,10 +324,7 @@ def eval_cpu_vs_gpu_ablation(
 
     banned_model_types = [tabpfn_type, tabicl_type]
 
-    baselines = ["AutoGluon 1.3 (4h)"]
-    baseline_colors = ["black"]
-
-    plotter = TabArenaEvaluator(
+    plotter = evaluator_cls(
         output_dir=eval_save_path / folder_name,
         elo_bootstrap_rounds=elo_bootstrap_rounds,
         banned_model_types=banned_model_types,
@@ -319,7 +342,7 @@ def eval_cpu_vs_gpu_ablation(
     )
 
     if df_results_configs is not None:
-        plotter = TabArenaEvaluator(
+        plotter = evaluator_cls(
             output_dir=eval_save_path / folder_name,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             banned_model_types=banned_model_types,

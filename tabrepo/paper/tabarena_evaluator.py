@@ -23,6 +23,7 @@ from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
 from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map
+from tabrepo.plot.dataset_analysis import plot_train_time_deep_dive
 from tabrepo.plot.plot_ens_weights import create_heatmap
 from tabrepo.plot.plot_pareto_frontier import plot_pareto as _plot_pareto, plot_pareto_aggregated
 
@@ -49,12 +50,13 @@ class TabArenaEvaluator:
         task_metadata: pd.DataFrame | None = None,
         config_types: dict[str, str] = None,
         method_col: str = "method",
+        error_col: str = "metric_error",
         methods: list[str] | None = None,
         folds: list[int] | None = None,
         datasets: list[str] | None = None,
         problem_types: list[str] | None = None,
         banned_model_types: list[str] | None = None,
-        elo_bootstrap_rounds: int = 100,
+        elo_bootstrap_rounds: int = 200,
         keep_best: bool = False,
         figure_file_type: str = "pdf",
         use_latex: bool = False,
@@ -81,6 +83,7 @@ class TabArenaEvaluator:
         self.output_dir = output_dir
         self.task_metadata = task_metadata
         self.method_col = method_col
+        self.error_col = error_col
         self.config_types = config_types
         self.figure_file_type = figure_file_type
 
@@ -111,7 +114,7 @@ class TabArenaEvaluator:
 
         method_col = self.method_col
 
-        df_results_per_dataset = df_results.groupby([method_col, "dataset"])["metric_error"].mean().reset_index(
+        df_results_per_dataset = df_results.groupby([method_col, "dataset"])[self.error_col].mean().reset_index(
             drop=False)
 
         # Alternative, this also incorporates Portfolios and HPO into the normalized scoring. This makes normalized-error dependent on what simulations we run.
@@ -122,6 +125,7 @@ class TabArenaEvaluator:
             baseline=None,
             task_col="dataset",
             framework_col=method_col,
+            metric_error_col=self.error_col,
         )
 
         all_tasks = df_results[["dataset", "fold"]].drop_duplicates().values.tolist()
@@ -138,11 +142,11 @@ class TabArenaEvaluator:
         df_results["normalized-error-task"] = [normalized_scorer_task.rank(task=(dataset, fold), error=error) for
                                                (dataset, fold, error) in
                                                zip(df_results["dataset"], df_results["fold"],
-                                                   df_results["metric_error"])]
+                                                   df_results[self.error_col])]
 
         df_results_per_dataset["normalized-error-dataset"] = [
             normalized_scorer_dataset.rank(task=dataset, error=error) for (dataset, error) in
-            zip(df_results_per_dataset["dataset"], df_results_per_dataset["metric_error"])
+            zip(df_results_per_dataset["dataset"], df_results_per_dataset[self.error_col])
         ]
 
         df_results_per_dataset = df_results_per_dataset.set_index(["dataset", method_col], drop=True)[
@@ -200,7 +204,13 @@ class TabArenaEvaluator:
         plot_pareto: bool = True,
         plot_other: bool = False,
         calibration_framework: str | None = "auto",
+        average_seeds: bool = True,
+        tmp_treat_tasks_independently: bool = False,  # FIXME: Need to make a weighted elo logic
+        leaderboard_kwargs: dict | None = None,
     ) -> pd.DataFrame:
+        if leaderboard_kwargs is None:
+            leaderboard_kwargs = {}
+        leaderboard_kwargs = leaderboard_kwargs.copy()
         if calibration_framework is not None and calibration_framework == "auto":
             calibration_framework = "RF (default)"
         if baselines is None:
@@ -297,12 +307,8 @@ class TabArenaEvaluator:
             self.plot_tabarena_times(df=df_results_unfiltered, output_dir=self.output_dir,
                                      only_datasets_for_method=only_datasets_for_method, show=False)
 
-        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+        f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
             framework_types=framework_types,
-            max_runtimes=[
-                (3600 * 4, "_4h"),
-                (None, None),
-            ]
         )
 
         # also remove portfolio baselines except AutoGluon?
@@ -391,11 +397,21 @@ class TabArenaEvaluator:
                     show=False,
                 )
 
+        elo_kwargs = dict(
+            calibration_framework=calibration_framework,
+            calibration_elo=1000,
+            BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
+        )
+
+        if tmp_treat_tasks_independently:
+            df_results_rank_compare["dataset"] = df_results_rank_compare["dataset"] + "_" + df_results_rank_compare["fold"].astype(str)
+            df_results_rank_compare["fold"] = 0
+
         tabarena = TabArena(
             method_col=method_col,
             task_col="dataset",
             seed_column="fold",
-            error_col="metric_error",
+            error_col=self.error_col,
             columns_to_agg_extra=[
                 "time_train_s",
                 "time_infer_s",
@@ -411,17 +427,17 @@ class TabArenaEvaluator:
             ],
         )
 
+        leaderboard_kwargs.setdefault("include_elo", True)
+        leaderboard_kwargs.setdefault("include_winrate", True)
+        leaderboard_kwargs.setdefault("include_mrr", True)
+        leaderboard_kwargs.setdefault("include_rank_counts", True)
+        leaderboard_kwargs.setdefault("baseline_method", calibration_framework)
+        leaderboard_kwargs.setdefault("elo_kwargs", elo_kwargs)
+        leaderboard_kwargs.setdefault("average_seeds", average_seeds)
+
         leaderboard = tabarena.leaderboard(
             data=df_results_rank_compare,
-            include_winrate=True,
-            include_mrr=True,
-            include_rank_counts=True,
-            include_elo=True,
-            elo_kwargs=dict(
-                calibration_framework=calibration_framework,
-                calibration_elo=1000,
-                BOOTSTRAP_ROUNDS=self.elo_bootstrap_rounds,
-            )
+            **leaderboard_kwargs,
         )
         elo_map = leaderboard["elo"]
         leaderboard = leaderboard.reset_index(drop=False)
@@ -467,23 +483,25 @@ class TabArenaEvaluator:
 
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare)
 
-        def rename_model(name: str):
-            parts = name.split(" ")
-            if parts[0] in f_map_type_name:
-                parts[0] = f_map_type_name[parts[0]]
-            name = " ".join(parts)
-            return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
-
-        # use tuned+ensembled version if available, and default otherwise
-        tune_methods = results_per_task[self.method_col].map(f_map_inverse)
-        method_types = results_per_task[self.method_col].map(f_map_type).fillna(results_per_task[self.method_col])
-        tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
-        results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | ((tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
-
-        # rename model part
-        results_te_per_task.loc[:, self.method_col] = results_te_per_task[self.method_col].map(rename_model)
-
+        # FIXME: Is critical diagram incorrect?
         if plot_cdd:
+            def rename_model(name: str):
+                parts = name.split(" ")
+                if parts[0] in f_map_type_name:
+                    parts[0] = f_map_type_name[parts[0]]
+                name = " ".join(parts)
+                return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
+
+            # use tuned+ensembled version if available, and default otherwise
+            tune_methods = results_per_task[self.method_col].map(f_map_inverse)
+            method_types = results_per_task[self.method_col].map(f_map_type).fillna(results_per_task[self.method_col])
+            tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
+            results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | (
+                        (tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
+
+            # rename model part
+            results_te_per_task.loc[:, self.method_col] = results_te_per_task[self.method_col].map(rename_model)
+
             try:
                 tabarena.plot_critical_diagrams(
                     results_per_task=results_te_per_task,
@@ -502,8 +520,8 @@ class TabArenaEvaluator:
         if plot_pareto:
             self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard)
             self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard)
-            self.plot_pareto_improvability_vs_time_infer(results_per_task=results_per_task)
-            self.plot_pareto_improvability_vs_time_train(results_per_task=results_per_task)
+            self.plot_pareto_improvability_vs_time_infer(leaderboard=leaderboard)
+            self.plot_pareto_improvability_vs_time_train(leaderboard=leaderboard)
 
         if plot_other:
             try:
@@ -571,7 +589,7 @@ class TabArenaEvaluator:
         leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_elo_vs_time_train.png")
+        save_path = str(save_prefix / f"pareto_front_elo_vs_time_train.{self.figure_file_type}")
         y_name = "Elo"
         x_name = "Train time per 1K samples (s) (median)"
         title = f"Elo vs Train Time"
@@ -598,7 +616,7 @@ class TabArenaEvaluator:
         leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_elo_vs_time_infer.png")
+        save_path = str(save_prefix / f"pareto_front_elo_vs_time_infer.{self.figure_file_type}")
         y_name = "Elo"
         x_name = "Inference time per 1K samples (s) (median)"
         title = f"Elo vs Inference Time"
@@ -622,27 +640,25 @@ class TabArenaEvaluator:
 
     def plot_pareto_improvability_vs_time_infer(
         self,
-        results_per_task: pd.DataFrame,
+        leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_improvability_vs_time_infer.png")
+        save_path = str(save_prefix / f"pareto_front_improvability_vs_time_infer.{self.figure_file_type}")
         y_name = "Improvability (%)"
-        x_name = "Inference time per 1K samples (s)"
+        x_name = "Inference time per 1K samples (s) (median)"
         title = f"Improvability vs Inference Time"
-        data_x = results_per_task.copy()
-        data_x[x_name] = data_x["time_infer_s_per_1K"]
-        data = results_per_task.copy()
+        data = leaderboard.copy()
+        data[x_name] = data["median_time_infer_s_per_1K"]
         data[y_name] = data["improvability"] * 100
-        plot_pareto_aggregated(
+        data["Method"] = data["method"]
+        _plot_pareto(
             data=data,
-            data_x=data_x,
             x_name=x_name,
             y_name=y_name,
-            x_method="median",
-            y_method="mean",
             max_X=False,
             max_Y=False,
             sort_y=True,
+            hue="Method",
             ylim=(0, None),
             title=title,
             save_path=save_path,
@@ -651,27 +667,25 @@ class TabArenaEvaluator:
 
     def plot_pareto_improvability_vs_time_train(
         self,
-        results_per_task: pd.DataFrame,
+        leaderboard: pd.DataFrame,
     ):
         save_prefix = Path(self.output_dir)
-        save_path = str(save_prefix / "pareto_front_improvability_vs_time_train.png")
+        save_path = str(save_prefix / f"pareto_front_improvability_vs_time_train.{self.figure_file_type}")
         y_name = "Improvability (%)"
         x_name = "Train time per 1K samples (s)"
         title = f"Improvability vs Train Time"
-        data_x = results_per_task.copy()
-        data_x[x_name] = data_x["time_train_s_per_1K"]
-        data = results_per_task.copy()
+        data = leaderboard.copy()
+        data[x_name] = data["median_time_train_s_per_1K"]
         data[y_name] = data["improvability"] * 100
-        plot_pareto_aggregated(
+        data["Method"] = data["method"]
+        _plot_pareto(
             data=data,
-            data_x=data_x,
             x_name=x_name,
             y_name=y_name,
-            x_method="median",
-            y_method="mean",
             max_X=False,
             max_Y=False,
             sort_y=True,
+            hue="Method",
             ylim=(0, None),
             title=title,
             save_path=save_path,
@@ -756,12 +770,8 @@ class TabArenaEvaluator:
 
     def create_leaderboard_latex(self, df: pd.DataFrame, framework_types, save_dir):
         df = df.copy(deep=True)
-        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+        f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
             framework_types=framework_types,
-            max_runtimes=[
-                (3600 * 4, "_4h"),
-                (None, None),
-            ]
         )
 
         def rename_model(name: str):
@@ -917,12 +927,8 @@ class TabArenaEvaluator:
         else:
             metric = metric
 
-        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+        f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
             framework_types=framework_types,
-            max_runtimes=[
-                (3600 * 4, "_4h"),
-                (None, None),
-            ]
         )
 
         df = df.copy()
@@ -1336,12 +1342,8 @@ class TabArenaEvaluator:
 
         framework_types = self._get_config_types(df_results=df)
 
-        f_map, f_map_type, f_map_inverse, f_map_type_name = get_framework_type_method_names(
+        f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
             framework_types=framework_types,
-            max_runtimes=[
-                (3600 * 4, "_4h"),
-                (None, None),
-            ]
         )
 
         df["framework_type"] = df[self.method_col].map(f_map_type).fillna(df[self.method_col])
@@ -1579,6 +1581,15 @@ class TabArenaEvaluator:
             df_ensemble_weights = df_ensemble_weights[s.sort_values(ascending=False).index]
         return df_ensemble_weights
 
+    def get_framework_type_method_names(self, framework_types):
+        return get_framework_type_method_names(
+            framework_types=framework_types,
+            max_runtimes=[
+                (3600 * 4, "_4h"),
+                (None, None),
+            ],
+            f_map_type_name=self.get_method_rename_map(),
+        )
 
     # TODO: aggregate_config_family: bool
     # TODO: sort rows by size? color by problem type?
@@ -1631,7 +1642,6 @@ class TabArenaEvaluator:
 
     # FIXME: clean this up
     def generate_runtime_plot(self, df_results: pd.DataFrame):
-        from scripts.dataset_analysis import plot_train_time_deep_dive  # FIXME
         df_results_configs = df_results[df_results["method_type"] == "config"]
         df_results_configs = df_results_configs.copy(deep=True)
 
@@ -1648,3 +1658,11 @@ class TabArenaEvaluator:
             family_col="config_type",
             show=False
         )
+
+
+class TabArenaEvaluator_2025_06_12(TabArenaEvaluator):
+    def get_method_rename_map(self) -> dict[str, str]:
+        method_rename_map = super().get_method_rename_map()
+        method_rename_map["REALMLP"] = "RealMLP"
+        method_rename_map["REALMLP_GPU"] = "RealMLP (GPU)"
+        return method_rename_map

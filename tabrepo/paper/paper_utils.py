@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import pandas as pd
 import matplotlib.pyplot as plt
+
+from tabrepo import EvaluationRepository
+from tabrepo.portfolio.greedy_portfolio_generator import zeroshot_name
+from tabrepo.nips2025_utils.file_path import figure_path
 from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.utils.rank_utils import RankScorer
-from tabrepo import EvaluationRepository
-from tabrepo.nips2025_utils.file_path import figure_path
-from scripts.baseline_comparison.baselines import zeroshot_name
 
 default_ensemble_size = 40
 
@@ -63,7 +64,14 @@ def get_method_rename_map() -> dict:
     }
 
 
-def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[int, str]] = None, include_default: bool = True, include_best: bool = True, include_holdout: bool = True):
+def get_framework_type_method_names(
+    framework_types,
+    max_runtimes: list[tuple[int, str]] = None,
+    include_default: bool = True,
+    include_best: bool = True,
+    include_holdout: bool = True,
+    f_map_type_name: dict | None = None,
+):
     """
 
     Parameters
@@ -86,7 +94,9 @@ def get_framework_type_method_names(framework_types, max_runtimes: list[tuple[in
     f_map = dict()
     f_map_type = dict()
     f_map_inverse = dict()
-    f_map_type_name = get_method_rename_map()
+
+    if f_map_type_name is None:
+        f_map_type_name = get_method_rename_map()
     for framework_type in framework_types:
         f_map_cur = dict()
         for max_runtime, suffix in max_runtimes:

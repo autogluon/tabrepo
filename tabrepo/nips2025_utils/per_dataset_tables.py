@@ -125,8 +125,8 @@ def get_significance(best_results, curr_model_results, method="wilcoxon", alpha=
         print("----------------------------------------------------------------------------------")
 
     return p_value
-
-def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
+ 
+def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cpu: bool = False):
 
 
     # df_results["method"] = df_results["method"].map({
@@ -179,6 +179,14 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
         # "Portfolio-N200 (ensemble) (4h)"
     ]
 
+    if realmlp_cpu:
+        _replace_map = {
+            'REALMLP_GPU (tuned + ensemble)': "REALMLP (tuned + ensemble)",
+            'REALMLP_GPU (tuned)': "REALMLP (tuned)",
+            'REALMLP_GPU (default)': "REALMLP (default)",
+        }
+        use_methods_ordered = [_replace_map.get(m, m) for m in use_methods_ordered]
+
     df_use = df_results.loc[df_results["method"].apply(lambda x: x in use_methods_ordered)]
     df_use_fold = df_use.loc[df_use["fold"]==0]
 
@@ -206,7 +214,8 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
     datasets_dict = {}
     for dataset_name in df_use["dataset"].unique():
         df_dat = df_use.loc[df_use["dataset"]==dataset_name]
-        
+        imputed_methods = df_dat.loc[df_dat.imputed==True,'method'].unique()
+
         if np.unique(df_dat["metric"])[0]=="roc_auc":
             df_dat.loc[:, "metric_error"] = 1-df_dat["metric_error"]
             metric_dir = "max"
@@ -219,39 +228,46 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
         df_mean_raw = df_mean.copy()
         df_std_raw = df_std.copy()
 
-        if df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==1:
+        df_mean = df_mean["metric_error"]
+        df_std = df_std["metric_error"]
+
+        if df_mean.apply(lambda x: str(x).find('.')).max()==1:
             df_std = df_std.round(3)
             df_mean = df_mean.round(3)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.3f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.3f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==2:
+            df_mean = df_mean.apply(lambda x: format(x, '.3f'))
+            df_std = df_std.apply(lambda x: format(x, '.3f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==2:
             df_std = df_std.round(2)
             df_mean = df_mean.round(2)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.2f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.2f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==3:
+            df_mean = df_mean.apply(lambda x: format(x, '.2f'))
+            df_std = df_std.apply(lambda x: format(x, '.2f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==3:
             df_std = df_std.round(1)
             df_mean = df_mean.round(1)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.1f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.1f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==4:
+            df_mean = df_mean.apply(lambda x: format(x, '.1f'))
+            df_std = df_std.apply(lambda x: format(x, '.1f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==4:
             df_std = df_std.round(1)
             df_mean = df_mean.round(1)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.1f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.1f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==5:
+            df_mean = df_mean.apply(lambda x: format(x, '.1f'))
+            df_std = df_std.apply(lambda x: format(x, '.1f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==5:
             df_std = df_std.round(0).astype(int)#.astype(str)
             df_mean = df_mean.round(0).astype(int)#.astype(str)
-            df_mean.loc[:, "metric_error"] = df_mean["metric_error"].apply(lambda x: format(x, '.1f'))
-            df_std.loc[:, "metric_error"] = df_std["metric_error"].apply(lambda x: format(x, '.1f'))
-        elif df_mean.iloc[:,0].apply(lambda x: str(x).find('.')).max()==6:
+            df_mean = df_mean.apply(lambda x: format(x, '.1f'))
+            df_std = df_std.apply(lambda x: format(x, '.1f'))
+        elif df_mean.apply(lambda x: str(x).find('.')).max()==6:
             df_std = (df_std/10).round(0).astype(int).astype(str)
             df_mean = (df_mean/10).round(0).astype(int).astype(str)
-        
+
+        df_mean = df_mean.to_frame()
+        df_std = df_std.to_frame()
 
         df_latex = df_mean + " $\\pm$ " + df_std
-
         df_latex.columns = [dataset_name]
+        for method in imputed_methods:
+            df_latex.loc[method] = '-'
+
         if metric_dir == "min":
             df_latex.loc[df_mean_raw.idxmin(),dataset_name] = r"\textcolor{green!50!black}{" + df_latex.loc[df_mean_raw.idxmin(),dataset_name] + "}"
         elif metric_dir == "max":
@@ -271,8 +287,6 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
         df_latex_def.loc[:, dataset_name] = [r"\underline{"+score+"}" if is_best_def.loc[name,dataset_name] else score  for name, score in zip(df_latex_def.index, df_latex_def[dataset_name])]
         df_latex_tuned.loc[:, dataset_name] = [r"\underline{"+score+"}" if is_best_tuned.loc[name,dataset_name] else score  for name, score in zip(df_latex_tuned.index, df_latex_tuned[dataset_name])]
         df_latex_tuned_ensemble.loc[:, dataset_name] = [r"\underline{"+score+"}" if is_best_tuned_ensemble.loc[name,dataset_name] else score  for name, score in zip(df_latex_tuned_ensemble.index, df_latex_tuned_ensemble[dataset_name])]
-
-
 
         # df_latex = pd.concat([df_latex_def, df_latex_tuned, df_latex_tuned_ensemble, df_latex.loc[df_latex.index=="AutoGluon 1.3 (4h)"]], axis=0)
         # df_latex.loc[:, dataset_name] = [r"\textbf{"+score+"}" if is_best_tuned_ensemble.loc[name,dataset_name] else score  for name, score in zip(df_latex.index, df_latex[dataset_name])]
@@ -316,17 +330,13 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path):
         })
 
 
-        if not can_run_tabpfnv2[dataset_name]:
-            df_latex_final.loc["TabPFNv2"] = ["-", "-", "-"]    
-        if not can_run_tabicl[dataset_name]:
-            df_latex_final.loc["TabICL"] = ["-", "-", "-"]    
-
+        # if not can_run_tabpfnv2[dataset_name]:
+        #     df_latex_final.loc["TabPFNv2"] = ["-", "-", "-"]    
+        # if not can_run_tabicl[dataset_name]:
+        #     df_latex_final.loc["TabICL"] = ["-", "-", "-"]    
         
-
         df_latex_final.index.name = None
         datasets_dict[dataset_name.replace("_", r"\_")] = df_latex_final.copy()
-
-
 
     output_file = str(save_path / "per_dataset_tables.tex")
     per_col    = 2                  # 2 columns per row

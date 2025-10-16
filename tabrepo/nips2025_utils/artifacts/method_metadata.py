@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
-import requests
 from typing import Literal, TYPE_CHECKING
 from typing_extensions import Self
 
@@ -273,6 +272,18 @@ class MethodMetadata:
     def path_results_holdout(self) -> Path:
         return self.path_results / "holdout"
 
+    @property
+    def path_raw_exists(self) -> bool:
+        return self.path_raw.is_dir()
+
+    @property
+    def path_processed_exists(self) -> bool:
+        return self.path_processed.is_dir()
+
+    @property
+    def path_results_exists(self) -> bool:
+        return self.path_results.is_dir()
+
     def path_results_hpo(self, holdout: bool = False) -> Path:
         path_prefix = self.path_results_holdout if holdout else self.path_results
         return path_prefix / "hpo_results.parquet"
@@ -362,7 +373,20 @@ class MethodMetadata:
         path_configs_hyperparameters = path_processed / "configs_hyperparameters.json"
         return path_configs_hyperparameters
 
-    def load_configs_hyperparameters(self, holdout: bool = False) -> dict[str, dict]:
+    def load_configs_hyperparameters(self, holdout: bool = False, download: str | bool = "auto") -> dict[str, dict]:
+        if download == "auto":
+            try:
+                return self.load_configs_hyperparameters(holdout=holdout, download=False)
+            except FileNotFoundError as err:
+                print(
+                    f"Cache miss detected for configs_hyperparameters.json "
+                    f"(method={self.method}), attempting download..."
+                )
+                out = self.load_configs_hyperparameters(holdout=holdout, download=True)
+                print(f"\tDownload successful")
+                return out
+        elif isinstance(download, bool) and download:
+            self.download_configs_hyperparameters(holdout=holdout)
         with open(self.path_configs_hyperparameters(holdout=holdout), "r") as f:
             out = json.load(f)
         return out
@@ -370,18 +394,6 @@ class MethodMetadata:
     def download_configs_hyperparameters(self, holdout: bool = False):
         method_downloader = self.method_downloader()
         method_downloader.download_configs_hyperparameters(holdout=holdout)
-
-    def _download_file(self, url: str, local_path: str | Path):
-        local_path = Path(local_path)
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-
-        response = requests.get(url, stream=True)
-        response.raise_for_status()  # Check for HTTP request errors
-
-        with open(local_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:  # Filter out keep-alive chunks
-                    f.write(chunk)
 
     def load_raw(
         self,
@@ -411,6 +423,7 @@ class MethodMetadata:
         path_processed: str | Path = None,
         prediction_format: Literal["memmap", "memopt", "mem"] = "memmap",
         as_holdout: bool = False,
+        verbose: bool = False,
     ) -> EvaluationRepository:
         if path_processed is None:
             if as_holdout:
@@ -420,6 +433,7 @@ class MethodMetadata:
         repo = EvaluationRepository.from_dir(
             path=path_processed,
             prediction_format=prediction_format,
+            verbose=verbose,
         )
         return repo
 

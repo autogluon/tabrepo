@@ -8,6 +8,8 @@ import pandas as pd
 
 from autogluon.common.savers import save_pd
 
+from tabrepo.evaluation.evaluate_utils import make_scorers
+from tabrepo.portfolio.greedy_portfolio_generator import zeroshot_results
 from ..repository import EvaluationRepository, EvaluationRepositoryCollection
 from ..repository.repo_utils import convert_time_infer_s_from_sample_to_batch
 
@@ -76,7 +78,13 @@ class Evaluator:
             df_tr = convert_time_infer_s_from_sample_to_batch(df_tr, repo=self.repo)
 
         if self.repo._zeroshot_context.df_baselines is not None:
-            df_baselines = self.repo._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])[columns]
+            df_baselines = self.repo._zeroshot_context.df_baselines.set_index(["dataset", "fold", "framework"])
+            baseline_columns = columns
+            if include_metric_error_val:
+                baseline_columns = baseline_columns + ["metric_error_val"]
+                if "metric_error_val" not in df_baselines:
+                    df_baselines["metric_error_val"] = np.nan
+            df_baselines = df_baselines[baseline_columns]
 
             mask = df_baselines.index.get_level_values("dataset").isin(datasets)
             if folds is not None:
@@ -404,9 +412,6 @@ class Evaluator:
         n_eval_folds: int | None = None,
     ) -> pd.DataFrame:
         repo = self.repo
-
-        from scripts.baseline_comparison.baselines import zeroshot_results
-        from scripts.baseline_comparison.evaluate_utils import make_scorers
 
         rank_scorer, normalized_scorer = make_scorers(repo)
 

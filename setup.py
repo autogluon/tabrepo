@@ -3,7 +3,7 @@ from __future__ import annotations
 from setuptools import find_packages, setup
 
 requirements = [
-    "autogluon>=1.4,<1.5",  # TODO: Remove after moving `benchmark` code elsewhere
+    "autogluon>=1.4.1b20250910,<1.5",  # TODO: Remove after moving `benchmark` code elsewhere
     "openml>=0.14.1",  # consider making optional
     "pyyaml",
     "pytest",
@@ -76,8 +76,6 @@ setup(
             "metrics/_roc_auc_cpp/compile.sh",
             "metrics/_roc_auc_cpp/cpp_auc.cpp",
             "nips2025_utils/metadata/task_metadata_tabarena51.csv",
-            "nips2025_utils/metadata/task_metadata_tabarena60.csv",
-            "nips2025_utils/metadata/task_metadata_tabarena61.csv",
         ],
     },
     url="https://github.com/autogluon/tabrepo",

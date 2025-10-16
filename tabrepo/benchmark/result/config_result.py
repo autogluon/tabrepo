@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 
 import numpy as np
+import pandas as pd
 from typing import Any
 from typing_extensions import Self
 
@@ -15,6 +16,7 @@ class ConfigResult(BaselineResult):
 
         required_keys = [
             "simulation_artifacts",
+            "method_metadata",
             "metric_error_val",
         ]
         for key in required_keys:
@@ -89,6 +91,56 @@ class ConfigResult(BaselineResult):
     @property
     def simulation_artifacts(self) -> dict:
         return self.result["simulation_artifacts"]
+
+    @property
+    def y_test(self) -> np.ndarray:
+        return self.simulation_artifacts["y_test"]
+
+    @property
+    def y_val(self) -> np.ndarray:
+        return self.simulation_artifacts["y_val"]
+
+    @property
+    def y_test_idx(self) -> np.ndarray:
+        return self.simulation_artifacts["y_test_idx"]
+
+    @property
+    def y_val_idx(self) -> np.ndarray:
+        return self.simulation_artifacts["y_val_idx"]
+
+    @property
+    def y_pred_proba_test(self) -> np.ndarray:
+        return self.simulation_artifacts["pred_test"]
+
+    @property
+    def y_pred_proba_val(self) -> np.ndarray:
+        return self.simulation_artifacts["pred_val"]
+
+    @property
+    def y_pred_proba_test_as_pd(self) -> pd.DataFrame | pd.Series:
+        if self.problem_type == "multiclass":
+            ordered_class_labels = self.simulation_artifacts["ordered_class_labels"]
+            out = pd.DataFrame(data=self.y_pred_proba_test, index=self.y_test_idx, columns=ordered_class_labels)
+        elif self.problem_type in ["binary", "regression"]:
+            out = pd.Series(data=self.y_pred_proba_test, index=self.y_test_idx, name=self.simulation_artifacts["label"])
+        else:
+            raise ValueError(f"Unsupported problem_type={self.problem_type}")
+        return out
+
+    @property
+    def y_pred_proba_val_as_pd(self) -> pd.DataFrame | pd.Series:
+        if self.problem_type == "multiclass":
+            ordered_class_labels = self.simulation_artifacts["ordered_class_labels"]
+            out = pd.DataFrame(data=self.y_pred_proba_val, index=self.y_val_idx, columns=ordered_class_labels)
+        elif self.problem_type in ["binary", "regression"]:
+            out = pd.Series(data=self.y_pred_proba_val, index=self.y_val_idx, name=self.simulation_artifacts["label"])
+        else:
+            raise ValueError(f"Unsupported problem_type={self.problem_type}")
+        return out
+
+    @property
+    def label(self) -> str | int:
+        return self.simulation_artifacts["label"]
 
     def _align_result_input_format(self) -> dict:
         self.result = super()._align_result_input_format()

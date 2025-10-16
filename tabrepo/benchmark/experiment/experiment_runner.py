@@ -72,7 +72,7 @@ class ExperimentRunner:
         }
         self.eval_metric_name = ag_eval_metric_map[self.task.problem_type]  # FIXME: Don't hardcode eval metric
         self.eval_metric: Scorer = get_metric(metric=self.eval_metric_name, problem_type=self.task.problem_type)
-        self.model = None
+        self.model: AbstractExecModel | None = None
         self.task_split_idx = self.task.get_split_idx(fold=self.fold, repeat=self.repeat, sample=self.sample)
         self.X, self.y, self.X_test, self.y_test = self.task.get_train_test_split(fold=self.fold, repeat=self.repeat, sample=self.sample)
         if input_format == "csv":
@@ -95,7 +95,7 @@ class ExperimentRunner:
     def run_model_fit(self) -> dict:
         return self.model.fit_custom(X=self.X, y=self.y, X_test=self.X_test)
 
-    def run(self):
+    def run(self) -> dict:
         out = self._run()
         if self.cleanup:
             self._cleanup()
@@ -115,7 +115,7 @@ class ExperimentRunner:
         cacher: AbstractCacheFunction | None = None,
         debug_mode: bool = True,
         **kwargs,
-    ):
+    ) -> dict:
         obj = cls(
             method_cls=method_cls,
             task=task,
@@ -131,7 +131,7 @@ class ExperimentRunner:
         )
         return obj.run()
 
-    def _run(self):
+    def _run(self) -> dict:
         utc_time = datetime.datetime.now(datetime.timezone.utc)
         time_start_str = utc_time.strftime('%Y-%m-%d %H:%M:%S')
         time_start = utc_time.timestamp()
@@ -191,6 +191,8 @@ class ExperimentRunner:
         out["simulation_artifacts"] = None
         if hasattr(self.model, "get_metadata"):
             out["method_metadata"] = self.model.get_metadata()
+        if self.model.can_get_error_val:
+            out["metric_error_val"] = self.model.get_metric_error_val()
         return out
 
     def _experiment_metadata(self, time_start: float, time_start_str: str) -> dict:
@@ -277,8 +279,6 @@ class OOFExperimentRunner(ExperimentRunner):
 
             simulation_artifact["label"] = self.task.label
             simulation_artifact["metric"] = self.eval_metric_name
-
-            out["metric_error_val"] = self.model.get_metric_error_val()
 
             if self.compute_bag_info and (self.model.can_get_per_child_oof and self.model.can_get_per_child_val_idx):
                 simulation_artifact["bag_info"] = self.model.bag_artifact(X_test=self.X_test)

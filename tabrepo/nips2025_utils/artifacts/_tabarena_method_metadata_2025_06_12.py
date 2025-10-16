@@ -4,6 +4,7 @@ import copy
 
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 
+methods_2025_06_12 = []
 
 common_kwargs = dict(
     artifact_name="tabarena-2025-06-12",
@@ -145,7 +146,7 @@ methods_compute_map = {
 methods = [
     "CatBoost",
     "Dummy",
-    # "ExplainableBM",
+    "ExplainableBM",
     "ExtraTrees",
     "KNeighbors",
     "LightGBM",
@@ -159,11 +160,40 @@ methods = [
     "XGBoost",
 
     "ModernNCA_GPU",
-    # "RealMLP_GPU",
+    "RealMLP_GPU",
     "TabDPT_GPU",
     "TabICL_GPU",
     "TabM_GPU",
     "TabPFNv2_GPU",
+]
+
+methods_main_paper = [
+    "CatBoost",
+    "ExplainableBM",
+    "ExtraTrees",
+    "KNeighbors",
+    "LightGBM",
+    "LinearModel",
+    "NeuralNetFastAI",
+    "NeuralNetTorch",
+    "RandomForest",
+    "RealMLP",
+    "XGBoost",
+
+    "ModernNCA_GPU",
+    "TabDPT_GPU",
+    "TabICL_GPU",
+    "TabM_GPU",
+    "TabPFNv2_GPU",
+
+    "AutoGluon_v130",
+    "Portfolio-N200-4h",
+]
+
+methods_gpu_ablation = [
+    "ModernNCA",
+    "TabM",
+    "RealMLP_GPU",
 ]
 
 
@@ -197,7 +227,7 @@ for method in methods:
         **method_kwargs,
         **s3_cache_kwargs,
     )
-    tabarena_method_metadata_map_2025_06_12[method_metadata.method] = method_metadata
+    methods_2025_06_12.append(method_metadata)
 
 
 ag_130_metadata = MethodMetadata(
@@ -213,7 +243,7 @@ ag_130_metadata = MethodMetadata(
     **s3_cache_kwargs,
 )
 
-tabarena_method_metadata_map_2025_06_12[ag_130_metadata.method] = ag_130_metadata
+methods_2025_06_12.append(ag_130_metadata)
 
 portfolio_metadata = MethodMetadata(
     method="Portfolio-N200-4h",
@@ -227,4 +257,4 @@ portfolio_metadata = MethodMetadata(
     **s3_cache_kwargs,
 )
 
-tabarena_method_metadata_map_2025_06_12[portfolio_metadata.method] = portfolio_metadata
+methods_2025_06_12.append(portfolio_metadata)

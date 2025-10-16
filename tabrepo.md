@@ -24,9 +24,9 @@ The key features of the repo are:
   * fast metric evaluations with specific optimized cpp code (for instance to compute roc auc)
   * efficient format that loads model evaluation on the fly with low memory footprint
 
-![tuning-impact.png](data/tuning-impact.png)
-![sensitivity.png](data/sensitivity.png)
-![paper-figure.png](data/paper-figure.png)
+![tuning-impact.png](https://raw.githubusercontent.com/autogluon/tabrepo/refs/heads/AutoML2024/data/tuning-impact.png)
+![sensitivity.png](https://raw.githubusercontent.com/autogluon/tabrepo/refs/heads/AutoML2024/data/sensitivity.png)
+![paper-figure.png](https://raw.githubusercontent.com/autogluon/tabrepo/refs/heads/AutoML2024/data/paper-figure.png)
 
  
 ## Installation
@@ -72,7 +72,7 @@ You are all set!
 
 ## Quick-start
 
-**Recommended: Refer to [examples/run_quickstart.py](examples/run_quickstart.py) for a full runnable tutorial.**
+**Recommended: Refer to [examples/tabrepo/run_quickstart.py](examples/tabrepo/run_quickstart.py) for a full runnable tutorial.**
 
 Now lets see how to do basic things with TabRepo.
 
@@ -151,6 +151,8 @@ To reproduce the experiments from the paper, run:
 python scripts/baseline_comparison/evaluate_baselines.py
 ```
 
+Note: This file will only exist in the AutoML2024 branch of TabRepo.
+
 The experiment will require ~200GB of disk storage and 32GB of memory (although we use memmap to load model predictions
 on the fly, large datasets still have a significant memory footprint even for a couple of models). In particular, we
 used a `m6i.4xlarge` machine for our experiments which took under 24 hrs (less than $7 of compute with spot instance pricing).
@@ -164,9 +166,9 @@ To run a subset of experiments on a Colab notebook, refer to [https://colab.rese
 
 ### Reproducing the raw TabRepo dataset
 
-To reproduce the entire TabRepo dataset (context `"D244_F3_C1530"`) from scratch, refer to the [benchmark execution README](scripts/execute_benchmarks/README.md).
+To reproduce the entire TabRepo dataset (context `"D244_F3_C1530"`) from scratch, refer to the [benchmark execution README](https://github.com/autogluon/tabrepo/tree/AutoML2024/scripts/execute_benchmarks/README.md).
 
-To instead reproduce a small subset of the TabRepo dataset in a few minutes, run [examples/run_quickstart_from_scratch.py](examples/run_quickstart_from_scratch.py).
+To instead reproduce a small subset of the TabRepo dataset in a few minutes, run [examples/tabrepo/run_quickstart_from_scratch.py](examples/tabrepo/run_quickstart_from_scratch.py).
 
 ## Running HPO experiments with TabRepo
 

@@ -3,8 +3,11 @@ from __future__ import annotations
 from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
 from tabrepo.nips2025_utils.artifacts.method_metadata_collection import MethodMetadataCollection
 from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_06_12 import (
-    tabarena_method_metadata_map_2025_06_12
+    methods_2025_06_12,
+    methods_main_paper,
+    methods_gpu_ablation,
 )
+
 from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_09_03 import (
     ag_140_metadata,
     ebm_metadata,
@@ -34,18 +37,32 @@ methods_misc: list[MethodMetadata] = [
     gbm_aio_0808_metadata,
 ]
 
-# TODO: Remove entirely in favor of tabarena_method_metadata_collection
-#  replace all usages with tabarena_method_metadata_collection
-tabarena_method_metadata_map: dict[str, MethodMetadata] = dict()
-tabarena_method_metadata_map.update(tabarena_method_metadata_map_2025_06_12)
-for method_metadata in methods_2025_09_03:
-    assert method_metadata.method not in tabarena_method_metadata_map
-    tabarena_method_metadata_map[method_metadata.method] = method_metadata
+replaced_methods = [
+    "ExplainableBM",
+    "RealMLP_GPU",
+]
+methods_2025_06_12_keep = [m for m in methods_2025_06_12 if m.method not in replaced_methods]
 
-for method_metadata in methods_misc:
-    assert method_metadata.method not in tabarena_method_metadata_map
-    tabarena_method_metadata_map[method_metadata.method] = method_metadata
 
+# The latest results for each method
 tabarena_method_metadata_collection = MethodMetadataCollection(
-    method_metadata_lst=[v for _, v in tabarena_method_metadata_map.items()]
+    method_metadata_lst=methods_2025_06_12_keep + methods_2025_09_03 + methods_misc,
+)
+
+# All historical results for each method
+tabarena_method_metadata_complete_collection = MethodMetadataCollection(
+    method_metadata_lst=methods_2025_06_12 + methods_2025_09_03 + methods_misc,
+)
+
+# All historical results for each method
+tabarena_method_metadata_2025_06_12_collection = MethodMetadataCollection(
+    method_metadata_lst=methods_2025_06_12,
+)
+
+tabarena_method_metadata_2025_06_12_collection_main = MethodMetadataCollection(
+    method_metadata_lst=[m for m in tabarena_method_metadata_2025_06_12_collection.method_metadata_lst if m.method in methods_main_paper]
+)
+
+tabarena_method_metadata_2025_06_12_collection_gpu_ablation = MethodMetadataCollection(
+    method_metadata_lst=[m for m in tabarena_method_metadata_2025_06_12_collection.method_metadata_lst if m.method in methods_gpu_ablation]
 )
