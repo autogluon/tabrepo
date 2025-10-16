@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from typing import TYPE_CHECKING
 
 from autogluon.common.utils.resource_utils import ResourceManager
@@ -41,16 +40,20 @@ class TabDPTModel(AbstractModel):
             )
         from tabdpt import TabDPTClassifier, TabDPTRegressor
 
-        model_cls = TabDPTClassifier if self.problem_type in [BINARY, MULTICLASS] else TabDPTRegressor
-        supported_predict_hps = ('context_size', 'permute_classes', 'temperature') \
-                if model_cls is TabDPTClassifier \
-                else ('context_size',)
+        model_cls = (
+            TabDPTClassifier
+            if self.problem_type in [BINARY, MULTICLASS]
+            else TabDPTRegressor
+        )
+        supported_predict_hps = (
+            ("context_size", "permute_classes", "temperature")
+            if model_cls is TabDPTClassifier
+            else ("context_size",)
+        )
 
         hps = self._get_model_params()
-        self._predict_hps = {
-            k:v for k,v in hps.items() if k in supported_predict_hps
-        }
-        self._predict_hps['seed'] = 42
+        self._predict_hps = {k: v for k, v in hps.items() if k in supported_predict_hps}
+        self._predict_hps["seed"] = self.random_seed
         X = self.preprocess(X)
         y = y.to_numpy()
         self.model = model_cls(
@@ -60,9 +63,15 @@ class TabDPTModel(AbstractModel):
             missing_indicators=hps.get("missing_indicators", False),
             clip_sigma=hps.get("clip_sigma", 4),
             feature_reduction=hps.get("feature_reduction", "pca"),
-            faiss_metric=hps.get("faiss_metric", "l2")
+            faiss_metric=hps.get("faiss_metric", "l2"),
         )
         self.model.fit(X=X, y=y)
+
+    def _get_random_seed_from_hyperparameters(
+        self, hyperparameters: dict
+    ) -> int | None | str:
+        return hyperparameters.get("seed", "N/A")
+
 
     @staticmethod
     def _use_flash() -> bool:
@@ -75,10 +84,7 @@ class TabDPTModel(AbstractModel):
         device = torch.device("cuda:0")
         capability = torch.cuda.get_device_capability(device)
 
-        if capability == (7, 5):
-            return False
-
-        return True
+        return capability != (7, 5)
 
     def _get_default_resources(self) -> tuple[int, int]:
         # Use only physical cores for better performance based on benchmarks
@@ -88,7 +94,9 @@ class TabDPTModel(AbstractModel):
 
         return num_cpus, num_gpus
 
-    def get_minimum_resources(self, is_gpu_available: bool = False) -> dict[str, int | float]:
+    def get_minimum_resources(
+        self, is_gpu_available: bool = False
+    ) -> dict[str, int | float]:
         return {
             "num_cpus": 1,
             "num_gpus": 1 if is_gpu_available else 0,
@@ -111,7 +119,9 @@ class TabDPTModel(AbstractModel):
             self._feature_generator.fit(X=X)
         if self._feature_generator.features_in:
             X = X.copy()
-            X[self._feature_generator.features_in] = self._feature_generator.transform(X=X)
+            X[self._feature_generator.features_in] = self._feature_generator.transform(
+                X=X
+            )
         return X.to_numpy()
 
     @classmethod
