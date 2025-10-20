@@ -654,10 +654,27 @@ class EndToEndResultsSingle:
                 method_metadata_other = copy.deepcopy(method_metadata_other)
                 method_metadata_other.is_bag = True
 
+            if method_metadata.config_default != method_metadata_other.config_default:
+                if method_metadata.config_default is None:
+                    method_metadata.config_default = method_metadata_other.config_default
+                elif method_metadata_other.config_default is None:
+                    method_metadata_other.config_default = method_metadata.config_default
+            if method_metadata.can_hpo != method_metadata_other.can_hpo:
+                method_metadata.can_hpo = True
+                method_metadata_other.can_hpo = True
             if method_metadata.__dict__ != method_metadata_other.__dict__:
+                diffs = {
+                    k: (v, method_metadata_other.__dict__.get(k))
+                    for k, v in method_metadata.__dict__.items()
+                    if v != method_metadata_other.__dict__.get(k)
+                }
+                diff_str = "\n".join(
+                    f"  {k}: {v1!r} != {v2!r}"
+                    for k, (v1, v2) in diffs.items()
+                )
                 raise ValueError(
-                    "Method metadata mismatch! "
-                    f"{method_metadata.__dict__} != {method_metadata_other.__dict__}"
+                    "Method metadata mismatch! The following fields differ:\n"
+                    f"{diff_str}"
                 )
 
             # merge results
