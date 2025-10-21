@@ -22,7 +22,7 @@ from autogluon.common.savers import save_pd
 from tabrepo.utils.normalized_scorer import NormalizedScorer
 from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
 from tabrepo.tabarena.tabarena import TabArena
-from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map
+from tabrepo.paper.paper_utils import get_framework_type_method_names, get_method_rename_map, get_f_map_suffix_plots
 from tabrepo.plot.dataset_analysis import plot_train_time_deep_dive
 from tabrepo.plot.plot_ens_weights import create_heatmap
 from tabrepo.plot.plot_pareto_frontier import plot_pareto as _plot_pareto, plot_pareto_aggregated
@@ -105,6 +105,28 @@ class TabArenaEvaluator:
                                 } | fontsizes.neurips2024(default_smaller=0)
         else:
             self.rc_context_params = {}
+
+        self.style_order = [
+            "Default",
+            "Tuned",
+            "Tuned + Ensembled",
+            "Baseline",
+            "Best",
+            "Default, Holdout",
+            "Tuned, Holdout",
+            "Tuned + Ensembled, Holdout",
+        ]
+
+        self.style_markers = {
+            "Default": "o",
+            "Tuned": "s",
+            "Tuned + Ensembled": "X",
+            "Baseline": "D",
+            "Best": "*",
+            "Default, Holdout": "^",
+            "Tuned, Holdout": "<",
+            "Tuned + Ensembled, Holdout": ">",
+        }
 
     def compute_normalized_error_dynamic(self, df_results: pd.DataFrame) -> pd.DataFrame:
         df_results = df_results.copy(deep=True)
@@ -536,14 +558,7 @@ class TabArenaEvaluator:
             self.generate_runtime_plot(df_results=df_results_rank_compare)
 
         if plot_pareto:
-            leaderboard_pareto = leaderboard.copy()
-            leaderboard_pareto["method_type"] = leaderboard_pareto[self.method_col].map(f_map_type).fillna(leaderboard_pareto[self.method_col])
-            leaderboard_pareto["run_type"] = leaderboard_pareto[self.method_col].map(f_map_inverse).fillna("baseline")
-            # leaderboard_pareto[self.method_col] = leaderboard_pareto[self.method_col].map(f_map_type_name).fillna(leaderboard_pareto[self.method_col])
-            self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard_pareto)
-            self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard_pareto)
-            self.plot_pareto_improvability_vs_time_infer(leaderboard=leaderboard_pareto)
-            self.plot_pareto_improvability_vs_time_train(leaderboard=leaderboard_pareto)
+            self.plot_pareto(leaderboard=leaderboard, framework_types=framework_types)
 
         if plot_other:
             try:
@@ -562,6 +577,37 @@ class TabArenaEvaluator:
                 )
 
         return leaderboard
+
+    def plot_pareto(self, leaderboard: pd.DataFrame, framework_types: list[str]):
+        f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
+            framework_types=framework_types,
+        )
+        leaderboard_pareto = leaderboard.copy()
+        leaderboard_pareto["Method"] = leaderboard_pareto[self.method_col].map(f_map_type).fillna(
+            leaderboard_pareto[self.method_col])
+        leaderboard_pareto["Type"] = leaderboard_pareto[self.method_col].map(f_map_inverse).fillna("baseline")
+        leaderboard_pareto["Method"] = leaderboard_pareto["Method"].map(f_map_type_name).fillna(
+            leaderboard_pareto["Method"])
+        f_map_suffix = get_f_map_suffix_plots()
+        leaderboard_pareto["suffix"] = leaderboard_pareto["Type"].map(f_map_suffix).fillna("")
+        leaderboard_pareto[self.method_col] = leaderboard_pareto["Method"] + leaderboard_pareto["suffix"]
+        fig_rename_dict = {
+            "baseline": "Baseline",
+            "default": "Default",
+            "tuned": "Tuned",
+            "tuned_ensembled": "Tuned + Ensembled",
+            "best": "Best",
+            "holdout": "Default, Holdout",
+            "holdout_tuned": "Tuned, Holdout",
+            "holdout_tuned_ensembled": "Tuned + Ensembled, Holdout",
+        }
+        leaderboard_pareto["Type"] = leaderboard_pareto["Type"].map(fig_rename_dict).fillna(
+            leaderboard_pareto["Type"]
+        )
+        self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard_pareto)
+        self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard_pareto)
+        self.plot_pareto_improvability_vs_time_infer(leaderboard=leaderboard_pareto)
+        self.plot_pareto_improvability_vs_time_train(leaderboard=leaderboard_pareto)
 
     def run_autogluon_benchmark_logic(self, results_per_task: pd.DataFrame, elo_map: dict, tabarena: TabArena,
                                       calibration_framework: str):
@@ -616,7 +662,6 @@ class TabArenaEvaluator:
         data = leaderboard.copy()
         data[x_name] = data["median_time_train_s_per_1K"]
         data[y_name] = data["elo"]
-        data["Method"] = data["method"]
 
         _plot_pareto(
             data=data,
@@ -625,9 +670,11 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=True,
             sort_y=True,
-            hue="method_type",  # color by family
-            style_col="run_type",  # marker by run type
-            label_col="Method",  # annotate with full method name
+            hue="Method",  # color by family
+            style_col="Type",  # marker by run type
+            style_order=self.style_order,
+            style_markers=self.style_markers,
+            label_col=self.method_col,  # annotate with full method name
             title=title,
             save_path=save_path,
             show=False,
@@ -643,7 +690,6 @@ class TabArenaEvaluator:
         data = leaderboard.copy()
         data[x_name] = data["median_time_infer_s_per_1K"]
         data[y_name] = data["elo"]
-        data["Method"] = data["method"]  # keep verbose label for annotations
 
         _plot_pareto(
             data=data,
@@ -652,9 +698,11 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=True,
             sort_y=True,
-            hue="method_type",  # <-- same color for same method_type
-            style_col="run_type",  # <-- different marker per run_type
-            label_col="Method",  # <-- annotate with full method name
+            hue="Method",  # <-- same color for same method_type
+            style_col="Type",  # <-- different marker per run_type
+            style_order=self.style_order,
+            style_markers=self.style_markers,
+            label_col=self.method_col,  # <-- annotate with full method name
             title=title,
             save_path=save_path,
             show=False,
@@ -670,7 +718,6 @@ class TabArenaEvaluator:
         data = leaderboard.copy()
         data[x_name] = data["median_time_infer_s_per_1K"]
         data[y_name] = data["improvability"] * 100
-        data["Method"] = data["method"]
 
         _plot_pareto(
             data=data,
@@ -679,9 +726,11 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=False,
             sort_y=True,
-            hue="method_type",  # color by family
-            style_col="run_type",  # marker by run type
-            label_col="Method",  # annotate with full method name
+            hue="Method",  # color by family
+            style_col="Type",  # marker by run type
+            style_order=self.style_order,
+            style_markers=self.style_markers,
+            label_col=self.method_col,  # annotate with full method name
             ylim=(0, None),
             title=title,
             save_path=save_path,
@@ -698,7 +747,6 @@ class TabArenaEvaluator:
         data = leaderboard.copy()
         data[x_name] = data["median_time_train_s_per_1K"]
         data[y_name] = data["improvability"] * 100
-        data["Method"] = data["method"]
 
         _plot_pareto(
             data=data,
@@ -707,9 +755,11 @@ class TabArenaEvaluator:
             max_X=False,
             max_Y=False,
             sort_y=True,
-            hue="method_type",  # color by family
-            style_col="run_type",  # marker by run type
-            label_col="Method",  # annotate with full method name
+            hue="Method",  # color by family
+            style_col="Type",  # marker by run type
+            style_order=self.style_order,
+            style_markers=self.style_markers,
+            label_col=self.method_col,  # annotate with full method name
             ylim=(0, None),
             title=title,
             save_path=save_path,

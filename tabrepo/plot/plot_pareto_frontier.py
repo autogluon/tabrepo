@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 
 
@@ -160,6 +161,9 @@ def plot_pareto(
                 markers_arg = {lvl: style_markers[i % len(style_markers)] for i, lvl in enumerate(style_order)}
             else:
                 markers_arg = style_markers
+            valid_vals = pd.unique(plot_df[style_col])
+            style_order = [s for s in style_order if s in valid_vals]
+            markers_arg = {k: v for k, v in markers_arg.items() if k in valid_vals}
     else:
         markers_arg = None
 
@@ -177,6 +181,7 @@ def plot_pareto(
         s=300,
         edgecolor="black",
         linewidth=0.4,
+        legend=False,
     )
 
     # Compute Pareto frontier (use the plotted order)
@@ -223,6 +228,7 @@ def plot_pareto(
     g.set(xscale="log")
     plt.grid()
 
+    # FIXME: optimal arrow and text are no longer perfectly aligned after the new legend.
     if add_optimal_arrow:
         best_low_x = not max_X
         best_low_y = not max_Y
@@ -258,6 +264,89 @@ def plot_pareto(
             fontsize=11, fontweight="bold",
             color="white",
         )
+
+    # --------------------------------------------------
+    # Add unified two-block legend (color + marker + line)
+    # --------------------------------------------------
+    y_bottom = ax.get_ylim()[0]
+    visible_hue_levels = list(plot_df.loc[plot_df[y_name] >= y_bottom, hue].dropna().unique())
+    if hue_order is not None:
+        ordered_visible = [h for h in hue_order if h in visible_hue_levels] + [h for h in visible_hue_levels if h not in hue_order]
+    else:
+        ordered_visible = visible_hue_levels
+
+    color_handles = []
+    color_labels = []
+    for base_label in ordered_visible:
+        color = palette_map.get(base_label, (0.33, 0.33, 0.33))
+        handle = Line2D(
+            [0], [0],
+            marker="o",
+            linestyle="None",
+            markerfacecolor=color,
+            markeredgecolor="black",
+            markeredgewidth=0.0,
+            markersize=7,
+        )
+        color_handles.append(handle)
+        color_labels.append(str(base_label))
+
+    marker_handles = []
+    marker_labels = []
+    if style_col is not None:
+        if isinstance(markers_arg, dict):
+            marker_map = markers_arg
+        elif markers_arg is True:
+            default_cycle = ['o', 'D', '^', 's', 'P', 'X', '*']
+            marker_map = {lvl: default_cycle[i % len(default_cycle)] for i, lvl in enumerate(style_order or [])}
+        else:
+            marker_map = {}
+        for lvl in (style_order or []):
+            m = marker_map.get(lvl, 'o')
+            h = Line2D(
+                [0], [0],
+                marker=m,
+                linestyle="None",
+                markerfacecolor="white",
+                markeredgecolor="black",
+                markeredgewidth=0.8,
+                markersize=6,
+            )
+            marker_handles.append(h)
+            marker_labels.append(str(lvl))
+
+    frontier_proxy = Line2D([0], [0], linewidth=1.2)
+    marker_handles.append(frontier_proxy)
+    marker_labels.append("Pareto frontier")
+
+    legend_fontsize = 9
+    g.fig.legend(
+        color_handles, color_labels,
+        loc="center left",
+        bbox_to_anchor=(0.79, 0.62),
+        frameon=True,
+        fontsize=legend_fontsize,
+        ncol=1,
+        labelspacing=0.25,
+        handletextpad=0.5,
+        borderpad=0.3,
+        borderaxespad=0.3,
+        columnspacing=0.6,
+    )
+    g.fig.legend(
+        marker_handles, marker_labels,
+        loc="center left",
+        bbox_to_anchor=(0.79, 0.26),
+        frameon=True,
+        fontsize=legend_fontsize,
+        ncol=1,
+        labelspacing=0.35,
+        handletextpad=0.6,
+        borderpad=0.3,
+        borderaxespad=0.3,
+        columnspacing=0.6,
+    )
+    g.fig.subplots_adjust(right=0.78)
 
     # Title + save/show
     g.fig.suptitle(title, fontsize=14)
