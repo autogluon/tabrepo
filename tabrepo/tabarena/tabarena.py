@@ -790,14 +790,20 @@ class TabArena:
         save_path: str | None,
     ):
         import plotly.express as px
-        fig = px.imshow(winrate_matrix, color_continuous_scale='RdBu',
-                        text_auto=".2f")
-        fig.update_layout(xaxis_title=" Model B: Loser",
-                          yaxis_title="Model A: Winner",
-                          xaxis_side="top", height=900, width=900,
-                          title=None,
-                          margin=dict(l=0, r=0, t=0, b=0),
-                          )
+        fig = px.imshow(
+            winrate_matrix,
+            color_continuous_scale='RdBu',
+            text_auto=".2f",
+        )
+        fig.update_layout(
+            xaxis_title=" Model B: Loser",
+            yaxis_title="Model A: Winner",
+            xaxis_side="top",
+            height=900,
+            width=900,
+            title=None,
+            margin=dict(l=0, r=0, t=0, b=0),
+        )
         fig.update_traces(
             hovertemplate="Model A: %{y}<br>Model B: %{x}<br>Fraction of A Wins: %{z}<extra></extra>"
         )
