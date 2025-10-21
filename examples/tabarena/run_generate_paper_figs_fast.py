@@ -15,11 +15,14 @@ TODO: Figures to refine:
         Need to make it fit in the paper nicely
         Perhaps remove poor performing methods?
         Limit y axis length?
+        Limit legend length to heatmap y-axis length
     - pareto_front_*_vs_*.pdf
         Pareto Front plotted beneath methods?
         y axis lower = 5%?
         Fix arrow + "Optimal" text to be aligned
         Make small to fit in paper figure space
+            Make *_vs_time_infer and *_vs_time_train be one figure with two subplots and a shared legend 
+            Move legend to bottom
         Stretch: Incorporate "imputed" information.
         
 TODO: Figures to create:
