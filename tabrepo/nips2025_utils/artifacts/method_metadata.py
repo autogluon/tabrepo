@@ -13,6 +13,7 @@ import yaml
 from tabrepo.loaders import Paths
 from tabrepo.repository.evaluation_repository import EvaluationRepository
 from tabrepo.nips2025_utils.generate_repo import generate_repo_from_results_lst
+from tabrepo.nips2025_utils.load_artifacts import results_to_holdout
 from tabrepo.benchmark.result import BaselineResult
 from tabrepo.nips2025_utils.method_processor import get_info_from_result, load_raw
 from tabrepo.utils.s3_utils import s3_get_object
@@ -455,6 +456,26 @@ class MethodMetadata:
 
         if cache:
             repo.to_dir(self.path_processed)
+        return repo
+
+    def generate_repo_holdout(
+        self,
+        results_lst: list[BaselineResult] = None,
+        task_metadata: pd.DataFrame = None,
+        cache: bool = False,
+        engine: str = "ray",
+    ) -> EvaluationRepository:
+        if results_lst is None:
+            results_lst = self.load_raw(engine=engine)
+        results_holdout_lst = results_to_holdout(result_lst=results_lst)
+        repo: EvaluationRepository = generate_repo_from_results_lst(
+            results_lst=results_holdout_lst,
+            task_metadata=task_metadata,
+            name_suffix=self.name_suffix,
+        )
+
+        if cache:
+            repo.to_dir(self.path_processed_holdout)
         return repo
 
     @property

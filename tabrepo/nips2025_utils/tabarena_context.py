@@ -168,22 +168,13 @@ class TabArenaContext:
 
     def generate_repo(self, method: str) -> Path:
         metadata = self.method_metadata(method=method)
-
-        path_raw = metadata.path_raw
-        path_processed = metadata.path_processed
-
-        name_suffix = metadata.name_suffix
-
-        file_paths_method = fetch_all_pickles(dir_path=path_raw, suffix="results.pkl")
-        repo: EvaluationRepository = generate_repo_from_paths(
-            result_paths=file_paths_method,
+        metadata.generate_repo(
+            results_lst=None,
             task_metadata=self.task_metadata,
+            cache=True,
             engine=self.engine,
-            name_suffix=name_suffix,
         )
-
-        repo.to_dir(path_processed)
-        return path_processed
+        return metadata.path_processed
 
     def generate_repo_holdout(self, method: str) -> Path:
         metadata = self.method_metadata(method=method)

@@ -102,6 +102,8 @@ def plot_pareto(
     hue: str = "Method",
     *,
     style_col: str | None = None,
+    style_order: list[str] | None = None,
+    style_markers: list[str] | dict | None = None,
     label_col: str = "Method",
     max_X: bool = False,
     max_Y: bool = True,
@@ -148,15 +150,16 @@ def plot_pareto(
     palette_map = dict(zip(hue_levels, colors))
 
     # Style (marker) mapping per run_type (optional; seaborn can auto-assign markers if you omit this dict)
-    style_order = None
     if style_col is not None:
-        style_order = list(pd.unique(plot_df[style_col]))
-        # If you want explicit marker shapes, uncomment below (kept simple / portable):
-        # default_markers = ['o', 's', 'D', '^', 'v', 'P', 'X', '<', '>', '*']
-        # markers_map = {lvl: default_markers[i % len(default_markers)] for i, lvl in enumerate(style_order)}
-        # markers_arg = markers_map
-        # Otherwise let seaborn choose:
-        markers_arg = True
+        if style_order is None:
+            style_order = list(pd.unique(plot_df[style_col]))
+        if style_markers is None:
+            markers_arg = True
+        else:
+            if isinstance(style_markers, list):
+                markers_arg = {lvl: style_markers[i % len(style_markers)] for i, lvl in enumerate(style_order)}
+            else:
+                markers_arg = style_markers
     else:
         markers_arg = None
 
