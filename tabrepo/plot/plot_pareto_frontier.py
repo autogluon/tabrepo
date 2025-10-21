@@ -178,9 +178,10 @@ def plot_pareto(
         style_order=style_order,
         markers=markers_arg,
         height=10,
-        s=300,
+        s=200,
+        alpha=0.8,
+        linewidth=0.1,
         edgecolor="black",
-        linewidth=0.4,
         legend=False,
     )
 
@@ -197,7 +198,7 @@ def plot_pareto(
 
     # Draw Pareto frontier as a step-like polyline
     ax = g.ax
-    ax.plot(pf_X, pf_Y, linewidth=2)
+    ax.plot(pf_X, pf_Y, linewidth=2, zorder=-100)
 
     # ------------------------------------------------------------------
     # Label every real vertex on the Pareto frontier

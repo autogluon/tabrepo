@@ -734,7 +734,7 @@ class TabArenaEvaluator:
             style_order=self.style_order,
             style_markers=self.style_markers,
             label_col=self.method_col,  # annotate with full method name
-            ylim=(0, None),
+            # ylim=(0, None),
             title=title,
             save_path=save_path,
             show=False,
@@ -763,7 +763,7 @@ class TabArenaEvaluator:
             style_order=self.style_order,
             style_markers=self.style_markers,
             label_col=self.method_col,  # annotate with full method name
-            ylim=(0, None),
+            # ylim=(0, None),
             title=title,
             save_path=save_path,
             show=False,
