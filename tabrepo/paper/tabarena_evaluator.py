@@ -533,10 +533,12 @@ class TabArenaEvaluator:
             results_te_per_split.loc[:, self.method_col] = results_te_per_split[self.method_col].map(rename_model)
 
             if average_seeds:
-                _results_to_use_winrate_matrix = results_te_per_task
+                _results_to_use_winrate_matrix = results_te_per_task.copy()
             else:
-                _results_to_use_winrate_matrix = results_te_per_split
+                _results_to_use_winrate_matrix = results_te_per_split.copy()
 
+            _results_to_use_winrate_matrix.index = [i.replace('tuned + ensembled', 'T+E') for i in _results_to_use_winrate_matrix.index]
+            _results_to_use_winrate_matrix.columns = [i.replace('tuned + ensembled', 'T+E') for i in _results_to_use_winrate_matrix.columns]
             tabarena.plot_winrate_matrix(
                 winrate_matrix=tabarena.compute_winrate_matrix(results_per_task=_results_to_use_winrate_matrix),
                 save_path=str(Path(self.output_dir / f"winrate_matrix.{self.figure_file_type}")),

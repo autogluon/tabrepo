@@ -790,8 +790,6 @@ class TabArena:
         save_path: str | None,
     ):
         import plotly.express as px
-        winrate_matrix.index = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.index]
-        winrate_matrix.columns = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.columns]
         fig = px.imshow(winrate_matrix, color_continuous_scale='RdBu',
                         text_auto=".2f")
         fig.update_layout(xaxis_title=" Model B: Loser",
