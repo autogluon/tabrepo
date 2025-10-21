@@ -790,12 +790,16 @@ class TabArena:
         save_path: str | None,
     ):
         import plotly.express as px
+        winrate_matrix.index = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.index]
+        winrate_matrix.columns = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.columns]
         fig = px.imshow(winrate_matrix, color_continuous_scale='RdBu',
-                        text_auto=".2f", title='Pairwise Winrate')
+                        text_auto=".2f")
         fig.update_layout(xaxis_title=" Model B: Loser",
                           yaxis_title="Model A: Winner",
                           xaxis_side="top", height=900, width=900,
-                          title_y=0.07, title_x=0.5)
+                          title=None,
+                          margin=dict(l=0, r=0, t=0, b=0),
+                          )
         fig.update_traces(
             hovertemplate="Model A: %{y}<br>Model B: %{x}<br>Fraction of A Wins: %{z}<extra></extra>"
         )
