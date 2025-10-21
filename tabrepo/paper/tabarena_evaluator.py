@@ -109,23 +109,23 @@ class TabArenaEvaluator:
         self.style_order = [
             "Default",
             "Tuned",
-            "Tuned + Ensembled",
+            "Tuned + Ens.",
             "Baseline",
             "Best",
             "Default, Holdout",
             "Tuned, Holdout",
-            "Tuned + Ensembled, Holdout",
+            "Tuned + Ens., Holdout",
         ]
 
         self.style_markers = {
             "Default": "o",
             "Tuned": "s",
-            "Tuned + Ensembled": "X",
+            "Tuned + Ens.": "X",
             "Baseline": "D",
             "Best": "*",
             "Default, Holdout": "^",
             "Tuned, Holdout": "<",
-            "Tuned + Ensembled, Holdout": ">",
+            "Tuned + Ens., Holdout": ">",
         }
 
     def compute_normalized_error_dynamic(self, df_results: pd.DataFrame) -> pd.DataFrame:
@@ -229,6 +229,7 @@ class TabArenaEvaluator:
         average_seeds: bool = True,
         tmp_treat_tasks_independently: bool = False,  # FIXME: Need to make a weighted elo logic
         leaderboard_kwargs: dict | None = None,
+        plot_pareto_with_baselines: bool = False,
     ) -> pd.DataFrame:
         if leaderboard_kwargs is None:
             leaderboard_kwargs = {}
@@ -561,7 +562,11 @@ class TabArenaEvaluator:
             self.generate_runtime_plot(df_results=df_results_rank_compare)
 
         if plot_pareto:
-            self.plot_pareto(leaderboard=leaderboard, framework_types=framework_types)
+            self.plot_pareto(
+                leaderboard=leaderboard,
+                framework_types=framework_types,
+                with_baselines=plot_pareto_with_baselines,
+            )
 
         if plot_other:
             try:
@@ -581,7 +586,7 @@ class TabArenaEvaluator:
 
         return leaderboard
 
-    def plot_pareto(self, leaderboard: pd.DataFrame, framework_types: list[str]):
+    def plot_pareto(self, leaderboard: pd.DataFrame, framework_types: list[str], with_baselines: bool = True):
         f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
             framework_types=framework_types,
         )
@@ -598,15 +603,19 @@ class TabArenaEvaluator:
             "baseline": "Baseline",
             "default": "Default",
             "tuned": "Tuned",
-            "tuned_ensembled": "Tuned + Ensembled",
+            "tuned_ensembled": "Tuned + Ens.",
             "best": "Best",
             "holdout": "Default, Holdout",
             "holdout_tuned": "Tuned, Holdout",
-            "holdout_tuned_ensembled": "Tuned + Ensembled, Holdout",
+            "holdout_tuned_ensembled": "Tuned + Ens., Holdout",
         }
         leaderboard_pareto["Type"] = leaderboard_pareto["Type"].map(fig_rename_dict).fillna(
             leaderboard_pareto["Type"]
         )
+
+        if not with_baselines:
+            leaderboard_pareto = leaderboard_pareto[leaderboard_pareto["Type"] != "Baseline"]
+
         self.plot_pareto_elo_vs_time_infer(leaderboard=leaderboard_pareto)
         self.plot_pareto_elo_vs_time_train(leaderboard=leaderboard_pareto)
         self.plot_pareto_improvability_vs_time_infer(leaderboard=leaderboard_pareto)

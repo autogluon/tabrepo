@@ -318,7 +318,7 @@ def plot_pareto(
 
     frontier_proxy = Line2D([0], [0], linewidth=1.2)
     marker_handles.append(frontier_proxy)
-    marker_labels.append("Pareto frontier")
+    marker_labels.append("Pareto Front")
 
     legend_fontsize = 9
     g.fig.legend(
