@@ -56,7 +56,7 @@ def plot_hpo(
     if xlog:
         ax.set_xscale("log")
 
-    plot_optimal_arrow(ax=ax, max_X=False, max_Y=higher_is_better, size=0.6)
+    plot_optimal_arrow(ax=ax, max_X=False, max_Y=higher_is_better, size=0.6, scale=1.2)
 
     handles = []
     labels = []
@@ -79,14 +79,15 @@ def plot_hpo(
         labels.append(method_name)
 
     # Flip legend order only if higher_is_better is False
+    legend_fontsize = 9
     if higher_is_better:
-        ax.legend(handles, labels)
+        ax.legend(handles, labels, fontsize=legend_fontsize)
     else:
-        ax.legend(handles[::-1], labels[::-1])
+        ax.legend(handles[::-1], labels[::-1], fontsize=legend_fontsize)
 
     ax.grid(True)
-    ax.set_ylabel(ylabel)
-    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel, fontsize=15)
+    ax.set_xlabel(xlabel, fontsize=15)
     fig.tight_layout()
     fig.savefig(save_path)
 

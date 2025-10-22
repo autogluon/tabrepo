@@ -241,7 +241,7 @@ def plot_pareto(
     pf_Y = [pf_Y_first] + pf_Y + [pf_Y_last]
 
     if add_optimal_arrow:
-        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio)
+        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio, scale=0.95)
 
     ax.plot(pf_X, pf_Y, linewidth=1.5 * fig_size_ratio, zorder=-100, color='black', linestyle='--')
 
@@ -399,14 +399,15 @@ def plot_optimal_arrow(
     max_Y: bool,
     size: float = 1,
     offset: float = 0.1,
+    scale: float = 1.0,
 ):
-    ar_size_ratio_base = 0.95
-    ar_size_ratio = ar_size_ratio_base * size
-    ar_head_length = 0.42 * ar_size_ratio
-    ar_head_width = 0.30 * ar_size_ratio
-    ar_tail_width = 0.30 * ar_size_ratio
-    ar_text_size = 11 * ar_size_ratio
-    offset *= ar_size_ratio_base
+    offset *= scale
+    size *= scale
+
+    ar_head_length = 0.42 * size
+    ar_head_width = 0.30 * size
+    ar_tail_width = 0.30 * size
+    ar_text_size = 11 * size
 
     corner_x = 1 if max_X else 0
     corner_y = 1 if max_Y else 0
