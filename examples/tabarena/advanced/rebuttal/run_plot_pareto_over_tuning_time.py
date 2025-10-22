@@ -240,8 +240,8 @@ if __name__ == '__main__':
     leaderboard["Baseline Advantage (%) (Test - Val)"] = (leaderboard["baseline_advantage"] - leaderboard[
         "baseline_advantage_val"]) * 100
 
-    leaderboard['Median train time per 1K samples [s]'] = leaderboard["median_time_train_s_per_1K"]
-    leaderboard['Median infer time per 1K samples [s]'] = leaderboard["median_time_infer_s_per_1K"]
+    leaderboard['Train time per 1K samples (s) (median)'] = leaderboard["median_time_train_s_per_1K"]
+    leaderboard['Inference time per 1K samples (s) (median)'] = leaderboard["median_time_infer_s_per_1K"]
 
     leaderboard["name"] = leaderboard["name"].map(method_rename_map).fillna(leaderboard["name"])
 
@@ -254,28 +254,28 @@ if __name__ == '__main__':
 
     plot_hpo(
         df=leaderboard,
-        xlabel="Median train time per 1K samples [s]",
+        xlabel="Train time per 1K samples (s) (median)",
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo{file_ext}",
         higher_is_better=True,
     )
     plot_hpo(
         df=leaderboard,
-        xlabel="Median train time per 1K samples [s]",
+        xlabel="Train time per 1K samples (s) (median)",
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp{file_ext}",
         higher_is_better=False,
     )
     plot_hpo(
         df=leaderboard,
-        xlabel="Median infer time per 1K samples [s]",
+        xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo_infer{file_ext}",
         higher_is_better=True,
     )
     plot_hpo(
         df=leaderboard,
-        xlabel="Median infer time per 1K samples [s]",
+        xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp_infer{file_ext}",
         higher_is_better=False,
@@ -283,7 +283,7 @@ if __name__ == '__main__':
 
     plot_hpo(
         df=leaderboard,
-        xlabel="Median train time per 1K samples [s]",
+        xlabel="Train time per 1K samples (s) (median)",
         ylabel="Baseline Advantage (%) (Test - Val)",
         save_path=f"pareto_n_configs_adv{file_ext}",
         higher_is_better=False,
@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     plot_hpo(
         df=leaderboard,
-        xlabel="Median infer time per 1K samples [s]",
+        xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Baseline Advantage (%) (Test - Val)",
         save_path=f"pareto_n_configs_adv_infer{file_ext}",
         higher_is_better=False,
