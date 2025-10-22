@@ -113,8 +113,11 @@ def plot_pareto(
     save_path: str | None = None,
     add_optimal_arrow: bool = True,
     show: bool = True,
-    legend_in_plot: bool = False,
+    legend_in_plot: bool = True,
 ):
+    fig_size_ratio = 0.6
+    fig_height = 10 * fig_size_ratio
+
     if sort_y:
         # Optionally sort for nicer vertical label spacing while preserving stable colors
         plot_df = data.sort_values(by=y_name, ascending=not max_Y)
@@ -178,8 +181,9 @@ def plot_pareto(
         style=style_col,
         style_order=style_order,
         markers=markers_arg,
-        height=10,
-        s=200,
+        height=fig_height,
+        aspect=1,
+        s=150,
         alpha=0.8,
         linewidth=0.1,
         edgecolor="black",
@@ -199,7 +203,7 @@ def plot_pareto(
 
     # Draw Pareto frontier as a step-like polyline
     ax = g.ax
-    ax.plot(pf_X, pf_Y, linewidth=2, zorder=-100, color='black')
+    ax.plot(pf_X, pf_Y, linewidth=2 * fig_size_ratio, zorder=-100, color='black')
 
     # ------------------------------------------------------------------
     # Label every real vertex on the Pareto frontier
@@ -221,7 +225,7 @@ def plot_pareto(
             textcoords='offset points',
             ha=ha,
             va=va,
-            fontsize=9,
+            fontsize=8,
         )
 
     if ylim is not None:
@@ -232,40 +236,7 @@ def plot_pareto(
 
     # FIXME: optimal arrow and text are no longer perfectly aligned after the new legend.
     if add_optimal_arrow:
-        best_low_x = not max_X
-        best_low_y = not max_Y
-        corner_x = 0 if best_low_x else 1
-        corner_y = 0 if best_low_y else 1
-        offset = 0.10
-        start = (
-            corner_x + (+offset if corner_x == 0 else -offset),
-            corner_y + (+offset if corner_y == 0 else -offset),
-        )
-        end = (corner_x, corner_y)
-        arrow = ax.annotate(
-            "", xy=end, xytext=start,
-            xycoords="axes fraction", textcoords="axes fraction",
-            arrowprops=dict(
-                arrowstyle="Fancy,head_length=0.42,head_width=0.30,tail_width=0.30",
-                facecolor="forestgreen",
-                edgecolor="forestgreen",
-                linewidth=0,
-                mutation_scale=100
-            ),
-        )
-        vec = np.array(end) - np.array(start)
-        angle = np.degrees(np.arctan2(vec[1], vec[0]))
-        if angle < -90 or angle > 90:
-            angle += 180
-        mid = (np.array(start) + np.array(end)) / 2
-        ax.text(
-            mid[0], mid[1], "Optimal",
-            transform=ax.transAxes,
-            rotation=angle, rotation_mode="anchor",
-            ha="center", va="center",
-            fontsize=11, fontweight="bold",
-            color="white",
-        )
+        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio)
 
     # --------------------------------------------------
     # Add unified two-block legend (color + marker + line)
@@ -321,11 +292,15 @@ def plot_pareto(
     marker_handles.append(frontier_proxy)
     marker_labels.append("Pareto Front")
 
-    legend_fontsize = 9
+    legend_shift = 0.12 / fig_size_ratio
+    legend_in_plot_right = 0.99
+    legend_in_plot_left = legend_in_plot_right - legend_shift
+
+    legend_fontsize = 8
     g.fig.legend(
         color_handles, color_labels,
         loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
-        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((0.99, 0.06) if max_Y else (0.99, 0.94)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
+        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((legend_in_plot_right, 0.06) if max_Y else (legend_in_plot_right, 0.94)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
@@ -338,7 +313,7 @@ def plot_pareto(
     g.fig.legend(
         marker_handles, marker_labels,
         loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
-        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((0.85, 0.06) if max_Y else (0.85, 0.94)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
+        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((legend_in_plot_left, 0.06) if max_Y else (legend_in_plot_left, 0.94)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
@@ -359,6 +334,59 @@ def plot_pareto(
         plt.savefig(save_path, bbox_inches="tight")
     if show:
         plt.show()
+
+
+def plot_optimal_arrow(
+    ax,
+    max_X: bool,
+    max_Y: bool,
+    size: float = 1,
+    offset: float = 0.1,
+):
+    ar_size_ratio_base = 0.9
+    ar_size_ratio = ar_size_ratio_base * size
+    ar_head_length = 0.42 * ar_size_ratio
+    ar_head_width = 0.30 * ar_size_ratio
+    ar_tail_width = 0.30 * ar_size_ratio
+    ar_text_size = 11 * ar_size_ratio
+    offset *= ar_size_ratio_base
+
+    best_low_x = not max_X
+    best_low_y = not max_Y
+    corner_x = 0 if best_low_x else 1
+    corner_y = 0 if best_low_y else 1
+    start = (
+        corner_x + (+offset if corner_x == 0 else -offset),
+        corner_y + (+offset if corner_y == 0 else -offset),
+    )
+    end = (corner_x, corner_y)
+
+    arrow = ax.annotate(
+        "", xy=end, xytext=start,
+        xycoords="axes fraction", textcoords="axes fraction",
+        arrowprops=dict(
+            arrowstyle=f"Fancy,head_length={ar_head_length},head_width={ar_head_width},tail_width={ar_tail_width}",
+            facecolor="forestgreen",
+            edgecolor="forestgreen",
+            linewidth=0,
+            mutation_scale=100,
+        ),
+    )
+    vec = np.array(end) - np.array(start)
+    angle = np.degrees(np.arctan2(vec[1], vec[0]))
+    if angle < -90 or angle > 90:
+        angle += 180
+    mid = (np.array(start) + np.array(end)) / 2
+    text = ax.text(
+        mid[0], mid[1], "Optimal",
+        transform=ax.transAxes,
+        rotation=angle, rotation_mode="anchor",
+        ha="center", va="center",
+        fontsize=ar_text_size, fontweight="bold",
+        color="white",
+    )
+    return arrow, text
+
 
 
 def plot_pareto_aggregated(

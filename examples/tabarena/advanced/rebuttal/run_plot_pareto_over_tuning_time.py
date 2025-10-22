@@ -89,17 +89,26 @@ def plot_hpo(
 
 
 if __name__ == '__main__':
+    include_portfolio = False
+    include_hpo_seeds = False
+    average_seeds = False
+
     method_rename_map = get_method_rename_map()
     method_rename_map["REALMLP"] = "RealMLP"
     framework_types = list(method_rename_map.keys())
 
-    results_file = "hpo_new_lb.parquet"
-    s3_path = "s3://tabarena/tmp/camera_ready/hpo_new_lb.parquet"
+    # results_file = "hpo_new_lb.parquet"
+    # s3_path = "s3://tabarena/tmp/camera_ready/hpo_new_lb.parquet"
+
+    results_file = "hpo_camera_ready_lb.parquet"
+    # results_file = "rebuttal_hpo_v4.parquet"
+    s3_path = "s3://tabarena/tmp/camera_ready/hpo_camera_ready_lb.parquet"
     from autogluon.common.savers import save_pd
 
     try:
         results_hpo = load_pd.load(path=results_file)
     except:
+        print(f"Downloading from s3: {s3_path}")
         # download from s3 if missing
         results_hpo = load_pd.load(path=s3_path)
         save_pd.save(path=results_file, df=results_hpo)
@@ -127,7 +136,6 @@ if __name__ == '__main__':
         results_hpo_mean,
     ]
 
-    include_hpo_seeds = False
     if include_hpo_seeds:
         results_hpo_seeds = results_hpo.copy()
         results_hpo_seeds["method"] = results_hpo_seeds["method"] + "-" + results_hpo_seeds["seed"].astype(str)
@@ -136,7 +144,6 @@ if __name__ == '__main__':
             numeric_only=True).reset_index()
         results_lst.append(results_hpo_seeds)
 
-    include_portfolio = False
     if include_portfolio:
         results_portfolio = load_pd.load(path="rebuttal_portfolio_n_configs.parquet")
         results_portfolio["config_type"] = results_portfolio["method"]
@@ -186,7 +193,6 @@ if __name__ == '__main__':
 
     results_per_task = arena.compute_results_per_task(data=combined_data)
 
-    average_seeds = True
     leaderboard = arena.leaderboard(
         data=combined_data,
         include_elo=True,
