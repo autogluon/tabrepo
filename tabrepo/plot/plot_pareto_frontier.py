@@ -103,6 +103,7 @@ def plot_pareto(
     palette='tab20',
     hue: str = "Method",
     *,
+    aspect: float = 1.0,
     style_col: str | None = None,
     style_order: list[str] | None = None,
     style_markers: list[str] | dict | None = None,
@@ -186,7 +187,7 @@ def plot_pareto(
         style_order=style_order,
         markers=markers_arg,
         height=fig_height,
-        aspect=1,
+        aspect=aspect,
         s=150,
         alpha=0.8,
         linewidth=0.1,
@@ -239,7 +240,6 @@ def plot_pareto(
     pf_X = [pf_X_first] + pf_X + [pf_X_last]
     pf_Y = [pf_Y_first] + pf_Y + [pf_Y_last]
 
-    # FIXME: optimal arrow and text are no longer perfectly aligned after the new legend.
     if add_optimal_arrow:
         plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio)
 
@@ -408,18 +408,43 @@ def plot_optimal_arrow(
     ar_text_size = 11 * ar_size_ratio
     offset *= ar_size_ratio_base
 
-    best_low_x = not max_X
-    best_low_y = not max_Y
-    corner_x = 0 if best_low_x else 1
-    corner_y = 0 if best_low_y else 1
+    corner_x = 1 if max_X else 0
+    corner_y = 1 if max_Y else 0
     start = (
         corner_x + (+offset if corner_x == 0 else -offset),
         corner_y + (+offset if corner_y == 0 else -offset),
     )
     end = (corner_x, corner_y)
 
+    # --- Adjust start so arrow appears diagonal in display (pixel) space ---
+    # Transform both points from axes fraction → display (pixel) coordinates
+    start_disp = ax.transAxes.transform(start)
+    end_disp = ax.transAxes.transform(end)
+
+    dx_disp = abs(end_disp[0] - start_disp[0])
+    dy_disp = abs(end_disp[1] - start_disp[1])
+
+    if dx_disp != dy_disp and dx_disp > 0 and dy_disp > 0:
+        # Choose the smaller of the two pixel distances as the base
+        if dx_disp < dy_disp:
+            # Adjust y offset proportionally so |dx| == |dy|
+            scale = dx_disp / dy_disp
+            start = (
+                corner_x + (+offset if corner_x == 0 else -offset),
+                corner_y + ((+offset if corner_y == 0 else -offset) * scale),
+            )
+        else:
+            # Adjust x offset proportionally so |dx| == |dy|
+            scale = dy_disp / dx_disp
+            start = (
+                corner_x + ((+offset if corner_x == 0 else -offset) * scale),
+                corner_y + (+offset if corner_y == 0 else -offset),
+            )
+
+    # Create the arrow (in axes-fraction coordinates)
     arrow = ax.annotate(
-        "", xy=end, xytext=start,
+        "",
+        xy=end, xytext=start,
         xycoords="axes fraction", textcoords="axes fraction",
         arrowprops=dict(
             arrowstyle=f"Fancy,head_length={ar_head_length},head_width={ar_head_width},tail_width={ar_tail_width}",
@@ -429,8 +454,13 @@ def plot_optimal_arrow(
             mutation_scale=100,
         ),
     )
-    vec = np.array(end) - np.array(start)
-    angle = np.degrees(np.arctan2(vec[1], vec[0]))
+    start_data = ax.transAxes.transform(start)
+    end_data = ax.transAxes.transform(end)
+    angle = np.degrees(np.arctan2(
+        end_data[1] - start_data[1],
+        end_data[0] - start_data[0]
+    ))
+
     if angle < -90 or angle > 90:
         angle += 180
     mid = (np.array(start) + np.array(end)) / 2

@@ -10,6 +10,7 @@ from autogluon.common.loaders import load_pd
 
 from tabrepo.paper.paper_utils import get_method_rename_map
 from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata import tabarena_method_metadata_2025_06_12_collection_main
+from tabrepo.plot.plot_pareto_frontier import plot_optimal_arrow
 
 
 def plot_hpo(
@@ -51,9 +52,11 @@ def plot_hpo(
         base_methods_for_colors = sorted(method_names)
     color_map = {m: colors60[i % len(colors60)] for i, m in enumerate(base_methods_for_colors)}
 
-    plt.figure(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(8, 6))
     if xlog:
-        plt.xscale("log")
+        ax.set_xscale("log")
+
+    plot_optimal_arrow(ax=ax, max_X=False, max_Y=higher_is_better, size=0.6)
 
     handles = []
     labels = []
@@ -63,7 +66,7 @@ def plot_hpo(
             continue
         scores = df_method[ylabel].to_numpy()
         times = df_method[xlabel].to_numpy()
-        h, = plt.plot(
+        h, = ax.plot(
             times,
             scores,
             ".-",
@@ -77,21 +80,21 @@ def plot_hpo(
 
     # Flip legend order only if higher_is_better is False
     if higher_is_better:
-        plt.legend(handles, labels)
+        ax.legend(handles, labels)
     else:
-        plt.legend(handles[::-1], labels[::-1])
+        ax.legend(handles[::-1], labels[::-1])
 
-    plt.grid(True)
-    plt.ylabel(ylabel)
-    plt.xlabel(xlabel)
-    plt.tight_layout()
-    plt.savefig(save_path)
+    ax.grid(True)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    fig.tight_layout()
+    fig.savefig(save_path)
 
 
 if __name__ == '__main__':
     include_portfolio = False
     include_hpo_seeds = False
-    average_seeds = False
+    average_seeds = True
 
     method_rename_map = get_method_rename_map()
     method_rename_map["REALMLP"] = "RealMLP"
@@ -101,7 +104,6 @@ if __name__ == '__main__':
     # s3_path = "s3://tabarena/tmp/camera_ready/hpo_new_lb.parquet"
 
     results_file = "hpo_camera_ready_lb.parquet"
-    # results_file = "rebuttal_hpo_v4.parquet"
     s3_path = "s3://tabarena/tmp/camera_ready/hpo_camera_ready_lb.parquet"
     from autogluon.common.savers import save_pd
 
