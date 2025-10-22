@@ -7,6 +7,7 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import matplotlib.patheffects as PathEffects
 import seaborn as sns
 
 
@@ -154,6 +155,9 @@ def plot_pareto(
         colors = base_palette[:len(hue_levels)]
     palette_map = dict(zip(hue_levels, colors))
 
+    label_to_hue_dict = data.set_index(label_col)[hue].to_dict()
+    label_to_color_dict = {l: palette_map[h] for l, h in label_to_hue_dict.items()}
+
     # Style (marker) mapping per run_type (optional; seaborn can auto-assign markers if you omit this dict)
     if style_col is not None:
         if style_order is None:
@@ -190,6 +194,10 @@ def plot_pareto(
         legend=False,
     )
 
+    ax = g.ax
+    ax.set_xlabel(x_name, fontsize=12)
+    ax.set_ylabel(y_name, fontsize=12)
+
     # Compute Pareto frontier (use the plotted order)
     Xs = list(plot_df[x_name])
     Ys = list(plot_df[y_name])
@@ -201,15 +209,46 @@ def plot_pareto(
     pf_X = [pair[0] for pair in pareto_front]
     pf_Y = [pair[1] for pair in pareto_front]
 
-    # Draw Pareto frontier as a step-like polyline
-    ax = g.ax
-    ax.plot(pf_X, pf_Y, linewidth=2 * fig_size_ratio, zorder=-100, color='black')
+    g.set(xscale="log")
+
+    if ylim is not None:
+        ax.set_ylim(ylim)
+
+    # Draw Pareto frontier
+    # Get current axis limits
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+
+    if max_X:
+        pf_X_first = x_min
+        pf_X_last = pf_X[-1]
+        pf_Y_first = pf_Y[0]
+        if max_Y:
+            pf_Y_last = y_min
+        else:
+            pf_Y_last = y_max
+    else:
+        pf_X_first = pf_X[0]
+        pf_X_last = x_max
+        pf_Y_last = pf_Y[-1]
+        if max_Y:
+            pf_Y_first = y_min
+        else:
+            pf_Y_first = y_max
+
+    pf_X = [pf_X_first] + pf_X + [pf_X_last]
+    pf_Y = [pf_Y_first] + pf_Y + [pf_Y_last]
+
+    # FIXME: optimal arrow and text are no longer perfectly aligned after the new legend.
+    if add_optimal_arrow:
+        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio)
+
+    ax.plot(pf_X, pf_Y, linewidth=1.5 * fig_size_ratio, zorder=-100, color='black', linestyle='--')
 
     # ------------------------------------------------------------------
     # Label every real vertex on the Pareto frontier
     # ------------------------------------------------------------------
-    import matplotlib.transforms as mtrans
-    offset_pts = 5
+    offset_pts = 6
 
     for (x, y), label in zip(pareto_front, pareto_names):
         if label is None:
@@ -218,25 +257,24 @@ def plot_pareto(
         dy = offset_pts if max_Y else -offset_pts
         ha = 'left' if max_X else 'right'
         va = 'bottom' if max_Y else 'top'
-        ax.annotate(
+        txt = ax.annotate(
             label,
             xy=(x, y),
             xytext=(dx, dy),
             textcoords='offset points',
             ha=ha,
             va=va,
-            fontsize=8,
+            fontsize=9,
+            color=label_to_color_dict[label],
+            fontweight='bold',
         )
+        txt.set_path_effects([PathEffects.withStroke(linewidth=3, foreground='white')])
 
-    if ylim is not None:
-        ax.set_ylim(ylim)
+    # Restore original limits (prevents Matplotlib from auto-expanding them)
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
 
-    g.set(xscale="log")
     plt.grid()
-
-    # FIXME: optimal arrow and text are no longer perfectly aligned after the new legend.
-    if add_optimal_arrow:
-        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio)
 
     # --------------------------------------------------
     # Add unified two-block legend (color + marker + line)
@@ -288,19 +326,17 @@ def plot_pareto(
             marker_handles.append(h)
             marker_labels.append(str(lvl))
 
-    frontier_proxy = Line2D([0], [0], linewidth=1.2, color='black')
+    frontier_proxy = Line2D([0], [0], linewidth=1.2, color='black', linestyle='--')
     marker_handles.append(frontier_proxy)
     marker_labels.append("Pareto Front")
 
-    legend_shift = 0.12 / fig_size_ratio
-    legend_in_plot_right = 0.99
-    legend_in_plot_left = legend_in_plot_right - legend_shift
+    legend_fontsize = 9
+    legend_in_plot_right = 0.98
 
-    legend_fontsize = 8
-    g.fig.legend(
+    legend1 = g.fig.legend(
         color_handles, color_labels,
         loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
-        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((legend_in_plot_right, 0.06) if max_Y else (legend_in_plot_right, 0.94)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
+        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((legend_in_plot_right, 0.085) if max_Y else (legend_in_plot_right, 0.98)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
@@ -310,15 +346,25 @@ def plot_pareto(
         borderaxespad=0.3,
         columnspacing=0.6,
     )
+
+    # Retrieve the bbox of the first legend (in figure coordinates)
+    g.fig.canvas.draw()  # required so the legend layout is computed
+    bbox1 = legend1.get_window_extent()
+    bbox1_fig = bbox1.transformed(g.fig.transFigure.inverted())
+
+    # Compute the left edge of legend1 in figure coords
+    left_edge_legend1 = bbox1_fig.x0
+    legend_in_plot_left = left_edge_legend1
+
     g.fig.legend(
         marker_handles, marker_labels,
         loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
-        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((legend_in_plot_left, 0.06) if max_Y else (legend_in_plot_left, 0.94)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
+        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((legend_in_plot_left, 0.085) if max_Y else (legend_in_plot_left, 0.98)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
-        labelspacing=0.35,
-        handletextpad=0.6,
+        labelspacing=0.25,
+        handletextpad=0.5,
         borderpad=0.3,
         borderaxespad=0.3,
         columnspacing=0.6,
@@ -327,8 +373,19 @@ def plot_pareto(
     if not legend_in_plot:
         g.fig.subplots_adjust(right=0.78)
 
+    ax = g.ax
+    grid_color = ax.xaxis.get_gridlines()[0].get_color()
+    ax.spines['top'].set_visible(True)
+    ax.spines['right'].set_visible(True)
+    ax.spines['top'].set_color(grid_color)
+    ax.spines['right'].set_color(grid_color)
+    ax.spines['bottom'].set_color(grid_color)
+    ax.spines['left'].set_color(grid_color)
+    # Make major and minor tick lines gray, but labels stay black
+    ax.tick_params(axis='both', which='both', color=grid_color, labelcolor='black')
+
     # Title + save/show
-    g.fig.suptitle(title, fontsize=14)
+    # g.fig.suptitle(title, fontsize=14)
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path, bbox_inches="tight")
@@ -343,7 +400,7 @@ def plot_optimal_arrow(
     size: float = 1,
     offset: float = 0.1,
 ):
-    ar_size_ratio_base = 0.9
+    ar_size_ratio_base = 0.95
     ar_size_ratio = ar_size_ratio_base * size
     ar_head_length = 0.42 * ar_size_ratio
     ar_head_width = 0.30 * ar_size_ratio

@@ -56,6 +56,7 @@ class TabArenaEvaluator:
         datasets: list[str] | None = None,
         problem_types: list[str] | None = None,
         banned_model_types: list[str] | None = None,
+        banned_pareto_methods: list[str] | None = None,
         elo_bootstrap_rounds: int = 200,
         keep_best: bool = False,
         figure_file_type: str = "pdf",
@@ -80,12 +81,15 @@ class TabArenaEvaluator:
         """
         if task_metadata is None:
             task_metadata = load_task_metadata()
+        if banned_pareto_methods is None:
+            banned_pareto_methods = []
         self.output_dir = output_dir
         self.task_metadata = task_metadata
         self.method_col = method_col
         self.error_col = error_col
         self.config_types = config_types
         self.figure_file_type = figure_file_type
+        self.banned_pareto_methods = banned_pareto_methods
 
         self.datasets = datasets
         self.problem_types = problem_types
@@ -593,6 +597,10 @@ class TabArenaEvaluator:
         leaderboard_pareto = leaderboard.copy()
         leaderboard_pareto["Method"] = leaderboard_pareto[self.method_col].map(f_map_type).fillna(
             leaderboard_pareto[self.method_col])
+
+        if self.banned_pareto_methods:
+            leaderboard_pareto = leaderboard_pareto[~leaderboard_pareto["Method"].isin(self.banned_pareto_methods)]
+
         leaderboard_pareto["Type"] = leaderboard_pareto[self.method_col].map(f_map_inverse).fillna("baseline")
         leaderboard_pareto["Method"] = leaderboard_pareto["Method"].map(f_map_type_name).fillna(
             leaderboard_pareto["Method"])

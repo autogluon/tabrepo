@@ -139,13 +139,13 @@ def get_f_map_suffix() -> dict:
 
 def get_f_map_suffix_plots() -> dict:
     f_map_suffix_plots = dict(
-        default=" (D)",
-        tuned=" (T)",
-        tuned_ensembled=" (T+E)",
-        best=" (B)",
-        holdout=" (D, H)",
-        holdout_tuned=" (T, H)",
-        holdout_tuned_ensembled=" (T+E, H)",
+        default="-D",
+        tuned="-T",
+        tuned_ensembled="-TE",
+        best="-B",
+        holdout="-D (H)",
+        holdout_tuned="-T (H)",
+        holdout_tuned_ensembled="-TE (H)",
     )
     return f_map_suffix_plots
 

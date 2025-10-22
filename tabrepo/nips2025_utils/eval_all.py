@@ -36,7 +36,12 @@ def evaluate_all(
     else:
         evaluator_cls = TabArenaEvaluator
 
-    evaluator_kwargs = {"use_latex": use_latex}
+    banned_pareto_methods = ["KNN", "LR"]
+
+    evaluator_kwargs = {
+        "use_latex": use_latex,
+        "banned_pareto_methods": banned_pareto_methods,
+    }
 
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
     datasets_tabicl = list(load_task_metadata(subset="TabICL")["name"])
