@@ -195,8 +195,8 @@ def plot_pareto(
     )
 
     ax = g.ax
-    ax.set_xlabel(x_name, fontsize=12)
-    ax.set_ylabel(y_name, fontsize=12)
+    ax.set_xlabel(x_name, fontsize=15)
+    ax.set_ylabel(y_name, fontsize=15)
 
     # Compute Pareto frontier (use the plotted order)
     Xs = list(plot_df[x_name])
