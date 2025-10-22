@@ -19,7 +19,8 @@ def plot_hpo(
     xlabel: str,
     ylabel: str,
     save_path: str,
-    higher_is_better: bool = True,
+    max_Y: bool = True,
+    max_X: bool = False,
     method_col: str = "name",
     xlog: bool = True,
     color_by_rank: bool = True,
@@ -39,8 +40,10 @@ def plot_hpo(
         Column name for y-axis (e.g. validation score).
     save_path : str
         Path to save figure.
-    higher_is_better : bool, default=True
+    max_Y : bool, default=True
         Whether higher y-values are better.
+    max_X : bool, default=False
+        Whether higher x-values are better.
     method_col : str, default='name'
         Column identifying each method.
     xlog : bool, default=True
@@ -60,14 +63,14 @@ def plot_hpo(
 
     method_names = list(df[method_col].unique())
 
-    # Determine peak per method (max if higher_is_better else min)
-    if higher_is_better:
+    # Determine peak per method (max if max_Y else min)
+    if max_Y:
         peak_per_method = {m: df.loc[df[method_col] == m, ylabel].max() for m in method_names}
     else:
         peak_per_method = {m: df.loc[df[method_col] == m, ylabel].min() for m in method_names}
 
     # Sort by peak and create a stable color map (alphabetical)
-    sorted_methods = sorted(method_names, key=lambda m: peak_per_method[m], reverse=higher_is_better)
+    sorted_methods = sorted(method_names, key=lambda m: peak_per_method[m], reverse=max_Y)
     base_methods_for_colors = sorted_methods if color_by_rank else sorted(method_names)
     print(base_methods_for_colors)
 
@@ -80,7 +83,7 @@ def plot_hpo(
     if xlog:
         ax.set_xscale("log")
 
-    plot_optimal_arrow(ax=ax, max_X=False, max_Y=higher_is_better, size=0.6, scale=1.2)
+    plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=0.6, scale=1.2)
 
     handles = []
     labels = []
@@ -154,9 +157,9 @@ def plot_hpo(
         handles.append(points_legend)
         labels.append(method_name)
 
-    # Flip legend order only if higher_is_better is False
+    # Flip legend order only if max_Y is False
     legend_fontsize = 9
-    if higher_is_better:
+    if max_Y:
         handles_legend = handles
         labels_legend = labels
     else:
@@ -387,7 +390,7 @@ if __name__ == '__main__':
         xlabel="Train time per 1K samples (s) (median)",
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo{file_ext}",
-        higher_is_better=True,
+        max_Y=True,
         **plot_kwargs,
     )
     plot_hpo(
@@ -395,7 +398,7 @@ if __name__ == '__main__':
         xlabel="Train time per 1K samples (s) (median)",
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp{file_ext}",
-        higher_is_better=False,
+        max_Y=False,
         **plot_kwargs,
     )
     plot_hpo(
@@ -403,7 +406,7 @@ if __name__ == '__main__':
         xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo_infer{file_ext}",
-        higher_is_better=True,
+        max_Y=True,
         **plot_kwargs,
     )
     plot_hpo(
@@ -411,7 +414,7 @@ if __name__ == '__main__':
         xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp_infer{file_ext}",
-        higher_is_better=False,
+        max_Y=False,
         **plot_kwargs,
     )
 
@@ -420,7 +423,7 @@ if __name__ == '__main__':
         xlabel="Train time per 1K samples (s) (median)",
         ylabel="Baseline Advantage (%) (Test - Val)",
         save_path=f"pareto_n_configs_adv{file_ext}",
-        higher_is_better=False,
+        max_Y=False,
         **plot_kwargs,
     )
 
@@ -429,7 +432,7 @@ if __name__ == '__main__':
         xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Baseline Advantage (%) (Test - Val)",
         save_path=f"pareto_n_configs_adv_infer{file_ext}",
-        higher_is_better=False,
+        max_Y=False,
         **plot_kwargs,
     )
 
@@ -438,7 +441,8 @@ if __name__ == '__main__':
         xlabel="Baseline Advantage (%) (Val)",
         ylabel="Baseline Advantage (%) (Test)",
         save_path=f"pareto_n_configs_adv_vs{file_ext}",
-        higher_is_better=True,
+        max_Y=True,
+        max_X=False,
         xlog=False,
         **plot_kwargs,
     )
@@ -448,7 +452,8 @@ if __name__ == '__main__':
         xlabel="Improvability (%) (Val)",
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp_vs{file_ext}",
-        higher_is_better=False,
+        max_Y=False,
+        max_X=True,
         xlog=False,
         **plot_kwargs,
     )
@@ -458,7 +463,8 @@ if __name__ == '__main__':
         xlabel="Elo (Val)",
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo_vs{file_ext}",
-        higher_is_better=True,
+        max_Y=True,
+        max_X=False,
         xlog=False,
         **plot_kwargs,
     )
