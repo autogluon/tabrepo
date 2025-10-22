@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -22,34 +23,57 @@ def plot_hpo(
     method_col: str = "name",
     xlog: bool = True,
     color_by_rank: bool = True,
+    sort_col: str | None = None,
+    method_order: list[str] | None = None,
 ):
+    """
+    Plot HPO trajectories for multiple methods.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Data containing results.
+    xlabel : str
+        Column name for x-axis (e.g. training time).
+    ylabel : str
+        Column name for y-axis (e.g. validation score).
+    save_path : str
+        Path to save figure.
+    higher_is_better : bool, default=True
+        Whether higher y-values are better.
+    method_col : str, default='name'
+        Column identifying each method.
+    xlog : bool, default=True
+        Whether to use log scale for x-axis.
+    color_by_rank : bool, default=True
+        Whether to color methods by rank.
+    sort_col : str | None, default=None
+        If provided, sorts each method’s points by this numeric column (ascending),
+        and highlights the point with the highest value of this column using a different marker.
+    """
     # Build a 60-color palette from tab20 / tab20b / tab20c
     colors60 = (
-        list(sns.color_palette("tab20", 20)) +
-        list(sns.color_palette("tab20b", 20)) +
-        list(sns.color_palette("tab20c", 20))
+        list(sns.color_palette("tab20", 20))
+        + list(sns.color_palette("tab20b", 20))
+        + list(sns.color_palette("tab20c", 20))
     )
 
     method_names = list(df[method_col].unique())
 
     # Determine peak per method (max if higher_is_better else min)
     if higher_is_better:
-        peak_per_method = {
-            m: df.loc[df[method_col] == m, ylabel].max()
-            for m in method_names
-        }
+        peak_per_method = {m: df.loc[df[method_col] == m, ylabel].max() for m in method_names}
     else:
-        peak_per_method = {
-            m: df.loc[df[method_col] == m, ylabel].min()
-            for m in method_names
-        }
+        peak_per_method = {m: df.loc[df[method_col] == m, ylabel].min() for m in method_names}
 
-    # Sort by peak and create a stable color map (alphabetical) so colors don't change with sort order
+    # Sort by peak and create a stable color map (alphabetical)
     sorted_methods = sorted(method_names, key=lambda m: peak_per_method[m], reverse=higher_is_better)
-    if color_by_rank:
-        base_methods_for_colors = sorted_methods
-    else:
-        base_methods_for_colors = sorted(method_names)
+    base_methods_for_colors = sorted_methods if color_by_rank else sorted(method_names)
+    print(base_methods_for_colors)
+
+    if method_order:
+        sorted_methods = method_order + [m for m in sorted_methods if m not in method_order]
+        base_methods_for_colors = method_order + [m for m in base_methods_for_colors if m not in method_order]
     color_map = {m: colors60[i % len(colors60)] for i, m in enumerate(base_methods_for_colors)}
 
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -60,30 +84,96 @@ def plot_hpo(
 
     handles = []
     labels = []
+
     for method_name in sorted_methods:
-        df_method = df[df[method_col] == method_name]
+        df_method = df[df[method_col] == method_name].copy()
         if df_method.empty:
             continue
-        scores = df_method[ylabel].to_numpy()
+
+        # --- Sort by sort_col if provided ---
+        max_sort_pos = None
+        if sort_col is not None and sort_col in df_method.columns:
+            df_method = df_method.sort_values(by=sort_col, ascending=True)
+            # position (0..n-1) of the row with the max sort_col
+            max_sort_pos = int(df_method[sort_col].to_numpy().argmax())
+
         times = df_method[xlabel].to_numpy()
+        scores = df_method[ylabel].to_numpy()
+        color = color_map[method_name]
+
+        # 1) Draw the connecting line (no markers)
         h, = ax.plot(
             times,
             scores,
-            ".-",
+            "-",                # no point markers
             label=method_name,
-            color=color_map[method_name],
-            markersize=16,
-            alpha=0.8,
+            color=color,
+            alpha=0.9,
+            linewidth=1.5,
         )
-        handles.append(h)
+
+        # 2) Draw circle markers for all-but-the-max (if sort_col used)
+        if max_sort_pos is not None:
+            mask = np.ones(len(df_method), dtype=bool)
+            mask[max_sort_pos] = False
+            if mask.any():
+                ax.scatter(
+                    times[mask],
+                    scores[mask],
+                    marker="o",
+                    s=64,          # ~markersize=16 equivalent
+                    color=color,
+                    alpha=0.9,
+                    zorder=4,
+                )
+            # 3) Draw the max point bolded (single marker)
+            ax.scatter(
+                times[max_sort_pos],
+                scores[max_sort_pos],
+                marker="o",
+                s=64,
+                color=color,
+                edgecolor="black",
+                linewidth=0.9,
+                alpha=0.9,
+                zorder=5,
+            )
+        else:
+            # Back-compat: no sort_col → keep circles for all points
+            ax.scatter(
+                times,
+                scores,
+                marker="o",
+                s=64,
+                color=color,
+                alpha=0.9,
+                zorder=4,
+            )
+        points_legend = ax.scatter([], [], marker="o", s=64, color=color, alpha=0.9)
+
+        handles.append(points_legend)
         labels.append(method_name)
 
     # Flip legend order only if higher_is_better is False
     legend_fontsize = 9
     if higher_is_better:
-        ax.legend(handles, labels, fontsize=legend_fontsize)
+        handles_legend = handles
+        labels_legend = labels
     else:
-        ax.legend(handles[::-1], labels[::-1], fontsize=legend_fontsize)
+        handles_legend = handles[::-1]
+        labels_legend = labels[::-1]
+
+    ax.legend(
+        handles_legend,
+        labels_legend,
+        fontsize=legend_fontsize,
+        ncol=1,
+        labelspacing=0.25,
+        handletextpad=0.5,
+        borderpad=0.3,
+        borderaxespad=0.3,
+        columnspacing=0.6,
+    )
 
     ax.grid(True)
     ax.set_ylabel(ylabel, fontsize=15)
@@ -96,6 +186,27 @@ if __name__ == '__main__':
     include_portfolio = False
     include_hpo_seeds = False
     average_seeds = True
+    exclude_imputed = True
+    imputed_methods = [
+        "TABPFNV2_GPU",
+        "TABICL_GPU",
+    ]
+
+    # Hardcoded for the paper to match the other plots
+    method_order = [
+        'RealMLP',
+        'TabM',
+        'CatBoost',
+        'ModernNCA',
+        'LightGBM',
+        'XGBoost',
+        'TorchMLP',
+        'TabDPT',
+        'FastaiMLP',
+        'EBM',
+        'ExtraTrees',
+        'RandomForest',
+    ]
 
     method_rename_map = get_method_rename_map()
     method_rename_map["REALMLP"] = "RealMLP"
@@ -117,6 +228,11 @@ if __name__ == '__main__':
         save_pd.save(path=results_file, df=results_hpo)
         results_hpo = load_pd.load(path=results_file)
     # save_pd.save(path=s3_path, df=results_hpo)
+
+    print(results_hpo["config_type"].unique())
+
+    if exclude_imputed:
+        results_hpo = results_hpo[~results_hpo["config_type"].isin(imputed_methods)]
 
     use_old_lb = True
     if use_old_lb:
@@ -261,12 +377,18 @@ if __name__ == '__main__':
         bad_methods = ["KNN", "LR"]
         leaderboard = leaderboard[~leaderboard["config_type"].isin(bad_methods)]
 
+    plot_kwargs = {
+        "sort_col": "n_portfolio",
+        "method_order": method_order,
+    }
+
     plot_hpo(
         df=leaderboard,
         xlabel="Train time per 1K samples (s) (median)",
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo{file_ext}",
         higher_is_better=True,
+        **plot_kwargs,
     )
     plot_hpo(
         df=leaderboard,
@@ -274,6 +396,7 @@ if __name__ == '__main__':
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp{file_ext}",
         higher_is_better=False,
+        **plot_kwargs,
     )
     plot_hpo(
         df=leaderboard,
@@ -281,6 +404,7 @@ if __name__ == '__main__':
         ylabel="Elo",
         save_path=f"pareto_n_configs_elo_infer{file_ext}",
         higher_is_better=True,
+        **plot_kwargs,
     )
     plot_hpo(
         df=leaderboard,
@@ -288,6 +412,7 @@ if __name__ == '__main__':
         ylabel="Improvability (%)",
         save_path=f"pareto_n_configs_imp_infer{file_ext}",
         higher_is_better=False,
+        **plot_kwargs,
     )
 
     plot_hpo(
@@ -296,6 +421,7 @@ if __name__ == '__main__':
         ylabel="Baseline Advantage (%) (Test - Val)",
         save_path=f"pareto_n_configs_adv{file_ext}",
         higher_is_better=False,
+        **plot_kwargs,
     )
 
     plot_hpo(
@@ -304,6 +430,7 @@ if __name__ == '__main__':
         ylabel="Baseline Advantage (%) (Test - Val)",
         save_path=f"pareto_n_configs_adv_infer{file_ext}",
         higher_is_better=False,
+        **plot_kwargs,
     )
 
     plot_hpo(
@@ -313,6 +440,7 @@ if __name__ == '__main__':
         save_path=f"pareto_n_configs_adv_vs{file_ext}",
         higher_is_better=True,
         xlog=False,
+        **plot_kwargs,
     )
 
     plot_hpo(
@@ -322,6 +450,7 @@ if __name__ == '__main__':
         save_path=f"pareto_n_configs_imp_vs{file_ext}",
         higher_is_better=False,
         xlog=False,
+        **plot_kwargs,
     )
 
     plot_hpo(
@@ -331,4 +460,5 @@ if __name__ == '__main__':
         save_path=f"pareto_n_configs_elo_vs{file_ext}",
         higher_is_better=True,
         xlog=False,
+        **plot_kwargs,
     )
