@@ -72,7 +72,6 @@ def plot_hpo(
     # Sort by peak and create a stable color map (alphabetical)
     sorted_methods = sorted(method_names, key=lambda m: peak_per_method[m], reverse=max_Y)
     base_methods_for_colors = sorted_methods if color_by_rank else sorted(method_names)
-    print(base_methods_for_colors)
 
     if method_order:
         sorted_methods = method_order + [m for m in sorted_methods if m not in method_order]
@@ -179,6 +178,16 @@ def plot_hpo(
     )
 
     ax.grid(True)
+    grid_color = ax.xaxis.get_gridlines()[0].get_color()
+    ax.spines['top'].set_visible(True)
+    ax.spines['right'].set_visible(True)
+    ax.spines['top'].set_color(grid_color)
+    ax.spines['right'].set_color(grid_color)
+    ax.spines['bottom'].set_color(grid_color)
+    ax.spines['left'].set_color(grid_color)
+    # Make major and minor tick lines gray, but labels stay black
+    ax.tick_params(axis='both', which='both', color=grid_color, labelcolor='black')
+
     ax.set_ylabel(ylabel, fontsize=15)
     ax.set_xlabel(xlabel, fontsize=15)
     fig.tight_layout()
