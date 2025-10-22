@@ -113,6 +113,7 @@ def plot_pareto(
     save_path: str | None = None,
     add_optimal_arrow: bool = True,
     show: bool = True,
+    legend_in_plot: bool = False,
 ):
     if sort_y:
         # Optionally sort for nicer vertical label spacing while preserving stable colors
@@ -198,7 +199,7 @@ def plot_pareto(
 
     # Draw Pareto frontier as a step-like polyline
     ax = g.ax
-    ax.plot(pf_X, pf_Y, linewidth=2, zorder=-100)
+    ax.plot(pf_X, pf_Y, linewidth=2, zorder=-100, color='black')
 
     # ------------------------------------------------------------------
     # Label every real vertex on the Pareto frontier
@@ -316,15 +317,15 @@ def plot_pareto(
             marker_handles.append(h)
             marker_labels.append(str(lvl))
 
-    frontier_proxy = Line2D([0], [0], linewidth=1.2)
+    frontier_proxy = Line2D([0], [0], linewidth=1.2, color='black')
     marker_handles.append(frontier_proxy)
     marker_labels.append("Pareto Front")
 
     legend_fontsize = 9
     g.fig.legend(
         color_handles, color_labels,
-        loc="center left",
-        bbox_to_anchor=(0.79, 0.62),
+        loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
+        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((0.99, 0.06) if max_Y else (0.99, 0.94)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
@@ -336,8 +337,8 @@ def plot_pareto(
     )
     g.fig.legend(
         marker_handles, marker_labels,
-        loc="center left",
-        bbox_to_anchor=(0.79, 0.26),
+        loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
+        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((0.85, 0.06) if max_Y else (0.85, 0.94)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
@@ -347,7 +348,9 @@ def plot_pareto(
         borderaxespad=0.3,
         columnspacing=0.6,
     )
-    g.fig.subplots_adjust(right=0.78)
+
+    if not legend_in_plot:
+        g.fig.subplots_adjust(right=0.78)
 
     # Title + save/show
     g.fig.suptitle(title, fontsize=14)
