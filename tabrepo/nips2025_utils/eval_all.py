@@ -124,7 +124,6 @@ def evaluate_all(
         realmlp_cpu=realmlp_cpu,
     )
 
-    average_seeds_lst = [True]
     use_tabpfn_lst = [False, True]
     use_tabicl_lst = [False, True]
     use_imputation_lst = [False, True]
@@ -132,9 +131,9 @@ def evaluate_all(
     include_portfolio_lst = [False, True]
     with_baselines_lst = [True, False]
     lite_lst = [False, True]
+    average_seeds_lst = [True, False]
 
     all_combinations = list(product(
-        average_seeds_lst,
         use_tabpfn_lst,
         use_tabicl_lst,
         use_imputation_lst,
@@ -142,12 +141,13 @@ def evaluate_all(
         include_portfolio_lst,
         with_baselines_lst,
         lite_lst,
+        average_seeds_lst,
     ))
     n_combinations = len(all_combinations)
 
     # TODO: Use ray to speed up?
     # plots for sub-benchmarks, with and without imputation
-    for i, (average_seeds, use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite) in enumerate(all_combinations):
+    for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite, average_seeds) in enumerate(all_combinations):
         print(f"Running figure generation {i+1}/{n_combinations}...")
 
         # combinations to skip
