@@ -199,19 +199,20 @@ def plot_hpo(
     fig.savefig(str(save_path))
 
 
-if __name__ == '__main__':
+def plot_pareto_n_configs(
+    fig_save_dir: str | Path = Path("plots") / "n_configs",
+    average_seeds: bool = True,
+    exclude_imputed: bool = True,
+    ban_bad_methods: bool = True,
+):
     include_portfolio = False
     include_hpo_seeds = False
-    average_seeds = True
-    exclude_imputed = True
     imputed_methods = [
         "TABPFNV2_GPU",
         "TABICL_GPU",
     ]
 
-    fig_save_dir = Path("plots") / "n_configs"
-    if not average_seeds:
-        fig_save_dir = fig_save_dir / "no_average_seeds"
+    fig_save_dir = Path(fig_save_dir)
 
     # Hardcoded for the paper to match the other plots
     method_order = [
@@ -395,7 +396,6 @@ if __name__ == '__main__':
 
     file_ext = ".pdf"
 
-    ban_bad_methods = True
     if ban_bad_methods:
         bad_methods = ["KNN", "LR"]
         leaderboard = leaderboard[~leaderboard["config_type"].isin(bad_methods)]
@@ -515,3 +515,7 @@ if __name__ == '__main__':
         max_Y=False,
         **plot_kwargs,
     )
+
+
+if __name__ == "__main__":
+    plot_pareto_n_configs()
