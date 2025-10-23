@@ -199,7 +199,7 @@ def plot_pareto(
     ax = g.ax
     ax.set_xlabel(x_name, fontsize=17)
     ax.set_ylabel(y_name, fontsize=17)
-    ax.tick_params(axis='both', labelsize=11)
+    ax.tick_params(axis='both', labelsize=9)
 
     # Compute Pareto frontier (use the plotted order)
     Xs = list(plot_df[x_name])

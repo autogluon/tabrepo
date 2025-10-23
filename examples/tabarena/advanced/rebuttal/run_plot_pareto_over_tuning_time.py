@@ -193,7 +193,7 @@ def plot_hpo(
 
     ax.set_ylabel(ylabel, fontsize=17)
     ax.set_xlabel(xlabel, fontsize=17)
-    ax.tick_params(axis='both', labelsize=11)
+    ax.tick_params(axis='both', labelsize=9)
     fig.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     fig.savefig(str(save_path))
