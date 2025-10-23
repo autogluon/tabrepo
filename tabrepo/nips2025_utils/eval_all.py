@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import time
 from itertools import product
 from pathlib import Path
 
@@ -131,7 +132,7 @@ def evaluate_all(
     include_portfolio_lst = [False, True]
     with_baselines_lst = [True, False]
     lite_lst = [False, True]
-    average_seeds_lst = [True, False]
+    average_seeds_lst = [True]
 
     all_combinations = list(product(
         use_tabpfn_lst,
@@ -146,9 +147,10 @@ def evaluate_all(
     n_combinations = len(all_combinations)
 
     # TODO: Use ray to speed up?
+    ts = time.time()
     # plots for sub-benchmarks, with and without imputation
     for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite, average_seeds) in enumerate(all_combinations):
-        print(f"Running figure generation {i+1}/{n_combinations}...")
+        print(f"Running figure generation {i+1}/{n_combinations}... {f"{(time.time() - ts):.1f}s"} elapsed...")
 
         # combinations to skip
         if problem_type in ["binary", "multiclass"] and (use_tabpfn or use_tabicl or include_portfolio or lite):

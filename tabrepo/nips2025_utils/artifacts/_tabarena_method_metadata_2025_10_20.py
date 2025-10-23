@@ -7,8 +7,6 @@ _common_kwargs = dict(
     s3_bucket="tabarena",
     s3_prefix="cache",
     upload_as_public=True,
-    has_raw=True,
-    has_processed=True,
     has_results=True,
     name_suffix=None,
 )
@@ -22,6 +20,8 @@ lr_metadata = MethodMetadata(
     config_default="LinearModel_c1_BAG_L1",
     can_hpo=True,
     is_bag=True,
+    has_raw=True,
+    has_processed=True,
     **_common_kwargs,
 )
 knn_metadata = MethodMetadata(
@@ -33,5 +33,15 @@ knn_metadata = MethodMetadata(
     config_default="KNeighbors_c1_BAG_L1",
     can_hpo=True,
     is_bag=False,
+    has_raw=True,
+    has_processed=True,
+    **_common_kwargs,
+)
+portfolio_metadata_paper_cr = MethodMetadata(
+    method="Portfolio-N200-4h",
+    method_type="portfolio",
+    date="2025-10-20",
+    has_raw=False,
+    has_processed=False,
     **_common_kwargs,
 )

@@ -21,6 +21,7 @@ from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_09_03 impor
 from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_10_20 import (
     lr_metadata,
     knn_metadata,
+    portfolio_metadata_paper_cr
 )
 from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_misc import (
     gbm_aio_0808_metadata
@@ -40,6 +41,7 @@ methods_2025_09_03: list[MethodMetadata] = [
 methods_2025_10_20: list[MethodMetadata] = [
     lr_metadata,
     knn_metadata,
+    portfolio_metadata_paper_cr,
 ]
 
 methods_misc: list[MethodMetadata] = [
@@ -53,6 +55,7 @@ replaced_methods = [
 updated_methods_camera_ready = [
     "LinearModel",
     "KNeighbors",
+    "Portfolio-N200-4h",
 ]
 replaced_methods += updated_methods_camera_ready
 methods_2025_06_12_keep = [m for m in methods_2025_06_12 if m.method not in replaced_methods]
@@ -63,7 +66,7 @@ methods_2025_10_20_camera_ready = [m for m in methods_2025_06_12 if m.method not
 tabarena_method_metadata_collection = MethodMetadataCollection(
     method_metadata_lst=methods_2025_06_12_keep +
                         methods_2025_09_03 +
-                        # methods_2025_10_20 +
+                        methods_2025_10_20 +
                         methods_misc,
 )
 
