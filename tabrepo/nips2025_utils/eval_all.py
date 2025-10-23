@@ -150,7 +150,7 @@ def evaluate_all(
     ts = time.time()
     # plots for sub-benchmarks, with and without imputation
     for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite, average_seeds) in enumerate(all_combinations):
-        print(f"Running figure generation {i+1}/{n_combinations}... {f"{(time.time() - ts):.1f}s"} elapsed...")
+        print(f"Running figure generation {i+1}/{n_combinations}... {(time.time() - ts):.1f}s elapsed...")
 
         # combinations to skip
         if problem_type in ["binary", "multiclass"] and (use_tabpfn or use_tabicl or include_portfolio or lite):
