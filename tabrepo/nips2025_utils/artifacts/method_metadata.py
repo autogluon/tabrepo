@@ -33,6 +33,7 @@ class MethodMetadata:
         method_type: Literal["config", "baseline", "portfolio"] = "config",
         name_suffix: str | None = None,
         ag_key: str | None = None,
+        model_key: str | None = None,
         config_default: str | None = None,
         can_hpo: bool | None = None,
         compute: Literal["cpu", "gpu"] = "cpu",
@@ -52,6 +53,9 @@ class MethodMetadata:
         self.date = date
         self.method_type = method_type
         self.ag_key = ag_key
+        if model_key is None:
+            model_key = ag_key
+        self.model_key = model_key
         self.name_suffix = name_suffix
         self.config_default = config_default
         self.compute = compute
