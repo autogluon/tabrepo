@@ -304,7 +304,11 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cp
 
         # df_latex_final = df_latex_final.replace({"0.": "."}, regex=True)
 
-        df_latex_final.index = pd.Series(df_latex_final.index).replace({
+        realmlp_name = "REALMLP_GPU"
+        if realmlp_cpu:
+            realmlp_name = "REALMLP"
+
+        replace_dict = {
             "RF": "RF",
             "XT": "ExtraTrees",
             "XGB": "XGBoost",
@@ -314,7 +318,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cp
 
             "FASTAI": "FastAIMLP",
             "NN_TORCH": "TorchMLP",
-            "REALMLP_GPU": "RealMLP",
+            realmlp_name: "RealMLP",
             "TABM_GPU": "TabM",
             "MNCA_GPU": "MNCA",
 
@@ -326,9 +330,9 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cp
             'KNN': 'KNN',
             "AutoGluon_v130_bq_4h8c": "AutoGluon",
             "Portfolio-N200 (ensemble) (4h)": "Portfolio"
+        }
 
-        })
-
+        df_latex_final.index = pd.Series(df_latex_final.index).replace(replace_dict)
 
         # if not can_run_tabpfnv2[dataset_name]:
         #     df_latex_final.loc["TabPFNv2"] = ["-", "-", "-"]    
