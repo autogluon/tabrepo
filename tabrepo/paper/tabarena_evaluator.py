@@ -58,6 +58,7 @@ class TabArenaEvaluator:
         banned_model_types: list[str] | None = None,
         banned_pareto_methods: list[str] | None = None,
         elo_bootstrap_rounds: int = 200,
+        elo_ymin: float = 800,
         keep_best: bool = False,
         figure_file_type: str = "pdf",
         use_latex: bool = False,
@@ -96,6 +97,7 @@ class TabArenaEvaluator:
         self.methods = methods
         self.folds = folds
         self.elo_bootstrap_rounds = elo_bootstrap_rounds
+        self.elo_ymin = elo_ymin
         self.banned_model_types = banned_model_types
         self.keep_best = keep_best
 
@@ -1012,7 +1014,7 @@ class TabArenaEvaluator:
         if use_elo:
             metric = "elo"
             use_lim = True
-            lim = [500, None]
+            lim = [self.elo_ymin, None]
             lower_is_better = False
             df = df_elo.copy(deep=True)
             df = df[[self.method_col, "elo", "elo+", "elo-"]]

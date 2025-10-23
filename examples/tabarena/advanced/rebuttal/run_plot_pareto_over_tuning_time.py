@@ -81,11 +81,11 @@ def plot_hpo(
         base_methods_for_colors = method_order + [m for m in base_methods_for_colors if m not in method_order]
     color_map = {m: colors60[i % len(colors60)] for i, m in enumerate(base_methods_for_colors)}
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(6, 4.5))
     if xlog:
         ax.set_xscale("log")
 
-    plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=0.6, scale=1.2)
+    plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=0.45, scale=1.2)
 
     handles = []
     labels = []
@@ -191,8 +191,9 @@ def plot_hpo(
     # Make major and minor tick lines gray, but labels stay black
     ax.tick_params(axis='both', which='both', color=grid_color, labelcolor='black')
 
-    ax.set_ylabel(ylabel, fontsize=15)
-    ax.set_xlabel(xlabel, fontsize=15)
+    ax.set_ylabel(ylabel, fontsize=17)
+    ax.set_xlabel(xlabel, fontsize=17)
+    ax.tick_params(axis='both', labelsize=11)
     fig.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     fig.savefig(str(save_path))

@@ -117,7 +117,7 @@ def plot_pareto(
     show: bool = True,
     legend_in_plot: bool = True,
 ):
-    fig_size_ratio = 0.6
+    fig_size_ratio = 0.45
     fig_height = 10 * fig_size_ratio
 
     if sort_y:
@@ -196,8 +196,9 @@ def plot_pareto(
     )
 
     ax = g.ax
-    ax.set_xlabel(x_name, fontsize=15)
-    ax.set_ylabel(y_name, fontsize=15)
+    ax.set_xlabel(x_name, fontsize=17)
+    ax.set_ylabel(y_name, fontsize=17)
+    ax.tick_params(axis='both', labelsize=11)
 
     # Compute Pareto frontier (use the plotted order)
     Xs = list(plot_df[x_name])
@@ -241,7 +242,7 @@ def plot_pareto(
     pf_Y = [pf_Y_first] + pf_Y + [pf_Y_last]
 
     if add_optimal_arrow:
-        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio, scale=0.95)
+        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio, scale=1.2)
 
     ax.plot(pf_X, pf_Y, linewidth=1.5 * fig_size_ratio, zorder=-100, color='black', linestyle='--')
 
@@ -336,7 +337,7 @@ def plot_pareto(
     legend1 = g.fig.legend(
         color_handles, color_labels,
         loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
-        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((legend_in_plot_right, 0.085) if max_Y else (legend_in_plot_right, 0.98)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
+        bbox_to_anchor=(0.79, 0.62) if not legend_in_plot else ((legend_in_plot_right, 0.085) if max_Y else (legend_in_plot_right, 0.977)),#(0.99, 0.06) if legend_in_plot else (0.79, 0.62),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
@@ -359,7 +360,7 @@ def plot_pareto(
     g.fig.legend(
         marker_handles, marker_labels,
         loc="center left" if not legend_in_plot else ("lower right" if max_Y else "upper right"),#"lower right" if legend_in_plot else "center left",
-        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((legend_in_plot_left, 0.085) if max_Y else (legend_in_plot_left, 0.98)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
+        bbox_to_anchor=(0.79, 0.26) if not legend_in_plot else ((legend_in_plot_left, 0.085) if max_Y else (legend_in_plot_left, 0.977)),#(0.85, 0.06) if legend_in_plot else (0.79, 0.26),
         frameon=True,
         fontsize=legend_fontsize,
         ncol=1,
