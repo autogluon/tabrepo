@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -18,7 +21,7 @@ def plot_hpo(
     df: pd.DataFrame,
     xlabel: str,
     ylabel: str,
-    save_path: str,
+    save_path: str | Path,
     max_Y: bool = True,
     max_X: bool = False,
     method_col: str = "name",
@@ -38,7 +41,7 @@ def plot_hpo(
         Column name for x-axis (e.g. training time).
     ylabel : str
         Column name for y-axis (e.g. validation score).
-    save_path : str
+    save_path : str | Path
         Path to save figure.
     max_Y : bool, default=True
         Whether higher y-values are better.
@@ -133,10 +136,10 @@ def plot_hpo(
                 times[max_sort_pos],
                 scores[max_sort_pos],
                 marker="o",
-                s=64,
+                s=96,
                 color=color,
                 edgecolor="black",
-                linewidth=0.9,
+                linewidth=1.3,
                 alpha=0.9,
                 zorder=5,
             )
@@ -191,7 +194,8 @@ def plot_hpo(
     ax.set_ylabel(ylabel, fontsize=15)
     ax.set_xlabel(xlabel, fontsize=15)
     fig.tight_layout()
-    fig.savefig(save_path)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    fig.savefig(str(save_path))
 
 
 if __name__ == '__main__':
@@ -203,6 +207,10 @@ if __name__ == '__main__':
         "TABPFNV2_GPU",
         "TABICL_GPU",
     ]
+
+    fig_save_dir = Path("plots") / "n_configs"
+    if not average_seeds:
+        fig_save_dir = fig_save_dir / "no_average_seeds"
 
     # Hardcoded for the paper to match the other plots
     method_order = [
@@ -240,8 +248,6 @@ if __name__ == '__main__':
         save_pd.save(path=results_file, df=results_hpo)
         results_hpo = load_pd.load(path=results_file)
     # save_pd.save(path=s3_path, df=results_hpo)
-
-    print(results_hpo["config_type"].unique())
 
     if exclude_imputed:
         results_hpo = results_hpo[~results_hpo["config_type"].isin(imputed_methods)]
@@ -367,12 +373,16 @@ if __name__ == '__main__':
     leaderboard = leaderboard.sort_values(by=["config_type", "n_portfolio"])
 
     leaderboard["Elo"] = leaderboard["elo"]
+    leaderboard["Elo (Test)"] = leaderboard["Elo"]
     leaderboard["Elo (Val)"] = leaderboard["elo_val"]
+    leaderboard["Elo (Test - Val)"] = leaderboard["Elo (Test)"] - leaderboard["Elo (Val)"]
     leaderboard["Improvability (%)"] = leaderboard["improvability"] * 100
+    leaderboard["Improvability (%) (Test)"] = leaderboard["Improvability (%)"]
     leaderboard["Improvability (%) (Val)"] = leaderboard["improvability_val"] * 100
-    leaderboard["Improvability (%) (Test - Val)"] = (leaderboard["improvability"] - leaderboard["improvability_val"]) * 100
+    leaderboard["Improvability (%) (Test - Val)"] = leaderboard["Improvability (%) (Test)"] - leaderboard["Improvability (%) (Val)"]
 
-    leaderboard["Baseline Advantage (%) (Test)"] = leaderboard["baseline_advantage"] * 100
+    leaderboard["Baseline Advantage (%)"] = leaderboard["baseline_advantage"] * 100
+    leaderboard["Baseline Advantage (%) (Test)"] = leaderboard["Baseline Advantage (%)"]
     leaderboard["Baseline Advantage (%) (Val)"] = leaderboard["baseline_advantage_val"] * 100
     leaderboard["Baseline Advantage (%) (Test - Val)"] = (leaderboard["baseline_advantage"] - leaderboard[
         "baseline_advantage_val"]) * 100
@@ -398,7 +408,7 @@ if __name__ == '__main__':
         df=leaderboard,
         xlabel="Train time per 1K samples (s) (median)",
         ylabel="Elo",
-        save_path=f"pareto_n_configs_elo{file_ext}",
+        save_path=fig_save_dir / f"pareto_n_configs_elo{file_ext}",
         max_Y=True,
         **plot_kwargs,
     )
@@ -406,7 +416,7 @@ if __name__ == '__main__':
         df=leaderboard,
         xlabel="Train time per 1K samples (s) (median)",
         ylabel="Improvability (%)",
-        save_path=f"pareto_n_configs_imp{file_ext}",
+        save_path=fig_save_dir / f"pareto_n_configs_imp{file_ext}",
         max_Y=False,
         **plot_kwargs,
     )
@@ -414,7 +424,7 @@ if __name__ == '__main__':
         df=leaderboard,
         xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Elo",
-        save_path=f"pareto_n_configs_elo_infer{file_ext}",
+        save_path=fig_save_dir / f"pareto_n_configs_elo_infer{file_ext}",
         max_Y=True,
         **plot_kwargs,
     )
@@ -422,7 +432,7 @@ if __name__ == '__main__':
         df=leaderboard,
         xlabel="Inference time per 1K samples (s) (median)",
         ylabel="Improvability (%)",
-        save_path=f"pareto_n_configs_imp_infer{file_ext}",
+        save_path=fig_save_dir / f"pareto_n_configs_imp_infer{file_ext}",
         max_Y=False,
         **plot_kwargs,
     )
@@ -430,18 +440,18 @@ if __name__ == '__main__':
     plot_hpo(
         df=leaderboard,
         xlabel="Train time per 1K samples (s) (median)",
-        ylabel="Baseline Advantage (%) (Test - Val)",
-        save_path=f"pareto_n_configs_adv{file_ext}",
-        max_Y=False,
+        ylabel="Baseline Advantage (%)",
+        save_path=fig_save_dir / f"pareto_n_configs_adv{file_ext}",
+        max_Y=True,
         **plot_kwargs,
     )
 
     plot_hpo(
         df=leaderboard,
         xlabel="Inference time per 1K samples (s) (median)",
-        ylabel="Baseline Advantage (%) (Test - Val)",
-        save_path=f"pareto_n_configs_adv_infer{file_ext}",
-        max_Y=False,
+        ylabel="Baseline Advantage (%)",
+        save_path=fig_save_dir / f"pareto_n_configs_adv_infer{file_ext}",
+        max_Y=True,
         **plot_kwargs,
     )
 
@@ -449,7 +459,7 @@ if __name__ == '__main__':
         df=leaderboard,
         xlabel="Baseline Advantage (%) (Val)",
         ylabel="Baseline Advantage (%) (Test)",
-        save_path=f"pareto_n_configs_adv_vs{file_ext}",
+        save_path=fig_save_dir / f"pareto_n_configs_adv_vs{file_ext}",
         max_Y=True,
         max_X=False,
         xlog=False,
@@ -459,8 +469,8 @@ if __name__ == '__main__':
     plot_hpo(
         df=leaderboard,
         xlabel="Improvability (%) (Val)",
-        ylabel="Improvability (%)",
-        save_path=f"pareto_n_configs_imp_vs{file_ext}",
+        ylabel="Improvability (%) (Test)",
+        save_path=fig_save_dir / f"pareto_n_configs_imp_vs{file_ext}",
         max_Y=False,
         max_X=True,
         xlog=False,
@@ -470,10 +480,37 @@ if __name__ == '__main__':
     plot_hpo(
         df=leaderboard,
         xlabel="Elo (Val)",
-        ylabel="Elo",
-        save_path=f"pareto_n_configs_elo_vs{file_ext}",
+        ylabel="Elo (Test)",
+        save_path=fig_save_dir / f"pareto_n_configs_elo_vs{file_ext}",
         max_Y=True,
         max_X=False,
         xlog=False,
+        **plot_kwargs,
+    )
+
+    plot_hpo(
+        df=leaderboard,
+        xlabel="Train time per 1K samples (s) (median)",
+        ylabel="Baseline Advantage (%) (Test - Val)",
+        save_path=fig_save_dir / f"pareto_n_configs_adv_overfit{file_ext}",
+        max_Y=True,
+        **plot_kwargs,
+    )
+
+    plot_hpo(
+        df=leaderboard,
+        xlabel="Train time per 1K samples (s) (median)",
+        ylabel="Elo (Test - Val)",
+        save_path=fig_save_dir / f"pareto_n_configs_elo_overfit{file_ext}",
+        max_Y=True,
+        **plot_kwargs,
+    )
+
+    plot_hpo(
+        df=leaderboard,
+        xlabel="Train time per 1K samples (s) (median)",
+        ylabel="Improvability (%) (Test - Val)",
+        save_path=fig_save_dir / f"pareto_n_configs_imp_overfit{file_ext}",
+        max_Y=False,
         **plot_kwargs,
     )

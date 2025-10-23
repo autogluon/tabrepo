@@ -698,6 +698,7 @@ class TabArenaEvaluator:
             title=title,
             save_path=save_path,
             show=False,
+            aspect=4 / 3,
         )
 
     def plot_pareto_elo_vs_time_infer(self, leaderboard: pd.DataFrame):
@@ -726,6 +727,7 @@ class TabArenaEvaluator:
             title=title,
             save_path=save_path,
             show=False,
+            aspect=4 / 3,
         )
 
     def plot_pareto_improvability_vs_time_infer(self, leaderboard: pd.DataFrame):
@@ -755,6 +757,7 @@ class TabArenaEvaluator:
             title=title,
             save_path=save_path,
             show=False,
+            aspect=4 / 3,
         )
 
     def plot_pareto_improvability_vs_time_train(self, leaderboard: pd.DataFrame):
@@ -784,6 +787,7 @@ class TabArenaEvaluator:
             title=title,
             save_path=save_path,
             show=False,
+            aspect=4 / 3,
         )
 
     def get_method_rename_map(self) -> dict[str, str]:
