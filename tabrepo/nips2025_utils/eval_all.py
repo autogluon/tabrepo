@@ -357,8 +357,8 @@ def eval_cpu_vs_gpu_ablation(
         )
 
         df_results_configs_only_cpu_gpu = df_results_configs[df_results_configs["config_type"].isin([
-            # "REALMLP",
-            # "REALMLP_GPU",
+            "REALMLP",
+            "REALMLP_GPU",
             "TABM",
             "TABM_GPU",
             "MNCA",
