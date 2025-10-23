@@ -82,11 +82,11 @@ if __name__ == '__main__':
     tabarena_context_cpu = TabArenaContext(methods=extra_methods_cpu, include_mitra=False, include_ag_140=False)
     df_results_cpu = tabarena_context_cpu.load_results_paper(methods=cpu_methods, download_results=download_results)
 
-    tabarena_context = TabArenaContext(
+    configs_hyperparameters = tabarena_context.load_configs_hyperparameters(download=download_results)
+
+    tabarena_context_all = TabArenaContext(
         methods=tabarena_context.method_metadata_collection.method_metadata_lst + tabarena_context_cpu.method_metadata_collection.method_metadata_lst
     )
-
-    configs_hyperparameters = tabarena_context.load_configs_hyperparameters(download=download_results)
 
     if plot_n_configs:
         plot_pareto_n_configs(
@@ -99,7 +99,7 @@ if __name__ == '__main__':
             average_seeds=False,
         )
 
-    tabarena_context.evaluate_all(
+    tabarena_context_all.evaluate_all(
         df_results=df_results,
         df_results_holdout=df_results_holdout,
         df_results_cpu=df_results_cpu,
