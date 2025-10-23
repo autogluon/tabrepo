@@ -1633,9 +1633,10 @@ class TabArenaEvaluator:
                     new_dict["fold"] = v
                 else:
                     model_family = model_to_families[k]
-                    if model_family not in new_dict:
-                        new_dict[model_family] = 0
-                    new_dict[model_family] += v
+                    if v is not None:
+                        if model_family not in new_dict:
+                            new_dict[model_family] = 0
+                        new_dict[model_family] += v
             weight_per_family_dict.append(new_dict)
 
         import pandas as pd
