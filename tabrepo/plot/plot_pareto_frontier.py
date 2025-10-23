@@ -193,6 +193,7 @@ def plot_pareto(
         linewidth=0.1,
         edgecolor="black",
         legend=False,
+        zorder=2,
     )
 
     ax = g.ax
@@ -244,7 +245,19 @@ def plot_pareto(
     if add_optimal_arrow:
         plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=fig_size_ratio, scale=1.2)
 
-    ax.plot(pf_X, pf_Y, linewidth=1.5 * fig_size_ratio, zorder=-100, color='black', linestyle='--')
+    ax.plot(pf_X, pf_Y, linewidth=2 * fig_size_ratio, zorder=1, color='black', linestyle='--')
+
+    ax.grid(True, zorder=-2)
+    grid_color = ax.xaxis.get_gridlines()[0].get_color()
+    ax.spines['top'].set_visible(True)
+    ax.spines['right'].set_visible(True)
+    ax.spines['top'].set_color(grid_color)
+    ax.spines['right'].set_color(grid_color)
+    ax.spines['bottom'].set_color(grid_color)
+    ax.spines['left'].set_color(grid_color)
+    # Make major and minor tick lines gray, but labels stay black
+    ax.tick_params(axis='both', which='both', color=grid_color, labelcolor='black')
+    ax.set_axisbelow(True)
 
     # ------------------------------------------------------------------
     # Label every real vertex on the Pareto frontier
@@ -274,8 +287,6 @@ def plot_pareto(
     # Restore original limits (prevents Matplotlib from auto-expanding them)
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
-
-    plt.grid()
 
     # --------------------------------------------------
     # Add unified two-block legend (color + marker + line)
@@ -373,17 +384,6 @@ def plot_pareto(
 
     if not legend_in_plot:
         g.fig.subplots_adjust(right=0.78)
-
-    ax = g.ax
-    grid_color = ax.xaxis.get_gridlines()[0].get_color()
-    ax.spines['top'].set_visible(True)
-    ax.spines['right'].set_visible(True)
-    ax.spines['top'].set_color(grid_color)
-    ax.spines['right'].set_color(grid_color)
-    ax.spines['bottom'].set_color(grid_color)
-    ax.spines['left'].set_color(grid_color)
-    # Make major and minor tick lines gray, but labels stay black
-    ax.tick_params(axis='both', which='both', color=grid_color, labelcolor='black')
 
     # Title + save/show
     # g.fig.suptitle(title, fontsize=14)
