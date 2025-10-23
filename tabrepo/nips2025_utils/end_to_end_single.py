@@ -218,6 +218,9 @@ class EndToEndSingle:
 
         # raw
         results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
+        if method_metadata is not None:
+            if model_key is None:
+                model_key = method_metadata.model_key
         results_lst = cls._rename(
             results_lst=results_lst,
             name=name,
