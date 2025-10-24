@@ -9,7 +9,7 @@ from sklearn.preprocessing import (
 )
 from typing import List, Literal, Optional
 
-# NOTE: code is mostly AI-generated and sanity-checked afterwards.
+
 class KNNPreprocessor(BaseEstimator, TransformerMixin):
     def __init__(
         self,
