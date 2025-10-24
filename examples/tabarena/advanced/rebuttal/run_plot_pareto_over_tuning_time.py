@@ -29,6 +29,7 @@ def plot_hpo(
     color_by_rank: bool = True,
     sort_col: str | None = None,
     method_order: list[str] | None = None,
+    optimal_arrow: bool = True,
 ):
     """
     Plot HPO trajectories for multiple methods.
@@ -85,7 +86,8 @@ def plot_hpo(
     if xlog:
         ax.set_xscale("log")
 
-    plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=0.45, scale=1.2)
+    if optimal_arrow:
+        plot_optimal_arrow(ax=ax, max_X=max_X, max_Y=max_Y, size=0.45, scale=1.2)
 
     handles = []
     labels = []
@@ -377,11 +379,11 @@ def plot_pareto_n_configs(
     leaderboard["Elo"] = leaderboard["elo"]
     leaderboard["Elo (Test)"] = leaderboard["Elo"]
     leaderboard["Elo (Val)"] = leaderboard["elo_val"]
-    leaderboard["Elo (Test - Val)"] = leaderboard["Elo (Test)"] - leaderboard["Elo (Val)"]
+    leaderboard["Elo (Val) - Elo (Test)"] = leaderboard["Elo (Val)"] - leaderboard["Elo (Test)"]
     leaderboard["Improvability (%)"] = leaderboard["improvability"] * 100
     leaderboard["Improvability (%) (Test)"] = leaderboard["Improvability (%)"]
     leaderboard["Improvability (%) (Val)"] = leaderboard["improvability_val"] * 100
-    leaderboard["Improvability (%) (Test - Val)"] = leaderboard["Improvability (%) (Test)"] - leaderboard["Improvability (%) (Val)"]
+    leaderboard["Improvability (%) (Test) - Improvability (%) (Val)"] = leaderboard["Improvability (%) (Test)"] - leaderboard["Improvability (%) (Val)"]
 
     leaderboard["Baseline Advantage (%)"] = leaderboard["baseline_advantage"] * 100
     leaderboard["Baseline Advantage (%) (Test)"] = leaderboard["Baseline Advantage (%)"]
@@ -411,6 +413,15 @@ def plot_pareto_n_configs(
         ylabel="Elo",
         save_path=fig_save_dir / f"pareto_n_configs_elo{file_ext}",
         max_Y=True,
+        **plot_kwargs,
+    )
+    plot_hpo(
+        df=leaderboard,
+        xlabel="Train time per 1K samples (s) (median)",
+        ylabel="Elo (Val)",
+        save_path=fig_save_dir / f"pareto_n_configs_elo_val{file_ext}",
+        max_Y=True,
+        optimal_arrow=False,
         **plot_kwargs,
     )
     plot_hpo(
@@ -501,16 +512,16 @@ def plot_pareto_n_configs(
     plot_hpo(
         df=leaderboard,
         xlabel="Train time per 1K samples (s) (median)",
-        ylabel="Elo (Test - Val)",
+        ylabel="Elo (Val) - Elo (Test)",
         save_path=fig_save_dir / f"pareto_n_configs_elo_overfit{file_ext}",
-        max_Y=True,
+        max_Y=False,
         **plot_kwargs,
     )
 
     plot_hpo(
         df=leaderboard,
         xlabel="Train time per 1K samples (s) (median)",
-        ylabel="Improvability (%) (Test - Val)",
+        ylabel="Improvability (%) (Test) - Improvability (%) (Val)",
         save_path=fig_save_dir / f"pareto_n_configs_imp_overfit{file_ext}",
         max_Y=False,
         **plot_kwargs,
