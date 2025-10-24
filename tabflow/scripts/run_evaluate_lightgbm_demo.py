@@ -3,20 +3,28 @@ from pathlib import Path
 import pandas as pd
 
 from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
+from s3_downloader import copy_s3_prefix_to_local
 
 
 """
 First refer to `run_jobs_lightgbm_demo.py
-
-# Get required input files
-aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-lightgbm-demo/ --exclude "*.log"
 """
 if __name__ == '__main__':
+    bucket = "prateek-ag"
+    prefix = "tabarena-lightgbm-demo"
+    local_dir =  Path(f"/home/ubuntu/workspace/data/{prefix}")
+
+    copy_s3_prefix_to_local(
+        bucket=bucket,
+        prefix=prefix,
+        dest_dir=local_dir,
+        max_workers=64,
+        exclude=["*.log"],
+    )
+
     method = "LightGBM_demo"
     name_suffix = "_demo"
-    path_raw = Path(
-        "/home/ubuntu/workspace/data/tabarena-lightgbm-demo/data/"
-    )
+    path_raw = local_dir / "data"
     fig_output_dir = Path("tabarena_figs") / method
     cache = True
 
