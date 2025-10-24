@@ -22,7 +22,7 @@ from tabrepo.models.modernnca.generate import gen_modernnca
 
 if __name__ == '__main__':
     n_random_configs = 200
-    n_random_configs_baselines = 50
+    n_random_configs_baselines = 200
 
     # Original Search Space
     experiments_linear = gen_linear.generate_all_bag_experiments(num_random_configs=n_random_configs_baselines)
