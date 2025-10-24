@@ -12,6 +12,7 @@ from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata import (
 
 from advanced.rebuttal.run_plot_pareto_over_tuning_time import plot_pareto_n_configs
 
+
 if __name__ == '__main__':
     download_results: bool | str = "auto"  # results must be downloaded for the script to work
     elo_bootstrap_rounds = 200  # 1 for toy, 200 for paper

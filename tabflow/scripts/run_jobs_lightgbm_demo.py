@@ -50,6 +50,7 @@ if __name__ == "__main__":
 
     experiment_name = "tabarena-lightgbm-demo"  # The experiment name, used as the s3 path prefix for the saved files.
     s3_bucket = "prateek-ag"  # The s3 bucket to save results to
+    s3_dataset_cache = "s3://tabarena/openml/openml_cache"
 
     max_concurrent_jobs = 10  # the max number of instances running jobs at the same time (values 1 - 15000)
     batch_size = 1  # The number of jobs to give to a single instance to run sequentially.
@@ -91,6 +92,7 @@ if __name__ == "__main__":
         batch_size=batch_size,
         sagemaker_role=sagemaker_role,
         docker_image_uri=docker_image_uri,
+        s3_dataset_cache=s3_dataset_cache,
     )
 
     # get the list of jobs to execute
