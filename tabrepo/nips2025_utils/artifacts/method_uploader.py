@@ -52,19 +52,24 @@ class MethodUploaderS3:
         print(f"Uploading raw zipped files to: {s3_key}")
         self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
 
-    def upload_processed(self):
-        path_processed = self.method_metadata.path_processed
+    def upload_processed(self, holdout: bool = False):
+        if holdout:
+            path_processed = self.method_metadata.path_processed_holdout
+            processed_zip_name = "processed_holdout.zip"
+        else:
+            path_processed = self.method_metadata.path_processed
+            processed_zip_name = "processed.zip"
 
         print(f"Zipping processed files into memory under: {path_processed}")
         fileobj = self._zip(path=path_processed)
-        s3_key = self.prefix / "processed.zip"
+        s3_key = self.prefix / processed_zip_name
 
         # Upload to S3 directly from memory
         print(f"Uploading processed zipped files to: {s3_key}")
         self._upload_fileobj(fileobj=fileobj, s3_key=s3_key)
 
         # Upload configs_hyperparameters as a standalone file for fast access
-        self.upload_configs_hyperparameters()
+        self.upload_configs_hyperparameters(holdout=holdout)
 
     def _upload_fileobj(self, fileobj: io.BytesIO, s3_key: str | Path):
         import boto3
