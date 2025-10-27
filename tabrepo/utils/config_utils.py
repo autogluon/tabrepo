@@ -98,6 +98,7 @@ class AGConfigGenerator(AbstractConfigGenerator):
         name_id_suffix: str = "",
         add_seed: Literal["static", "fold-wise", "fold-config-wise"] = "static",
         method_kwargs: dict | None = None,
+        **kwargs,
     ) -> list:
         """Generate experiments with bagging models for the search space.
 
@@ -119,7 +120,7 @@ class AGConfigGenerator(AbstractConfigGenerator):
             runner by `method_kwargs=dict(init_kwargs=dict(path="./my_custom_path"))`
         """
         configs = self.generate_all_configs_lst(num_random_configs=num_random_configs, name_id_suffix=name_id_suffix)
-        experiments = generate_bag_experiments(model_cls=self.model_cls, configs=configs, name_suffix_from_ag_args=True, add_seed=add_seed, method_kwargs=method_kwargs)
+        experiments = generate_bag_experiments(model_cls=self.model_cls, configs=configs, name_suffix_from_ag_args=True, add_seed=add_seed, method_kwargs=method_kwargs, **kwargs)
         return experiments
 
 
