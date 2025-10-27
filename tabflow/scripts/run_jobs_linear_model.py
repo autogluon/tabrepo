@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from tabflow.cli.launch_jobs import JobManager
-from tabrepo.models.lightgbm.generate import gen_lightgbm
+from tabrepo.models.lr.generate import gen_linear
 from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 from tabrepo.benchmark.experiment.experiment_constructor import Experiment, YamlExperimentSerializer
 
@@ -34,42 +34,43 @@ https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs
 
 # 6. View the result artifacts
 https://us-west-2.console.aws.amazon.com/s3/buckets/{s3_bucket}?prefix={experiment_name}/
-e.g: https://us-west-2.console.aws.amazon.com/s3/buckets/prateek-ag?prefix=tabarena-lightgbm-demo/
 
 # 7. Download the artifacts to local
-aws s3 cp --recursive "s3://prateek-ag/tabarena-lightgbm-demo" ../data/tabarena-lightgbm-demo/ --exclude "*.log"
+from s3_downloader import copy_s3_prefix_to_local
+copy_s3_prefix_to_local(
+    bucket=s3_bucket,
+    prefix=experiment_name,
+    dest_dir=f"../data/{experiment_name}/",
+    max_workers=64,
+    exclude=["*.log"],
+)
 
 # 8. Aggregate the local artifacts and evaluate them
-Refer to `run_evaluate_lightgbm_demo.py`
+Refer to `run_evaluate_linear_model.py`
 """
 
-# TODO: Add example for custom model / non-AG model
+
 if __name__ == "__main__":
     tabarena_context = TabArenaContext()
     task_metadata = tabarena_context.task_metadata.copy()  # metadata about the available datasets
 
-    experiment_name = "tabarena-lightgbm-demo"  # The experiment name, used as the s3 path prefix for the saved files.
+    experiment_name = "tabarena-lr-2025-10-16"  # The experiment name, used as the s3 path prefix for the saved files.
     s3_bucket = "prateek-ag"  # The s3 bucket to save results to
     s3_dataset_cache = "s3://tabarena/openml/openml_cache"
 
-    max_concurrent_jobs = 10  # the max number of instances running jobs at the same time (values 1 - 15000)
-    batch_size = 1  # The number of jobs to give to a single instance to run sequentially.
+    max_concurrent_jobs = 2000  # the max number of instances running jobs at the same time (values 1 - 15000)
+    batch_size = 512  # The number of jobs to give to a single instance to run sequentially.
     wait = True  # If True, will only return when all jobs are finished running.
     ignore_cache = False  # If True, will overwrite prior results in s3. If False, will skip runs for finished jobs.
 
     region_name = "us-west-2"  # AWS region to create instances. Keep as us-west-2.
     instance_type = "ml.m6i.2xlarge"  # options: ml.m6i.2xlarge (cpu, 15k cap), ml.g6.2xlarge (gpu, 400 cap)
 
-    use_yaml_file = False  # two alternative ways of getting the methods info
-    if use_yaml_file:
-        methods_file = "./tabrepo/tabflow/configs/configs_lightgbm_demo.yaml"  # 2 lightgbm configs
-        methods: list[Experiment] = YamlExperimentSerializer.from_yaml(path=methods_file)
-    else:
-        methods: list[Experiment] = gen_lightgbm.generate_all_bag_experiments(num_random_configs=1)
+    methods: list[Experiment] = gen_linear.generate_all_bag_experiments(num_random_configs=200)
     methods_content = YamlExperimentSerializer.to_yaml_str(methods)
     methods_as_dict: list[dict] = [m.to_yaml_dict() for m in methods]
 
-    toy_run = True
+    toy_run = False
 
     # toy run
     if toy_run:

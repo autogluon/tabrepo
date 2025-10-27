@@ -23,9 +23,11 @@ class KNNNewModel(KNNModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _preprocess(self, X, 
-                    is_train: bool = False,
-                    **kwargs):
+    def _preprocess(
+        self, X,
+        is_train: bool = False,
+        **kwargs,
+    ):
 
         X = super(KNNModel, self)._preprocess(X, **kwargs)
         if is_train:
@@ -65,20 +67,19 @@ class KNNNewModel(KNNModel):
         if sample_weight is not None:  # TODO: support
             logger.log(15, "sample_weight not yet supported for KNNModel, this model will ignore them in training.")
 
-        cat_cols = self._feature_metadata.get_features(
-                    invalid_raw_types=["int", "float"]
-                )
-        self.knn_preprocessor = KNNPreprocessor(cat_threshold=params['cat_threshold'], categorical_features=cat_cols, numeric_strategy=params['scaler'])
-        params.pop('cat_threshold')
-        params.pop('scaler')
+        cat_threshold = params.pop("cat_threshold")
+        scaler = params.pop("scaler")
+
+        cat_cols = self._feature_metadata.get_features(valid_raw_types=[R_CATEGORY])
+        self.knn_preprocessor = KNNPreprocessor(cat_threshold=cat_threshold, categorical_features=cat_cols, numeric_strategy=scaler)
 
         X = self.preprocess(X, is_train=True)
 
         num_rows_max = len(X)
 
         # Fix for small datasets
-        if num_rows_max < params['n_neighbors']:
-            params['n_neighbors'] = min(params['n_neighbors'], num_rows_max - 1)
+        if num_rows_max <= params['n_neighbors']:
+            params['n_neighbors'] = num_rows_max - 1
         
         # FIXME: v0.1 Must store final num rows for refit_full or else will use everything! Worst case refit_full could train far longer than the original model.
         if time_limit is None or num_rows_max <= 10000:

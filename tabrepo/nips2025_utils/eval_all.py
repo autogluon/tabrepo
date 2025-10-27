@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import time
 from itertools import product
 from pathlib import Path
 
@@ -36,7 +37,12 @@ def evaluate_all(
     else:
         evaluator_cls = TabArenaEvaluator
 
-    evaluator_kwargs = {"use_latex": use_latex}
+    banned_pareto_methods = ["KNN", "LR"]
+
+    evaluator_kwargs = {
+        "use_latex": use_latex,
+        "banned_pareto_methods": banned_pareto_methods,
+    }
 
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
     datasets_tabicl = list(load_task_metadata(subset="TabICL")["name"])
@@ -119,7 +125,6 @@ def evaluate_all(
         realmlp_cpu=realmlp_cpu,
     )
 
-    average_seeds_lst = [True]
     use_tabpfn_lst = [False, True]
     use_tabicl_lst = [False, True]
     use_imputation_lst = [False, True]
@@ -127,9 +132,9 @@ def evaluate_all(
     include_portfolio_lst = [False, True]
     with_baselines_lst = [True, False]
     lite_lst = [False, True]
+    average_seeds_lst = [True]
 
     all_combinations = list(product(
-        average_seeds_lst,
         use_tabpfn_lst,
         use_tabicl_lst,
         use_imputation_lst,
@@ -137,13 +142,15 @@ def evaluate_all(
         include_portfolio_lst,
         with_baselines_lst,
         lite_lst,
+        average_seeds_lst,
     ))
     n_combinations = len(all_combinations)
 
     # TODO: Use ray to speed up?
+    ts = time.time()
     # plots for sub-benchmarks, with and without imputation
-    for i, (average_seeds, use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite) in enumerate(all_combinations):
-        print(f"Running figure generation {i+1}/{n_combinations}...")
+    for i, (use_tabpfn, use_tabicl, use_imputation, problem_type, include_portfolio, with_baselines, lite, average_seeds) in enumerate(all_combinations):
+        print(f"Running figure generation {i+1}/{n_combinations}... {(time.time() - ts):.1f}s elapsed...")
 
         # combinations to skip
         if problem_type in ["binary", "multiclass"] and (use_tabpfn or use_tabicl or include_portfolio or lite):
@@ -350,8 +357,8 @@ def eval_cpu_vs_gpu_ablation(
         )
 
         df_results_configs_only_cpu_gpu = df_results_configs[df_results_configs["config_type"].isin([
-            # "REALMLP",
-            # "REALMLP_GPU",
+            "REALMLP",
+            "REALMLP_GPU",
             "TABM",
             "TABM_GPU",
             "MNCA",

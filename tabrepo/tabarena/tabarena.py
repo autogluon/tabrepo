@@ -790,20 +790,52 @@ class TabArena:
         save_path: str | None,
     ):
         import plotly.express as px
-        fig = px.imshow(winrate_matrix, color_continuous_scale='RdBu',
-                        text_auto=".2f", title='Pairwise Winrate')
-        fig.update_layout(xaxis_title=" Model B: Loser",
-                          yaxis_title="Model A: Winner",
-                          xaxis_side="top", height=900, width=900,
-                          title_y=0.07, title_x=0.5)
-        fig.update_traces(
-            hovertemplate="Model A: %{y}<br>Model B: %{x}<br>Fraction of A Wins: %{z}<extra></extra>"
+        winrate_matrix = winrate_matrix.copy()
+        winrate_matrix.index = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.index]
+        winrate_matrix.columns = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.columns]
+        winrate_matrix = (winrate_matrix*100).round().astype('Int64')
+        
+        fig = px.imshow(
+            winrate_matrix,
+            color_continuous_scale='PRGn',
+            text_auto=".0f"
         )
+        fig.update_layout(
+            xaxis_title=" Model B: Loser",
+            yaxis_title="Model A: Winner",
+            xaxis_side="top", height=900, width=1110,
+            title=None,
+            margin=dict(l=0, r=0, t=0, b=0),
+            plot_bgcolor='white',
+            coloraxis_colorbar=dict(
+                orientation='v',     
+                title='Win Rate (%)',
+                title_font=dict(size=18),
+                tickfont=dict(size=16)
+            )
+        )
+        # axis-specific (optional, if you want a bit larger than global)
+        fig.update_xaxes(
+            title_font=dict(size=18), 
+            tickfont=dict(size=16), 
+            showgrid=False
+            )
+        fig.update_yaxes(
+            title_font=dict(size=18), 
+            tickfont=dict(size=16), 
+            showgrid=False
+            )
 
+        fig.update_traces(
+            hovertemplate="Model A: %{y}<br>Model B: %{x}<br>Fraction of A Wins: %{z}<extra></extra>",
+            textfont=dict(size=16), # numbers inside the heatmap        
+        )
+        
         if save_path is not None:
             if os.path.dirname(save_path):
                 os.makedirs(os.path.dirname(save_path), exist_ok=True)
             fig.write_image(save_path)
+
         return fig
 
     def compare_rank_per(

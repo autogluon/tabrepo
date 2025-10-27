@@ -143,6 +143,7 @@ class EndToEndSingle:
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
+        cache_holdout: bool = False,
         name: str | None = None,
         name_prefix: str | None = None,
         name_suffix: str | None = None,
@@ -218,6 +219,9 @@ class EndToEndSingle:
 
         # raw
         results_lst: list[BaselineResult] = cls.clean_raw(results_lst=results_lst)
+        if method_metadata is not None:
+            if model_key is None:
+                model_key = method_metadata.model_key
         results_lst = cls._rename(
             results_lst=results_lst,
             name=name,
@@ -260,19 +264,33 @@ class EndToEndSingle:
         )
 
         if cache:
-            # TODO: Add this as a user flag?
             # reload into mem-map mode, otherwise can be very slow for large datasets
             repo = method_metadata.load_processed()
 
         log(f"\tSimulating HPO...")
-        # results
-        tabarena_context = TabArenaContext(backend=backend)
-        hpo_results, model_results = tabarena_context.simulate_repo(
-            method=method_metadata,
+        hpo_results, model_results = method_metadata.generate_results(
             repo=repo,
-            use_rf_config_fallback=False,
             cache=cache,
+            as_holdout=False,
+            backend=backend,
         )
+
+        if cache_holdout and method_metadata.is_bag:
+            log(f"\tConverting raw (holdout) results into an EvaluationRepository...")
+            repo_holdout: EvaluationRepository = method_metadata.generate_repo_holdout(
+                results_lst=results_lst,
+                task_metadata=task_metadata,
+                cache=True,
+            )
+            repo_holdout = method_metadata.load_processed(as_holdout=True)
+
+            log(f"\tSimulating HPO (holdout)...")
+            hpo_results_holdout, model_results_holdout = method_metadata.generate_results(
+                repo=repo_holdout,
+                cache=cache,
+                as_holdout=True,
+                backend=backend,
+            )
 
         log(f"\tComplete!")
         return cls(
@@ -290,6 +308,7 @@ class EndToEndSingle:
         task_metadata: pd.DataFrame | None = None,
         cache: bool = True,
         cache_raw: bool = True,
+        cache_holdout: bool = False,
         name: str | None = None,
         name_prefix: str | None = None,
         name_suffix: str | None = None,
@@ -331,6 +350,7 @@ class EndToEndSingle:
             task_metadata=task_metadata,
             cache=cache,
             cache_raw=cache_raw,
+            cache_holdout=cache_holdout,
             name=name,
             name_prefix=name_prefix,
             name_suffix=name_suffix,
@@ -508,17 +528,18 @@ class EndToEndResultsSingle:
         *,
         model_results: pd.DataFrame = None,
         hpo_results: pd.DataFrame = None,
+        holdout: bool = False,
     ):
         self.method_metadata = method_metadata
         if model_results is None:
-            model_results = self.method_metadata.load_model_results()
+            model_results = self.method_metadata.load_model_results(holdout=holdout)
         if hpo_results is None and self.method_metadata.method_type == "config":
-            hpo_results = self.method_metadata.load_hpo_results()
+            hpo_results = self.method_metadata.load_hpo_results(holdout=holdout)
         self.model_results = model_results
         self.hpo_results = hpo_results
 
     @classmethod
-    def from_cache(cls, method: str | MethodMetadata, artifact_name: str | None = None) -> Self:
+    def from_cache(cls, method: str | MethodMetadata, artifact_name: str | None = None, holdout: bool = False) -> Self:
         if isinstance(method, MethodMetadata):
             method_metadata = method
         else:
@@ -527,7 +548,7 @@ class EndToEndResultsSingle:
             method_metadata = MethodMetadata.from_yaml(
                 method=method, artifact_name=artifact_name
             )
-        return cls(method_metadata=method_metadata)
+        return cls(method_metadata=method_metadata, holdout=holdout)
 
     def compare_on_tabarena(
         self,
@@ -654,10 +675,27 @@ class EndToEndResultsSingle:
                 method_metadata_other = copy.deepcopy(method_metadata_other)
                 method_metadata_other.is_bag = True
 
+            if method_metadata.config_default != method_metadata_other.config_default:
+                if method_metadata.config_default is None:
+                    method_metadata.config_default = method_metadata_other.config_default
+                elif method_metadata_other.config_default is None:
+                    method_metadata_other.config_default = method_metadata.config_default
+            if method_metadata.can_hpo != method_metadata_other.can_hpo:
+                method_metadata.can_hpo = True
+                method_metadata_other.can_hpo = True
             if method_metadata.__dict__ != method_metadata_other.__dict__:
+                diffs = {
+                    k: (v, method_metadata_other.__dict__.get(k))
+                    for k, v in method_metadata.__dict__.items()
+                    if v != method_metadata_other.__dict__.get(k)
+                }
+                diff_str = "\n".join(
+                    f"  {k}: {v1!r} != {v2!r}"
+                    for k, (v1, v2) in diffs.items()
+                )
                 raise ValueError(
-                    "Method metadata mismatch! "
-                    f"{method_metadata.__dict__} != {method_metadata_other.__dict__}"
+                    "Method metadata mismatch! The following fields differ:\n"
+                    f"{diff_str}"
                 )
 
             # merge results

@@ -168,22 +168,13 @@ class TabArenaContext:
 
     def generate_repo(self, method: str) -> Path:
         metadata = self.method_metadata(method=method)
-
-        path_raw = metadata.path_raw
-        path_processed = metadata.path_processed
-
-        name_suffix = metadata.name_suffix
-
-        file_paths_method = fetch_all_pickles(dir_path=path_raw, suffix="results.pkl")
-        repo: EvaluationRepository = generate_repo_from_paths(
-            result_paths=file_paths_method,
+        metadata.generate_repo(
+            results_lst=None,
             task_metadata=self.task_metadata,
+            cache=True,
             engine=self.engine,
-            name_suffix=name_suffix,
         )
-
-        repo.to_dir(path_processed)
-        return path_processed
+        return metadata.path_processed
 
     def generate_repo_holdout(self, method: str) -> Path:
         metadata = self.method_metadata(method=method)
@@ -320,6 +311,56 @@ class TabArenaContext:
 
         results = results.rename(columns={"framework": "method"})
         return results
+
+    def simulate_portfolio_search(
+        self,
+        methods: list[str],
+        config_fallback: str,
+        result_baselines: pd.DataFrame,
+        repo: EvaluationRepositoryCollection = None,
+        config_types: list[str] = None,
+        selected_types: list[str] = None,
+        n_portfolio: int = 25,
+        n_ensemble: int = 40,
+        time_limit: float | None = 14400,
+        eval_fold_as_dataset: bool = False,
+    ):
+        if repo is None:
+            repo = self.load_repo(methods=methods, config_fallback=config_fallback)
+        if config_types is None:
+            config_types = repo.config_types()
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+
+        df_results_n_portfolio = simulator.run_portfolio_search(
+            model_types=config_types,
+            selected_types=selected_types,
+            result_baselines=result_baselines,
+            n_portfolio=n_portfolio,
+            n_ensemble=n_ensemble,
+            time_limit=time_limit,
+            eval_fold_as_dataset=eval_fold_as_dataset,
+        )
+
+    def run_portfolio(
+        self,
+        repo: AbstractRepository,
+        configs: list[str],
+        n_portfolio: int,
+        n_ensemble: int | None = None,
+        time_limit: int | None = 14400,
+    ) -> pd.DataFrame:
+        simulator = PaperRunTabArena(repo=repo, backend=self.backend)
+        cur_result = simulator.run_zs(
+            configs=configs,
+            n_portfolios=n_portfolio,
+            n_ensemble=n_ensemble,
+            n_ensemble_in_name=True,
+            time_limit=time_limit,
+        )
+        cur_result = cur_result.rename(columns={
+            "framework": "method",
+        })
+        return cur_result
 
     def simulate_portfolio(self, methods: list[str], config_fallback: str, repo: EvaluationRepositoryCollection = None):
         if repo is None:

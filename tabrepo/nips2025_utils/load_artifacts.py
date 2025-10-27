@@ -11,14 +11,7 @@ def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
     data: dict | BaselineResult = load_pkl.load(path)
     data_aligned = BaselineResult.from_dict(data)
     if convert_to_holdout:
-        assert isinstance(data_aligned, AGBagResult)
-        result_holdout = data_aligned.bag_artifacts(as_baseline=False)
-        if len(result_holdout) > 0:
-            assert len(result_holdout) == 1
-            result_holdout = result_holdout[0]
-        else:
-            result_holdout = None
-        return result_holdout
+        return result_to_holdout(result=data_aligned)
     return data_aligned
 
 
@@ -42,5 +35,21 @@ def load_all_artifacts(
         inputs=file_paths_lst,
         engine=engine,
         progress_bar=progress_bar,
+        desc=f"Loading raw artifacts"
     )
     return results_lst
+
+
+def result_to_holdout(result: BaselineResult) -> BaselineResult:
+    assert isinstance(result, AGBagResult)
+    result_holdout = result.bag_artifacts(as_baseline=False)
+    if len(result_holdout) > 0:
+        assert len(result_holdout) == 1
+        result_holdout = result_holdout[0]
+    else:
+        result_holdout = None
+    return result_holdout
+
+
+def results_to_holdout(result_lst: list[BaselineResult]) -> list[BaselineResult]:
+    return [result_to_holdout(result) for result in result_lst]

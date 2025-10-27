@@ -2,18 +2,18 @@ from pathlib import Path
 
 import pandas as pd
 
+from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
 from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
-from s3_downloader import copy_s3_prefix_to_local
 
 
 """
-First refer to `run_jobs_lightgbm_demo.py
+First refer to `run_jobs_linear_model.py
 """
 if __name__ == '__main__':
     bucket = "prateek-ag"
-    prefix = "tabarena-lightgbm-demo"
-    local_dir =  Path(f"/home/ubuntu/workspace/data/{prefix}")
-
+    prefix = "tabarena-lr-2025-10-16"
+    local_dir =  Path(f"/home/ubuntu/workspace/data/{prefix}/")
+    from s3_downloader import copy_s3_prefix_to_local
     copy_s3_prefix_to_local(
         bucket=bucket,
         prefix=prefix,
@@ -22,8 +22,7 @@ if __name__ == '__main__':
         exclude=["*.log"],
     )
 
-    method = "LightGBM_demo"
-    name_suffix = "_demo"
+    method = "LinearModel"
     path_raw = local_dir / "data"
     fig_output_dir = Path("tabarena_figs") / method
     cache = True
@@ -44,8 +43,15 @@ if __name__ == '__main__':
 
     Once this is executed once, it does not need to be ran again.
     """
+    from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_10_20 import lr_metadata
+
     if cache:
-        end_to_end = EndToEndSingle.from_path_raw(path_raw=path_raw, name_suffix=name_suffix)
+        task_metadata = TabArenaContext().task_metadata
+        end_to_end = EndToEndSingle.from_path_raw(
+            path_raw=path_raw,
+            method_metadata=lr_metadata,
+            task_metadata=task_metadata,
+        )
 
     """
     Load cached results and compare on TabArena
@@ -53,7 +59,7 @@ if __name__ == '__main__':
     2. Compares on all datasets if `filter_dataset_fold=False`, else only tasks from the user's method if `filter_dataset_fold=True`.
     3. Missing values are imputed to default RandomForest.
     """
-    end_to_end_results = EndToEndResultsSingle.from_cache(method=method)
+    end_to_end_results = EndToEndResultsSingle.from_cache(method=lr_metadata)
 
     leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
         output_dir=fig_output_dir,

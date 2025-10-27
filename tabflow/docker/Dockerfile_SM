@@ -40,22 +40,31 @@ RUN chmod +x ./evaluate.py
 
 WORKDIR /workspace
 
-# Delete uv cache to save ~3.5 GB of space
-# Comment out to instead install the latest official release via pip.
-RUN set -ex && \
-    git clone --depth 1 https://github.com/autogluon/autogluon && \
-    ./autogluon/full_install.sh && \
-    uv cache clean && \
-    uv cache prune && \
-    pip uninstall -y uv && \
-    rm -rf ~/.cache/uv
+# Ensure uv is found and allowed to install into system Python
+ENV PATH="/root/.local/bin:${PATH}"
+ENV UV_SYSTEM_PYTHON=1
 
+# Comment out to instead install the latest official release via pip.
+# Install uv + AutoGluon
+RUN set -ex && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    git clone --depth 1 https://github.com/autogluon/autogluon && \
+    ./autogluon/full_install.sh
+
+# Copy local TabRepo source
 # Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
 COPY tabrepo/ tabrepo/
 
-# Install the required packages
-RUN pip install -e ./tabrepo/[benchmark] && \
-    pip install -e ./tabrepo/tabflow/
+# Install TabRepo, then prune once all installs are done
+# Delete uv cache to save ~3.5 GB of space
+RUN set -ex && \
+    uv pip install -e ./tabrepo/[benchmark] && \
+    uv pip install -e ./tabrepo/tabflow/ && \
+    uv cache clean && \
+    uv cache prune && \
+    rm -rf ~/.cache/uv ~/.local/share/uv ~/.config/uv
+# (Optionally also remove the uv binary if you truly don’t need it)
+# && rm -f "$(command -v uv)"
 
 RUN rm -rf /root/.cache/pip
 
@@ -65,3 +74,6 @@ RUN rm -rf /root/.cache/pip
 # Generate tabrepo configs and give permissions
 # RUN chmod +x ./tabrepo/scripts/run_generate_all_configs.py
 # RUN python ./tabrepo/scripts/run_generate_all_configs.py
+
+# Print total image size (approximate)
+# RUN echo "Final image size:" && du -sh / 2>/dev/null | sort -hr | head -n 1

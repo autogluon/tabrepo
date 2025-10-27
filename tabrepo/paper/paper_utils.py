@@ -124,6 +124,32 @@ def get_framework_type_method_names(
     return f_map, f_map_type, f_map_inverse, f_map_type_name
 
 
+def get_f_map_suffix() -> dict:
+    f_map_suffix = dict(
+        default=" (default)",
+        tuned=" (tuned)",
+        tuned_ensembled=" (tuned + ensemble)",
+        best=" (best)",
+        holdout=" (holdout)",
+        holdout_tuned=" (tuned, holdout)",
+        holdout_tuned_ensembled=" (tuned + ensemble, holdout)",
+    )
+    return f_map_suffix
+
+
+def get_f_map_suffix_plots() -> dict:
+    f_map_suffix_plots = dict(
+        default="-D",
+        tuned="-T",
+        tuned_ensembled="-TE",
+        best="-B",
+        holdout="-D (H)",
+        holdout_tuned="-T (H)",
+        holdout_tuned_ensembled="-TE (H)",
+    )
+    return f_map_suffix_plots
+
+
 def framework_name(framework_type, max_runtime=None, ensemble_size=default_ensemble_size, tuned: bool=True, all: bool = False, prefix: str = None, suffix: str = None) -> str:
     method = framework_type if framework_type else "All"
     if prefix is None:
