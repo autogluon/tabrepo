@@ -1,5 +1,6 @@
-import pytest
+from __future__ import annotations
 
+import pytest
 
 
 def test_tabdpt():
@@ -8,8 +9,11 @@ def test_tabdpt():
     try:
         from autogluon.tabular.testing import FitHelper
         from tabrepo.benchmark.models.ag.tabdpt.tabdpt_model import TabDPTModel
+
         model_cls = TabDPTModel
-        FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
+        FitHelper.verify_model(
+            model_cls=model_cls, model_hyperparameters=model_hyperparameters
+        )
     except ImportError as err:
         pytest.skip(
             f"Import Error, skipping test... "

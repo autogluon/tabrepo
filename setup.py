@@ -38,11 +38,7 @@ extras_require = {
         "pytabkit>=1.5.0,<2.0",
     ],
     "tabdpt": [
-        # TODO: pypi package is not available yet
-        # FIXME: newest version (1.1) has (unnecessary) strict version requirements
-        #  that are not compatible with autogluon, so we stick to the old hash
-        "tabdpt @ git+https://github.com/layer6ai-labs/TabDPT.git@9699d9592b61c5f70fc88f5531cdb87b40cbedf5",
-        # used hash: 9699d9592b61c5f70fc88f5531cdb87b40cbedf5
+        "tabdpt>=1.1.7",
     ],
     "tabm": [
         "torch",
