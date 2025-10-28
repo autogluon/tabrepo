@@ -18,7 +18,8 @@ requirements = [
     "tueplots",
     "autorank==1.2.1",
     "seaborn==0.13.2",
-    "matplotlib==3.9.2",
+    "matplotlib==3.10.1",
+    "plotly>=6.3.0",
     "kaleido",  # for winrate matrix
 ]
 
