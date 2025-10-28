@@ -3,9 +3,9 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_collection
-from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata import (
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
+from tabarena.nips2025_utils.artifacts._tabarena_method_metadata import (
     tabarena_method_metadata_2025_06_12_collection_main,
     tabarena_method_metadata_2025_06_12_collection_gpu_ablation,
 )

@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.tabarena.website_format import format_leaderboard
-from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata import (
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.tabarena.website_format import format_leaderboard
+from tabarena.nips2025_utils.artifacts._tabarena_method_metadata import (
     tabarena_method_metadata_2025_06_12_collection_main,
 )
 

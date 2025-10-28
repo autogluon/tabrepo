@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from tabflow.cli.launch_jobs import JobManager
-from tabrepo.models.lightgbm.generate import gen_lightgbm
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.benchmark.experiment.experiment_constructor import Experiment, YamlExperimentSerializer
+from tabarena.models.lightgbm.generate import gen_lightgbm
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.benchmark.experiment.experiment_constructor import Experiment, YamlExperimentSerializer
 
 """
 # 1. Build the docker (ensure you use your own docker name to avoid overwriting other user's docker containers
-bash ./tabrepo/tabflow/docker/build_docker.sh tabarena tabarena-neerick 763104351884 097403188315 us-west-2
+bash ./tabarena/tabflow/docker/build_docker.sh tabarena tabarena-neerick 763104351884 097403188315 us-west-2
 """
 docker_image_uri = "097403188315.dkr.ecr.us-west-2.amazonaws.com/tabarena:tabarena-neerick"
 
@@ -27,7 +27,7 @@ TODO
 sagemaker_role = "arn:aws:iam::097403188315:role/service-role/AmazonSageMaker-ExecutionRole-20250128T153145"
 
 """
-# 4. Run this script (working directory should be one level above the root of `tabrepo`)
+# 4. Run this script (working directory should be one level above the root of `tabarena`)
 
 # 5. View the jobs and check their logs
 https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     use_yaml_file = False  # two alternative ways of getting the methods info
     if use_yaml_file:
-        methods_file = "./tabrepo/tabflow/configs/configs_lightgbm_demo.yaml"  # 2 lightgbm configs
+        methods_file = "./tabarena/tabflow/configs/configs_lightgbm_demo.yaml"  # 2 lightgbm configs
         methods: list[Experiment] = YamlExperimentSerializer.from_yaml(path=methods_file)
     else:
         methods: list[Experiment] = gen_lightgbm.generate_all_bag_experiments(num_random_configs=1)

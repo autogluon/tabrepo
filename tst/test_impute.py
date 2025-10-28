@@ -2,11 +2,11 @@ import tempfile
 
 import numpy as np
 
-from tabrepo import EvaluationRepository
-from tabrepo.contexts.context_artificial import load_context_artificial
-from tabrepo.predictions import TabularPredictionsMemmap
-from tabrepo.predictions.tabular_predictions import TabularModelPredictions
-from tabrepo.utils.test_utils import generate_artificial_dict
+from tabarena import EvaluationRepository
+from tabarena.contexts.context_artificial import load_context_artificial
+from tabarena.predictions import TabularPredictionsMemmap
+from tabarena.predictions.tabular_predictions import TabularModelPredictions
+from tabarena.utils.test_utils import generate_artificial_dict
 
 num_models = 13
 num_folds = 3

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from tabflow.cli.launch_jobs import JobManager
-from tabrepo.models.lr.generate import gen_linear
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.benchmark.experiment.experiment_constructor import Experiment, YamlExperimentSerializer
+from tabarena.models.lr.generate import gen_linear
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.benchmark.experiment.experiment_constructor import Experiment, YamlExperimentSerializer
 
 """
 # 1. Build the docker (ensure you use your own docker name to avoid overwriting other user's docker containers

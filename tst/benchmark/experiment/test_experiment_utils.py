@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from tabrepo.benchmark.experiment.experiment_runner_api import (
+from tabarena.benchmark.experiment.experiment_runner_api import (
     _parse_repetitions_mode_and_args,
 )
 

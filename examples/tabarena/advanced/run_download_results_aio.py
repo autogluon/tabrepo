@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from tabrepo.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
-from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
-from tabrepo.tabarena.website_format import format_leaderboard
+from tabarena.nips2025_utils.artifacts.method_downloader import MethodDownloaderS3
+from tabarena.nips2025_utils.artifacts.method_metadata import MethodMetadata
+from tabarena.tabarena.website_format import format_leaderboard
 
 
 if __name__ == '__main__':
@@ -25,7 +25,7 @@ if __name__ == '__main__':
         # Nick: Note that LightGBM_aio_0812 will skip processed and results due to invalid raw contents.
 
     # Compute the leaderboard
-    from tabrepo.nips2025_utils.end_to_end import EndToEndResults
+    from tabarena.nips2025_utils.end_to_end import EndToEndResults
     e2e = EndToEndResults.from_cache(methods=["LightGBM_aio_0808"])
     leaderboard = e2e.compare_on_tabarena(output_dir="aio_figs", only_valid_tasks=True)
     leaderboard_website = format_leaderboard(df_leaderboard=leaderboard)

@@ -32,10 +32,10 @@ LABEL build.device="${DEVICE}"
 #############################
 
 # Source install Autogluon mainline or any branch that the user wants to benchmark against
-# User can also source install tabrepo or any other libraries, if required
+# User can also source install tabarena or any other libraries, if required
 # Make sure to delete the copy statements if you clone the repos and install it in the Dockerfile
 
-COPY ./tabrepo/tabflow/tabflow/cli/evaluate.py .
+COPY ./tabarena/tabflow/tabflow/cli/evaluate.py .
 RUN chmod +x ./evaluate.py
 
 WORKDIR /workspace
@@ -51,11 +51,11 @@ RUN set -ex && \
     git clone --depth 1 https://github.com/autogluon/autogluon && \
     ./autogluon/full_install.sh
 
-# Copy local TabRepo source
-# Delete the below line if you clone the tabrepo repo and source install it in the Dockerfile
+# Copy local TabArena source
+# Delete the below line if you clone the tabarena repo and source install it in the Dockerfile
 COPY tabrepo/ tabrepo/
 
-# Install TabRepo, then prune once all installs are done
+# Install TabArena, then prune once all installs are done
 # Delete uv cache to save ~3.5 GB of space
 RUN set -ex && \
     uv pip install -e ./tabrepo/[benchmark] && \
@@ -71,9 +71,9 @@ RUN rm -rf /root/.cache/pip
 # GPU images can come pre-installed with flash-attn, uncomment this to ensure it isn't installed
 # RUN pip uninstall flash-attn -y
 
-# Generate tabrepo configs and give permissions
-# RUN chmod +x ./tabrepo/scripts/run_generate_all_configs.py
-# RUN python ./tabrepo/scripts/run_generate_all_configs.py
+# Generate tabarena configs and give permissions
+# RUN chmod +x ./tabarena/scripts/run_generate_all_configs.py
+# RUN python ./tabarena/scripts/run_generate_all_configs.py
 
 # Print total image size (approximate)
 # RUN echo "Final image size:" && du -sh / 2>/dev/null | sort -hr | head -n 1

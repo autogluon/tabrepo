@@ -8,7 +8,7 @@ def test_tabdpt():
 
     try:
         from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.tabdpt.tabdpt_model import TabDPTModel
+        from tabarena.benchmark.models.ag.tabdpt.tabdpt_model import TabDPTModel
 
         model_cls = TabDPTModel
         FitHelper.verify_model(

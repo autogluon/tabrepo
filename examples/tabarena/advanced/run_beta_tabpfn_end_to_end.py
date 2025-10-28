@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from tabrepo.nips2025_utils.artifacts.download_utils import download_and_extract_zip
-from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
+from tabarena.nips2025_utils.artifacts.download_utils import download_and_extract_zip
+from tabarena.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
 
 
 if __name__ == '__main__':

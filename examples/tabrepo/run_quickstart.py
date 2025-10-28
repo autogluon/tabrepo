@@ -1,6 +1,6 @@
 import pandas as pd
 
-from tabrepo import get_context, list_contexts, EvaluationRepository
+from tabarena import get_context, list_contexts, EvaluationRepository
 
 
 if __name__ == '__main__':
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     # Advanced
     """
-    from tabrepo.repository import EvaluationRepositoryZeroshot
+    from tabarena.repository import EvaluationRepositoryZeroshot
     repo: EvaluationRepositoryZeroshot = repo.to_zeroshot()
     results_cv = repo.simulate_zeroshot(num_zeroshot=5, n_splits=2)
     # FIXME: Incorrect infer_time

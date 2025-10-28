@@ -3,13 +3,13 @@ from __future__ import annotations
 import io
 import os
 
-from tabrepo.benchmark.experiment.experiment_constructor import (
+from tabarena.benchmark.experiment.experiment_constructor import (
     AGModelExperiment,
     YamlExperimentSerializer,
     YamlSingleExperimentSerializer,
 )
-from tabrepo.models.realmlp.generate import gen_realmlp
-from tabrepo.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
+from tabarena.models.realmlp.generate import gen_realmlp
+from tabarena.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
 
 
 def _as_str_path(p: str | os.PathLike) -> str:

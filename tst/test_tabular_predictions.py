@@ -6,9 +6,9 @@ from typing import List
 import numpy as np
 import pytest
 
-from tabrepo.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
-from tabrepo.predictions.tabular_predictions import TabularPredictionsDict
-from tabrepo.utils.test_utils import generate_artificial_dict, generate_dummy
+from tabarena.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory, TabularPredictionsInMemoryOpt
+from tabarena.predictions.tabular_predictions import TabularPredictionsDict
+from tabarena.utils.test_utils import generate_artificial_dict, generate_dummy
 
 num_models = 13
 num_folds = 3

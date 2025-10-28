@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from tabrepo.utils.rank_utils import RankScorer
+from tabarena.utils.rank_utils import RankScorer
 
 dataset_col = "dataset"
 metric_col = "metric"

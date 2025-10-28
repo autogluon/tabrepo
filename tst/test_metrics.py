@@ -3,8 +3,8 @@ import pytest
 import sklearn
 from autogluon.core.metrics import log_loss, roc_auc
 
-from tabrepo.metrics import _fast_log_loss, _fast_roc_auc
-from tabrepo.metrics.bench_utils import generate_y_true_and_y_pred_proba, \
+from tabarena.metrics import _fast_log_loss, _fast_roc_auc
+from tabarena.metrics.bench_utils import generate_y_true_and_y_pred_proba, \
     generate_y_true_and_y_pred_proba_bulk, generate_y_true_and_y_pred_binary
 
 

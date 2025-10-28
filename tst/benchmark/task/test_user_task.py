@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from openml.tasks import OpenMLClassificationTask, OpenMLRegressionTask, TaskType
 from openml.tasks.split import OpenMLSplit
-from tabrepo.benchmark.task import UserTask
+from tabarena.benchmark.task import UserTask
 
 
 @pytest.fixture(scope="session", autouse=True)

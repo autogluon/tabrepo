@@ -1,7 +1,7 @@
 import numpy as np
 
-from tabrepo.contexts.context_artificial import load_repo_artificial
-from tabrepo.repository.time_utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
+from tabarena.contexts.context_artificial import load_repo_artificial
+from tabarena.repository.time_utils import get_runtime, filter_configs_by_runtime, sort_by_runtime
 
 repo = load_repo_artificial()
 

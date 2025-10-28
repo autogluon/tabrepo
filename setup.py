@@ -29,7 +29,7 @@ extras_require = {
         "tabicl>=0.1.1",
     ],
     "ebm": [
-        "interpret-core>=0.7.2",
+        "interpret-core>=0.7.3",
     ],
     "search_spaces": [
         "configspace>=1.2,<2.0",
@@ -68,11 +68,11 @@ benchmark_requires = list(set(benchmark_requires))
 extras_require["benchmark"] = benchmark_requires
 
 setup(
-    name="tabrepo",
+    name="tabarena",
     version="0.0.1",
     packages=find_packages(exclude=("docs", "tst", "data")),
     package_data={
-        "tabrepo": [
+        "tabarena": [
             "metrics/_roc_auc_cpp/compile.sh",
             "metrics/_roc_auc_cpp/cpp_auc.cpp",
             "nips2025_utils/metadata/task_metadata_tabarena51.csv",

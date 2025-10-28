@@ -79,7 +79,7 @@ Now lets see how to do basic things with TabRepo.
 **Accessing model evaluations.** To access model evaluations, you can do the following:
 
 ```python
-from tabrepo import load_repository
+from tabarena import load_repository
 
 repo = load_repository("D244_F3_C1530_30")
 repo.metrics(datasets=["Australian"], configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"])
@@ -96,8 +96,10 @@ with `D244_F3_C1530`.
 
 **Querying model predictions.**
 To query model predictions, run the following code:
+
 ```python
-from tabrepo import load_repository
+from tabarena import load_repository
+
 repo = load_repository("D244_F3_C1530_30")
 print(repo.predict_val_multi(dataset="Australian", fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
@@ -107,8 +109,10 @@ You can also use `predict_test` to get the predictions on the test set.
 
 **Simulating ensembles.**
 To evaluate an ensemble of any list of configuration, you can run the following:
+
 ```python
-from tabrepo import load_repository
+from tabarena import load_repository
+
 repo = load_repository("D244_F3_C1530_30")
 print(repo.evaluate_ensemble(dataset="Australian", fold=0, configs=["CatBoost_r22_BAG_L1", "RandomForest_r12_BAG_L1"]))
 ```
@@ -121,7 +125,8 @@ predictions and validation groundtruth.
 Context's are used to load a repository and are downloaded with the following code:
 
 ```python
-from tabrepo import load_repository
+from tabarena import load_repository
+
 repo = load_repository(context_name)
 ```
 

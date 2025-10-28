@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.tabarena.tabarena import TabArena
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.tabarena.tabarena import TabArena
 from autogluon.common.loaders import load_pd
 
-from tabrepo.paper.paper_utils import get_method_rename_map
-from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata import tabarena_method_metadata_2025_06_12_collection_main
-from tabrepo.plot.plot_pareto_frontier import plot_optimal_arrow
+from tabarena.paper.paper_utils import get_method_rename_map
+from tabarena.nips2025_utils.artifacts._tabarena_method_metadata import tabarena_method_metadata_2025_06_12_collection_main
+from tabarena.plot.plot_pareto_frontier import plot_optimal_arrow
 
 
 def plot_hpo(

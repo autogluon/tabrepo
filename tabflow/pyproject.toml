@@ -10,7 +10,7 @@ dependencies = [
     "boto3>=1.36",
     "sagemaker>=2.239",
     "pyyaml>=6.0.2",
-    "tabrepo",
+    "tabarena",
     "autogluon",
 ]
 

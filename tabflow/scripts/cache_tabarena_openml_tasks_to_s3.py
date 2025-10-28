@@ -8,8 +8,8 @@ Requires write permissions to the s3 location.
 from __future__ import annotations
 
 import argparse
-from tabrepo.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.benchmark.task.openml import OpenMLTaskWrapper, OpenMLS3TaskWrapper
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 
 
 def main():

@@ -5,10 +5,10 @@ from typing import Any
 
 import pandas as pd
 
-from tabrepo.benchmark.experiment import AGModelBagExperiment, ExperimentBatchRunner
-from tabrepo.nips2025_utils.end_to_end import EndToEnd
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.tabarena.website_format import format_leaderboard
+from tabarena.benchmark.experiment import AGModelBagExperiment, ExperimentBatchRunner
+from tabarena.nips2025_utils.end_to_end import EndToEnd
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.tabarena.website_format import format_leaderboard
 
 
 if __name__ == '__main__':
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     folds = [0]
 
     # import your model classes
-    from tabrepo.benchmark.models.ag import RealMLPModel
+    from tabarena.benchmark.models.ag import RealMLPModel
     from autogluon.tabular.models import LGBModel
 
     # This list of methods will be fit sequentially on each task (dataset x fold)

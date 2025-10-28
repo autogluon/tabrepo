@@ -20,7 +20,7 @@ def test_tabpfnv2():
 
     try:
         from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
+        from tabarena.benchmark.models.ag.tabpfnv2.tabpfnv2_model import TabPFNV2Model
 
         model_cls = TabPFNV2Model
         FitHelper.verify_model(
