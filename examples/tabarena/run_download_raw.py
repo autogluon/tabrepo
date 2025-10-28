@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from tabrepo import EvaluationRepositoryCollection
-from tabrepo.benchmark.result import BaselineResult
-from tabrepo.nips2025_utils.artifacts.method_metadata import MethodMetadata
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena import EvaluationRepositoryCollection
+from tabarena.benchmark.result import BaselineResult
+from tabarena.nips2025_utils.artifacts.method_metadata import MethodMetadata
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 
 """
 This is an example script showcasing how to access the different types of artifacts in TabArena.

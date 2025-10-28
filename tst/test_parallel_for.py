@@ -1,4 +1,4 @@
-from tabrepo.utils.parallel_for import parallel_for
+from tabarena.utils.parallel_for import parallel_for
 
 
 def f(x, v1, v2):

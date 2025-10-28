@@ -7,7 +7,7 @@ def test_xrfm():
 
     try:
         from autogluon.tabular.testing import FitHelper
-        from tabrepo.benchmark.models.ag.xrfm.xrfm_model import XRFMModel
+        from tabarena.benchmark.models.ag.xrfm.xrfm_model import XRFMModel
         model_cls = XRFMModel
         FitHelper.verify_model(model_cls=model_cls, model_hyperparameters=model_hyperparameters)
     except ImportError as err:

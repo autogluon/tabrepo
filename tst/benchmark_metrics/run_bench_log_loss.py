@@ -2,9 +2,9 @@ import numpy as np
 
 from autogluon.core.metrics import log_loss
 from sklearn.metrics import log_loss as sk_log_loss
-from tabrepo.metrics._fast_log_loss import \
+from tabarena.metrics._fast_log_loss import \
     fast_log_loss_end_to_end, fast_log_loss, extract_true_class_prob
-from tabrepo.metrics.bench_utils import benchmark_metrics_speed, print_benchmark_result,\
+from tabarena.metrics.bench_utils import benchmark_metrics_speed, print_benchmark_result,\
     get_eval_speed, generate_y_true_and_y_pred_proba, generate_y_true_and_y_pred_binary
 
 

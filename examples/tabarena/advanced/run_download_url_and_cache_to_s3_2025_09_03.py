@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from tabrepo.nips2025_utils.artifacts.method_artifact_manager import MethodArtifactManager
+from tabarena.nips2025_utils.artifacts.method_artifact_manager import MethodArtifactManager
 
 
 """

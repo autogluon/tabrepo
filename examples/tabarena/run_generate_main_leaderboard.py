@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.tabarena.website_format import format_leaderboard
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.tabarena.website_format import format_leaderboard
 
 
 if __name__ == '__main__':

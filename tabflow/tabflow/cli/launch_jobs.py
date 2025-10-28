@@ -480,7 +480,7 @@ def launch_jobs(
 
     Args:
         experiment_name: Name of the experiment
-        context_name: Name of the TabRepo context
+        context_name: Name of the TabArena context
         entry_point: The Python script to run in sagemaker training job
         source_dir: Directory containing the training code (here the entry point)
         instance_type: SageMaker instance type

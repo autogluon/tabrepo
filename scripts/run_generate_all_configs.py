@@ -1,23 +1,23 @@
 from autogluon.core.models import DummyModel
 
-from tabrepo.benchmark.experiment import AGModelBagExperiment, YamlExperimentSerializer
-from tabrepo.utils.config_utils import ConfigGenerator
-from tabrepo.models.lightgbm.generate import gen_lightgbm
-from tabrepo.models.tabicl.generate import gen_tabicl
-from tabrepo.models.tabdpt.generate import gen_tabdpt
-from tabrepo.models.knn.generate import gen_knn
-from tabrepo.models.fastai.generate import gen_fastai
-from tabrepo.models.extra_trees.generate import gen_extratrees
-from tabrepo.models.catboost.generate import gen_catboost
-from tabrepo.models.xgboost.generate import gen_xgboost
-from tabrepo.models.nn_torch.generate import gen_nn_torch
-from tabrepo.models.random_forest.generate import gen_randomforest
-from tabrepo.models.lr.generate import gen_linear
-from tabrepo.models.tabpfnv2.generate import gen_tabpfnv2
-from tabrepo.models.realmlp.generate import gen_realmlp
-from tabrepo.models.ebm.generate import gen_ebm
-from tabrepo.models.tabm.generate import gen_tabm
-from tabrepo.models.modernnca.generate import gen_modernnca
+from tabarena.benchmark.experiment import AGModelBagExperiment, YamlExperimentSerializer
+from tabarena.utils.config_utils import ConfigGenerator
+from tabarena.models.lightgbm.generate import gen_lightgbm
+from tabarena.models.tabicl.generate import gen_tabicl
+from tabarena.models.tabdpt.generate import gen_tabdpt
+from tabarena.models.knn.generate import gen_knn
+from tabarena.models.fastai.generate import gen_fastai
+from tabarena.models.extra_trees.generate import gen_extratrees
+from tabarena.models.catboost.generate import gen_catboost
+from tabarena.models.xgboost.generate import gen_xgboost
+from tabarena.models.nn_torch.generate import gen_nn_torch
+from tabarena.models.random_forest.generate import gen_randomforest
+from tabarena.models.lr.generate import gen_linear
+from tabarena.models.tabpfnv2.generate import gen_tabpfnv2
+from tabarena.models.realmlp.generate import gen_realmlp
+from tabarena.models.ebm.generate import gen_ebm
+from tabarena.models.tabm.generate import gen_tabm
+from tabarena.models.modernnca.generate import gen_modernnca
 
 
 if __name__ == '__main__':
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     YamlExperimentSerializer.to_yaml(experiments=experiments_all, path="configs_all.yaml")
 
-    from tabrepo.models.automl import generate_autogluon_experiments
+    from tabarena.models.automl import generate_autogluon_experiments
     experiments_autogluon = generate_autogluon_experiments()
 
     YamlExperimentSerializer.to_yaml(experiments=experiments_autogluon, path="configs_autogluon.yaml")

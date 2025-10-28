@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tabrepo import EvaluationRepository
-from tabrepo.nips2025_utils.artifacts import tabarena_method_metadata_collection
+from tabarena import EvaluationRepository
+from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
 
 
 """

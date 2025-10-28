@@ -6,8 +6,8 @@ from typing import Any
 
 import pandas as pd
 
-from tabrepo import EvaluationRepository, EvaluationRepositoryCollection, Evaluator
-from tabrepo.benchmark.experiment import AGModelBagExperiment, Experiment, ExperimentBatchRunner
+from tabarena import EvaluationRepository, EvaluationRepositoryCollection, Evaluator
+from tabarena.benchmark.experiment import AGModelBagExperiment, Experiment, ExperimentBatchRunner
 
 
 if __name__ == '__main__':
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     from autogluon.tabular.models import LGBModel
 
     # import your non-autogluon model classes (must inherit from AbstractExecModel)
-    from tabrepo.benchmark.models.simple import SimpleLightGBM
+    from tabarena.benchmark.models.simple import SimpleLightGBM
 
     # This list of methods will be fit sequentially on each task (dataset x fold)
     methods = [

@@ -5,8 +5,8 @@ from typing import Callable
 import numpy as np
 import pytest
 
-from tabrepo import EvaluationRepository, EvaluationRepositoryCollection
-from tabrepo.contexts.context_artificial import load_repo_artificial
+from tabarena import EvaluationRepository, EvaluationRepositoryCollection
+from tabarena.contexts.context_artificial import load_repo_artificial
 
 
 def verify_equivalent_repository(

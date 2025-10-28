@@ -1,5 +1,5 @@
 import numpy as np
-from tabrepo.metrics._roc_auc_cpp import CppAuc
+from tabarena.metrics._roc_auc_cpp import CppAuc
 
 
 def test_cpp_auc_compilation():

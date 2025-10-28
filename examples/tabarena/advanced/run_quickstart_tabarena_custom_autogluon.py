@@ -5,12 +5,12 @@ from typing import Any
 
 import pandas as pd
 
-from tabrepo import EvaluationRepository, Evaluator
-from tabrepo.benchmark.experiment import ExperimentBatchRunner, Experiment
-from tabrepo.benchmark.models.wrapper import AGWrapper
-from tabrepo.benchmark.result import ExperimentResults
-from tabrepo.nips2025_utils.fetch_metadata import load_task_metadata
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena import EvaluationRepository, Evaluator
+from tabarena.benchmark.experiment import ExperimentBatchRunner, Experiment
+from tabarena.benchmark.models.wrapper import AGWrapper
+from tabarena.benchmark.result import ExperimentResults
+from tabarena.nips2025_utils.fetch_metadata import load_task_metadata
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 
 
 class MyCustomAGWrapper(AGWrapper):
@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
     calibration_framework = "RF (default)"
 
-    from tabrepo.tabarena.tabarena import TabArena
+    from tabarena.tabarena.tabarena import TabArena
     tabarena = TabArena(
         method_col="method",
         task_col="dataset",

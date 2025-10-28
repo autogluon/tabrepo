@@ -1,5 +1,5 @@
 import pandas as pd
-from tabrepo.utils.cache import CacheFunctionDF, CacheFunctionDummy, CacheFunctionPickle
+from tabarena.utils.cache import CacheFunctionDF, CacheFunctionDummy, CacheFunctionPickle
 
 
 def test_cache_pickle():

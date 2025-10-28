@@ -17,7 +17,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Determine the base directory by going up from the script location
 BASE_DIR="$( cd "${SCRIPT_DIR}/../../.." && pwd )"
 
-# Check if all required directories exist, this is specific for TabRepo
+# Check if all required directories exist, this is specific for TabArena
 REQUIRED_DIRS=("autogluon" "tabrepo")
 
 for dir in "${REQUIRED_DIRS[@]}"; do

@@ -7,11 +7,11 @@ from autogluon.common.loaders import load_json
 from tabflow.utils.utils import find_method_by_name
 from tabflow.utils.s3_utils import download_from_s3
 from tabflow.utils.logging_utils import setup_logging
-from tabrepo import EvaluationRepository
-from tabrepo.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer, YamlSingleExperimentSerializer, AGExperiment
-from tabrepo.benchmark.models.simple import SimpleLightGBM
+from tabarena import EvaluationRepository
+from tabarena.benchmark.experiment import ExperimentBatchRunner, AGModelBagExperiment, Experiment, YamlExperimentSerializer, YamlSingleExperimentSerializer, AGExperiment
+from tabarena.benchmark.models.simple import SimpleLightGBM
 from autogluon.tabular.models import *
-from tabrepo.benchmark.models.ag import *
+from tabarena.benchmark.models.ag import *
 
 logger = setup_logging(level=logging.INFO)
 

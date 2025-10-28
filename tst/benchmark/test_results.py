@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tabrepo.benchmark.result import AGBagResult, BaselineResult, ConfigResult, ExperimentResults
+from tabarena.benchmark.result import AGBagResult, BaselineResult, ConfigResult, ExperimentResults
 
 
 task_metadata = pd.DataFrame({

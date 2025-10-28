@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from tabrepo.nips2025_utils.tabarena_context import TabArenaContext
-from tabrepo.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from tabarena.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
 
 
 """
@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     Once this is executed once, it does not need to be ran again.
     """
-    from tabrepo.nips2025_utils.artifacts._tabarena_method_metadata_2025_10_20 import lr_metadata
+    from tabarena.nips2025_utils.artifacts._tabarena_method_metadata_2025_10_20 import lr_metadata
 
     if cache:
         task_metadata = TabArenaContext().task_metadata

@@ -3,10 +3,10 @@ import tempfile
 
 import pytest
 
-from tabrepo.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory
-from tabrepo.simulation.dense_utils import get_folds_dense, get_models_dense, is_dense_models, is_dense_folds, \
+from tabarena.predictions import TabularModelPredictions, TabularPredictionsMemmap, TabularPredictionsInMemory
+from tabarena.simulation.dense_utils import get_folds_dense, get_models_dense, is_dense_models, is_dense_folds, \
     force_to_dense, print_summary, list_folds_available, list_models_available, is_empty
-from tabrepo.utils.test_utils import generate_artificial_dict
+from tabarena.utils.test_utils import generate_artificial_dict
 
 num_models = 13
 num_folds = 3
