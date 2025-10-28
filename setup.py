@@ -3,6 +3,7 @@ from __future__ import annotations
 from setuptools import find_packages, setup
 
 requirements = [
+    # TODO: To use `uv`, you need to do `uv pip install --prerelease=allow tabarena/` so it recognizes pre-release AutoGluon
     "autogluon>=1.4.1b20250910,<1.5",  # TODO: Remove after moving `benchmark` code elsewhere
     "openml>=0.14.1",  # consider making optional
     "pyyaml",
