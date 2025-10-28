@@ -57,8 +57,8 @@ To install TabArena, ensure you are using Python 3.9-3.12. Then, run the followi
 If you don't intend to fit models, this is the simplest installation.
 
 ```
-git clone https://github.com/autogluon/tabrepo.git
-pip install -e tabrepo/
+git clone https://github.com/autogluon/tabarena.git
+pip install -e tabarena/
 ```
 
 ## Benchmark (Fitting Models)
@@ -66,11 +66,11 @@ pip install -e tabrepo/
 If you intend to fit models, this is required.
 
 ```
-git clone https://github.com/autogluon/tabrepo.git
-pip install -e tabrepo/[benchmark]
+git clone https://github.com/autogluon/tabarena.git
+pip install -e tabarena/[benchmark]
 
 # use GIT_LFS_SKIP_SMUDGE=1 in front of the command if installing TabDPT fails due to a broken LFS/pip setup
-# GIT_LFS_SKIP_SMUDGE=1 uv pip install -e tabrepo/[benchmark]
+# GIT_LFS_SKIP_SMUDGE=1 uv pip install -e tabarena/[benchmark]
 ```
 
 ## Developer Install
@@ -81,20 +81,18 @@ With this installation, you will have the latest version of AutoGluon in editabl
 git clone https://github.com/autogluon/autogluon.git
 ./autogluon/full_install.sh
 
-git clone https://github.com/autogluon/tabrepo.git
-pip install -e tabrepo/[benchmark]
+git clone https://github.com/autogluon/tabarena.git
+pip install -e tabarena/[benchmark]
 ```
 
 ## Example Install + Run
 
 ```
-git clone git@github.com:autogluon/tabrepo.git
-cd tabrepo
 pip install uv
 uv init -p 3.11
 uv sync
-git clone https://github.com/autogluon/tabrepo.git
-uv pip install -e tabrepo/[benchmark]
+git clone https://github.com/autogluon/tabarena.git
+uv pip install -e tabarena/[benchmark]
 git clone git@github.com:TabArena/tabarena_benchmarking_examples.git
 cd tabarena_benchmarking_examples/tabarena_minimal_example/custom_tabarena_model 
 python run_tabarena_lite.py 

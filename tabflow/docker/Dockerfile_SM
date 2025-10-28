@@ -53,13 +53,13 @@ RUN set -ex && \
 
 # Copy local TabArena source
 # Delete the below line if you clone the tabarena repo and source install it in the Dockerfile
-COPY tabrepo/ tabrepo/
+COPY tabarena/ tabarena/
 
 # Install TabArena, then prune once all installs are done
 # Delete uv cache to save ~3.5 GB of space
 RUN set -ex && \
-    uv pip install -e ./tabrepo/[benchmark] && \
-    uv pip install -e ./tabrepo/tabflow/ && \
+    uv pip install -e ./tabarena/[benchmark] && \
+    uv pip install -e ./tabarena/tabflow/ && \
     uv cache clean && \
     uv cache prune && \
     rm -rf ~/.cache/uv ~/.local/share/uv ~/.config/uv

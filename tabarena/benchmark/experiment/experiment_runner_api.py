@@ -166,7 +166,7 @@ def run_experiments_new(
         and experiment to run.
     tasks: list[int | UserTask]
         The OpenML task IDs or UserTask instances to run the experiments on.
-        See `tabrepo.benchmark.task.user_task` for more details on how to define
+        See `tabarena.benchmark.task.user_task` for more details on how to define
         UserTask.
     repetitions_mode: Literal["TabArena-Lite", "matrix", "individual"]
         Determines how to run repeats of experiments:

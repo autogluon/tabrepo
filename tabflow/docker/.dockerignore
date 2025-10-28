@@ -1,8 +1,8 @@
 # Exclude specific directories to avoid copying downloaded repos
-tabrepo/venv/
-tabrepo/data/
-tabrepo/docs/
-tabrepo/examples/
+tabarena/venv/
+tabarena/data/
+tabarena/docs/
+tabarena/examples/
 
 # Common files to ignore
 .git

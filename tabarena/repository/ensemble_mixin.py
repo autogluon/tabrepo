@@ -17,7 +17,6 @@ class EnsembleMixin:
     # TODO: rank=False by default?
     # TODO: ensemble_size remove, put into ensemble_kwargs?
     # TODO: rename to fit_ensemble?
-    # TODO: Maybe the result output should be a pd.Series or dataclass? Finalize prior to TabRepo 2.0 release.
     #  Ditto for ensemble_weights
     def evaluate_ensemble(
         self,
