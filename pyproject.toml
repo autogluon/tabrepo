@@ -1,0 +1,3 @@
+[tool.uv.pip]
+# Let uv consider pre-releases when resolving dependencies for `uv pip ...`
+prerelease = "allow"
