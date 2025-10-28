@@ -271,7 +271,7 @@ class AGExperiment(Experiment):
         if _context is None:
             _context = globals()
         from tabarena.benchmark.models.model_registry import tabarena_model_registry
-        tabrepo_model_keys = tabarena_model_registry.keys
+        tabarena_model_keys = tabarena_model_registry.keys
 
         if "experiment_cls" in kwargs:
             kwargs["experiment_cls"] = eval(kwargs["experiment_cls"], _context)
@@ -281,7 +281,7 @@ class AGExperiment(Experiment):
                     hyperparameters = kwargs["fit_kwargs"]["hyperparameters"]
                     keys = list(hyperparameters.keys())
                     for model in keys:
-                        if model in tabrepo_model_keys:
+                        if model in tabarena_model_keys:
                             val = kwargs["fit_kwargs"]["hyperparameters"].pop(model)
                             kwargs["fit_kwargs"]["hyperparameters"][tabarena_model_registry.key_to_cls(model)] = val
         obj = cls(**kwargs)
@@ -417,7 +417,7 @@ class AGModelBagExperiment(AGModelExperiment):
         experiment_cls = OOFExperimentRunner
 
     All models fit this way will generate out-of-fold predictions on the entire training set,
-    and will be compatible with ensemble simulations in TabRepo.
+    and will be compatible with ensemble simulations in TabArena.
 
     Will fit the model with `num_bag_folds` folds and `num_bag_sets` sets (aka repeats).
     In total will fit `num_bag_folds * num_bag_sets` models in the bag.

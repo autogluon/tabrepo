@@ -78,7 +78,7 @@ setup(
             "nips2025_utils/metadata/task_metadata_tabarena51.csv",
         ],
     },
-    url="https://github.com/autogluon/tabrepo",
+    url="https://github.com/autogluon/tabarena",
     license="Apache-2.0",
     author="AutoGluon Community",
     install_requires=requirements,
