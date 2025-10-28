@@ -18,6 +18,7 @@ requirements = [
     "autorank==1.2.1",
     "seaborn==0.13.2",
     "matplotlib==3.9.2",
+    "kaleido",  # for winrate matrix
 ]
 
 extras_require = {
