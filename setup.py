@@ -20,7 +20,7 @@ requirements = [
     "seaborn==0.13.2",
     "matplotlib==3.10.1",
     "plotly>=6.3.0",
-    "kaleido",  # for winrate matrix
+    "kaleido>=0.2.1,<1",  # for winrate matrix
 ]
 
 extras_require = {
