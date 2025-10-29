@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing_extensions import Self
 
 from tabarena.nips2025_utils.artifacts.download_utils import download_and_extract_zip
 from tabarena.nips2025_utils.artifacts.method_metadata import MethodMetadata
@@ -23,6 +24,7 @@ class MethodArtifactManager:
     s3_bucket: str          # e.g., "my-bucket"
     s3_prefix: str          # e.g., "cache"
     upload_as_public: bool = False  # Whether the s3 upload will make files public readable
+    method_metadata: MethodMetadata | None = None
 
     def __post_init__(self):
         if not isinstance(self.path_suffix, Path):
@@ -35,6 +37,27 @@ class MethodArtifactManager:
             self.local_prefix = Path(self.local_prefix)
         # Normalize s3_prefix to avoid accidental '//' in keys
         self.s3_prefix = self.s3_prefix.strip("/")
+
+    @classmethod
+    def from_method_metadata(
+        cls,
+        method_metadata: MethodMetadata,
+        path_suffix: Path,
+        download_prefix: str,
+        local_prefix: Path,
+    ) -> Self:
+        return cls(
+            name=method_metadata.method,
+            artifact_name=method_metadata.artifact_name,
+            model_key=method_metadata.model_key,
+            s3_bucket=method_metadata.s3_bucket,
+            s3_prefix=method_metadata.s3_prefix,
+            upload_as_public=method_metadata.upload_as_public,
+            method_metadata=method_metadata,
+            path_suffix=path_suffix,
+            download_prefix=download_prefix,
+            local_prefix=local_prefix,
+        )
 
     @property
     def path_raw(self) -> Path:
@@ -72,6 +95,7 @@ class MethodArtifactManager:
         """
         e2e = EndToEndSingle.from_path_raw(
             path_raw=self.path_raw,
+            method_metadata=self.method_metadata,
             name=self.name,
             model_key=self.model_key,
             artifact_name=self.artifact_name,

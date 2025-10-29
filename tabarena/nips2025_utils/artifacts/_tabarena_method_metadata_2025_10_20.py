@@ -37,6 +37,20 @@ knn_metadata = MethodMetadata(
     has_processed=True,
     **_common_kwargs,
 )
+tabdpt_metadata = MethodMetadata(
+    method="TabDPT_GPU",
+    method_type="config",
+    compute="gpu",
+    date="2025-10-20",
+    ag_key="TABDPT",
+    model_key="TABDPT_GPU",
+    config_default="TabDPT_GPU_c1_BAG_L1",
+    can_hpo=True,
+    is_bag=False,
+    has_raw=True,
+    has_processed=True,
+    **_common_kwargs,
+)
 portfolio_metadata_paper_cr = MethodMetadata(
     method="Portfolio-N200-4h",
     method_type="portfolio",

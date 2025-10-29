@@ -21,7 +21,8 @@ from tabarena.nips2025_utils.artifacts._tabarena_method_metadata_2025_09_03 impo
 from tabarena.nips2025_utils.artifacts._tabarena_method_metadata_2025_10_20 import (
     lr_metadata,
     knn_metadata,
-    portfolio_metadata_paper_cr
+    tabdpt_metadata,
+    portfolio_metadata_paper_cr,
 )
 from tabarena.nips2025_utils.artifacts._tabarena_method_metadata_misc import (
     gbm_aio_0808_metadata
@@ -51,6 +52,7 @@ methods_misc: list[MethodMetadata] = [
 replaced_methods = [
     "ExplainableBM",
     "RealMLP_GPU",
+    "TabDPT_GPU",
 ]
 updated_methods_camera_ready = [
     "LinearModel",
@@ -67,12 +69,13 @@ tabarena_method_metadata_collection = MethodMetadataCollection(
     method_metadata_lst=methods_2025_06_12_keep +
                         methods_2025_09_03 +
                         methods_2025_10_20 +
+                        [tabdpt_metadata] +
                         methods_misc,
 )
 
 # All historical results for each method
 tabarena_method_metadata_complete_collection = MethodMetadataCollection(
-    method_metadata_lst=methods_2025_06_12 + methods_2025_09_03 + methods_2025_10_20 + methods_misc,
+    method_metadata_lst=methods_2025_06_12 + methods_2025_09_03 + methods_2025_10_20 + [tabdpt_metadata] + methods_misc,
 )
 
 # All historical results for each method
