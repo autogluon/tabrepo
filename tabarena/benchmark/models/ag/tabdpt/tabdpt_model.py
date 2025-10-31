@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 class TabDPTModel(AbstractModel):
     ag_key = "TABDPT"
     ag_name = "TabDPT"
+    seed_name = "seed"
+    default_random_seed = 0
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -52,8 +54,9 @@ class TabDPTModel(AbstractModel):
         )
 
         hps = self._get_model_params()
+        random_seed = hps.pop(self.seed_name, self.default_random_seed)
         self._predict_hps = {k: v for k, v in hps.items() if k in supported_predict_hps}
-        self._predict_hps["seed"] = self.random_seed
+        self._predict_hps["seed"] = random_seed
         X = self.preprocess(X)
         y = y.to_numpy()
         self.model = model_cls(
@@ -66,12 +69,6 @@ class TabDPTModel(AbstractModel):
             faiss_metric=hps.get("faiss_metric", "l2"),
         )
         self.model.fit(X=X, y=y)
-
-    def _get_random_seed_from_hyperparameters(
-        self, hyperparameters: dict
-    ) -> int | None | str:
-        return hyperparameters.get("seed", "N/A")
-
 
     @staticmethod
     def _use_flash() -> bool:

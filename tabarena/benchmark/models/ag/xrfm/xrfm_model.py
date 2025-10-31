@@ -190,6 +190,7 @@ class XRFMImplementation:
 class XRFMModel(AbstractModel):
     ag_key = "XRFM"
     ag_name = "xRFM"
+    seed_name = "random_state"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -304,7 +305,6 @@ class XRFMModel(AbstractModel):
             problem_type=self.problem_type,
             n_threads=num_cpus if num_gpus == 0 else 1,  # avoid VRAM leak
             device=device,
-            random_state=self.random_seed,
             time_limit_s=time_limit - (time.time() - start_time)
             if time_limit is not None
             else None,
@@ -384,11 +384,6 @@ class XRFMModel(AbstractModel):
             X[self._features_bool] = X[self._features_bool].astype("category")
 
         return X
-
-    def _get_random_seed_from_hyperparameters(
-        self, hyperparameters: dict
-    ) -> int | None | str:
-        return hyperparameters.get("random_state", "N/A")
 
     def _set_default_params(self):
         default_params = {
