@@ -230,6 +230,8 @@ class AGSingleBagWrapper(AGSingleWrapper):
 
     # TODO: Can avoid predicting on test twice by doing it all in one go
     def get_per_child_test(self, X_test: pd.DataFrame, model=None) -> list[np.ndarray]:
+        X_test = self.transform_X(X=X_test)
+
         if model is None:
             model = self._load_model()
         X_test_inner = self.predictor.transform_features(data=X_test, model=model.name)
