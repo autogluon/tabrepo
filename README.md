@@ -32,13 +32,13 @@ TabArena currently consists of:
 
 ## 🕹️ Quickstart Use Cases
 
-We share more details on various use cases of TabArena in our [examples/tabarena/README.md](examples/tabarena/README.md):
+We share more details on various use cases of TabArena in our [examples/README.md](examples/README.md):
 
-* 📊 **Benchmarking Predictive Machine Learning Models**: please refer to [examples/tabarena/benchmarking](examples/tabarena/benchmarking).
-* 🚀 **Using SOTA Tabular Models Benchmarked by TabArena**: please refer to [examples/tabarena/running_tabarena_models](examples/tabarena/running_tabarena_models).
-* 🗃️ **Analysing Metadata and Meta-Learning**: please refer to [examples/tabarena/meta](examples/tabarena/meta).
-* 📈 **Generating Plots and Leaderboards**: please refer to [examples/tabarena/plots_and_leaderboards](examples/tabarena/plots_and_leaderboards).
-* 🔁 **Reproducibility**: we share instructions for reproducibility in [examples/tabarena/README.md](examples/tabarena/README.md).
+* 📊 **Benchmarking Predictive Machine Learning Models**: please refer to [examples/benchmarking](examples/benchmarking).
+* 🚀 **Using SOTA Tabular Models Benchmarked by TabArena**: please refer to [examples/running_tabarena_models](examples/running_tabarena_models).
+* 🗃️ **Analysing Metadata and Meta-Learning**: please refer to [examples/meta](examples/meta).
+* 📈 **Generating Plots and Leaderboards**: please refer to [examples/plots_and_leaderboards](examples/plots_and_leaderboards).
+* 🔁 **Reproducibility**: we share instructions for reproducibility in [examples/README.md](examples/README.md).
 
 ### Datasets 
 Please refer to our [dataset curation repository](https://github.com/TabArena/tabarena_dataset_curation) to learn more about or contributed data! 
@@ -91,7 +91,7 @@ uv init -p 3.11
 uv sync
 git clone https://github.com/autogluon/tabarena.git
 uv pip install -e tabarena/[benchmark]
-cd examples/tabarena/benchmarking/ 
+cd examples/benchmarking/ 
 python run_quickstart_tabarena.py 
 ```
 
@@ -108,9 +108,9 @@ The types of artifacts are:
 5. Figures & Plots -> Generated from results and leaderboards.
 
 Examples of artifacts include:
-* **Raw data**: [examples/tabarena/meta/inspect_raw_data.py](examples/tabarena/meta/inspect_raw_data.py)
-* **Processed data**: [examples/tabarena/meta/inspect_processed_data.py](examples/tabarena/meta/inspect_processed_data.py)
-* **Results**: [examples/tabarena/plots/run_generate_main_leaderboard.py](examples/tabarena/plots/run_generate_main_leaderboard.py)
+* **Raw data**: [examples/meta/inspect_raw_data.py](examples/meta/inspect_raw_data.py)
+* **Processed data**: [examples/meta/inspect_processed_data.py](examples/meta/inspect_processed_data.py)
+* **Results**: [examples/plots/run_generate_main_leaderboard.py](examples/plots/run_generate_main_leaderboard.py)
 
 
 # 📄 Publication for TabArena
