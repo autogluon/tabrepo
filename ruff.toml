@@ -1,0 +1,123 @@
+# https://github.com/charliermarsh/ruff
+target-version = "py39"
+line-length = 120
+output-format = "full"
+src = ["examples"]
+
+[lint]
+# Extend what ruff is allowed to fix, even it it may break
+# This is okay given we use it all the time and it ensures
+# better practices. Would be dangerous if using for first
+# time on established project.
+extend-safe-fixes = ["ALL"]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+select = [
+    "A",
+    # "ANN", # Handled by mypy
+    "ARG",
+    "B",
+    "BLE",
+    "COM",
+    "C4",
+    "D",
+    # "DTZ",  # One day I should know how to utilize timezones and dates...
+    "E",
+    # "EXE", Meh
+    "ERA",
+    "F",
+    "FBT",
+    "I",
+    # "ISC",  # Favours implicit string concatenation
+    "INP",
+    # "INT", # I don't understand this one
+    "N",
+    "NPY",
+    "PD",
+    "PLC",
+    "PLE",
+    "PLR",
+    "PLW",
+    "PIE",
+    "PT",
+    "PTH",
+    # "PYI", # Specific to .pyi files for type stubs
+    "Q",
+    "PGH004",
+    "RET",
+    "RUF",
+    "C90",
+    "S",
+    # "SLF",    # Private member accessed (sure, it's python)
+    "SIM",
+    # "TRY", # Good in principle, would take a lot of work to statisfy
+    "T10",
+    "T20",
+    "TID",
+    "TCH",
+    "UP",
+    "N",
+    "W",
+    "YTT",
+]
+
+ignore = [
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic mthod
+    "D203", # 1 blank line required before class docstring
+    "D205", # 1 blank line between summary and description
+    "D401", # First line of docstring should be in imperative mood
+    "N806", # Variable X in function should be lowercase
+    "E731", # Do not assign a lambda expression, use a def
+    "A002", # Shadowing a builtin
+    "A003", # Shadowing a builtin
+    "S101", # Use of assert detected.
+    "W292", # No newline at end of file
+    "PLC1901", # "" can be simplified to be falsey
+    "TC003", # Move stdlib import into TYPE_CHECKING
+    "PLR2004", # Magic numbers, gets in the way a lot
+    "PLR0915", # Too many statements
+    "N803", # Argument name `X` should be lowercase
+    "N802", # Function name should be lowercase
+    "COM812", # Trailing comma missing (conflicts with formatter)
+    "T201", # Remove prints
+    "C408", # use of {} instead of dict
+]
+
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "docs",
+]
+
+[lint.isort]
+no-lines-before = ["future"]
+required-imports = ["from __future__ import annotations"]
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+force-wrap-aliases = true
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.pylint]
+max-args = 10
