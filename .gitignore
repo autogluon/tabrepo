@@ -133,3 +133,7 @@ data/results/*
 autogluon/
 .pkl
 .idea
+/examples/tabarena/task_cache/
+/examples/tabarena/experiments/
+/examples/tabarena/eval/
+/examples/tabarena/AutogluonModels/

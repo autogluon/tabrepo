@@ -19,7 +19,7 @@ def get_custom_classification_task(task_cache_dir: str) -> UserTask:
     """Example for defining a classification task/dataset."""
     # Create toy classification dataset
     X, y = make_classification(
-        n_samples=500,
+        n_samples=100,
         n_features=20,
         n_informative=10,
         n_classes=2,
@@ -28,8 +28,8 @@ def get_custom_classification_task(task_cache_dir: str) -> UserTask:
     X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
     y = pd.Series(y)
     # Add cat features
-    cats_1 = ["a"] * 25 * 5 + ["b"] * 25 * 5 + ["c"] * 25 * 5 + ["d"] * 25 * 5
-    cats_2 = ["x"] * 34 * 5 + ["y"] * 33 * 5 + ["z"] * 33 * 5
+    cats_1 = ["a"] * 25 + ["b"] * 25 + ["c"] * 25 + ["d"] * 25
+    cats_2 = ["x"] * 34 + ["y"] * 33 + ["z"] * 33
     # Add nan values
     cats_1[0] = np.nan
     cats_1[49] = np.nan
@@ -70,7 +70,7 @@ def get_custom_classification_task(task_cache_dir: str) -> UserTask:
 def get_custom_regression_task(task_cache_dir: str) -> UserTask:
     """Example for defining a custom regression task/dataset."""
     X, y = make_regression(
-        n_samples=500,
+        n_samples=100,
         n_features=20,
         n_informative=10,
         random_state=42,
@@ -78,8 +78,8 @@ def get_custom_regression_task(task_cache_dir: str) -> UserTask:
     X = pd.DataFrame(X, columns=[f"feature_{i}" for i in range(X.shape[1])])
     y = pd.Series(y)
     # Add cat features
-    cats_1 = ["a"] * 25 * 5 + ["b"] * 25 * 5 + ["c"] * 25 * 5 + ["d"] * 25 * 5
-    cats_2 = ["x"] * 34 * 5 + ["y"] * 33 * 5 + ["z"] * 33 * 5
+    cats_1 = ["a"] * 25 + ["b"] * 25 + ["c"] * 25 + ["d"] * 25
+    cats_2 = ["x"] * 34 + ["y"] * 33 + ["z"] * 33
     # Add nan values
     cats_1[0] = np.nan
     cats_1[49] = np.nan
@@ -141,8 +141,6 @@ if __name__ == "__main__":
     # This list of some methods we want fit sequentially on each task (dataset x fold)
     # Checkout the available models in tabarena.benchmark.models.utils.get_configs_generator_from_name
     model_names = [
-        "TabICL",
-        "RealMLP",
         "LightGBM",
         "RandomForest",
         "KNN",
@@ -154,7 +152,12 @@ if __name__ == "__main__":
     model_experiments = []
     for model_name in model_names:
         config_generator = get_configs_generator_from_name(model_name)
-        model_experiments.extend(config_generator.generate_all_bag_experiments(num_random_configs=num_random_configs))
+        model_experiments.extend(
+            config_generator.generate_all_bag_experiments(
+                num_random_configs=num_random_configs,
+                fold_fitting_strategy="sequential_local",
+            )
+        )
 
     results_lst = run_experiments_new(
         output_dir=tabarena_dir,
