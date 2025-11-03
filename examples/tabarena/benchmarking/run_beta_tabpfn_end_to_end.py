@@ -1,10 +1,9 @@
 from pathlib import Path
 
 from tabarena.nips2025_utils.artifacts.download_utils import download_and_extract_zip
-from tabarena.nips2025_utils.end_to_end_single import EndToEndSingle, EndToEndResultsSingle
+from tabarena.nips2025_utils.end_to_end_single import EndToEndResultsSingle, EndToEndSingle
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     method = "BetaTabPFN"
     path_raw = Path("local_data") / method
     fig_output_dir = Path("tabarena_figs") / method
@@ -26,7 +25,7 @@ if __name__ == '__main__':
     6. cache processed
     7. generate results
     8. cache results
-    
+
     Once this is executed once, it does not need to be ran again.
     """
     if cache:

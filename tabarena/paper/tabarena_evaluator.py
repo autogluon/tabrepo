@@ -547,10 +547,16 @@ class TabArenaEvaluator:
             winrate_matrix = tabarena.compute_winrate_matrix(results_per_task=_results_to_use_winrate_matrix)
             winrate_matrix.index = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.index]
             winrate_matrix.columns = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.columns]
-            tabarena.plot_winrate_matrix(
-                winrate_matrix=winrate_matrix,
-                save_path=str(Path(self.output_dir / f"winrate_matrix.{self.figure_file_type}")),
-            )
+            try:
+                tabarena.plot_winrate_matrix(
+                    winrate_matrix=winrate_matrix,
+                    save_path=str(Path(self.output_dir / f"winrate_matrix.{self.figure_file_type}")),
+                )
+            except RuntimeError as e:
+                print(
+                    "Warning: RuntimeError encountered during winrate matrix plotting. "
+                    "This likely means the CLI does not have access to the correct Chromium version..."
+                )
 
             try:
                 tabarena.plot_critical_diagrams(

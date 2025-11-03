@@ -5,7 +5,6 @@ import pandas as pd
 from tabarena import EvaluationRepository
 from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
 
-
 """
 TabArena Processed-Artifact Quickstart
 =====================================
@@ -114,8 +113,7 @@ if __name__ == "__main__":
 
     config_types = repo.config_types()
     assert len(config_types) == 1, (
-        f"There should be exactly 1 config_type for method "
-        "{method_metadata.method}: {config_types}"
+        f"There should be exactly 1 config_type for method {{method_metadata.method}}: {{config_types}}"
     )
     repo_config_type = config_types[0]
     if repo_config_type != method_metadata.config_type:

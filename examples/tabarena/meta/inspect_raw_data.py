@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 from numpy.testing import assert_array_equal
 
-from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
 from tabarena.benchmark.result import AGBagResult
 from tabarena.benchmark.task.openml import OpenMLTaskWrapper
+from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
 
 """
 TabArena → OpenML Split Verification Script
@@ -91,12 +91,10 @@ if __name__ == "__main__":
 
         # Basic metadata consistency checks (problem type & label/target).
         assert task.problem_type == task_result.problem_type, (
-            f"Problem type mismatch for task_id={task_id}: "
-            f"{task.problem_type=} vs {task_result.problem_type=}"
+            f"Problem type mismatch for task_id={task_id}: {task.problem_type=} vs {task_result.problem_type=}"
         )
         assert task.label == task_result.label, (
-            f"Label/target mismatch for task_id={task_id}: "
-            f"{task.label=} vs {task_result.label=}"
+            f"Label/target mismatch for task_id={task_id}: {task.label=} vs {task_result.label=}"
         )
 
         # Split alignment checks: TabArena recorded indices must match OpenML's reference.

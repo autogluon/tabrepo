@@ -13,8 +13,8 @@
 
 ---
 
-| 🚀 [Leaderboard](https://huggingface.co/spaces/TabArena/leaderboard) | 📂 [Example Scripts](https://github.com/TabArena/tabarena_benchmarking_examples/tree/main) | 📊 [Dataset Curation](https://github.com/TabArena/tabarena_dataset_curation) | 📄 [ArXiv Paper](https://arxiv.org/abs/2506.16791) |
-|:-------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
+| 🚀 [Leaderboard](https://tabarena.ai/) | 📂 [Example Scripts]( https://tabarena.ai/code-examples) | 📊 [Dataset Curation](https://tabarena.ai/data-tabular-ml-iid-study) | 📄 [Paper](https://tabarena.ai/paper-tabular-ml-iid-study) |
+|:--------------------------------------:|:----------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
 
 ---
 </div>
@@ -30,20 +30,18 @@ TabArena currently consists of:
 - A [live TabArena leaderboard](https://huggingface.co/spaces/TabArena/leaderboard) showcasing the results.
 
 
-## 🕹️ Quickstart
+## 🕹️ Quickstart Use Cases
 
-### Benchmarking and Running TabArena Models
-Please refer to our [example scripts](https://github.com/TabArena/tabarena_benchmarking_examples/tree/main) for using TabArena.
+We share more details on various use cases of TabArena in our [examples/tabarena/README.md](examples/tabarena/README.md):
+
+* 📊 **Benchmarking Predictive Machine Learning Models**: please refer to [examples/tabarena/benchmarking](examples/tabarena/benchmarking).
+* 🚀 **Using SOTA Tabular Models Benchmarked by TabArena**: please refer to [examples/tabarena/running_tabarena_models](examples/tabarena/running_tabarena_models).
+* 🗃️ **Analysing Metadata and Meta-Learning**: please refer to [examples/tabarena/meta](examples/tabarena/meta).
+* 📈 **Generating Plots and Leaderboards**: please refer to [examples/tabarena/plots_and_leaderboards](examples/tabarena/plots_and_leaderboards).
+* 🔁 **Reproducibility**: we share instructions for reproducibility in [examples/tabarena/README.md](examples/tabarena/README.md).
 
 ### Datasets 
 Please refer to our [dataset curation repository](https://github.com/TabArena/tabarena_dataset_curation) to learn more about or contributed data! 
-
-### Evaluation & Reproducing Results
-To locally reproduce individual configurations and compare with the TabArena results of those configurations, refer to [examples/tabarena/run_quickstart_tabarena.py](examples/tabarena/run_quickstart_tabarena.py).
-
-To locally reproduce all tables and figures in the paper using the raw results data, run [examples/tabarena/run_generate_paper_figures.py](examples/tabarena/run_generate_paper_figures.py)
-
-To locally generate the latest results leaderboard, run [examples/tabarena/run_generate_main_leaderboard.py](examples/tabarena/run_generate_main_leaderboard.py)
 
 ### More Documentation
 TabArena code is currently being polished. Detailed Documentation for TabArena will be available soon.
@@ -52,7 +50,7 @@ TabArena code is currently being polished. Detailed Documentation for TabArena w
 
 To install TabArena, ensure you are using Python 3.9-3.12. Then, run the following:
 
-## Evaluation (Leaderboard / Metrics)
+### Evaluation (Leaderboard / Metrics)
 
 If you don't intend to fit models, this is the simplest installation.
 
@@ -61,7 +59,7 @@ git clone https://github.com/autogluon/tabarena.git
 pip install -e tabarena/
 ```
 
-## Benchmark (Fitting Models)
+### Benchmark (Fitting Models)
 
 If you intend to fit models, this is required.
 
@@ -73,7 +71,7 @@ pip install -e tabarena/[benchmark]
 # GIT_LFS_SKIP_SMUDGE=1 uv pip install -e tabarena/[benchmark]
 ```
 
-## Developer Install
+### Developer Install
 
 With this installation, you will have the latest version of AutoGluon in editable form.
 
@@ -85,7 +83,7 @@ git clone https://github.com/autogluon/tabarena.git
 pip install -e tabarena/[benchmark]
 ```
 
-## Example Install + Run
+### Example Install + Run
 
 ```
 pip install uv
@@ -93,9 +91,8 @@ uv init -p 3.11
 uv sync
 git clone https://github.com/autogluon/tabarena.git
 uv pip install -e tabarena/[benchmark]
-git clone git@github.com:TabArena/tabarena_benchmarking_examples.git
-cd tabarena_benchmarking_examples/tabarena_minimal_example/custom_tabarena_model 
-python run_tabarena_lite.py 
+cd examples/tabarena/benchmarking/ 
+python run_quickstart_tabarena.py 
 ```
 
 # Downloading and using TabArena Artifacts
@@ -110,17 +107,11 @@ The types of artifacts are:
 4. Leaderboards -> Aggregated metrics comparing methods. Contains information such as ELO, win-rate, average rank, and improvability. Generated from a list of results files. Under 1 MB for all methods.
 5. Figures & Plots -> Generated from results and leaderboards.
 
-## Raw Data
+Examples of artifacts include:
+* **Raw data**: [examples/tabarena/meta/inspect_raw_data.py](examples/tabarena/meta/inspect_raw_data.py)
+* **Processed data**: [examples/tabarena/meta/inspect_processed_data.py](examples/tabarena/meta/inspect_processed_data.py)
+* **Results**: [examples/tabarena/plots/run_generate_main_leaderboard.py](examples/tabarena/plots/run_generate_main_leaderboard.py)
 
-Refer to [examples/tabarena/inspect_raw_data.py](examples/tabarena/inspect_raw_data.py)
-
-## Processed Data
-
-Refer to [examples/tabarena/inspect_processed_data.py](examples/tabarena/inspect_processed_data.py)
-
-## Results
-
-Instructions TBD
 
 # 📄 Publication for TabArena
 
@@ -130,6 +121,7 @@ If you use TabArena in a scientific publication, we would appreciate a reference
 Nick Erickson, Lennart Purucker, Andrej Tschalzev, David Holzmüller, Prateek Mutalik Desai, David Salinas, Frank Hutter, Preprint., 2025
 
 Link to publication: [arXiv](https://arxiv.org/abs/2506.16791)
+Link to NeurIPS'2025: [Conference Poster and Video](https://neurips.cc/virtual/2025/loc/san-diego/poster/121499)
 
 Bibtex entry:
 ```bibtex

@@ -47,6 +47,13 @@ def add_seed_logic(config: dict, random_seed: int, vary_seed_across_folds: bool)
     config["ag_args_ensemble"]["vary_seed_across_folds"] = vary_seed_across_folds
     return config
 
+def add_fold_fitting_strategy(config: dict, fold_fitting_strategy: str) -> dict:
+    config = copy.deepcopy(config)
+    if "ag_args_ensemble" not in config:
+        config["ag_args_ensemble"] = {}
+    config["ag_args_ensemble"]["fold_fitting_strategy"] = fold_fitting_strategy
+    return config
+
 def get_random_searcher(search_space):
     searcher = LocalRandomSearcher(search_space=search_space)
     searcher.get_config()  # Clean out default
@@ -98,6 +105,7 @@ class AGConfigGenerator(AbstractConfigGenerator):
         name_id_suffix: str = "",
         add_seed: Literal["static", "fold-wise", "fold-config-wise"] = "static",
         method_kwargs: dict | None = None,
+        fold_fitting_strategy: None | Literal["sequential_local"] = None,
         **kwargs,
     ) -> list:
         """Generate experiments with bagging models for the search space.
@@ -118,9 +126,21 @@ class AGConfigGenerator(AbstractConfigGenerator):
             Additional keyword arguments to pass to the `generate_bag_experiments`
             function. For example, you can modify the init kwargs of TabularPredictor
             runner by `method_kwargs=dict(init_kwargs=dict(path="./my_custom_path"))`
+        fold_fitting_strategy: None | {"sequential_local"}
+            If specified, this fitting strategy will be added to each configuration.
+            It is highly recommended to use "sequential_local" when testing or running
+            locally without good CPUs for parallelism.
         """
         configs = self.generate_all_configs_lst(num_random_configs=num_random_configs, name_id_suffix=name_id_suffix)
-        experiments = generate_bag_experiments(model_cls=self.model_cls, configs=configs, name_suffix_from_ag_args=True, add_seed=add_seed, method_kwargs=method_kwargs, **kwargs)
+        experiments = generate_bag_experiments(
+            model_cls=self.model_cls,
+            configs=configs,
+            name_suffix_from_ag_args=True,
+            add_seed=add_seed,
+            method_kwargs=method_kwargs,
+            fold_fitting_strategy=fold_fitting_strategy,
+            **kwargs
+        )
         return experiments
 
 
@@ -185,6 +205,7 @@ def generate_bag_experiments(
     name_bag_suffix: str = "_BAG_L1",
     add_name_suffix_to_params: bool = True,
     add_seed: Literal["static", "fold-wise", "fold-config-wise"] = "static",
+    fold_fitting_strategy: None | Literal["sequential_local"] = None,
     **kwargs,
 ) -> list[AGModelBagExperiment]:
     experiments = []
@@ -211,6 +232,11 @@ def generate_bag_experiments(
         raise ValueError(
             f"Invalid add_seed value: {add_seed}. Choose from 'static', 'fold-wise', or 'fold-config-wise'."
         )
+    if fold_fitting_strategy is not None:
+        configs = [
+            add_fold_fitting_strategy(config=config, fold_fitting_strategy=fold_fitting_strategy)
+            for config in configs
+        ]
 
     for i, config in enumerate(configs):
         if name_suffix_from_ag_args:

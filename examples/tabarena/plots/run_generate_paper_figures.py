@@ -3,17 +3,16 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from tabarena.nips2025_utils.tabarena_context import TabArenaContext
+from advanced.run_plot_pareto_over_tuning_time import plot_pareto_n_configs
+
 from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
 from tabarena.nips2025_utils.artifacts._tabarena_method_metadata import (
-    tabarena_method_metadata_2025_06_12_collection_main,
     tabarena_method_metadata_2025_06_12_collection_gpu_ablation,
+    tabarena_method_metadata_2025_06_12_collection_main,
 )
+from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 
-from advanced.rebuttal.run_plot_pareto_over_tuning_time import plot_pareto_n_configs
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     download_results: bool | str = "auto"  # results must be downloaded for the script to work
     elo_bootstrap_rounds = 200  # 1 for toy, 200 for paper
     save_path = "output_paper_results"  # folder to save all figures and tables
@@ -86,7 +85,8 @@ if __name__ == '__main__':
     configs_hyperparameters = tabarena_context.load_configs_hyperparameters(download=download_results)
 
     tabarena_context_all = TabArenaContext(
-        methods=tabarena_context.method_metadata_collection.method_metadata_lst + tabarena_context_cpu.method_metadata_collection.method_metadata_lst
+        methods=tabarena_context.method_metadata_collection.method_metadata_lst
+        + tabarena_context_cpu.method_metadata_collection.method_metadata_lst
     )
 
     if plot_n_configs:
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     if zip_results:
         file_prefix = f"tabarena51_paper_results"
         file_name = f"{file_prefix}.zip"
-        shutil.make_archive(file_prefix, 'zip', root_dir=save_path)
+        shutil.make_archive(file_prefix, "zip", root_dir=save_path)
         if upload_to_s3:
             from autogluon.common.utils.s3_utils import upload_file
             upload_file(file_name=file_name, bucket="tabarena", prefix=save_path)

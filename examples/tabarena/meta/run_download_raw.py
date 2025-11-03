@@ -13,7 +13,7 @@ from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 This is an example script showcasing how to access the different types of artifacts in TabArena.
 Running this script without edits will download all artifacts in TabArena, requiring ~1 TB of disk space.
 """
-if __name__ == '__main__':
+if __name__ == "__main__":
     tabarena_context = TabArenaContext()
     method_metadata_lst: list[MethodMetadata] = tabarena_context.method_metadata_collection.method_metadata_lst
 
