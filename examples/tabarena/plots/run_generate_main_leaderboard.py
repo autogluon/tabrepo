@@ -5,8 +5,7 @@ from pathlib import Path
 from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 from tabarena.tabarena.website_format import format_leaderboard
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     save_path = "output_leaderboard"  # folder to save all figures and tables
 
     output_path_verified = Path(save_path) / "verified"
