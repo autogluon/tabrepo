@@ -32,13 +32,13 @@ TabArena currently consists of:
 
 ## 🕹️ Quickstart Use Cases
 
-We share more details on various use cases of TabArena in our [examples/README.md](examples/README.md):
+We share more details on various use cases of TabArena in our [examples](examples):
 
 * 📊 **Benchmarking Predictive Machine Learning Models**: please refer to [examples/benchmarking](examples/benchmarking).
 * 🚀 **Using SOTA Tabular Models Benchmarked by TabArena**: please refer to [examples/running_tabarena_models](examples/running_tabarena_models).
 * 🗃️ **Analysing Metadata and Meta-Learning**: please refer to [examples/meta](examples/meta).
 * 📈 **Generating Plots and Leaderboards**: please refer to [examples/plots_and_leaderboards](examples/plots_and_leaderboards).
-* 🔁 **Reproducibility**: we share instructions for reproducibility in [examples/README.md](examples/README.md).
+* 🔁 **Reproducibility**: we share instructions for reproducibility in [examples](examples).
 
 ### Datasets 
 Please refer to our [dataset curation repository](https://github.com/TabArena/tabarena_dataset_curation) to learn more about or contributed data! 
