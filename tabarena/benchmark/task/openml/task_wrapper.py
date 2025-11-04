@@ -39,6 +39,15 @@ class OpenMLTaskWrapper:
     def dataset_id(self) -> int:
         return self.task.dataset_id
 
+    @property
+    def eval_metric(self) -> str:
+        metric_map = {
+            "binary": "roc_auc",
+            "multiclass": "log_loss",
+            "regression": "root_mean_squared_error",
+        }
+        return metric_map[self.problem_type]
+
     def get_split_dimensions(self) -> tuple[int, int, int]:
         n_repeats, n_folds, n_samples = self.task.get_split_dimensions()
         return n_repeats, n_folds, n_samples

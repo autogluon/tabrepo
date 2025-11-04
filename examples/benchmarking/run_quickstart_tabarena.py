@@ -24,6 +24,7 @@ if __name__ == '__main__':
     folds = [0]
 
     # import your model classes
+    from tabarena.benchmark.models.ag import RealMLPModel
     from autogluon.tabular.models import LGBModel
 
     # This list of methods will be fit sequentially on each task (dataset x fold)
@@ -41,6 +42,13 @@ if __name__ == '__main__':
             },  # The non-default model hyperparameters.
             num_bag_folds=8,  # num_bag_folds=8 was used in the TabArena 2025 paper
             time_limit=3600,  # time_limit=3600 was used in the TabArena 2025 paper
+        ),
+        AGModelBagExperiment(
+            name="RealMLP_c1_BAG_L1_Reproduced",
+            model_cls=RealMLPModel,
+            model_hyperparameters={},
+            num_bag_folds=8,
+            time_limit=3600,
         ),
     ]
 
