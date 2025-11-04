@@ -16,7 +16,6 @@ predictor = TabularPredictor(
 
 predictor = predictor.fit(
     train_data=train_data,
-    tuning_data=test_data,
     # presets="best",  # uncomment for a longer run
 )
 
