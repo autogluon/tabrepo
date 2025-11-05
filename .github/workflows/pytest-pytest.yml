@@ -47,8 +47,6 @@ jobs:
           uv pip install --system --upgrade setuptools wheel
 
           # Allow prerelease versions of AutoGluon
-          # uv pip install --system --prerelease=allow autogluon
-
           # Install your package in editable/develop mode
           uv pip install --system --prerelease=allow -e .
 
