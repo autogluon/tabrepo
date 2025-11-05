@@ -24,15 +24,15 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install common gcc dependencies
-        run: |
-          sudo apt update
-          sudo apt install libcppunit-dev cmake -y
-          cmake --version
-
-      - name: Print gcc version
-        run: |
-          gcc --version
+#      - name: Install common gcc dependencies
+#        run: |
+#          sudo apt update
+#          sudo apt install libcppunit-dev cmake -y
+#          cmake --version
+#
+#      - name: Print gcc version
+#        run: |
+#          gcc --version
 
       # Install uv directly from Astral’s installer
       - name: Install uv
