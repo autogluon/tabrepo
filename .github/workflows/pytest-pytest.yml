@@ -47,10 +47,10 @@ jobs:
           uv pip install --system --upgrade setuptools wheel
 
           # Allow prerelease versions of AutoGluon
-          uv pip install --system --prerelease=allow autogluon
+          # uv pip install --system --prerelease=allow autogluon
 
           # Install your package in editable/develop mode
-          uv pip install --system --editable . --prerelease=allow
+          uv pip install --system --prerelease=allow -e .
 
           # Optional tools
           uv pip install flake8 pytest
