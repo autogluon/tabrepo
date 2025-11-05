@@ -8,10 +8,8 @@ from autogluon.common.loaders import load_pd
 import tabarena
 
 
-def _get_n_repeats(n_instances: int) -> int:
-    """
-    Get the number of n_repeats for the full benchmark run based on the 2025 paper.
-    If < 2500 samples, n_repeats = 10, else n_repeats = 3
+def _get_n_repeats(n_instances: int, tabarena_lite: bool = False) -> int:
+    """Get the number of n_repeats for the full benchmark run based on the 2025 paper.
 
     Parameters
     ----------
@@ -21,11 +19,16 @@ def _get_n_repeats(n_instances: int) -> int:
     -------
     n_repeats: int
     """
-    if n_instances < 2500:
-        n_repeats = 10
+    if tabarena_lite:
+        return 1
+
+    if n_instances < 2_500:
+        tabarena_repeats = 10
+    elif n_instances > 250_000:
+        tabarena_repeats = 1
     else:
-        n_repeats = 3
-    return n_repeats
+        tabarena_repeats = 3
+    return tabarena_repeats
 
 
 def load_task_metadata(paper: bool = True, subset: str = None, path: str = None) -> pd.DataFrame:
@@ -83,3 +86,34 @@ def load_task_metadata(paper: bool = True, subset: str = None, path: str = None)
         raise AssertionError(f"Unknown subset: {subset}")
 
     return task_metadata
+
+
+def load_curated_task_metadata() -> pd.DataFrame:
+    """Load the curated metadata for the TabArena datasets.
+
+    Original file (and future version), can be found here: https://github.com/TabArena/tabarena_dataset_curation/tree/main/dataset_creation_scripts/metadata
+
+    The metadata requires the following columns per task (per row) to schedule tasks:
+        "tabarena_num_repeats": int
+            The number of repeats for the task based on the protocol from TabArena.
+            See tabarena.nips2025_utils.fetch_metadata._get_n_repeats for details.
+        "num_folds": int
+            The number of folds for the task.
+        "task_id": str
+            The task ID for the task as an int.
+            If a local task, we assume this to be `UserTask.task_id_str`.
+        "num_instances": int
+            The number of instances/samples in the dataset.
+        "num_features" : int
+            The number of features in the dataset.
+        "num_classes": int
+            The number of classes in the dataset. For regression tasks, this value is
+            ignored.
+        "problem_type": str
+            The problem type of the task. Options: "binary", "regression", "multiclass"
+    """
+    path = str(Path(tabarena.__file__).parent / "metadata" / "curated_tabarena_dataset_metadata.csv")
+
+    return load_pd.load(path=path)
+
+
