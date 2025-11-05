@@ -139,3 +139,5 @@ autogluon/
 /examples/**/AutogluonModels/
 /examples/benchmarking/custom_tabarena_model/evals/
 /examples/benchmarking/custom_tabarena_model/tabarena_out/
+/examples/benchmarking/eval/
+/examples/benchmarking/experiments/
