@@ -53,7 +53,7 @@ jobs:
           uv pip install --system --prerelease=allow -e .
 
           # Optional tools
-          uv pip install flake8 pytest
+          uv pip install --system flake8 pytest
 
       - name: Test with pytest
         run: |
