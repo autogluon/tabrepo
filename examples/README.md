@@ -26,7 +26,8 @@ TabArena's data.
   - `run_quickstart_tabarena.py` - Reproduce running LightGBM and RealMLP on three datasets from TabArena
   - `custom_tabarena_model/` - Implement your own model for TabArena and benchmark it on TabArena-Lite 
   - `run_get_tabarena_datasets_from_openml.py` - Get the data used by TabArena from OpenML, without the TabArena framework
-  - `run_quickstart_tabarena_custom_dataset.py` - Benchmarking models with TabArena on your custom (private) dataset(s): 
+  - `run_quickstart_tabarena_custom_datasets.py` - Benchmarking models with TabArena on your custom (private) datasets.
+  - `run_quickstart_tabarena_one_datasets.py` - Benchmarking and evaluating models with TabArena on one dataset.
   -  `run_beta_tabpfn_end_to_end.py` - An example of how to load and compare new results artifacts using TabArena. 
 
 ### 🚀 Using SOTA Tabular Models Benchmarked by TabArena
