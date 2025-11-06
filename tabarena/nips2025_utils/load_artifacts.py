@@ -1,14 +1,30 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pickle
 
-from autogluon.common.loaders import load_pkl
 from tabarena.benchmark.result import AGBagResult, BaselineResult
 from tabarena.utils.parallel_for import parallel_for
 
 
+# TODO: This is a hack to ensure old result artifacts still load properly after renaming tabrepo to tabarena.
+# TODO: We should ensure all artifacts are saved as a dictionary so this doesn't need to be here.
+class _RenameUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module.startswith("tabrepo"):
+            module = module.replace("tabrepo", "tabarena", 1)
+        return super().find_class(module, name)
+
+
+def _rename_load(file_obj):
+    return _RenameUnpickler(file_obj).load()
+
+
 def load_and_align(path, convert_to_holdout: bool = False) -> BaselineResult:
-    data: dict | BaselineResult = load_pkl.load(path)
+    with open(path, "rb") as f:
+        data: dict | BaselineResult = _rename_load(f)
+        # data: dict | BaselineResult = pickle.load(f)  # TODO: Use this once all the legacy artifacts are fixed
+
     data_aligned = BaselineResult.from_dict(data)
     if convert_to_holdout:
         return result_to_holdout(result=data_aligned)
