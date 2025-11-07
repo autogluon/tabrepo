@@ -330,6 +330,9 @@ class TabArenaEvaluator:
         df_results_rank_compare = copy.deepcopy(df_results)
         df_results_unfiltered = copy.deepcopy(df_results)
 
+        # FIXME: create an "official" output CSV with results per fold per dataset per method
+        df_results_unfiltered.to_csv(self.output_dir / "df_results_unfiltered.csv")
+
         # FIXME: (Nick) Unsure which form of the df should go in here?
         # David H: doesn't matter since results are not relative to other methods in the df
         if only_datasets_for_method is not None and plot_times:
