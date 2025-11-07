@@ -98,14 +98,6 @@ def get_search_space_new(model_cls: RealTabPFNv25Model) -> dict:
         ),
     }
 
-    search_space["classification_model_path"] = hp.choice(
-        "classification_model_path",
-        [
-            model_cls.default_classification_model,
-            *model_cls.extra_checkpoints_for_tuning("classification"),
-        ],
-    )
-
     # Zip model paths to ensure configs are not generated that only differ in combination
     clf_models = model_cls.extra_checkpoints_for_tuning("classification")
     reg_models = model_cls.extra_checkpoints_for_tuning("regression")

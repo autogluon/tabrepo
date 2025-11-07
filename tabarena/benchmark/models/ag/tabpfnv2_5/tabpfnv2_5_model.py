@@ -16,8 +16,10 @@ logger = logging.getLogger(__name__)
 _HAS_LOGGED_TABPFN_LICENSE: bool = False
 
 
-class RealTabPFNv25Model(AbstractModel):
+class TabPFNModel(AbstractModel):
     """TabPFN-2.5 is a tabular foundation model that is developed and maintained by PriorLabs: https://priorlabs.ai/.
+
+    This class is an abstract template for various TabPFN versions as subclasses.
 
     Paper: Accurate predictions on small data with a tabular foundation model
     Authors: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister & Frank Hutter
@@ -25,14 +27,14 @@ class RealTabPFNv25Model(AbstractModel):
     License: https://github.com/PriorLabs/TabPFN/blob/main/LICENSE
     """
 
-    ag_key = "REALTABPFN-V2.5"
-    ag_name = "RealTabPFN-v2.5"
+    ag_key = "NOTSET"
+    ag_name = "NOTSET"
     ag_priority = 105
     seed_name = "random_state"
 
     custom_model_dir: str | None = None
-    default_classification_model: str | None = "tabpfn-v2.5-classifier-v2.5_default.ckpt"
-    default_regression_model: str | None = "tabpfn-v2.5-regressor-v2.5_default.ckpt"
+    default_classification_model: str | None = "NOTSET"
+    default_regression_model: str | None = "NOTSET"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -245,7 +247,9 @@ class RealTabPFNv25Model(AbstractModel):
         model_mem = 14489108  # Based on TabPFNv2 default
 
         n_samples, n_features = X.shape[0], min(X.shape[1], 500)
-        n_feature_groups = (n_features)/features_per_group + 1  # TODO: Unsure how to calculate this
+        n_feature_groups = (
+            n_features
+        ) / features_per_group + 1  # TODO: Unsure how to calculate this
 
         X_mem = n_samples * n_feature_groups * dtype_byte_size
         activation_mem = (
@@ -265,6 +269,27 @@ class RealTabPFNv25Model(AbstractModel):
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
+
+    @staticmethod
+    def extra_checkpoints_for_tuning(problem_type: str) -> list[str]:
+        raise NotImplementedError("This method must be implemented in the subclass.")
+
+
+class RealTabPFNv25Model(TabPFNModel):
+    """RealTabPFN-v2.5 version: https://priorlabs.ai/technical-reports/tabpfn-2-5-model-report.
+
+    We name this model RealTabPFN-v2.5 as its default checkpoints were trained on
+    real-world datasets, following the naming conventions of Prior Labs.
+    The extra checkpoints include models trained on only synthetic datasets as well.
+    """
+
+    ag_key = "REALTABPFN-V2.5"
+    ag_name = "RealTabPFN-v2.5"
+
+    default_classification_model: str | None = (
+        "tabpfn-v2.5-classifier-v2.5_default.ckpt"
+    )
+    default_regression_model: str | None = "tabpfn-v2.5-regressor-v2.5_default.ckpt"
 
     @staticmethod
     def extra_checkpoints_for_tuning(problem_type: str) -> list[str]:

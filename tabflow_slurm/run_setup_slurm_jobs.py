@@ -6,12 +6,13 @@ from tabflow_slurm.setup_slurm_base import BenchmarkSetup
 
 # --- Benchmark TabPFN-2.5 (07/11/2025)
 BenchmarkSetup(
-    benchmark_name="tabpfnv25_output_07112025",
+    benchmark_name="tabpfnv25_tuning_07112025",
     models=[
         # Model name, number of configs / "all" for the maximum
-        ("RealTabPFN-v2.5", 0),
+        ("RealTabPFN-v2.5", 50),
     ],
     num_gpus=1,
+    tabarena_lite=True,
     custom_model_constraints={
         "REALTABPFN-V2.5": {
             "max_n_samples_train_per_fold": 50_000,
