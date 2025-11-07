@@ -6,7 +6,7 @@ import numpy as np
 from hyperopt import hp
 from hyperopt.pyll import stochastic
 
-from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNV25Model
+from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNv25Model
 from tabarena.utils.config_utils import CustomAGConfigGenerator
 
 
@@ -49,7 +49,7 @@ def enumerate_preprocess_transforms():
     return transforms
 
 
-def get_search_space_new(model_cls: RealTabPFNV25Model) -> dict:
+def get_search_space_new(model_cls: RealTabPFNv25Model) -> dict:
     """Generate the full hyperopt search space for TabPFN optimization.
 
     Returns:
@@ -141,7 +141,7 @@ def prepare_tabpfnv2_config(raw_config: dict) -> dict:
 
 
 def search_space_func_new(
-    num_random_configs: int = 200, seed=1234, model_cls: RealTabPFNV25Model = None
+    num_random_configs: int = 200, seed=1234, model_cls: RealTabPFNv25Model = None
 ) -> list[dict]:
     if model_cls is None:
         raise ValueError("model_cls must be provided!")
@@ -155,8 +155,8 @@ def search_space_func_new(
 
 
 gen_realtabpfnv25 = CustomAGConfigGenerator(
-    model_cls=RealTabPFNV25Model,
-    search_space_func=partial(search_space_func_new, model_cls=RealTabPFNV25Model),
+    model_cls=RealTabPFNv25Model,
+    search_space_func=partial(search_space_func_new, model_cls=RealTabPFNv25Model),
     manual_configs=[{}],
 )
 

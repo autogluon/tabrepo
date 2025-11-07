@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 _HAS_LOGGED_TABPFN_LICENSE: bool = False
 
 
-class RealTabPFNV25Model(AbstractModel):
+class RealTabPFNv25Model(AbstractModel):
     """TabPFN-2.5 is a tabular foundation model that is developed and maintained by PriorLabs: https://priorlabs.ai/.
 
     Paper: Accurate predictions on small data with a tabular foundation model
@@ -25,11 +25,11 @@ class RealTabPFNV25Model(AbstractModel):
     License: https://github.com/PriorLabs/TabPFN/blob/main/LICENSE
     """
 
-    ag_key = "TABPFNV-2.5"
-    ag_name = "TabPFN-2.5"
+    ag_key = "REALTABPFN-V2.5"
+    ag_name = "RealTabPFN-v2.5"
     ag_priority = 105
     custom_model_dir: str | None = None
-    default_classification_model: str | None = "tabpfn-v2-classifier.ckpt"
+    default_classification_model: str | None = "tabpfn-v2.5-classifier-v2.5_default.ckpt"
     default_regression_model: str | None = "tabpfn-v2.5-regressor-v2.5_default.ckpt"
 
     def __init__(self, **kwargs):

@@ -9,7 +9,7 @@ from tabarena.benchmark.models.ag import (
     KNNNewModel,
     ModernNCAModel,
     RealMLPModel,
-    RealTabPFNV25Model,
+    RealTabPFNv25Model,
     TabDPTModel,
     TabICLModel,
     TabMModel,
@@ -27,7 +27,7 @@ _models_to_add = [
     ModernNCAModel,
     XRFMModel,
     KNNNewModel,
-    RealTabPFNV25Model,
+    RealTabPFNv25Model,
 ]
 
 for _model_cls in _models_to_add:

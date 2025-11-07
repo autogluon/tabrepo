@@ -7,7 +7,7 @@ from tabarena.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
 from tabarena.benchmark.models.ag.tabdpt.tabdpt_model import TabDPTModel
 from tabarena.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
 from tabarena.benchmark.models.ag.tabm.tabm_model import TabMModel
-from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNV25Model
+from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNv25Model
 from tabarena.benchmark.models.ag.xrfm.xrfm_model import XRFMModel
 
 __all__ = [
@@ -15,7 +15,7 @@ __all__ = [
     "KNNNewModel",
     "ModernNCAModel",
     "RealMLPModel",
-    "RealTabPFNV25Model",
+    "RealTabPFNv25Model",
     "TabDPTModel",
     "TabICLModel",
     "TabMModel",
