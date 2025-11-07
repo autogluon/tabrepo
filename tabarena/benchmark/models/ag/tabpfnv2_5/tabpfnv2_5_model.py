@@ -191,7 +191,7 @@ class RealTabPFNv25Model(AbstractModel):
         default_auxiliary_params = super()._get_default_auxiliary_params()
         default_auxiliary_params.update(
             {
-                "max_rows": 50000,
+                "max_rows": 50_000,
                 "max_features": 2000,
                 "max_classes": 10,
             }
@@ -235,6 +235,7 @@ class RealTabPFNv25Model(AbstractModel):
 
         This is based on GPU memory usage, but hopefully with overheads it also approximates CPU memory usage.
         """
+        # TODO: update, this is not correct anymore, consider using internal TabPFN functions directly.
         # features_per_group = 2  # Based on TabPFNv2 default (unused)
         n_layers = 12  # Based on TabPFNv2 default
         embedding_size = 192  # Based on TabPFNv2 default

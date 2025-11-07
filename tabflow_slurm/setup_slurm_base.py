@@ -68,7 +68,7 @@ class BenchmarkSetup:
     """YAML file with the configs to run. Generated from parameters above in code below.
     File path is f"{self.base_path}{self.configs_path_from_base_path}{self.benchmark_name}.yaml"
     """
-    slurm_script: str = "submit_template_gpu.sh"
+    slurm_script: str = "submit_template.sh"
     """Name of the SLURM (array) script that to run on the cluster (only used to print the command
      to run)."""
     slurm_gpu_partition: str = "alldlc2_gpu-l40s"
