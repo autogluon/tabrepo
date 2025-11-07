@@ -49,10 +49,10 @@ class BenchmarkSetup:
             - slurm_out         -- contains all SLURM output logs
             - .openml-cache     -- contains the OpenML cache
     """
-    python_from_base_path: str = "venvs/tabarena_1610/bin/python"
+    python_from_base_path: str = "venvs/tabarena_07112025/bin/python"
     """Python executable and environment to use for the SLURM jobs. This should point to a Python
     executable within a (virtual) environment."""
-    run_script_from_base_path: str = "code/tabarena_benchmarking_examples/tabflow_slurm/run_tabarena_experiment.py"
+    run_script_from_base_path: str = "code/tabarena_new/tabarena/tabflow_slurm/run_tabarena_experiment.py"
     """Python script to run the benchmark. This should point to the script that runs the benchmark
     for TabArena."""
     openml_cache_from_base_path: str = ".openml-cache"
@@ -64,7 +64,7 @@ class BenchmarkSetup:
     SLURM jobs."""
     output_dir_base_from_base_path: str = "output/"
     """Output directory for the benchmark. In this folder a `benchmark_name` folder will be created."""
-    configs_path_from_base_path: str = "code/tabarena_benchmarking_examples/tabflow_slurm/benchmark_configs_"
+    configs_path_from_base_path: str = "code/tabarena_new/tabarena/tabflow_slurm/benchmark_configs_"
     """YAML file with the configs to run. Generated from parameters above in code below.
     File path is f"{self.base_path}{self.configs_path_from_base_path}{self.benchmark_name}.yaml"
     """
@@ -209,7 +209,7 @@ class BenchmarkSetup:
                     "max_n_samples_train_per_fold": 10_000,
                     "max_n_features": 500,
                     "max_n_classes": 10,
-            }
+            },
             "TABICL": {
                     "max_n_samples_train_per_fold": 100_000,
                     "max_n_features": 500,
@@ -337,9 +337,9 @@ class BenchmarkSetup:
         Path(self.slurm_log_output).mkdir(parents=True, exist_ok=True)
 
         if self.custom_metadata is None:
-            from tabarena.nips2025_utils.fetch_metadata import load_task_metadata
+            from tabarena.nips2025_utils.fetch_metadata import load_curated_task_metadata
 
-            metadata = load_task_metadata()
+            metadata = load_curated_task_metadata()
         else:
             metadata = deepcopy(self.custom_metadata)
 
@@ -393,7 +393,7 @@ class BenchmarkSetup:
                 "cache_path_format": self.cache_path_format,
                 "cache_cls": self.cache_cls,
                 "cache_cls_kwargs": self.cache_cls_kwargs,
-                "model_to_constraints": self.model_to_constraints,
+                "models_to_constraints": self.models_to_constraints,
             },
             track_progress=True,
             tqdm_kwargs={"desc": "Checking Cache and Filter Invalid Jobs"},
@@ -664,8 +664,8 @@ def should_run_job(
     # Filter out-of-constraints datasets
     if not BenchmarkSetup.are_model_constraints_valid(
         model_name=config["name"],
-        n_features=config["n_features"],
-        n_classes=config["n_classes"],
+        n_features=input_data["n_features"],
+        n_classes=input_data["n_classes"],
         n_samples_train_per_fold=input_data["n_samples_train_per_fold"],
         models_to_constraints=models_to_constraints,
     ):
