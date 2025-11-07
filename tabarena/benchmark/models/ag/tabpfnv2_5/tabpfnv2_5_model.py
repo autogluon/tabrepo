@@ -1,17 +1,12 @@
 from __future__ import annotations
 
 import logging
-import warnings
-from typing import TYPE_CHECKING, Any
-
-import numpy as np
-import scipy
-from sklearn.preprocessing import PowerTransformer
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from autogluon.common.utils.resource_utils import ResourceManager
 from autogluon.core.models import AbstractModel
 from autogluon.features.generators import LabelEncoderFeatureGenerator
-from autogluon.tabular import __version__
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -21,116 +16,21 @@ logger = logging.getLogger(__name__)
 _HAS_LOGGED_TABPFN_LICENSE: bool = False
 
 
-def _patch_local_kdi_transformer():
-    """Inject our KIDTransformer into the namespace to be used by TabPFNv2."""
-    import sys
-    import types
-
-    from .kditransform.kdi_transformer import (
-        KDITransformer,
-    )
-
-    module_name = "kditransform"
-    custom_module = types.ModuleType(module_name)
-    custom_module.KDITransformer = KDITransformer
-    sys.modules[module_name] = custom_module
-
-
-# TODO: merge into TabPFnv2 codebase
-class FixedSafePowerTransformer(PowerTransformer):
-    """Fixed version of safe power."""
-
-    def __init__(
-        self,
-        variance_threshold: float = 1e-3,
-        large_value_threshold: float = 100,
-        method="yeo-johnson",
-        standardize=True,
-        copy=True,
-    ):
-        super().__init__(method=method, standardize=standardize, copy=copy)
-        self.variance_threshold = variance_threshold
-        self.large_value_threshold = large_value_threshold
-
-        self.revert_indices_ = None
-
-    def _find_features_to_revert_because_of_failure(
-        self,
-        transformed_X: np.ndarray,
-    ) -> None:
-        # Calculate the variance for each feature in the transformed data
-        variances = np.nanvar(transformed_X, axis=0)
-
-        # Identify features where the variance is not close to 1
-        mask = np.abs(variances - 1) > self.variance_threshold
-        non_unit_variance_indices = np.where(mask)[0]
-
-        # Identify features with values greater than the large_value_threshold
-        large_value_indices = np.any(transformed_X > self.large_value_threshold, axis=0)
-        large_value_indices = np.nonzero(large_value_indices)[0]
-
-        # Identify features to revert based on either condition
-        self.revert_indices_ = np.unique(
-            np.concatenate([non_unit_variance_indices, large_value_indices]),
-        )
-
-    def _yeo_johnson_optimize(self, x: np.ndarray) -> float:
-        try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    message=r"overflow encountered",
-                    category=RuntimeWarning,
-                )
-                return super()._yeo_johnson_optimize(x)  # type: ignore
-        except scipy.optimize._optimize.BracketError:
-            return np.nan
-
-    def _yeo_johnson_transform(self, x: np.ndarray, lmbda: float) -> np.ndarray:
-        if np.isnan(lmbda):
-            return x
-
-        return super()._yeo_johnson_transform(x, lmbda)  # type: ignore
-
-    def _revert_failed_features(
-        self,
-        transformed_X: np.ndarray,
-        original_X: np.ndarray,
-    ) -> np.ndarray:
-        # Replace these features with the original features
-        if self.revert_indices_ and (self.revert_indices_) > 0:
-            transformed_X[:, self.revert_indices_] = original_X[:, self.revert_indices_]
-
-        return transformed_X
-
-    def fit(self, X: np.ndarray, y: Any | None = None) -> FixedSafePowerTransformer:
-        super().fit(X, y)
-
-        # Check and revert features as necessary
-        self._find_features_to_revert_because_of_failure(super().transform(X))  # type: ignore
-        return self
-
-    def transform(self, X: np.ndarray) -> np.ndarray:
-        transformed_X = super().transform(X)
-        return self._revert_failed_features(transformed_X, X)  # type: ignore
-
-
-class TabPFNV2Model(AbstractModel):
-    """
-    TabPFNv2 is a tabular foundation model pre-trained purely on synthetic data that achieves
-    state-of-the-art results with in-context learning on small datasets with <=10000 samples and <=500 features.
-    TabPFNv2 is developed and maintained by PriorLabs: https://priorlabs.ai/
-
-    TabPFNv2 is the top performing method for small datasets on TabArena-v0.1: https://tabarena.ai
+class RealTabPFNV25Model(AbstractModel):
+    """TabPFN-2.5 is a tabular foundation model that is developed and maintained by PriorLabs: https://priorlabs.ai/.
 
     Paper: Accurate predictions on small data with a tabular foundation model
     Authors: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister & Frank Hutter
     Codebase: https://github.com/PriorLabs/TabPFN
     License: https://github.com/PriorLabs/TabPFN/blob/main/LICENSE
     """
-    ag_key = "TA-TABPFNV2"
-    ag_name = "TA-TabPFNv2"
+
+    ag_key = "TABPFNV-2.5"
+    ag_name = "TabPFN-2.5"
     ag_priority = 105
+    custom_model_dir: str | None = None
+    default_classification_model: str | None = "tabpfn-v2-classifier.ckpt"
+    default_regression_model: str | None = "tabpfn-v2.5-regressor-v2.5_default.ckpt"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -159,7 +59,9 @@ class TabPFNV2Model(AbstractModel):
                 # Detect/set cat features and indices
                 if self._cat_features is None:
                     self._cat_features = self._feature_generator.features_in[:]
-                self._cat_indices = [X.columns.get_loc(col) for col in self._cat_features]
+                self._cat_indices = [
+                    X.columns.get_loc(col) for col in self._cat_features
+                ]
 
         return X
 
@@ -175,11 +77,6 @@ class TabPFNV2Model(AbstractModel):
         verbosity: int = 2,
         **kwargs,
     ):
-        _patch_local_kdi_transformer()
-        from tabpfn.model import preprocessing
-
-        preprocessing.SafePowerTransformer = FixedSafePowerTransformer
-
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
         from torch.cuda import is_available
@@ -203,20 +100,22 @@ class TabPFNV2Model(AbstractModel):
         hps["n_jobs"] = num_cpus
         hps["categorical_features_indices"] = self._cat_indices
 
-        _, model_dir, _, _ = resolve_model_path(
-            model_path=None,
-            which="classifier" if is_classification else "regressor",
-        )
-        if is_classification:
-            if "classification_model_path" in hps:
-                hps["model_path"] = model_dir / hps.pop("classification_model_path")
-            if "regression_model_path" in hps:
-                del hps["regression_model_path"]
+        # Resolve model_path
+        if self.custom_model_dir is not None:
+            model_dir = Path(self.custom_model_dir)
         else:
-            if "regression_model_path" in hps:
-                hps["model_path"] = model_dir / hps.pop("regression_model_path")
-            if "classification_model_path" in hps:
-                del hps["classification_model_path"]
+            _, model_dir, _, _ = resolve_model_path(
+                model_path=None,
+                which="classifier" if is_classification else "regressor",
+            )
+            model_dir = model_dir[0]
+        clf_path, reg_path = hps.pop(
+            "zip_model_path",
+            [self.default_classification_model, self.default_regression_model],
+        )
+        model_path = clf_path if is_classification else reg_path
+        if model_path is not None:
+            hps["model_path"] = model_dir / model_path
 
         # Resolve inference_config
         inference_config = {
@@ -230,34 +129,16 @@ class TabPFNV2Model(AbstractModel):
             if k.startswith("inference_config/"):
                 del hps[k]
 
-        # TODO: remove power from search space and TabPFNv2 codebase
-        # Power transform can fail. To avoid this, make all power be safepower instead.
-        if "PREPROCESS_TRANSFORMS" in inference_config:
-            safe_config = []
-            for preprocessing_dict in inference_config["PREPROCESS_TRANSFORMS"]:
-                if preprocessing_dict["name"] == "power":
-                    preprocessing_dict["name"] = "safepower"
-                safe_config.append(preprocessing_dict)
-            inference_config["PREPROCESS_TRANSFORMS"] = safe_config
-        if "REGRESSION_Y_PREPROCESS_TRANSFORMS" in inference_config:
-            safe_config = []
-            for preprocessing_name in inference_config[
-                "REGRESSION_Y_PREPROCESS_TRANSFORMS"
-            ]:
-                if preprocessing_name == "power":
-                    preprocessing_name = "safepower"
-                safe_config.append(preprocessing_name)
-            inference_config["REGRESSION_Y_PREPROCESS_TRANSFORMS"] = safe_config
-
         # Resolve model_type
-        n_ensemble_repeats = hps.pop("n_ensemble_repeats", None)
         model_is_rf_pfn = hps.pop("model_type", "no") == "dt_pfn"
+        max_depth = hps.pop("max_depth", 5)
         if model_is_rf_pfn:
             from .rfpfn import (
                 RandomForestTabPFNClassifier,
                 RandomForestTabPFNRegressor,
             )
 
+            rf_pfn_n_estimators = hps.pop("n_estimators", 4)
             hps["n_estimators"] = 1
             rf_model_base = (
                 RandomForestTabPFNClassifier
@@ -267,11 +148,10 @@ class TabPFNV2Model(AbstractModel):
             self.model = rf_model_base(
                 tabpfn=model_base(**hps),
                 categorical_features=self._cat_indices,
-                n_estimators=n_ensemble_repeats,
+                n_estimators=rf_pfn_n_estimators,
+                max_depth=max_depth,
             )
         else:
-            if n_ensemble_repeats is not None:
-                hps["n_estimators"] = n_ensemble_repeats
             self.model = model_base(**hps)
 
         self.model = self.model.fit(
@@ -287,7 +167,9 @@ class TabPFNV2Model(AbstractModel):
 
         return num_cpus, num_gpus
 
-    def get_minimum_resources(self, is_gpu_available: bool = False) -> dict[str, int | float]:
+    def get_minimum_resources(
+        self, is_gpu_available: bool = False
+    ) -> dict[str, int | float]:
         return {
             "num_cpus": 1,
             "num_gpus": 1 if is_gpu_available else 0,
@@ -309,8 +191,8 @@ class TabPFNV2Model(AbstractModel):
         default_auxiliary_params = super()._get_default_auxiliary_params()
         default_auxiliary_params.update(
             {
-                "max_rows": 10000,
-                "max_features": 500,
+                "max_rows": 50000,
+                "max_features": 2000,
                 "max_classes": 10,
             }
         )
@@ -381,3 +263,27 @@ class TabPFNV2Model(AbstractModel):
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
+
+    @staticmethod
+    def extra_checkpoints_for_tuning(problem_type: str) -> list[str]:
+        """The list of checkpoints to use for hyperparameter tuning."""
+        if problem_type == "classification":
+            return [
+                "tabpfn-v2.5-classifier-v2.5_default-2.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_large-features-L.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_large-features-XL.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_large-samples.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_real-large-features.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_real-large-samples-and-features.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_real.ckpt",
+                "tabpfn-v2.5-classifier-v2.5_variant.ckpt",
+            ]
+
+        return [
+            "tabpfn-v2.5-regressor-v2.5_low-skew.ckpt",
+            "tabpfn-v2.5-regressor-v2.5_quantiles.ckpt",
+            "tabpfn-v2.5-regressor-v2.5_real-variant.ckpt",
+            "tabpfn-v2.5-regressor-v2.5_real.ckpt",
+            "tabpfn-v2.5-regressor-v2.5_small-samples.ckpt",
+            "tabpfn-v2.5-regressor-v2.5_variant.ckpt",
+        ]
