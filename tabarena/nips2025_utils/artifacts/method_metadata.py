@@ -17,6 +17,7 @@ from tabarena.nips2025_utils.generate_repo import generate_repo_from_results_lst
 from tabarena.nips2025_utils.load_artifacts import results_to_holdout
 from tabarena.benchmark.result import BaselineResult
 from tabarena.nips2025_utils.method_processor import get_info_from_result, load_raw
+from tabarena.utils.pickle_utils import fetch_all_pickles
 from tabarena.utils.s3_utils import s3_get_object
 from tabarena.paper.paper_runner_tabarena import PaperRunTabArena
 
@@ -401,6 +402,9 @@ class MethodMetadata:
     def download_configs_hyperparameters(self, holdout: bool = False):
         method_downloader = self.method_downloader()
         method_downloader.download_configs_hyperparameters(holdout=holdout)
+
+    def load_raw_file_paths(self, max_files: int | None = None) -> list[Path]:
+        return fetch_all_pickles(dir_path=self.path_raw, suffix="results.pkl", max_files=max_files)
 
     def load_raw(
         self,

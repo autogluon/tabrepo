@@ -31,7 +31,7 @@ def parallel_for(
     if engine == "sequential":
         return [
             f(**x, **context) if isinstance(x, dict) else f(*x, **context)
-            for x in tqdm(inputs, desc=desc, disable=not progress_bar)
+            for x in tqdm(inputs, desc=desc, disable=not progress_bar, mininterval=1)
         ]
     if engine == "joblib":
         from joblib import Parallel, delayed
@@ -48,4 +48,4 @@ def parallel_for(
             return f(**x, **context) if isinstance(x, dict) else f(*x, **context)
         remote_context = ray.put(context)
         remote_results = [remote_f.remote(x, remote_context) for x in inputs]
-        return [ray.get(res) for res in tqdm(remote_results, desc=desc, disable=not progress_bar)]
+        return [ray.get(res) for res in tqdm(remote_results, desc=desc, disable=not progress_bar, mininterval=1)]
