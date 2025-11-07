@@ -28,6 +28,8 @@ class RealTabPFNv25Model(AbstractModel):
     ag_key = "REALTABPFN-V2.5"
     ag_name = "RealTabPFN-v2.5"
     ag_priority = 105
+    seed_name = "random_state"
+
     custom_model_dir: str | None = None
     default_classification_model: str | None = "tabpfn-v2.5-classifier-v2.5_default.ckpt"
     default_regression_model: str | None = "tabpfn-v2.5-regressor-v2.5_default.ckpt"
@@ -177,7 +179,6 @@ class RealTabPFNv25Model(AbstractModel):
 
     def _set_default_params(self):
         default_params = {
-            "random_state": 42,
             "ignore_pretraining_limits": True,  # to ignore warnings and size limits
         }
         for param, val in default_params.items():
@@ -236,7 +237,7 @@ class RealTabPFNv25Model(AbstractModel):
         This is based on GPU memory usage, but hopefully with overheads it also approximates CPU memory usage.
         """
         # TODO: update, this is not correct anymore, consider using internal TabPFN functions directly.
-        # features_per_group = 2  # Based on TabPFNv2 default (unused)
+        features_per_group = 3  # Based on TabPFNv2 default (unused)
         n_layers = 12  # Based on TabPFNv2 default
         embedding_size = 192  # Based on TabPFNv2 default
         dtype_byte_size = 2  # Based on TabPFNv2 default
@@ -244,7 +245,7 @@ class RealTabPFNv25Model(AbstractModel):
         model_mem = 14489108  # Based on TabPFNv2 default
 
         n_samples, n_features = X.shape[0], min(X.shape[1], 500)
-        n_feature_groups = n_features + 1  # TODO: Unsure how to calculate this
+        n_feature_groups = (n_features)/features_per_group + 1  # TODO: Unsure how to calculate this
 
         X_mem = n_samples * n_feature_groups * dtype_byte_size
         activation_mem = (
