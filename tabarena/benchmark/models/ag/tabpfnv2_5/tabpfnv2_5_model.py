@@ -243,7 +243,7 @@ class RealTabPFNv25Model(AbstractModel):
 
         model_mem = 14489108  # Based on TabPFNv2 default
 
-        n_samples, n_features = X.shape[0], X.shape[1]
+        n_samples, n_features = X.shape[0], min(X.shape[1], 500)
         n_feature_groups = n_features + 1  # TODO: Unsure how to calculate this
 
         X_mem = n_samples * n_feature_groups * dtype_byte_size

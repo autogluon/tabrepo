@@ -350,21 +350,21 @@ class BenchmarkSetup:
 
         def yield_all_jobs():
             for row in metadata.itertuples():
+                task_id = row.task_id
+                n_samples_train_per_fold = int(row.num_instances - int(row.num_instances / row.num_folds))
+                n_features = int(row.num_features)
+                n_classes = int(row.num_classes) if row.problem_type in ["binary", "multiclass"] else 0
+
+                # Quick, model independent skip.
+                if row.problem_type not in self.problem_types_to_run:
+                    continue
+
                 repeats_folds = product(range(int(row.tabarena_num_repeats)), range(int(row.num_folds)))
                 if self.tabarena_lite:  # Filter to only first split.
                     repeats_folds = list(repeats_folds)[:1]
 
                 for repeat_i, fold_i in repeats_folds:
                     for config_index, config in list(enumerate(configs)):
-                        task_id = row.task_id
-                        n_samples_train_per_fold = int(row.num_instances - int(row.num_instances / row.num_folds))
-                        n_features = int(row.num_features)
-                        n_classes = int(row.num_classes) if row.problem_type in ["binary", "multiclass"] else 0
-
-                        # Quick, model independent skip.
-                        if row.problem_type not in self.problem_types_to_run:
-                            continue
-
                         yield {
                             "config_index": config_index,
                             "config": config,
@@ -582,7 +582,7 @@ class BenchmarkSetup:
     @staticmethod
     def are_model_constraints_valid(
         *,
-        model_name: str,
+        model_cls: str,
         n_features: int,
         n_classes: int,
         n_samples_train_per_fold: int,
@@ -592,8 +592,8 @@ class BenchmarkSetup:
 
         Arguments:
         ----------
-        model_name: str
-            The name of the model to check. AG key of abstract model class.
+        model_cls: str
+            The name of the model class to check. AG key of abstract model class.
         n_features: int
             The number of features in the dataset.
         n_classes: int
@@ -609,7 +609,7 @@ class BenchmarkSetup:
         model_is_valid: bool
             True if the model can be run on the dataset, False otherwise.
         """
-        model_constraints = models_to_constraints.get(model_name)
+        model_constraints = models_to_constraints.get(model_cls)
         if model_constraints is None:
             return True  # No constraints for this model
 
@@ -663,7 +663,7 @@ def should_run_job(
 
     # Filter out-of-constraints datasets
     if not BenchmarkSetup.are_model_constraints_valid(
-        model_name=config["name"],
+        model_cls=config["model_cls"],
         n_features=input_data["n_features"],
         n_classes=input_data["n_classes"],
         n_samples_train_per_fold=input_data["n_samples_train_per_fold"],
