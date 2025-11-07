@@ -322,7 +322,10 @@ class BenchmarkSetup:
         time_in_h = self.time_limit // 3600 * self.configs_per_job + 1
         time_in_h = f"--time={time_in_h}:00:00"
         cpus = f"--cpus-per-task={self.num_cpus}"
-        mem = f"--mem-per-cpu={self.num_cpus // self.memory_limit}G"
+        if is_gpu_job:
+            mem = f"--mem-per-gpu={self.memory_limit}G"
+        else:
+            mem = f"--mem-per-cpu={self.memory_limit//self.num_cpus}G"
         script = str(Path(__file__).parent / self.slurm_script)
 
         return f"{partition} {gres} {time_in_h} {cpus} {mem} {script}"
