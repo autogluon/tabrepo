@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -79,8 +80,11 @@ class TabPFNModel(AbstractModel):
         num_cpus: int = 1,
         num_gpus: int = 0,
         verbosity: int = 2,
+        time_limit: float | None = None,
         **kwargs,
     ):
+        start_time = time.time()
+
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
         from torch.cuda import is_available
@@ -142,6 +146,13 @@ class TabPFNModel(AbstractModel):
                 RandomForestTabPFNRegressor,
             )
 
+            if time_limit is not None:
+                time_to_fit_in_seconds = time_limit - (time.time() - start_time)
+                # Estimate 75% of the time for predicting
+                time_to_fit_in_seconds = max(int(time_to_fit_in_seconds * 0.75), 60)
+            else:
+                time_to_fit_in_seconds = -1
+
             rf_pfn_n_estimators = hps.pop("n_estimators", 4)
             hps["n_estimators"] = 1
             rf_model_base = (
@@ -154,6 +165,7 @@ class TabPFNModel(AbstractModel):
                 categorical_features=self._cat_indices,
                 n_estimators=rf_pfn_n_estimators,
                 max_depth=max_depth,
+                max_predict_time=time_to_fit_in_seconds,
             )
         else:
             self.model = model_base(**hps)
