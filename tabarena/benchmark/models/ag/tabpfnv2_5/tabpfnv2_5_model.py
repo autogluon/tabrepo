@@ -155,6 +155,12 @@ class TabPFNModel(AbstractModel):
             else:
                 time_to_fit_in_seconds, time_to_predict_in_seconds = -1, -1
 
+            # FIXME: rework to not use these heuristics (also internally)
+            # Disable adaptive tree for many features as internal TabPFN evaluation
+            # takes too long. The same logic exists for samples by default
+            # with `adaptive_tree_max_train_samples`
+            adaptive_tree = X.shape[1] <= 500
+
             rf_pfn_n_estimators = hps.pop("n_estimators", 4)
             hps["n_estimators"] = 1
             rf_model_base = (
@@ -169,6 +175,7 @@ class TabPFNModel(AbstractModel):
                 max_depth=max_depth,
                 max_predict_time=time_to_predict_in_seconds,
                 time_to_fit_in_seconds=time_to_fit_in_seconds,
+                adaptive_tree=adaptive_tree,
             )
         else:
             self.model = model_base(**hps)
