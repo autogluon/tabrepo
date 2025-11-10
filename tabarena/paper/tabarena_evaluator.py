@@ -84,7 +84,7 @@ class TabArenaEvaluator:
             task_metadata = load_task_metadata()
         if banned_pareto_methods is None:
             banned_pareto_methods = []
-        self.output_dir = output_dir
+        self.output_dir: Path = Path(output_dir)
         self.task_metadata = task_metadata
         self.method_col = method_col
         self.error_col = error_col
@@ -259,14 +259,13 @@ class TabArenaEvaluator:
             # Assign colors dynamically, cycling if baselines > baseline_colors
             baseline_colors = list(itertools.islice(itertools.cycle(default_baseline_colors), len(baselines)))
         assert len(baselines) == len(baseline_colors)
-        method_col = self.method_col
         df_results = df_results.copy(deep=True)
-        if "seed" not in df_results:
-            df_results["seed"] = 0
-        if "imputed" not in df_results:
+        if "method_metadata" in df_results.columns:
+            # currently no need to use this column
+            df_results.drop(columns=["method_metadata"], inplace=True)
+        if "imputed" not in df_results.columns:
             df_results["imputed"] = False
         df_results["imputed"] = df_results["imputed"].astype("boolean").fillna(False).astype(bool)
-        df_results["seed"] = df_results["seed"].fillna(0).astype(int)
 
         # rename methods
         _rename_dict = self._rename_dict()
@@ -276,112 +275,41 @@ class TabArenaEvaluator:
         if calibration_framework is not None:
             calibration_framework = _rename_dict.get(calibration_framework, calibration_framework)
 
-        # don't allow duplicate results
-        dupes = df_results[df_results.duplicated(
-            subset=["dataset", "fold", self.method_col, "seed"],
-            keep=False,
-        )]
-        if not dupes.empty:
-            dupes = dupes.sort_values(by=[self.method_col, "dataset", "fold", "seed"])
-            duplicated_methods = dupes["method"].value_counts()
-            raise ValueError(
-                "Duplicate rows detected on keys [dataset, fold, "
-                f"{self.method_col}, seed].\n"
-                f"The following {len(duplicated_methods)} methods were duplicated (w/ counts):\n"
-                f"{duplicated_methods.to_string()}\n"
-                f"The following {len(dupes)} rows are duplicates:\n"
-                f"{dupes.to_string(index=False)}"
-            )
-        # df_results = df_results.drop_duplicates(subset=[
-        #     "dataset", "fold", self.method_col, "seed"
-        # ], keep="first")
-
-        if "normalized-error-dataset" not in df_results:
-            df_results = self.compute_normalized_error_dynamic(df_results=df_results)
-        assert "normalized-error-dataset" in df_results, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
-        df_results["normalized-error"] = df_results["normalized-error-dataset"]
-
-        if self.datasets is not None:
-            df_results = df_results[df_results["dataset"].isin(self.datasets)]
-        if self.folds is not None:
-            df_results = df_results[df_results["fold"].isin(self.folds)]
-        if self.methods is not None:
-            df_results = df_results[df_results[self.method_col].isin(self.methods)]
-        if self.problem_types is not None:
-            df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
-        if not self.keep_best:
-            # FIXME: Don't do regex, use subtype column value
-            df_results = df_results[~df_results[self.method_col].str.contains("(best)", regex=False)]
-
-        if self.banned_model_types:
-            df_results = df_results[~df_results["config_type"].isin(self.banned_model_types)]
-            # framework_types = [f for f in framework_types if f not in self.banned_model_types]
+        self.assert_no_duplicates(df_results=df_results)
+        df_results = self.filter_results(df_results=df_results)
         framework_types = self._get_config_types(df_results=df_results[~df_results["method"].isin(baselines)])
 
-        # ----- add times per 1K samples -----
-        dataset_to_n_samples_train = self.task_metadata.set_index("name")["n_samples_train_per_fold"].to_dict()
-        dataset_to_n_samples_test = self.task_metadata.set_index("name")["n_samples_test_per_fold"].to_dict()
-
-        df_results['time_train_s_per_1K'] = df_results['time_train_s'] * 1000 / df_results["dataset"].map(
-            dataset_to_n_samples_train)
-        df_results['time_infer_s_per_1K'] = df_results['time_infer_s'] * 1000 / df_results["dataset"].map(
-            dataset_to_n_samples_test)
-
         df_results_rank_compare = copy.deepcopy(df_results)
-        df_results_unfiltered = copy.deepcopy(df_results)
-
-        # FIXME: create an "official" output CSV with results per fold per dataset per method
-        df_results_unfiltered.to_csv(self.output_dir / "df_results_unfiltered.csv")
-
-        # FIXME: (Nick) Unsure which form of the df should go in here?
-        # David H: doesn't matter since results are not relative to other methods in the df
-        if only_datasets_for_method is not None and plot_times:
-            self.plot_tabarena_times(df=df_results_unfiltered, output_dir=self.output_dir,
-                                     only_datasets_for_method=only_datasets_for_method, show=False)
 
         f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
             framework_types=framework_types,
         )
 
-        # also remove portfolio baselines except AutoGluon?
         df_results_rank_compare = df_results_rank_compare[(~df_results_rank_compare[self.method_col].map(f_map_type).isna()) | (df_results_rank_compare[self.method_col].isin(baselines))]
-
-        # recompute normalized errors
-        df_results_rank_compare = self.compute_normalized_error_dynamic(df_results_rank_compare)
 
         # ----- end removing unused methods -----
 
-        hue_order_family_proportion = [
-            "CatBoost",
-            "TabPFNv2",
-            "TabM",
-            "ModernNCA",
-            "TabDPT",
-            "LightGBM",
-            "TabICL",
+        method_info: pd.DataFrame = self.get_method_info(df=df_results_rank_compare)
+        save_pd.save(path=self.output_dir / "results_per_split.csv", df=df_results_rank_compare)
 
-            "RandomForest",
-            "XGBoost",
-            "RealMLP",
+        # ----- add times per 1K samples -----
+        dataset_to_n_samples_train = self.task_metadata.set_index("name")["n_samples_train_per_fold"].to_dict()
+        dataset_to_n_samples_test = self.task_metadata.set_index("name")["n_samples_test_per_fold"].to_dict()
 
-            "NeuralNetFastAI",
-            "ExplainableBM",
-            "NeuralNetTorch",
-            "ExtraTrees",
+        df_results_rank_compare['time_train_s_per_1K'] = df_results_rank_compare['time_train_s'] * 1000 / df_results_rank_compare["dataset"].map(
+            dataset_to_n_samples_train)
+        df_results_rank_compare['time_infer_s_per_1K'] = df_results_rank_compare['time_infer_s'] * 1000 / df_results_rank_compare["dataset"].map(
+            dataset_to_n_samples_test)
 
-            # "LinearModel",
-            # "KNeighbors",
+        if only_datasets_for_method is not None and plot_times:
+            self.plot_tabarena_times(df=df_results_rank_compare, output_dir=self.output_dir,
+                                     only_datasets_for_method=only_datasets_for_method, show=False)
 
-            # "TabForestPFN",
-
-            # "FTTransformer",
-
-        ]
-
-        # FIXME: TODO (Nick): Move this to its own class for utility plots, no need to re-plot this in every eval call.
-        # plot_family_proportion(df=df_results_unfiltered, save_prefix=f"{self.output_dir}/figures/family_prop",
-        #                        method="Portfolio-N200 (ensemble) (4h)", hue_order=hue_order_family_proportion,
-        #                        show=False)
+        # TODO: Move this into the `.leaderboard` call
+        if "normalized-error-dataset" not in df_results_rank_compare.columns:
+            df_results_rank_compare = self.compute_normalized_error_dynamic(df_results=df_results_rank_compare)
+        assert "normalized-error-dataset" in df_results_rank_compare.columns, f"Run `self.compute_normalized_error_dynamic(df_results)` first to get normalized-error."
+        df_results_rank_compare["normalized-error"] = df_results_rank_compare["normalized-error-dataset"]
 
         if include_norm_score:
             self.plot_tuning_impact(
@@ -440,7 +368,7 @@ class TabArenaEvaluator:
             df_results_rank_compare["fold"] = 0
 
         tabarena = TabArena(
-            method_col=method_col,
+            method_col=self.method_col,
             task_col="dataset",
             seed_column="fold",
             error_col=self.error_col,
@@ -516,6 +444,13 @@ class TabArenaEvaluator:
         results_per_task = tabarena.compute_results_per_task(data=df_results_rank_compare)
         results_per_split = tabarena.compute_results_per_task(data=df_results_rank_compare, include_seed_col=True)
 
+        # TODO: Consider adding the metadata to the saved `results_per_split.csv` file?
+        # assert len(results_per_split) == len(df_results_rank_compare)
+        # groupby_columns = tabarena._get_groupby_cols(results=results_per_split)
+        # extra_cols = [c for c in df_results_rank_compare.columns if c not in results_per_split.columns]
+        # results_per_split_w_metadata = results_per_split.merge(df_results_rank_compare[[*groupby_columns, *extra_cols]], on=groupby_columns)
+        # assert len(results_per_split) == len(results_per_split_w_metadata)
+
         # FIXME: Is critical diagram incorrect?
         if plot_cdd:
             def rename_model(name: str):
@@ -526,8 +461,9 @@ class TabArenaEvaluator:
                 return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
 
             # use tuned+ensembled version if available, and default otherwise
-            tune_methods = results_per_task[self.method_col].map(f_map_inverse)
-            method_types = results_per_task[self.method_col].map(f_map_type).fillna(results_per_task[self.method_col])
+            tune_methods = results_per_task[self.method_col].map(method_info["method_subtype"])
+            method_types = results_per_task[self.method_col].map(method_info["config_type"]).fillna(results_per_task[self.method_col])
+
             tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
             results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | (
                         (tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
@@ -535,8 +471,8 @@ class TabArenaEvaluator:
             # rename model part
             results_te_per_task.loc[:, self.method_col] = results_te_per_task[self.method_col].map(rename_model)
 
-            tune_methods = results_per_split[self.method_col].map(f_map_inverse)
-            method_types = results_per_split[self.method_col].map(f_map_type).fillna(results_per_split[self.method_col])
+            tune_methods = results_per_split[self.method_col].map(method_info["method_subtype"])
+            method_types = results_per_split[self.method_col].map(method_info["config_type"]).fillna(results_per_split[self.method_col])
             tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
             results_te_per_split = results_per_split[(tune_methods == 'tuned_ensembled') | (
                         (tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
@@ -600,6 +536,81 @@ class TabArenaEvaluator:
                 )
 
         return leaderboard
+
+    def assert_no_duplicates(self, df_results: pd.DataFrame):
+        # don't allow duplicate results
+        dupes = df_results[df_results.duplicated(
+            subset=["dataset", "fold", self.method_col],
+            keep=False,
+        )]
+        if not dupes.empty:
+            dupes = dupes.sort_values(by=[self.method_col, "dataset", "fold"])
+            duplicated_methods = dupes["method"].value_counts()
+            raise ValueError(
+                "Duplicate rows detected on keys [dataset, fold, "
+                f"{self.method_col}].\n"
+                f"The following {len(duplicated_methods)} methods were duplicated (w/ counts):\n"
+                f"{duplicated_methods.to_string()}\n"
+                f"The following {len(dupes)} rows are duplicates:\n"
+                f"{dupes.to_string(index=False)}"
+            )
+
+    def filter_results(self, df_results: pd.DataFrame):
+        if self.datasets is not None:
+            df_results = df_results[df_results["dataset"].isin(self.datasets)]
+        if self.folds is not None:
+            df_results = df_results[df_results["fold"].isin(self.folds)]
+        if self.methods is not None:
+            df_results = df_results[df_results[self.method_col].isin(self.methods)]
+        if self.problem_types is not None:
+            df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
+        if not self.keep_best:
+            # FIXME: Don't do regex, use subtype column value
+            df_results = df_results[~df_results[self.method_col].str.contains("(best)", regex=False)]
+        if self.banned_model_types:
+            df_results = df_results[~df_results["config_type"].isin(self.banned_model_types)]
+        return df_results
+
+    def get_method_info(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Verify that each method has exactly one unique value for method_type,
+        method_subtype, config_type, ta_name, and ta_suite. Return a mapping dataframe.
+
+        Raises
+        ------
+        ValueError
+            If any method has non-unique values in any of the checked columns.
+
+        Returns
+        -------
+        pd.DataFrame
+            A dataframe indexed by "method" with
+            the unique values for each of method_type, method_subtype, config_type, ta_name, ta_suite.
+        """
+
+        group_cols = self.method_col
+        value_cols = ["method_type", "method_subtype", "config_type", "ta_name", "ta_suite"]
+
+        grouped = df.groupby(group_cols)[value_cols]
+
+        # Compute sets of unique values per group
+        unique_vals = grouped.nunique(dropna=False)
+
+        # Identify problematic groups
+        bad = (unique_vals > 1).any(axis=1)
+        if bad.any():
+            msg = (
+                "Found groups with multiple unique values in one or more columns.\n"
+                f"Columns checked: {value_cols}\n\n"
+                "Offending groups:\n"
+                f"{unique_vals[bad]}"
+            )
+            raise ValueError(msg)
+
+        # Safe: each value is unique → extract the scalar values
+        mapping = grouped.first()  # identical to .agg("first") but faster
+
+        return mapping
 
     def plot_pareto(self, leaderboard: pd.DataFrame, framework_types: list[str], with_baselines: bool = True):
         f_map, f_map_type, f_map_inverse, f_map_type_name = self.get_framework_type_method_names(
@@ -1442,7 +1453,7 @@ class TabArenaEvaluator:
                 if show:
                     plt.show()
 
-    def plot_tabarena_times(self, df: pd.DataFrame, output_dir: str,
+    def plot_tabarena_times(self, df: pd.DataFrame, output_dir: Path | str,
                             only_datasets_for_method: dict[str, list[str]] | None = None, show: bool = True):
         # filter to only common datasets
         if only_datasets_for_method is not None:
@@ -1579,10 +1590,10 @@ class TabArenaEvaluator:
         # Layout adjustment (no clipping)
         plt.tight_layout(rect=[0, 0, 1, 0.94])
 
-        path_dir = Path(output_dir)
-        path_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        plt.savefig(path_dir / f'time_plot.{self.figure_file_type}')
+        plt.savefig(output_dir / f'time_plot.{self.figure_file_type}')
         if show:
             plt.show()
         plt.close(fig)
