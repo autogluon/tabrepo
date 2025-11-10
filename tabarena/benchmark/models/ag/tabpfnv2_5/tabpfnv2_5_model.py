@@ -148,10 +148,12 @@ class TabPFNModel(AbstractModel):
 
             if time_limit is not None:
                 time_to_fit_in_seconds = time_limit - (time.time() - start_time)
-                # Estimate 75% of the time for predicting
-                time_to_fit_in_seconds = max(int(time_to_fit_in_seconds * 0.75), 60)
+                # Estimate at least 67% of the time for predicting
+                time_to_predict_in_seconds = max(int(time_to_fit_in_seconds * 0.67), 60)
+                # 33 % of the time is estimated for fitting
+                time_to_fit_in_seconds = max(int(time_to_fit_in_seconds * 0.33), 60)
             else:
-                time_to_fit_in_seconds = -1
+                time_to_fit_in_seconds, time_to_predict_in_seconds = -1, -1
 
             rf_pfn_n_estimators = hps.pop("n_estimators", 4)
             hps["n_estimators"] = 1
@@ -165,7 +167,8 @@ class TabPFNModel(AbstractModel):
                 categorical_features=self._cat_indices,
                 n_estimators=rf_pfn_n_estimators,
                 max_depth=max_depth,
-                max_predict_time=time_to_fit_in_seconds,
+                max_predict_time=time_to_predict_in_seconds,
+                time_to_fit_in_seconds=time_to_fit_in_seconds,
             )
         else:
             self.model = model_base(**hps)

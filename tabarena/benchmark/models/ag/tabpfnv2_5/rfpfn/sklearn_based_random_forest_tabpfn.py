@@ -105,6 +105,8 @@ class RandomForestTabPFNBase:
             ValueError: If tabpfn is None
             TypeError: If tabpfn is not of the expected type
         """
+        start_time = time.time()
+
         # Validate tabpfn parameter
         self._validate_tabpfn()
 
@@ -199,6 +201,10 @@ class RandomForestTabPFNBase:
             tree.fit(X_boot, y_boot)
             self.estimators_.append(tree)
 
+            time_elapsed = time.time() - start_time
+            if (self.time_to_fit_in_seconds > 0) and (time_elapsed > self.time_to_fit_in_seconds):
+                break
+
         # Track features seen during fit
         self.n_features_in_ = X.shape[1]
 
@@ -289,6 +295,7 @@ class RandomForestTabPFNClassifier(RandomForestTabPFNBase, RandomForestClassifie
         class_weight=None,
         ccp_alpha=0.0,
         max_samples=None,
+        time_to_fit_in_seconds=-1,
     ):
         super().__init__(
             n_estimators=n_estimators,
@@ -343,6 +350,7 @@ class RandomForestTabPFNClassifier(RandomForestTabPFNBase, RandomForestClassifie
         self.dt_average_logits = dt_average_logits
         self.adaptive_tree_skip_class_missing = adaptive_tree_skip_class_missing
         self.n_estimators = n_estimators
+        self.time_to_fit_in_seconds = time_to_fit_in_seconds
 
     def _more_tags(self):
         return {
@@ -589,6 +597,7 @@ class RandomForestTabPFNRegressor(RandomForestTabPFNBase, RandomForestRegressor)
         warm_start=False,
         ccp_alpha=0.0,
         max_samples=None,
+        time_to_fit_in_seconds=-1,
     ):
         super().__init__(
             n_estimators=n_estimators,
@@ -628,6 +637,7 @@ class RandomForestTabPFNRegressor(RandomForestTabPFNBase, RandomForestRegressor)
         self.preprocess_X_once = preprocess_X_once
         self.max_predict_time = max_predict_time
         self.rf_average_logits = rf_average_logits
+        self.time_to_fit_in_seconds = time_to_fit_in_seconds
 
     def init_base_estimator(self):
         """Initialize a base decision tree estimator.
