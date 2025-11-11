@@ -79,11 +79,10 @@ class TabPFNModel(AbstractModel):
         y: pd.Series,
         num_cpus: int = 1,
         num_gpus: int = 0,
-        verbosity: int = 2,
         time_limit: float | None = None,
         **kwargs,
     ):
-        start_time = time.time()
+        time.time()
 
         from tabpfn import TabPFNClassifier, TabPFNRegressor
         from tabpfn.model.loading import resolve_model_path
@@ -107,6 +106,33 @@ class TabPFNModel(AbstractModel):
         hps["device"] = device
         hps["n_jobs"] = num_cpus
         hps["categorical_features_indices"] = self._cat_indices
+
+        # Resolve preprocessing
+        if "preprocessing/scaling" in hps:
+            hps["inference_config/PREPROCESS_TRANSFORMS"] = [
+                {
+                    "name": scaler,
+                    "global_transformer_name": hps.pop("preprocessing/global", None),
+                    "categorical_name": hps.pop(
+                        "preprocessing/categoricals", "numeric"
+                    ),
+                    "append_original": hps.pop("preprocessing/append_original", True),
+                }
+                for scaler in hps["preprocessing/scaling"]
+            ]
+        for k in [
+            "preprocessing/scaling",
+            "preprocessing/categoricals",
+            "preprocessing/append_original",
+            "preprocessing/global",
+        ]:
+            hps.pop(k, None)
+
+        # Remove task specific HPs
+        if is_classification:
+            hps.pop("inference_config/REGRESSION_Y_PREPROCESS_TRANSFORMS", None)
+        else:
+            hps.pop("balance_probabilities", None)
 
         # Resolve model_path
         if self.custom_model_dir is not None:
@@ -137,49 +163,8 @@ class TabPFNModel(AbstractModel):
             if k.startswith("inference_config/"):
                 del hps[k]
 
-        # Resolve model_type
-        model_is_rf_pfn = hps.pop("model_type", "no") == "dt_pfn"
-        max_depth = hps.pop("max_depth", 5)
-        if model_is_rf_pfn:
-            from .rfpfn import (
-                RandomForestTabPFNClassifier,
-                RandomForestTabPFNRegressor,
-            )
-
-            if time_limit is not None:
-                time_to_fit_in_seconds = time_limit - (time.time() - start_time)
-                # Estimate at least 67% of the time for predicting
-                time_to_predict_in_seconds = max(int(time_to_fit_in_seconds * 0.67), 60)
-                # 33 % of the time is estimated for fitting
-                time_to_fit_in_seconds = max(int(time_to_fit_in_seconds * 0.33), 60)
-            else:
-                time_to_fit_in_seconds, time_to_predict_in_seconds = -1, -1
-
-            # FIXME: rework to not use these heuristics (also internally)
-            # Disable adaptive tree for many features as internal TabPFN evaluation
-            # takes too long. The same logic exists for samples by default
-            # with `adaptive_tree_max_train_samples`
-            adaptive_tree = X.shape[1] <= 500
-
-            rf_pfn_n_estimators = hps.pop("n_estimators", 4)
-            hps["n_estimators"] = 1
-            rf_model_base = (
-                RandomForestTabPFNClassifier
-                if is_classification
-                else RandomForestTabPFNRegressor
-            )
-            self.model = rf_model_base(
-                tabpfn=model_base(**hps),
-                categorical_features=self._cat_indices,
-                n_estimators=rf_pfn_n_estimators,
-                max_depth=max_depth,
-                max_predict_time=time_to_predict_in_seconds,
-                time_to_fit_in_seconds=time_to_fit_in_seconds,
-                adaptive_tree=adaptive_tree,
-            )
-        else:
-            self.model = model_base(**hps)
-
+        # Model and fit
+        self.model = model_base(**hps)
         self.model = self.model.fit(
             X=X,
             y=y,
@@ -216,7 +201,7 @@ class TabPFNModel(AbstractModel):
         default_auxiliary_params = super()._get_default_auxiliary_params()
         default_auxiliary_params.update(
             {
-                "max_rows": 50_000,
+                "max_rows": 100_000,
                 "max_features": 2000,
                 "max_classes": 10,
             }
