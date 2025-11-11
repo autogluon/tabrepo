@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from advanced.run_plot_pareto_over_tuning_time import plot_pareto_n_configs
+from run_plot_pareto_over_tuning_time import plot_pareto_n_configs
 
 from tabarena.nips2025_utils.artifacts import tabarena_method_metadata_collection
 from tabarena.nips2025_utils.artifacts._tabarena_method_metadata import (
