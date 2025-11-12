@@ -174,7 +174,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cp
         'LR (tuned + ensemble)','KNN (tuned + ensemble)',
 
         ######### AutoGluon baseline
-        'AutoGluon_v130_bq_4h8c',
+        'AutoGluon 1.4 (extreme, 4h)',
         ######### AutoGluon baseline
         # "Portfolio-N200 (ensemble) (4h)"
     ]
@@ -297,7 +297,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cp
                                     ).merge(df_latex_tuned_ensemble.rename(index=lambda s: s.split(" (")[0])
                                     , left_index=True, right_index=True, how="left"
                                     )
-        df_latex_final.loc["AutoGluon_v130_bq_4h8c"] = ["-", "-", df_latex.loc["AutoGluon_v130_bq_4h8c", dataset_name]]
+        df_latex_final.loc["AutoGluon 1.4 (extreme, 4h)"] = ["-", "-", df_latex.loc["AutoGluon 1.4 (extreme, 4h)", dataset_name]]
         # df_latex_final.loc["Portfolio-N200 (ensemble) (4h)"] = [df_latex.loc["Portfolio-N200 (ensemble) (4h)", dataset_name], "", ""]
         df_latex_final = df_latex_final.fillna("-")
         df_latex_final.columns = ["Default", "Tuned", "Tuned + Ens."]
@@ -328,7 +328,7 @@ def get_per_dataset_tables(df_results: pd.DataFrame, save_path: Path, realmlp_cp
 
             'LR': 'Linear',
             'KNN': 'KNN',
-            "AutoGluon_v130_bq_4h8c": "AutoGluon",
+            "AutoGluon 1.4 (extreme, 4h)": "AutoGluon",
             "Portfolio-N200 (ensemble) (4h)": "Portfolio"
         }
 

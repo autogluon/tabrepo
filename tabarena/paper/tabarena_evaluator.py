@@ -196,24 +196,7 @@ class TabArenaEvaluator:
     # TODO: Remove the need for this, have the original results have the correct name to begin with
     @classmethod
     def _rename_dict(cls) -> dict:
-        return {
-            "AutoGluon_v130_bq_4h8c": "AutoGluon 1.3 (4h)",
-
-            "RandomForest_r1_BAG_L1_HOLDOUT": "RF (holdout)",
-            "ExtraTrees_r1_BAG_L1_HOLDOUT": "XT (holdout)",
-            "LinearModel_c1_BAG_L1_HOLDOUT": "LR (holdout)",
-
-            "LightGBM_c1_BAG_L1_HOLDOUT": "GBM (holdout)",
-            "XGBoost_c1_BAG_L1_HOLDOUT": "XGB (holdout)",
-            "CatBoost_c1_BAG_L1_HOLDOUT": "CAT (holdout)",
-            "NeuralNetTorch_c1_BAG_L1_HOLDOUT": "NN_TORCH (holdout)",
-            "NeuralNetFastAI_c1_BAG_L1_HOLDOUT": "FASTAI (holdout)",
-
-            "RealMLP_c1_BAG_L1_HOLDOUT": "REALMLP (holdout)",
-            "ExplainableBM_c1_BAG_L1_HOLDOUT": "EBM (holdout)",
-            "TabM_c1_BAG_L1_HOLDOUT": "TABM (holdout)",
-            "ModernNCA_c1_BAG_L1_HOLDOUT": "MNCA (holdout)",
-        }
+        return {}
 
     def eval(
         self,
@@ -245,9 +228,9 @@ class TabArenaEvaluator:
         if baselines is None:
             baselines = []
         elif baselines == "auto":
-            baselines = [
-                "AutoGluon 1.3 (4h)",
-            ]
+            baselines = list(
+                df_results[df_results["method_type"].isin(["baseline", "portfolio"])][self.method_col].unique()
+            )
         if baseline_colors is None:
             default_baseline_colors = [
                 "black",

@@ -28,6 +28,7 @@ def evaluate_all(
     df_results_cpu: pd.DataFrame = None,
     df_results_configs: pd.DataFrame = None,
     configs_hyperparameters: dict[str, dict] = None,
+    include_portfolio: bool = False,
     elo_bootstrap_rounds: int = 100,
     use_latex: bool = False,
     realmlp_cpu: bool = False,
@@ -52,10 +53,10 @@ def evaluate_all(
 
     eval_save_path = Path(eval_save_path)
 
-    _baselines = ["AutoGluon 1.3 (4h)"]
+    _baselines = ["AutoGluon 1.4 (best, 4h)"]
     _baseline_colors = ["black"]
     if not realmlp_cpu:
-        _baselines.append("AutoGluon 1.4 (4h)")
+        _baselines.append("AutoGluon 1.4 (extreme, 4h)")
         _baseline_colors.append("tab:purple")
 
     tabicl_type = "TABICL_GPU"
@@ -78,7 +79,7 @@ def evaluate_all(
         )
         plotter_runtime.generate_runtime_plot(df_results=df_results_configs_only_valid)
 
-    if configs_hyperparameters is not None:
+    if include_portfolio and configs_hyperparameters is not None:
         config_types = {k: v["model_type"] for k, v in configs_hyperparameters.items()}
         plotter_ensemble_weights = evaluator_cls(
             output_dir=eval_save_path / Path("ablation") / "ensemble_weights",
@@ -129,7 +130,11 @@ def evaluate_all(
     use_tabicl_lst = [False, True]
     use_imputation_lst = [False, True]
     problem_type_pst = [None, "cls", "reg", "binary", "multiclass"]
-    include_portfolio_lst = [False, True]
+
+    if include_portfolio:
+        include_portfolio_lst = [False, True]
+    else:
+        include_portfolio_lst = [False]
     with_baselines_lst = [True, False]
     lite_lst = [False, True]
     average_seeds_lst = [True]
