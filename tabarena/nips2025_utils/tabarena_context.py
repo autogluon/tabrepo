@@ -23,7 +23,8 @@ from tabarena.nips2025_utils.eval_all import evaluate_all
 
 
 _methods_paper = [
-    "AutoGluon_v130",
+    "AutoGluon_v140_bq_4h8c",
+    "AutoGluon_v140_eq_4h8c",
     # "Portfolio-N200-4h",
 
     "CatBoost",
@@ -41,7 +42,7 @@ _methods_paper = [
     # "TabM",
     "XGBoost",
 
-    # "Mitra_GPU",
+    "Mitra_GPU",
     "ModernNCA_GPU",
     "RealMLP_GPU",
     "TabDPT_GPU",
@@ -61,8 +62,6 @@ class TabArenaContext:
         self,
         methods: list[MethodMetadata] | str = "tabarena",
         extra_methods: list[MethodMetadata] = None,
-        include_ag_140: bool = True,
-        include_mitra: bool = True,
         include_unverified: bool = False,
         backend: Literal["ray", "native"] = "ray",
     ):
@@ -74,10 +73,6 @@ class TabArenaContext:
             if methods != "tabarena":
                 raise ValueError(f"Unknown methods preset '{methods}'.")
             methods = copy.deepcopy(_methods_paper)
-            if include_ag_140:
-                methods.append("AutoGluon_v140")
-            if include_mitra:
-                methods.append("Mitra_GPU")
             if include_unverified:
                 methods.extend([
                     "LimiX_GPU",
@@ -112,6 +107,7 @@ class TabArenaContext:
         folds: list[int] | None = None,
         score_on_val: bool = False,
         average_seeds: bool = True,
+        fillna: str | pd.DataFrame | None = "RF (default)",
         tmp_treat_tasks_independently: bool = False,
         leaderboard_kwargs: dict | None = None,
     ) -> pd.DataFrame:
@@ -125,6 +121,7 @@ class TabArenaContext:
             tabarena_context=self,
             score_on_val=score_on_val,
             average_seeds=average_seeds,
+            fillna=fillna,
             tmp_treat_tasks_independently=tmp_treat_tasks_independently,
             leaderboard_kwargs=leaderboard_kwargs,
         )
@@ -499,6 +496,7 @@ class TabArenaContext:
         df_results_holdout: pd.DataFrame = None,
         df_results_cpu: pd.DataFrame = None,
         configs_hyperparameters: dict[str, dict] = None,
+        include_portfolio: bool = False,
         elo_bootstrap_rounds: int = 100,
         use_latex: bool = False,
         realmlp_cpu: bool = False,
@@ -524,6 +522,7 @@ class TabArenaContext:
             df_results_cpu=df_results_cpu,
             df_results_configs=df_results_configs,
             configs_hyperparameters=configs_hyperparameters,
+            include_portfolio=include_portfolio,
             eval_save_path=save_path,
             elo_bootstrap_rounds=elo_bootstrap_rounds,
             use_latex=use_latex,

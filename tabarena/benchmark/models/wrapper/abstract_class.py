@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from autogluon.core.data.label_cleaner import LabelCleaner, LabelCleanerDummy
-from autogluon.core.metrics import get_metric, Scorer
+from autogluon.core.metrics import Scorer
 from autogluon.features import AutoMLPipelineFeatureGenerator
 
 from tabarena.utils.time_utils import Timer
@@ -23,11 +23,17 @@ class AbstractExecModel:
         eval_metric: Scorer,
         preprocess_data: bool = True,
         preprocess_label: bool = True,
+        shuffle_test: bool = True,
+        shuffle_seed: int = 0,
+        reset_index_test: bool = True,
     ):
         self.problem_type = problem_type
         self.eval_metric = eval_metric
         self.preprocess_data = preprocess_data
         self.preprocess_label = preprocess_label
+        self.shuffle_test = shuffle_test
+        self.shuffle_seed = shuffle_seed
+        self.reset_index_test = reset_index_test
         self.label_cleaner: LabelCleaner = None
         self._feature_generator = None
         self.failure_artifact = None
@@ -63,23 +69,47 @@ class AbstractExecModel:
     def post_fit(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
         pass
 
+    def fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame) -> dict:
+        og_index = X_test.index
+        inv_perm = None
+
+        if self.shuffle_test:
+            perm, inv_perm = _make_perm(len(X_test), seed=self.shuffle_seed)
+            X_test = X_test.iloc[perm]
+        if self.reset_index_test:
+            X_test = X_test.reset_index(drop=True)
+
+        out = self._fit_custom(X=X, y=y, X_test=X_test)
+
+        if self.shuffle_test:
+            # Inverse-permute outputs back to original X_test order
+            out["predictions"] = _apply_inv_perm(out["predictions"], inv_perm, index=og_index)
+            if out["probabilities"] is not None:
+                out["probabilities"] = _apply_inv_perm(out["probabilities"], inv_perm, index=og_index)
+        elif self.reset_index_test:
+            out["predictions"].index = og_index
+            if out["probabilities"] is not None:
+                out["probabilities"].index = og_index
+
+        return out
+
     # TODO: Prateek, Add a toggle here to see if user wants to fit or fit and predict, also add model saving functionality
     # TODO: Nick: Temporary name
-    def fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame):
-        '''
+    def _fit_custom(self, X: pd.DataFrame, y: pd.Series, X_test: pd.DataFrame) -> dict:
+        """
         Calls the fit function of the inheriting class and proceeds to perform predictions based on the problem type
 
         Returns
         -------
         dict
-        Returns predictions, probabilities, fit time and inference time
-        '''
+            Returns predictions, probabilities, fit time and inference time
+        """
         with (Timer() as timer_fit):
             self.fit(X, y)
 
         self.post_fit(X=X, y=y, X_test=X_test)
 
-        if self.problem_type in ['binary', 'multiclass']:
+        if self.problem_type in ["binary", "multiclass"]:
             with Timer() as timer_predict:
                 y_pred_proba = self.predict_proba(X_test)
             y_pred = self.predict_from_proba(y_pred_proba)
@@ -89,10 +119,10 @@ class AbstractExecModel:
             y_pred_proba = None
 
         out = {
-            'predictions': y_pred,
-            'probabilities': y_pred_proba,
-            'time_train_s': timer_fit.duration,
-            'time_infer_s': timer_predict.duration,
+            "predictions": y_pred,
+            "probabilities": y_pred_proba,
+            "time_train_s": timer_fit.duration,
+            "time_infer_s": timer_predict.duration,
         }
 
         return out
@@ -134,3 +164,25 @@ class AbstractExecModel:
 
     def get_metric_error_val(self) -> float:
         raise NotImplementedError
+
+
+def _make_perm(n: int, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
+    """Return (perm, inv_perm) for length n, using a deterministic RNG seed."""
+    rng = np.random.default_rng(seed)
+    perm = rng.permutation(n)
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(n)
+    return perm, inv_perm
+
+
+def _apply_inv_perm(obj, inv_perm: np.ndarray, index: pd.Index | None = None):
+    """Inverse-permute predictions while preserving type (Series/DataFrame/ndarray)."""
+    if isinstance(obj, pd.Series):
+        vals = obj.to_numpy()[inv_perm]
+        return pd.Series(vals, index=index, name=obj.name)
+    if isinstance(obj, pd.DataFrame):
+        vals = obj.to_numpy()[inv_perm, :]
+        return pd.DataFrame(vals, index=index, columns=obj.columns)
+    # Fallback: numpy array or array-like
+    arr = np.asarray(obj)
+    return arr[inv_perm]

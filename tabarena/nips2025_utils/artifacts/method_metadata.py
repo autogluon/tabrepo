@@ -34,6 +34,7 @@ class MethodMetadata:
         artifact_name: str = None,
         date: str | None = None,
         method_type: Literal["config", "baseline", "portfolio"] = "config",
+        name: str | None = None,
         name_suffix: str | None = None,
         ag_key: str | None = None,
         model_key: str | None = None,
@@ -59,6 +60,7 @@ class MethodMetadata:
         if model_key is None:
             model_key = ag_key
         self.model_key = model_key
+        self.name = name
         self.name_suffix = name_suffix
         self.config_default = config_default
         self.compute = compute
@@ -78,6 +80,10 @@ class MethodMetadata:
         assert isinstance(self.artifact_name, str) and len(self.artifact_name) > 0
         assert self.method_type in ["config", "baseline", "portfolio"]
         assert self.compute in ["cpu", "gpu"]
+        if self.name is not None and self.method_type == "config":
+            raise AssertionError(f"Cannot specify `name` for method_type: 'config'.")
+        if self.name is not None and self.name_suffix is not None:
+            raise AssertionError(f"Must only specify one of `name` and `name_suffix`.")
 
     @property
     def config_type(self) -> str | None:
@@ -457,6 +463,11 @@ class MethodMetadata:
     ) -> EvaluationRepository:
         if results_lst is None:
             results_lst = self.load_raw(engine=engine)
+
+        if self.name is not None:
+            # note: this is an in-place operation, but results_lst can be very large, so duplicating has drawbacks.
+            for r in results_lst:
+                r.update_name(name=self.name)
 
         repo: EvaluationRepository = generate_repo_from_results_lst(
             results_lst=results_lst,

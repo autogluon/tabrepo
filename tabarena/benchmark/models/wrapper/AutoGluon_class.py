@@ -7,7 +7,7 @@ from typing import Type
 import numpy as np
 import pandas as pd
 
-from tabarena.benchmark.models.wrapper.abstract_class import AbstractExecModel
+from tabarena.benchmark.models.wrapper.abstract_class import AbstractExecModel, _apply_inv_perm, _make_perm
 
 
 class AGWrapper(AbstractExecModel):
@@ -230,6 +230,14 @@ class AGSingleBagWrapper(AGSingleWrapper):
 
     # TODO: Can avoid predicting on test twice by doing it all in one go
     def get_per_child_test(self, X_test: pd.DataFrame, model=None) -> list[np.ndarray]:
+        original_index = X_test.index
+        inv_perm = None
+        if self.shuffle_test:
+            perm, inv_perm = _make_perm(len(X_test), seed=self.shuffle_seed)
+            X_test = X_test.iloc[perm]
+        if self.reset_index_test:
+            X_test = X_test.reset_index(drop=True)
+
         X_test = self.transform_X(X=X_test)
 
         if model is None:
@@ -240,6 +248,10 @@ class AGSingleBagWrapper(AGSingleWrapper):
             per_child_test_preds = model.predict_proba_children(X=X_test_inner)
         else:
             per_child_test_preds = model.predict_children(X=X_test_inner)
+
+        if self.shuffle_test:
+            # Inverse-permute outputs back to original X_test order
+            per_child_test_preds = [_apply_inv_perm(y_pred, inv_perm, index=original_index) for y_pred in per_child_test_preds]
 
         per_child_test_preds = [preds_child.astype(np.float32) for preds_child in per_child_test_preds]  # memory opt
         return per_child_test_preds

@@ -44,7 +44,7 @@ if __name__ == '__main__':
             time_limit=3600,  # time_limit=3600 was used in the TabArena 2025 paper
         ),
         AGModelBagExperiment(
-            name="RealMLP_c1_BAG_L1_Reproduced",
+            name="TA-RealMLP_c1_BAG_L1_Reproduced",
             model_cls=RealMLPModel,
             model_hyperparameters={},
             num_bag_folds=8,
