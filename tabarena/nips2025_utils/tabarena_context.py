@@ -7,8 +7,6 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from autogluon.common.savers import save_pd
-
 from tabarena.benchmark.result import BaselineResult
 from tabarena.utils.pickle_utils import fetch_all_pickles
 from tabarena.nips2025_utils.fetch_metadata import load_task_metadata
