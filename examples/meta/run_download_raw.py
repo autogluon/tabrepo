@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-import pandas as pd
-
-from tabarena import EvaluationRepositoryCollection
-from tabarena.benchmark.result import BaselineResult
 from tabarena.nips2025_utils.artifacts.method_metadata import MethodMetadata
 from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 
@@ -48,24 +42,3 @@ if __name__ == "__main__":
 
     # Get the hyperparameters for all configs
     configs_hyperparameters: dict[str, dict] = tabarena_context.load_configs_hyperparameters(download="auto")
-
-    # The full raw results for a given method type. Can be very large.
-    # Each element in the list corresponds to a specific (method, dataset, split) run.
-    # It is recommended to use a debugger to best understand the contents of the raw artifact.
-    cur_method = "TabDPT_GPU"  # TabDPT is used as an example.
-    method_metadata: MethodMetadata = tabarena_context.method_metadata(method=cur_method)
-    results_raw_lst: list[BaselineResult] = method_metadata.load_raw()
-
-    methods: list[str] = list(tabarena_context.methods)  # the list of valid methods
-    df_results: pd.DataFrame = tabarena_context.load_results_paper(methods=methods, download_results="auto")
-
-    for method in methods:
-        # convert raw to processed, unnecessary if already called `loader.download_processed()`
-        path_to_repo_artifact: Path = tabarena_context.generate_repo(method=method)
-
-    # load all processed data
-    repo: EvaluationRepositoryCollection = tabarena_context.load_repo(methods=methods)
-
-    for method in methods:
-        # convert processed to results, unnecessary if already called `loader.download_results()`
-        results, config_results = tabarena_context.simulate_repo(method=method)
