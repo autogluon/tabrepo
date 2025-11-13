@@ -83,4 +83,4 @@ tabarena = [
 ]
 
 [tool.uv.workspace]
-members = ["fasteval", "tabarena"]
+members = ["fasteval"]
