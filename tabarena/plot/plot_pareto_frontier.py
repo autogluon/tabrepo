@@ -389,7 +389,7 @@ def plot_pareto(
     # g.fig.suptitle(title, fontsize=14)
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, bbox_inches="tight")
+        plt.savefig(save_path, bbox_inches="tight", dpi=600)
     if show:
         plt.show()
 

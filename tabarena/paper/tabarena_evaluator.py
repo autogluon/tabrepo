@@ -1431,7 +1431,7 @@ class TabArenaEvaluator:
                     else:
                         fig_name = f"tuning-impact{name_suffix}.{self.figure_file_type}"
                     fig_save_path = fig_path / fig_name
-                    plt.savefig(fig_save_path)
+                    plt.savefig(fig_save_path, dpi=300)
                 if show:
                     plt.show()
 
