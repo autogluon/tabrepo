@@ -84,3 +84,6 @@ tabarena = [
 
 [tool.uv.workspace]
 members = ["fasteval"]
+
+[tool.uv.sources]
+fasteval = { workspace = true }
