@@ -169,7 +169,6 @@ class Evaluator:
         self,
         configs: list[str],
         datasets: list[str] = None,
-        folds: list[int] = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
 
@@ -191,12 +190,11 @@ class Evaluator:
         """
         if datasets is None:
             datasets = self.repo.datasets()
-        if folds is None:
-            folds = self.repo.folds
         import numpy as np
         delta_comparison = {}
         delta_std_comparison = {}
         for dataset in datasets:
+            folds = self.repo.dataset_to_folds(dataset=dataset)
             for fold in folds:
                 delta_comparison[(dataset, fold)] = {}
                 delta_std_comparison[(dataset, fold)] = {}
