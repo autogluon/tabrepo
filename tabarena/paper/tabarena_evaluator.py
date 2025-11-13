@@ -1750,7 +1750,7 @@ class TabArenaEvaluator:
         df_results_configs = df_results_configs[df_results_configs["config_type"].isin(framework_types)]
 
         method_rename_map = self.get_method_rename_map()
-        df_results_configs["config_type"] = df_results_configs["config_type"].map(method_rename_map)
+        df_results_configs["config_type"] = df_results_configs["config_type"].map(method_rename_map).fillna(df_results_configs["config_type"])
 
         plot_train_time_deep_dive(
             df=df_results_configs,

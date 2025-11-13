@@ -12,15 +12,6 @@ from tabarena.nips2025_utils.per_dataset_tables import get_per_dataset_tables
 from tabarena.paper.tabarena_evaluator import TabArenaEvaluator, TabArenaEvaluator_2025_06_12
 
 
-def _get_problem_type(n_classes: int):
-    if n_classes < 2:
-        return "regression"
-    elif n_classes == 2:
-        return "binary"
-    else:
-        return "multiclass"
-
-
 def evaluate_all(
     df_results: pd.DataFrame,
     eval_save_path: str | Path,
@@ -48,9 +39,6 @@ def evaluate_all(
     datasets_tabpfn = list(load_task_metadata(subset="TabPFNv2")["name"])
     datasets_tabicl = list(load_task_metadata(subset="TabICL")["name"])
     task_metadata = load_task_metadata()
-
-    task_metadata["problem_type"] = task_metadata["NumberOfClasses"].apply(_get_problem_type)
-
     eval_save_path = Path(eval_save_path)
 
     _baselines = ["AutoGluon 1.4 (best, 4h)"]
@@ -71,7 +59,7 @@ def evaluate_all(
     }).fillna(df_results["method"])
 
     if df_results_configs is not None:
-        config_types_valid = df_results["config_type"].unique()
+        config_types_valid = df_results["config_type"].dropna().unique()
         df_results_configs_only_valid = df_results_configs[df_results_configs["config_type"].isin(config_types_valid)]
         plotter_runtime = evaluator_cls(
             output_dir=eval_save_path / "ablation" / "all-runtimes",

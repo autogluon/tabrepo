@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import time
 
 import pandas as pd
 
@@ -58,36 +57,3 @@ def generate_repo_from_results_lst(
 
     repo: EvaluationRepository = exp_results.repo_from_results(results_lst=results_lst)
     return repo
-
-
-def copy_results_lst_from_paths(
-    path: str,
-    result_paths: list[str | Path],
-    task_metadata: pd.DataFrame,
-    engine: str = "ray",
-    name_suffix: str | None = None,
-    rename_dict: dict | None = None,
-    as_holdout: bool = False,
-) -> EvaluationRepository:
-    results_lst: list[BaselineResult] = load_all_artifacts(file_paths=result_paths, engine=engine, convert_to_holdout=as_holdout)
-    results_lst = [r for r in results_lst if r is not None]
-    tids = set(list(task_metadata["tid"].unique()))
-    results_lst = [r for r in results_lst if r.result["task_metadata"]["tid"] in tids]
-
-    if rename_dict is not None:
-        for r in results_lst:
-            r.result["framework"] = rename_dict.get(r.result["framework"], r.result["framework"])
-
-    if name_suffix is not None:
-        for r in results_lst:
-            r.result["framework"] += name_suffix
-
-    if len(results_lst) == 0:
-        print(f"EMPTY")
-        return None
-
-    n_results = len(results_lst)
-    for i, result in enumerate(results_lst):
-        if i % 100 == 0:
-            print(f"{i+1}/{n_results}")
-        result.to_dir(path=path)
