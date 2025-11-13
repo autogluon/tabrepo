@@ -320,7 +320,7 @@ class TabArenaContext:
         n_portfolio: int = 25,
         n_ensemble: int = 40,
         time_limit: float | None = 14400,
-        eval_fold_as_dataset: bool = False,
+        average_seeds: bool = True,
     ):
         if repo is None:
             repo = self.load_repo(methods=methods, config_fallback=config_fallback)
@@ -335,7 +335,7 @@ class TabArenaContext:
             n_portfolio=n_portfolio,
             n_ensemble=n_ensemble,
             time_limit=time_limit,
-            eval_fold_as_dataset=eval_fold_as_dataset,
+            average_seeds=average_seeds,
         )
 
     def run_portfolio(

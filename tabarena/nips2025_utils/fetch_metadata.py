@@ -31,6 +31,17 @@ def _get_n_repeats(n_instances: int, tabarena_lite: bool = False) -> int:
     return tabarena_repeats
 
 
+def _get_problem_type_from_n_classes(n_classes: int) -> str:
+    if n_classes == 0:
+        return "regression"
+    elif n_classes == 2:
+        return "binary"
+    elif n_classes > 2:
+        return "multiclass"
+    else:
+        raise ValueError(f"Invalid n_classes: {n_classes}")
+
+
 def load_task_metadata(paper: bool = True, subset: str = None, path: str = None) -> pd.DataFrame:
     """
     Load the task metadata for all datasets in the TabArena benchmark.
@@ -69,6 +80,7 @@ def load_task_metadata(paper: bool = True, subset: str = None, path: str = None)
     task_metadata["n_samples_test_per_fold"] = (task_metadata["NumberOfInstances"] / task_metadata["n_folds"]).astype(int)
     task_metadata["n_samples_train_per_fold"] = (task_metadata["NumberOfInstances"] - task_metadata["n_samples_test_per_fold"]).astype(int)
     task_metadata["n_classes"] = task_metadata["NumberOfClasses"].astype(int)
+    task_metadata["problem_type"] = task_metadata["n_classes"].apply(_get_problem_type_from_n_classes)
 
     task_metadata["dataset"] = task_metadata["name"]
 

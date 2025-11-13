@@ -101,13 +101,12 @@ class PaperRunTabArena(PaperRun):
         n_portfolio: int = 25,
         n_ensemble: int = 40,
         time_limit: float | None = 14400,
-        eval_fold_as_dataset: bool = False,
+        average_seeds: bool = True,
     ) -> pd.DataFrame:
         calibration_framework = "RF (default)"
         elo_bootstrap_rounds = 100
         if model_types is None:
             model_types = self.repo.config_types()
-        n_eval_folds = 1  # FIXME
 
         n_types = len(model_types)
 
@@ -137,12 +136,6 @@ class PaperRunTabArena(PaperRun):
             combined_data_cur_round = pd.concat([v for v in results_dict_cur_round.values()], ignore_index=True)
             combined_data = pd.concat([result_baselines, combined_data_cur_round], ignore_index=True)
 
-            if eval_fold_as_dataset:
-                # FIXME: Shouldn't hardcode 9, need to make elo calculation work properly with weighting
-                combined_data = combined_data[combined_data["fold"] < 9]
-                combined_data["dataset"] = combined_data["dataset"] + "_" + combined_data["fold"].astype(str)
-                combined_data["fold"] = 0
-
             arena = TabArena(
                 task_col="dataset",
                 groupby_columns=["problem_type", "metric"],
@@ -150,6 +143,7 @@ class PaperRunTabArena(PaperRun):
             )
             leaderboard = arena.leaderboard(
                 data=combined_data,
+                average_seeds=average_seeds,
                 include_elo=True,
                 elo_kwargs=dict(
                     calibration_framework=calibration_framework,
@@ -158,7 +152,7 @@ class PaperRunTabArena(PaperRun):
                 )
             ).reset_index(drop=False)
             leaderboard_cur_round = leaderboard[leaderboard["method"].isin(results_dict_cur_round.keys())]
-            print(leaderboard[["method", "elo"]])
+            print(leaderboard[["method", "elo", "improvability"]].to_markdown(index=False))
             best_method_info_cur = leaderboard_cur_round.sort_values(by="elo", ascending=False).iloc[0]
             best_method_cur = best_method_info_cur["method"]
             best_method_cur_elo = best_method_info_cur["elo"]

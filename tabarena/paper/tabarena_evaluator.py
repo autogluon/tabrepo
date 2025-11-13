@@ -548,8 +548,7 @@ class TabArenaEvaluator:
         if self.problem_types is not None:
             df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
         if not self.keep_best:
-            # FIXME: Don't do regex, use subtype column value
-            df_results = df_results[~df_results[self.method_col].str.contains("(best)", regex=False)]
+            df_results = df_results[df_results["method_subtype"] != "best"]
         if self.banned_model_types:
             df_results = df_results[~df_results["config_type"].isin(self.banned_model_types)]
         return df_results
