@@ -408,7 +408,6 @@ class Evaluator:
         rename_columns: bool = True,  # TODO: Align them automatically so this isn't needed
         n_ensemble_in_name: bool = True,
         n_max_models_per_type: int | str | None = None,
-        fix_fillna: bool = True,
         n_eval_folds: int | None = None,
     ) -> pd.DataFrame:
         repo = self.repo
@@ -432,7 +431,6 @@ class Evaluator:
             rank_scorer=rank_scorer,
             normalized_scorer=normalized_scorer,
             n_eval_folds=n_eval_folds,
-            fix_fillna=fix_fillna,
             configs=configs,
             engine=engine,
         )

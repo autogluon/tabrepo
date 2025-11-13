@@ -198,7 +198,6 @@ class PaperRun:
             n_ensemble_in_name: bool = True,
             n_max_models_per_type: int | str | None = None,
             time_limit: float | None = 14400,
-            fix_fillna: bool = True,
             **kwargs,
     ) -> pd.DataFrame:
         df_zeroshot_portfolio = self.evaluator.zeroshot_portfolio(
@@ -207,7 +206,6 @@ class PaperRun:
             n_ensemble_in_name=n_ensemble_in_name,
             n_max_models_per_type=n_max_models_per_type,
             time_limit=time_limit,
-            fix_fillna=fix_fillna,
             engine=self.engine,
             **kwargs,
         )
