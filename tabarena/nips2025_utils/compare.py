@@ -157,6 +157,10 @@ def subset_tasks(df_results: pd.DataFrame, subset: list[str], folds: list[int] =
             df_results = df_results[
                 df_results["problem_type"].isin(["binary", "multiclass"])
             ]
+        elif filter_subset == "binary":
+            df_results = df_results[df_results["problem_type"] == "binary"]
+        elif filter_subset == "multiclass":
+            df_results = df_results[df_results["problem_type"] == "multiclass"]
         elif filter_subset == "regression":
             df_results = df_results[df_results["problem_type"] == "regression"]
         elif filter_subset == "medium+":
