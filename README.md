@@ -50,12 +50,44 @@ TabArena code is currently being polished. Detailed Documentation for TabArena w
 
 To install TabArena, ensure you are using Python 3.9-3.12. Then, run the following:
 
+### Clone the repository
+
+```
+git clone https://github.com/autogluon/tabarena.git
+```
+
+### Install UV
+
+Ensure [UV is installed](https://docs.astral.sh/uv/getting-started/installation/) for the most stable install.
+
+```
+pip install uv  # if pip is available
+```
+
+### Install AutoGluon
+
+In future AutoGluon installation will occur automatically, but due to changes yet to be released, we need to install AutoGluon from source.
+
+```
+git clone https://github.com/autogluon/autogluon.git
+./autogluon/full_install.sh
+```
+
 ### Evaluation (Leaderboard / Metrics)
 
 If you don't intend to fit models, this is the simplest installation.
 
+#### UV Install (recommended)
+
+```
+uv pip install --prerelease=allow -e tabarena/
+```
+
+#### PIP Install (not recommended)
+
 ```
 git clone https://github.com/autogluon/tabarena.git
+pip install -e tabarena/fasteval/
 pip install -e tabarena/
 ```
 
@@ -64,11 +96,10 @@ pip install -e tabarena/
 If you intend to fit models, this is required.
 
 ```
-git clone https://github.com/autogluon/tabarena.git
-pip install -e tabarena/[benchmark]
+uv pip install --prerelease=allow -e tabarena/[benchmark]
 
 # use GIT_LFS_SKIP_SMUDGE=1 in front of the command if installing TabDPT fails due to a broken LFS/pip setup
-# GIT_LFS_SKIP_SMUDGE=1 uv pip install -e tabarena/[benchmark]
+# GIT_LFS_SKIP_SMUDGE=1 uv pip install --prerelease=allow -e tabarena/[benchmark]
 ```
 
 ### Developer Install
@@ -80,7 +111,7 @@ git clone https://github.com/autogluon/autogluon.git
 ./autogluon/full_install.sh
 
 git clone https://github.com/autogluon/tabarena.git
-pip install -e tabarena/[benchmark]
+uv pip install --prerelease=allow -e tabarena/[benchmark]
 ```
 
 ### Example Install + Run
@@ -89,9 +120,11 @@ pip install -e tabarena/[benchmark]
 pip install uv
 uv init -p 3.11
 uv sync
+git clone https://github.com/autogluon/autogluon.git
+./autogluon/full_install.sh
 git clone https://github.com/autogluon/tabarena.git
-uv pip install -e tabarena/[benchmark]
-cd examples/benchmarking/ 
+uv pip install --prerelease=allow -e tabarena/[benchmark]
+cd tabarena/examples/benchmarking/ 
 python run_quickstart_tabarena.py 
 ```
 
