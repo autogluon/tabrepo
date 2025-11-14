@@ -136,13 +136,3 @@ if __name__ == '__main__':
 
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 1000):
         print(f"Config Metrics Example:\n{metrics.head(100)}")
-
-    # Requires `autogluon_bench` and `autogluon_benchmark`
-    # FIXME: AG-Bench is saving unnecessary files in `data/results/output/openml/None/...`
-    # FIXME: AG-Bench might not work out of the box due to the existence of `run_evaluation_openml.evaluate_amlb_results`
-    evaluation_save_dir = os.path.join(expname, "evaluation")
-    evaluator_output = evaluator.plot_overall_rank_comparison(
-        results_df=metrics,
-        save_dir=evaluation_save_dir,
-        evaluator_kwargs={"treat_folds_as_datasets": True},
-    )

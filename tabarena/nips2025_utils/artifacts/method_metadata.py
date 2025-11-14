@@ -90,9 +90,9 @@ class MethodMetadata:
         if self.method_type != "config":
             return None
         elif self.name_suffix is not None:
-            return f"{self.ag_key}{self.name_suffix}"
+            return f"{self.model_key}{self.name_suffix}"
         else:
-            return self.ag_key
+            return self.model_key
 
     # TODO: Also support baseline methods
     @classmethod

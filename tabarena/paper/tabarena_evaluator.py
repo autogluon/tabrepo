@@ -441,14 +441,14 @@ class TabArenaEvaluator:
                 if parts[0] in f_map_type_name:
                     parts[0] = f_map_type_name[parts[0]]
                 name = " ".join(parts)
-                return name.replace('(tuned + ensemble)', '(tuned + ensembled)')
+                return name.replace('(tuned + ensemble)', '(T+E)')
 
             # use tuned+ensembled version if available, and default otherwise
             tune_methods = results_per_task[self.method_col].map(method_info["method_subtype"])
             method_types = results_per_task[self.method_col].map(method_info["config_type"]).fillna(results_per_task[self.method_col])
 
-            tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
-            results_te_per_task = results_per_task[(tune_methods == 'tuned_ensembled') | (
+            tuned_ens_types = method_types[tune_methods == 'tuned_ensemble']
+            results_te_per_task = results_per_task[(tune_methods == 'tuned_ensemble') | (
                         (tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
 
             # rename model part
@@ -456,8 +456,8 @@ class TabArenaEvaluator:
 
             tune_methods = results_per_split[self.method_col].map(method_info["method_subtype"])
             method_types = results_per_split[self.method_col].map(method_info["config_type"]).fillna(results_per_split[self.method_col])
-            tuned_ens_types = method_types[tune_methods == 'tuned_ensembled']
-            results_te_per_split = results_per_split[(tune_methods == 'tuned_ensembled') | (
+            tuned_ens_types = method_types[tune_methods == 'tuned_ensemble']
+            results_te_per_split = results_per_split[(tune_methods == 'tuned_ensemble') | (
                         (tune_methods == 'default') & ~method_types.isin(tuned_ens_types))]
             results_te_per_split.loc[:, self.method_col] = results_te_per_split[self.method_col].map(rename_model)
 
@@ -467,8 +467,6 @@ class TabArenaEvaluator:
                 _results_to_use_winrate_matrix = results_te_per_split.copy()
 
             winrate_matrix = tabarena.compute_winrate_matrix(results_per_task=_results_to_use_winrate_matrix)
-            winrate_matrix.index = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.index]
-            winrate_matrix.columns = [i.replace('tuned + ensembled', 'T+E') for i in winrate_matrix.columns]
             try:
                 tabarena.plot_winrate_matrix(
                     winrate_matrix=winrate_matrix,
@@ -548,8 +546,7 @@ class TabArenaEvaluator:
         if self.problem_types is not None:
             df_results = df_results[df_results["problem_type"].isin(self.problem_types)]
         if not self.keep_best:
-            # FIXME: Don't do regex, use subtype column value
-            df_results = df_results[~df_results[self.method_col].str.contains("(best)", regex=False)]
+            df_results = df_results[df_results["method_subtype"] != "best"]
         if self.banned_model_types:
             df_results = df_results[~df_results["config_type"].isin(self.banned_model_types)]
         return df_results
@@ -1432,7 +1429,7 @@ class TabArenaEvaluator:
                     else:
                         fig_name = f"tuning-impact{name_suffix}.{self.figure_file_type}"
                     fig_save_path = fig_path / fig_name
-                    plt.savefig(fig_save_path)
+                    plt.savefig(fig_save_path, dpi=300)
                 if show:
                     plt.show()
 
@@ -1753,7 +1750,7 @@ class TabArenaEvaluator:
         df_results_configs = df_results_configs[df_results_configs["config_type"].isin(framework_types)]
 
         method_rename_map = self.get_method_rename_map()
-        df_results_configs["config_type"] = df_results_configs["config_type"].map(method_rename_map)
+        df_results_configs["config_type"] = df_results_configs["config_type"].map(method_rename_map).fillna(df_results_configs["config_type"])
 
         plot_train_time_deep_dive(
             df=df_results_configs,
