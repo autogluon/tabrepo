@@ -36,8 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 tabpfn = [
-  "tabpfn>=2.0.9",       # We used version 2.0.9
-  "numba>=0.57,<1.0",    # Required by kditransform
+  "tabpfn>=6.0.5",       # We used version 6.0.5
 ]
 tabicl = ["tabicl>=0.1.1"]
 ebm = ["interpret-core>=0.7.3"]

@@ -49,10 +49,10 @@ class BenchmarkSetup:
             - slurm_out         -- contains all SLURM output logs
             - .openml-cache     -- contains the OpenML cache
     """
-    python_from_base_path: str = "venvs/tabarena_1610/bin/python"
+    python_from_base_path: str = "venvs/tabarena_07112025/bin/python"
     """Python executable and environment to use for the SLURM jobs. This should point to a Python
     executable within a (virtual) environment."""
-    run_script_from_base_path: str = "code/tabarena_benchmarking_examples/tabflow_slurm/run_tabarena_experiment.py"
+    run_script_from_base_path: str = "code/tabarena_new/tabarena/tabflow_slurm/run_tabarena_experiment.py"
     """Python script to run the benchmark. This should point to the script that runs the benchmark
     for TabArena."""
     openml_cache_from_base_path: str = ".openml-cache"
@@ -64,11 +64,11 @@ class BenchmarkSetup:
     SLURM jobs."""
     output_dir_base_from_base_path: str = "output/"
     """Output directory for the benchmark. In this folder a `benchmark_name` folder will be created."""
-    configs_path_from_base_path: str = "code/tabarena_benchmarking_examples/tabflow_slurm/benchmark_configs_"
+    configs_path_from_base_path: str = "code/tabarena_new/tabarena/tabflow_slurm/benchmark_configs_"
     """YAML file with the configs to run. Generated from parameters above in code below.
     File path is f"{self.base_path}{self.configs_path_from_base_path}{self.benchmark_name}.yaml"
     """
-    slurm_script: str = "submit_template_gpu.sh"
+    slurm_script: str = "submit_template.sh"
     """Name of the SLURM (array) script that to run on the cluster (only used to print the command
      to run)."""
     slurm_gpu_partition: str = "alldlc2_gpu-l40s"
@@ -209,7 +209,7 @@ class BenchmarkSetup:
                     "max_n_samples_train_per_fold": 10_000,
                     "max_n_features": 500,
                     "max_n_classes": 10,
-            }
+            },
             "TABICL": {
                     "max_n_samples_train_per_fold": 100_000,
                     "max_n_features": 500,
@@ -322,7 +322,10 @@ class BenchmarkSetup:
         time_in_h = self.time_limit // 3600 * self.configs_per_job + 1
         time_in_h = f"--time={time_in_h}:00:00"
         cpus = f"--cpus-per-task={self.num_cpus}"
-        mem = f"--mem-per-cpu={self.num_cpus // self.memory_limit}G"
+        if is_gpu_job:
+            mem = f"--mem-per-gpu={self.memory_limit}G"
+        else:
+            mem = f"--mem-per-cpu={self.memory_limit//self.num_cpus}G"
         script = str(Path(__file__).parent / self.slurm_script)
 
         return f"{partition} {gres} {time_in_h} {cpus} {mem} {script}"
@@ -337,9 +340,9 @@ class BenchmarkSetup:
         Path(self.slurm_log_output).mkdir(parents=True, exist_ok=True)
 
         if self.custom_metadata is None:
-            from tabarena.nips2025_utils.fetch_metadata import load_task_metadata
+            from tabarena.nips2025_utils.fetch_metadata import load_curated_task_metadata
 
-            metadata = load_task_metadata()
+            metadata = load_curated_task_metadata()
         else:
             metadata = deepcopy(self.custom_metadata)
 
@@ -350,21 +353,21 @@ class BenchmarkSetup:
 
         def yield_all_jobs():
             for row in metadata.itertuples():
+                task_id = row.task_id
+                n_samples_train_per_fold = int(row.num_instances - int(row.num_instances / row.num_folds))
+                n_features = int(row.num_features)
+                n_classes = int(row.num_classes) if row.problem_type in ["binary", "multiclass"] else 0
+
+                # Quick, model independent skip.
+                if row.problem_type not in self.problem_types_to_run:
+                    continue
+
                 repeats_folds = product(range(int(row.tabarena_num_repeats)), range(int(row.num_folds)))
                 if self.tabarena_lite:  # Filter to only first split.
                     repeats_folds = list(repeats_folds)[:1]
 
                 for repeat_i, fold_i in repeats_folds:
                     for config_index, config in list(enumerate(configs)):
-                        task_id = row.task_id
-                        n_samples_train_per_fold = int(row.num_instances - int(row.num_instances / row.num_folds))
-                        n_features = int(row.num_features)
-                        n_classes = int(row.num_classes) if row.problem_type in ["binary", "multiclass"] else 0
-
-                        # Quick, model independent skip.
-                        if row.problem_type not in self.problem_types_to_run:
-                            continue
-
                         yield {
                             "config_index": config_index,
                             "config": config,
@@ -393,7 +396,7 @@ class BenchmarkSetup:
                 "cache_path_format": self.cache_path_format,
                 "cache_cls": self.cache_cls,
                 "cache_cls_kwargs": self.cache_cls_kwargs,
-                "model_to_constraints": self.model_to_constraints,
+                "models_to_constraints": self.models_to_constraints,
             },
             track_progress=True,
             tqdm_kwargs={"desc": "Checking Cache and Filter Invalid Jobs"},
@@ -582,7 +585,7 @@ class BenchmarkSetup:
     @staticmethod
     def are_model_constraints_valid(
         *,
-        model_name: str,
+        model_cls: str,
         n_features: int,
         n_classes: int,
         n_samples_train_per_fold: int,
@@ -592,8 +595,8 @@ class BenchmarkSetup:
 
         Arguments:
         ----------
-        model_name: str
-            The name of the model to check. AG key of abstract model class.
+        model_cls: str
+            The name of the model class to check. AG key of abstract model class.
         n_features: int
             The number of features in the dataset.
         n_classes: int
@@ -609,7 +612,7 @@ class BenchmarkSetup:
         model_is_valid: bool
             True if the model can be run on the dataset, False otherwise.
         """
-        model_constraints = models_to_constraints.get(model_name)
+        model_constraints = models_to_constraints.get(model_cls)
         if model_constraints is None:
             return True  # No constraints for this model
 
@@ -663,9 +666,9 @@ def should_run_job(
 
     # Filter out-of-constraints datasets
     if not BenchmarkSetup.are_model_constraints_valid(
-        model_name=config["name"],
-        n_features=config["n_features"],
-        n_classes=config["n_classes"],
+        model_cls=config["model_cls"],
+        n_features=input_data["n_features"],
+        n_classes=input_data["n_classes"],
         n_samples_train_per_fold=input_data["n_samples_train_per_fold"],
         models_to_constraints=models_to_constraints,
     ):
