@@ -1494,22 +1494,16 @@ class LeaderboardReporter:
         """
         from matplotlib.lines import Line2D
 
-        from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, SYSTEM_SHADE_COLORS, SYSTEM_SHADE_LABELS
+        from tabarena.plot.plot_pareto_focus import color_of, legend_swatches
 
         info = self.method_metadata_info
         systems = system_display_names(info) if info is not None and "method_class" in info.columns else frozenset()
         families = df["_label"].map(lambda name: get_model_family(name, system_names=systems))
         keys = df["_label"].map(system_shades(info)).fillna(families)
-        swatches = {f: (c, f) for f, c in FAMILY_COLORS.items()}
-        swatches |= {k: (c, SYSTEM_SHADE_LABELS[k]) for k, c in SYSTEM_SHADE_COLORS.items()}
-        colors = keys.map(lambda key: swatches.get(key, swatches["Other"])[0])
-        present = set(keys)
         handles = [
-            Line2D([], [], marker="o", ls="", color=color, label=label)
-            for key, (color, label) in swatches.items()
-            if key in present
+            Line2D([], [], marker="o", ls="", color=color, label=label) for color, label in legend_swatches(set(keys))
         ]
-        return colors, handles
+        return keys.map(color_of), handles
 
     @staticmethod
     def _date_pareto_front(df: pd.DataFrame, *, metric: str, higher_is_better: bool) -> pd.DataFrame:
