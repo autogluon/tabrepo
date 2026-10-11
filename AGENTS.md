@@ -160,8 +160,11 @@ item from one on-demand CPU node with `num_workers` requests in flight (the conc
 allows), with the key exported in the submitting shell and never written to a file. `compute` in
 `info.py` is the provider's hardware, so processing only warns when the raw results record the CPU
 client. Timings are wall-clock at the client, network and provider queue included, and an API that
-fits and predicts in one call records the whole fit as `time_infer_s`. The `add-system` skill
-(Step 1b) has the wrapper contract and the `benchmark-model` skill the run.
+fits and predicts in one call records the whole fit as `time_infer_s`. Such a system declares
+`fits_at_predict=True` in its `MethodMetadata`: its loaded results then charge the prediction call to
+`time_train_s` as well (the hosted tables keep the raw times), and the leaderboard table marks that
+train time with a †. The `add-system` skill (Step 1b) has the wrapper contract and the
+`benchmark-model` skill the run.
 
 The website types a system from `method_class`, never from its name. `website_format.get_model_family` classifies models by name prefix, but a system short-circuits to the `System` family via the declared set (`system_display_names`), so a new system never lands in `❓ Other`.
 

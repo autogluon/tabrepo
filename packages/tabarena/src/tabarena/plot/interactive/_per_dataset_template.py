@@ -1150,8 +1150,7 @@ __BASE_JS__
       const pts = arr.filter(p => p[metric.key] != null);
       if (!pts.length) continue;
       const on = active.has(t);
-      const fam = famOfTrajectory(t);
-      const color = on ? FAM_VAR[fam] : "var(--pt-muted)";
+      const color = on ? famColor(trajectoryKind(t)) : "var(--pt-muted)";
       if (pts.length > 1) {
         el("path", {
           d: pts.map((p, i) => `${i ? "L" : "M"}${X(p.x)},${Y(p[metric.key])}`).join(" "),
@@ -1194,7 +1193,7 @@ __BASE_JS__
       const px = X(bestPt.x);
       const toRight = px + 10 + w <= W - M.r;
       labels.push({
-        name: name, family: famOfTrajectory(t), w: w,
+        name: name, ...trajectoryKind(t), w: w,
         anchor: toRight ? "start" : "end",
         x: toRight ? px + 10 : Math.max(M.l + w + 2, px - 10),
         y: Y(bestPt[metric.key]) - 11,
@@ -1213,7 +1212,7 @@ __BASE_JS__
     const labelG = el("g", {}, svg);
     for (const l of labels) {
       el("text", {
-        x: l.x, y: Math.max(l.y, M.t + 11), "font-size": 12.5, "font-weight": 700, fill: FAM_VAR[l.family],
+        x: l.x, y: Math.max(l.y, M.t + 11), "font-size": 12.5, "font-weight": 700, fill: famColor(l),
         "paint-order": "stroke", stroke: "var(--card)", "stroke-width": 3.5, "text-anchor": l.anchor,
       }, labelG).textContent = l.name;
     }
@@ -1250,16 +1249,16 @@ __BASE_JS__
       " Off the top of the scale (hover for the value)</span>");
   }
 
-  // A trajectory line's family: taken from a leaderboard method that shares its base name, so
-  // the line, the ranking list and the strip agree on the colour.
-  const famCache = new Map();
-  function famOfTrajectory(t) {
+  // A trajectory line's family and system shade: taken from a leaderboard method that shares its
+  // base name, so the line, the ranking list and the strip agree on the colour.
+  const kindCache = new Map();
+  function trajectoryKind(t) {
     const name = TRAJ_METHODS[t];
-    if (famCache.has(name)) return famCache.get(name);
+    if (kindCache.has(name)) return kindCache.get(name);
     const match = METHODS.find(m => m.base === name);
-    const fam = match ? match.family : FAM_MERGED;
-    famCache.set(name, fam);
-    return fam;
+    const kind = { family: match ? match.family : FAM_MERGED, shade: match ? match.shade : undefined };
+    kindCache.set(name, kind);
+    return kind;
   }
 
   function chartTip(d, t, p) {

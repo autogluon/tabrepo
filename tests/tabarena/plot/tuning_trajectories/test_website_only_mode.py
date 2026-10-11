@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import re
+
 import matplotlib
 import pandas as pd
 
@@ -72,3 +75,18 @@ def test_full_mode_renders_more_figures(tmp_path):
     assert (tmp_path / "pareto_n_configs_imp.png").is_file()
     assert (tmp_path / "pareto_n_configs_elo.png").is_file()
     assert (tmp_path / "pareto_n_configs_imp_tot_train.png").is_file()
+
+
+def test_a_shaded_system_carries_its_shade_into_the_explorer(tmp_path):
+    plot_tuning_trajectories_from_leaderboard(
+        leaderboard=_toy_leaderboard(),
+        fig_save_dir=tmp_path,
+        file_ext=".png",
+        focus_mode=True,
+        website_only=True,
+        system_names=frozenset({"B"}),
+        system_shades={"B": "closed-source-api"},
+    )
+    html = (tmp_path / "tuning_trajectories_explorer.html").read_text(encoding="utf-8")
+    points = json.loads(re.search(r"const POINTS = (\[.*?\]);\n", html, re.S).group(1))
+    assert {p["method"]: p["shade"] for p in points} == {"A": None, "B": "closed-source-api"}

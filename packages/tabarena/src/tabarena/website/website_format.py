@@ -302,6 +302,7 @@ def add_metadata(
                 "Tags": "",
                 "Commercial": True,
                 "License": "",
+                "FitsAtPredict": False,
             },
         )
     metadata = metadata_df.loc[method]
@@ -329,6 +330,10 @@ def add_metadata(
     license_name = metadata.get("license", None)
     if license_name is None or pd.isna(license_name):
         license_name = ""
+    # Frames written before the field existed lack it; that reads as a separate fit and predict.
+    fits_at_predict = metadata.get("fits_at_predict", False)
+    if fits_at_predict is None or pd.isna(fits_at_predict):
+        fits_at_predict = False
 
     # Add Model Family Information
     out_dict = {
@@ -340,6 +345,8 @@ def add_metadata(
         "Tags": ";".join(tags),
         "Commercial": bool(commercial_use),
         "License": str(license_name),
+        # Whether the train time includes the prediction call (`MethodMetadata.fits_at_predict`).
+        "FitsAtPredict": bool(fits_at_predict),
     }
 
     display_name = MethodMetadata.compute_method_name(
@@ -381,6 +388,7 @@ def legacy_formatting(df_leaderboard: pd.DataFrame) -> pd.DataFrame:
     df_leaderboard["Tags"] = ""
     df_leaderboard["Commercial"] = True
     df_leaderboard["License"] = ""
+    df_leaderboard["FitsAtPredict"] = False
 
     # Add Model Family Information
     df_leaderboard["Type"] = df_leaderboard.loc[:, "method"].apply(
@@ -417,7 +425,18 @@ def format_leaderboard(
         )
         method_info_map = method_info_map.set_index("method")
         df_leaderboard[
-            ["method", "Hardware", "Verified", "Type", "TypeName", "MethodClass", "Tags", "Commercial", "License"]
+            [
+                "method",
+                "Hardware",
+                "Verified",
+                "Type",
+                "TypeName",
+                "MethodClass",
+                "Tags",
+                "Commercial",
+                "License",
+                "FitsAtPredict",
+            ]
         ] = df_leaderboard.apply(
             partial(add_metadata, metadata_df=method_info_map, include_url=include_url),
             result_type="expand",
@@ -482,6 +501,7 @@ def format_leaderboard(
             "Tags",
             "Commercial",
             "License",
+            "FitsAtPredict",
         ],
     ]
 
@@ -502,7 +522,7 @@ def format_leaderboard(
 
     if not include_type:
         df_leaderboard = df_leaderboard.drop(
-            columns=["Type", "TypeName", "MethodClass", "Tags", "Commercial", "License"]
+            columns=["Type", "TypeName", "MethodClass", "Tags", "Commercial", "License", "FitsAtPredict"]
         )
 
     if compact:

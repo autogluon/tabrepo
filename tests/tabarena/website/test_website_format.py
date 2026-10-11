@@ -172,3 +172,11 @@ def test_add_metadata_treats_missing_license_columns_as_commercial():
     )
     assert bool(with_nan["Commercial"]) is True
     assert with_nan["License"] == ""
+
+
+def test_add_metadata_emits_fits_at_predict():
+    declared = add_metadata(pd.Series({"method": "M"}), metadata_df=_metadata_frame(fits_at_predict=True))
+    assert bool(declared["FitsAtPredict"]) is True
+    # Frames written before the field existed, and NaN cells, read as a separate fit and predict.
+    for metadata in (_metadata_frame(), _metadata_frame(fits_at_predict=float("nan"))):
+        assert bool(add_metadata(pd.Series({"method": "M"}), metadata_df=metadata)["FitsAtPredict"]) is False

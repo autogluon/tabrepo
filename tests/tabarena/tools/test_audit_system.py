@@ -14,11 +14,14 @@ import pytest
 from tabarena.benchmark.exec_models import ExternalSystemModel
 from tabarena.tools.audit_system import (
     FAIL,
+    INFO,
     PASS,
     SKIP,
     WARN,
     EgressRecorder,
+    SystemUnderAudit,
     audit_system,
+    check_fit_split,
     compare_reproduced_results,
     compare_submitted_results,
     make_decoys,
@@ -408,3 +411,25 @@ def test_jitter_is_judged_on_rows_without_a_training_copy():
     assert groups["copy"]["system"]["change"] > 1.0  # the copies are lost under the noise: a sharp rise there
     assert groups["all"]["system"]["change"] > 0.25  # judged on all rows, the memorizer would have been flagged
     assert check.verdict == PASS, check.summary
+
+
+def _timed_calls(fit_s: float, predict_s: float) -> list[dict]:
+    return [
+        {"probe": "p", "dataset": "d", "rows": 10, "wall_s": fit_s + predict_s, "fit_s": fit_s, "predict_s": predict_s}
+    ]
+
+
+def test_fit_split_holds_the_measured_fit_against_the_declaration():
+    sut = SystemUnderAudit(system_cls=_HonestSystem)
+    # A fit that returns at once while the prediction call does the work, as a one-request API.
+    sut.calls = _timed_calls(fit_s=0.001, predict_s=5.0)
+    assert check_fit_split(sut, fits_at_predict=False).verdict == WARN
+    assert check_fit_split(sut, fits_at_predict=True).verdict == PASS
+    assert check_fit_split(sut, fits_at_predict=None).verdict == INFO
+    # A fit that does the work.
+    sut.calls = _timed_calls(fit_s=4.0, predict_s=1.0)
+    assert check_fit_split(sut, fits_at_predict=True).verdict == WARN
+    assert check_fit_split(sut, fits_at_predict=False).verdict == PASS
+    # Both calls too quick to tell.
+    sut.calls = _timed_calls(fit_s=0.001, predict_s=0.05)
+    assert check_fit_split(sut, fits_at_predict=False).verdict == PASS

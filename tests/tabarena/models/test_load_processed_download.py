@@ -227,6 +227,17 @@ class TestLoadResults:
         assert len(metadata.load_model_results()) == 1  # hpo_results is stale, but not loaded
         assert downloader.calls == []
 
+    def test_fits_at_predict_charges_the_prediction_call_to_the_train_time(self, tmp_path):
+        metadata = _metadata(cache_root=tmp_path, fits_at_predict=True)
+        path = metadata.path_results_model()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame({"time_train_s": [0.01], "time_infer_s": [12.0]}).to_parquet(path)
+        df = metadata.load_model_results(download=False)
+        assert df["time_train_s"].tolist() == pytest.approx([12.01])
+        assert df["time_infer_s"].tolist() == [12.0]
+        # The table on disk keeps the raw times.
+        assert pd.read_parquet(path)["time_train_s"].tolist() == [0.01]
+
     def test_false_skips_the_checksum_comparison(self, monkeypatch, tmp_path):
         metadata = _metadata(cache_root=tmp_path)
         self._write(metadata.path_results_hpo())

@@ -48,6 +48,25 @@ SYSTEM_SHADE_LABELS: dict[str, str] = {
     "closed-source-api": "Closed-source API system",
 }
 
+
+def color_of(key: str | None) -> str:
+    """Color of a family or a system shade; anything else gets the "Other" color."""
+    return SYSTEM_SHADE_COLORS.get(key) or FAMILY_COLORS.get(key, FAMILY_COLORS["Other"])
+
+
+def legend_swatches(keys: set[str]) -> list[tuple[str, str]]:
+    """``(color, label)`` of each family and system shade in ``keys``, in legend order.
+
+    Families follow :data:`FAMILY_COLORS`, with each system shade right after the plain System.
+    """
+    swatches = []
+    for family, color in FAMILY_COLORS.items():
+        swatches.append((family, color, family))
+        if family == "System":
+            swatches += [(key, shade, SYSTEM_SHADE_LABELS[key]) for key, shade in SYSTEM_SHADE_COLORS.items()]
+    return [(color, label) for key, color, label in swatches if key in keys]
+
+
 #: Grey used for non-emphasized ("field") methods.
 MUTED_COLOR = "#b9b8b1"
 
@@ -200,8 +219,7 @@ def plot_pareto_focus(
         return method_shade.get(method) or method_family.get(method)
 
     def _family_color(method: str) -> str:
-        key = _color_key(method)
-        return SYSTEM_SHADE_COLORS.get(key) or FAMILY_COLORS.get(key, FAMILY_COLORS["Other"])
+        return color_of(_color_key(method))
 
     def _color(method: str) -> str:
         return _family_color(method) if method in emphasized else MUTED_COLOR
@@ -300,16 +318,10 @@ def plot_pareto_focus(
 
     # Single legend strip above the axes: family swatches, variant markers,
     # front line, grey "other methods" swatch.
-    # Family swatches, each system shade right after the plain System one, for the colors on show.
-    swatches = []
-    for family, color in FAMILY_COLORS.items():
-        swatches.append((family, color, family))
-        if family == "System":
-            swatches += [(key, shade, SYSTEM_SHADE_LABELS[key]) for key, shade in SYSTEM_SHADE_COLORS.items()]
-    keys_present = {_color_key(m) for m in emphasized}
     variants_present = [v for v in variant_markers if v in set(data[variant_col])]
     handles = [
-        Patch(facecolor=color, edgecolor="none", label=label) for key, color, label in swatches if key in keys_present
+        Patch(facecolor=color, edgecolor="none", label=label)
+        for color, label in legend_swatches({_color_key(m) for m in emphasized})
     ]
     handles += [
         Line2D(
