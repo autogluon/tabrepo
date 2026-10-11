@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
-from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, marker_edge_color
+from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, SYSTEM_SHADE_COLORS, marker_edge_color
 
 
 def _scatter_points() -> pd.DataFrame:
@@ -42,7 +42,9 @@ def test_build_scatter_explorer(tmp_path):
     # Marker edges: the family color darkened for the light surface, as in the static figures.
     edge = marker_edge_color(FAMILY_COLORS["Foundation Model"])
     assert f"--fam-foundation-edge: {edge};" in html
-    assert "const edge = on ? FAM_EDGE[p.family] : null;" in html
+    assert "const edge = on ? famEdge(p) : null;" in html
+    # The system shades get the same color and edge pair.
+    assert f"--fam-system-api: {SYSTEM_SHADE_COLORS['closed-source-api']};" in html
 
 
 def test_x_keys_selects_and_orders_axes(tmp_path):

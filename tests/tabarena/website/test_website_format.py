@@ -8,6 +8,8 @@ from tabarena.website.website_format import (
     add_metadata,
     get_model_family,
     system_display_names,
+    system_shade,
+    system_shades,
 )
 
 
@@ -75,6 +77,35 @@ def test_system_display_names_reads_the_metadata_frame():
 def test_system_display_names_without_the_column_is_empty(info):
     # An older collection has no method_class column; nothing is a system then.
     assert system_display_names(info) == frozenset()
+
+
+@pytest.mark.parametrize(
+    ("tags", "shade"),
+    [
+        (("with-llm", "closed-source-api"), "closed-source-api"),
+        (("with-llm",), "with-llm"),
+        ((), None),
+        # The two CSV forms: a website frame's Tags cell and a method_info.csv tuple repr.
+        ("with-llm;closed-source-api", "closed-source-api"),
+        ("('closed-source-api',)", "closed-source-api"),
+        (float("nan"), None),
+        (None, None),
+    ],
+)
+def test_system_shade_puts_the_api_before_the_llm(tags, shade):
+    assert system_shade(tags) == shade
+
+
+def test_system_shades_maps_only_the_shaded_systems():
+    info = pd.DataFrame(
+        [
+            {"display_name": "TabM", "method_class": "model", "tags": ()},
+            {"display_name": "TabFM+", "method_class": "system", "tags": ()},
+            {"display_name": "Chakra-Tab (full)", "method_class": "system", "tags": ("closed-source-api",)},
+        ]
+    )
+    assert system_shades(info) == {"Chakra-Tab (full)": "closed-source-api"}
+    assert system_shades(info.drop(columns="tags")) == {}
 
 
 def _metadata_frame(**overrides) -> pd.DataFrame:

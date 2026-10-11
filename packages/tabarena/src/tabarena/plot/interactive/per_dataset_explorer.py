@@ -23,7 +23,7 @@ import pandas as pd
 from tabarena.models._method_metadata import MethodMetadata
 from tabarena.plot.interactive._explorer_shared import render_explorer_html
 from tabarena.plot.interactive._per_dataset_template import PER_DATASET_TEMPLATE
-from tabarena.website.website_format import Constants, get_model_family
+from tabarena.website.website_format import Constants, get_model_family, system_shade
 
 #: ``method_subtype`` -> the variant label the rest of the site uses.
 _VARIANT_LABELS = {"default": "Default", "tuned": "Tuned", "tuned_ensemble": "Tuned + Ens."}
@@ -97,7 +97,7 @@ def method_records(method_info: pd.DataFrame) -> pd.DataFrame:
         info["method_class"] = "model"
     systems = frozenset(info.loc[info["method_class"] == "system", "display_name"].dropna())
 
-    names, bases, variants, families, urls = [], [], [], [], []
+    names, bases, variants, families, shades, urls = [], [], [], [], [], []
     for row in info.to_dict("records"):
         config_type = row.get("config_type")
         display_name = row.get("display_name")
@@ -116,8 +116,10 @@ def method_records(method_info: pd.DataFrame) -> pd.DataFrame:
         variants.append(_VARIANT_LABELS.get(subtype, "") if pd.notna(subtype) else "")
         if row.get("method_class") == "system":
             families.append(Constants.system)
+            shades.append(system_shade(row.get("tags")))
         else:
             families.append(get_model_family(base, system_names=systems))
+            shades.append(None)
         url = row.get("reference_url")
         urls.append(url if pd.notna(url) else None)
 
@@ -128,6 +130,7 @@ def method_records(method_info: pd.DataFrame) -> pd.DataFrame:
             "base": bases,
             "variant": variants,
             "family": families,
+            "shade": shades,
             "url": urls,
         },
     )

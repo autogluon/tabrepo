@@ -28,7 +28,7 @@ from tabarena.plot.interactive.winrate_explorer import build_winrate_explorer_ht
 from tabarena.plot.plot_ens_weights import create_heatmap
 from tabarena.plot.plot_pareto_focus import plot_pareto_focus
 from tabarena.utils.normalized_scorer import NormalizedScorer
-from tabarena.website.website_format import get_model_family, system_display_names
+from tabarena.website.website_format import get_model_family, system_display_names, system_shades
 
 MethodLabelStyle = str | Mapping[str, object]
 
@@ -1409,6 +1409,7 @@ class LeaderboardReporter:
                         save_path=Path(self.output_dir) / "winrate_explorer.html",
                         page_title=winrate_title or f"{self.benchmark_name} win-rate matrix",
                         system_names=system_display_names(self.method_metadata_info),
+                        system_shades=system_shades(self.method_metadata_info),
                     )
 
             # Off by default while the FIXME above (diagram possibly incorrect) stands.
@@ -1489,22 +1490,24 @@ class LeaderboardReporter:
 
         Families follow the website classification (:func:`get_model_family`): declared for
         systems via ``method_class``, name-classified for models — the same coloring as the
-        interactive plots.
+        interactive plots, a shaded system's (:func:`system_shades`) included.
         """
         from matplotlib.lines import Line2D
 
-        from tabarena.plot.plot_pareto_focus import FAMILY_COLORS
-        from tabarena.website.website_format import get_model_family, system_display_names
+        from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, SYSTEM_SHADE_COLORS, SYSTEM_SHADE_LABELS
 
         info = self.method_metadata_info
         systems = system_display_names(info) if info is not None and "method_class" in info.columns else frozenset()
         families = df["_label"].map(lambda name: get_model_family(name, system_names=systems))
-        colors = families.map(lambda family: FAMILY_COLORS.get(family, FAMILY_COLORS["Other"]))
-        present = set(families)
+        keys = df["_label"].map(system_shades(info)).fillna(families)
+        swatches = {f: (c, f) for f, c in FAMILY_COLORS.items()}
+        swatches |= {k: (c, SYSTEM_SHADE_LABELS[k]) for k, c in SYSTEM_SHADE_COLORS.items()}
+        colors = keys.map(lambda key: swatches.get(key, swatches["Other"])[0])
+        present = set(keys)
         handles = [
-            Line2D([], [], marker="o", ls="", color=color, label=family)
-            for family, color in FAMILY_COLORS.items()
-            if family in present
+            Line2D([], [], marker="o", ls="", color=color, label=label)
+            for key, (color, label) in swatches.items()
+            if key in present
         ]
         return colors, handles
 
@@ -2102,6 +2105,7 @@ class LeaderboardReporter:
             leaderboard_pareto["Family"] = [
                 get_model_family(m, system_names=systems) for m in leaderboard_pareto["Method"]
             ]
+        leaderboard_pareto["Shade"] = leaderboard_pareto["Method"].map(system_shades(self.method_metadata_info))
 
         leaderboard_pareto[self.method_col] = leaderboard_pareto["Method"] + leaderboard_pareto["suffix"]
         fig_rename_dict = {
@@ -2309,6 +2313,7 @@ class LeaderboardReporter:
                 "method": leaderboard["Method"],
                 "variant": leaderboard["Type"],
                 "family": leaderboard["Family"],
+                "shade": leaderboard["Shade"] if "Shade" in leaderboard.columns else None,
                 "x_infer": leaderboard["median_time_infer_s_per_1K"],
                 "x_train": leaderboard["median_time_train_s_per_1K"],
                 "imp": leaderboard["improvability"] * 100,
