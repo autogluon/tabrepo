@@ -78,6 +78,7 @@ __BASE_CSS__
      disagree with the cross-subset table on the app page. */
   .variant-tag { color: var(--muted); font-weight: 400; font-size: 0.9em; }
   td.name .imp-mark { color: var(--muted); font-weight: 700; margin-left: 3px; }
+  td.num .fit-mark { font-weight: 700; margin-left: 2px; cursor: help; }
   td.name a { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
   td.name a:hover { text-decoration-style: solid; }
 
@@ -154,6 +155,9 @@ __BASE_JS__
   const VARIANT_BTN = { "Tuned + Ens.": "Tuned + Ensembled" };
   const variantText = v => VARIANT_TEXT[v] || v;
   const HAS_IMPUTED = POINTS.some(p => p.imputed);
+  const HAS_FIT_AT_PREDICT = POINTS.some(p => p.fits_at_predict);
+  const FIT_AT_PREDICT_HINT = "This method fits inside its prediction call, so its train time is the time of " +
+    "that call, from training data to predictions. Its predict time holds the fit too.";
 
   const state = {
     methods: new Set(POINTS.map(p => p.method)),
@@ -318,7 +322,8 @@ __BASE_JS__
       rows.length + (rows.length === 1 ? " row" : " rows") +
       " · click a column header to sort, hover one for what it means" +
       (heat.size ? " · green is better, red is worse, per column" : "") +
-      (HAS_IMPUTED ? " · ‡ marks a partly imputed score" : "");
+      (HAS_IMPUTED ? " · ‡ marks a partly imputed score" : "") +
+      (HAS_FIT_AT_PREDICT ? " · † train time includes the prediction call" : "");
     postHeight();
   }
 
@@ -335,6 +340,9 @@ __BASE_JS__
       style = ' style="background:' + heatColor(frac) + ';color:#f7f7f7;"';
     }
     let text = fmtNum(v, col.decimals) + (col.suffix || "");
+    if (col.key === "train_time" && p.fits_at_predict) {
+      text += '<span class="fit-mark" title="' + FIT_AT_PREDICT_HINT + '">&dagger;</span>';
+    }
     let ci = "";
     if (col.key === "elo" && p.elo_ci) {
       ci = ' <span class="ci">(' + escapeHtml(p.elo_ci) + ")</span>";

@@ -50,7 +50,11 @@ checks the client it can read and probes the behaviour it cannot. The checks:
     the public test labels is the only way to an exact match. Too few such rows (or one class only)
     and it falls back to all rows.
 ``time``
-    Wall-clock of every call against the ``time_limit`` the system was given.
+    Wall-clock of every call against the ``time_limit`` the system was given. Its ``fit-split`` result
+    compares the fit with the prediction call: a fit that returns at once while the prediction call
+    does the work (a hosted API that fits and predicts in one request) has to be declared with
+    ``fits_at_predict=True`` in the system's ``info.py``, so the leaderboard charges that call to the
+    train time. A missing or a wrong declaration warns.
 
 ``--submitted-results`` compares a submission's per-split errors (a CSV with ``dataset``, ``fold``,
 ``metric_error``, e.g. the ``per_split.csv`` of a TabArena-Lite run) with every hosted method on the
@@ -117,6 +121,10 @@ DEFAULT_DATASETS = (
 SYNTHETIC_PREFIX = "synthetic-"
 #: The TabArena-v0.1 metric per problem type; the probes score with these whatever the task declares.
 DEFAULT_METRICS = {"binary": "roc_auc", "multiclass": "log_loss", "regression": "rmse"}
+#: A fit shorter than this share of the prediction call hands its work to that call...
+FIT_SPLIT_RATIO = 0.05
+#: ...once the prediction call takes this long; below it both calls are too quick to tell.
+FIT_SPLIT_MIN_PREDICT_S = 1.0
 #: Hosts serving the public datasets the benchmark is built from; a system contacting one fails.
 PUBLIC_DATA_HOSTS = ("openml.org",)
 #: Hosts that are not a dataset source but that a client has no obvious reason to contact either.
@@ -345,7 +353,8 @@ class SystemUnderAudit:
     num_cpus: int | None = None
     split_seed: int = 0
     calls: list[dict] = field(default_factory=list)
-    """``{"probe", "dataset", "rows", "wall_s"}`` per call to the system (plus ``"error"`` when it raised)."""
+    """``{"probe", "dataset", "rows", "wall_s"}`` per call to the system (plus ``"error"`` when it raised, and
+    ``"fit_s"`` / ``"predict_s"``, the benchmark's own timers, for a full fit)."""
 
     def _timed(self, data: ProbeData, rows: int, probe: str, call: Callable[[], Any]) -> Any:
         entry = {"probe": probe, "dataset": data.name, "rows": rows}
@@ -376,6 +385,7 @@ class SystemUnderAudit:
             probe,
             lambda: model.fit_custom(X_train.copy(), y_train.copy(), X_test.copy(), split_seed=self.split_seed),
         )
+        self.calls[-1].update(fit_s=out.get("time_train_s"), predict_s=out.get("time_infer_s"))
         pred = out["probabilities"] if data.problem_type != "regression" else out["predictions"]
         return model, pred
 
@@ -385,8 +395,8 @@ class SystemUnderAudit:
         return self._timed(data, len(X), probe, lambda: predict(X.copy()))
 
 
-def resolve_system(name: str) -> tuple[type, dict]:
-    """``(system_cls, first manual config)`` of a registered system, by method or display name."""
+def resolve_system(name: str) -> tuple[type, dict, Any]:
+    """``(system_cls, first manual config, MethodMetadata)`` of a registered system, by method or display name."""
     from tabarena.systems import get_system_registry
 
     registry = get_system_registry()
@@ -395,7 +405,7 @@ def resolve_system(name: str) -> tuple[type, dict]:
         if name in (md.method, md.display_name, info.config_generator.name):
             configs = info.config_generator.manual_configs or [{}]
             config = {k: v for k, v in configs[0].items() if k not in ("ag_args", "ag_args_ensemble")}
-            return info.system_cls, config
+            return info.system_cls, config, md
     raise ValueError(f"System {name!r} is not registered. Options: {sorted(registry)}")
 
 
@@ -1119,6 +1129,31 @@ def check_time(sut: SystemUnderAudit) -> CheckResult:
     )
 
 
+def check_fit_split(sut: SystemUnderAudit, fits_at_predict: bool | None) -> CheckResult:
+    """Whether the fit does the work or hands it to the prediction call, against what the system declares.
+
+    ``fits_at_predict`` is the system's ``MethodMetadata.fits_at_predict``; ``None`` reports the timings only.
+    """
+    timed = [c for c in sut.calls if "error" not in c and c.get("fit_s") is not None and c.get("predict_s") is not None]
+    if not timed:
+        return CheckResult("fit-split", "-", SKIP, "no full fit was timed")
+    fit_s = float(np.median([c["fit_s"] for c in timed]))
+    predict_s = float(np.median([c["predict_s"] for c in timed]))
+    quick_fit = fit_s < FIT_SPLIT_RATIO * predict_s
+    summary = f"median fit {fit_s:.2f}s, median prediction call {predict_s:.2f}s over {len(timed)} fits"
+    if fits_at_predict is None:
+        verdict = INFO
+    elif not fits_at_predict and quick_fit and predict_s >= FIT_SPLIT_MIN_PREDICT_S:
+        verdict = WARN
+        summary += "; the fit returns at once, so declare fits_at_predict=True in the system's info.py"
+    elif fits_at_predict and not quick_fit:
+        verdict = WARN
+        summary += "; fits_at_predict=True is declared, but the fit itself takes time"
+    else:
+        verdict = PASS
+    return CheckResult("fit-split", "-", verdict, summary, {"fit_s": fit_s, "predict_s": predict_s})
+
+
 def offline_egress(sut: SystemUnderAudit, data: ProbeData) -> CheckResult:
     """Fit with the network blocked: records the first request the client tries, sends nothing."""
     error = None
@@ -1297,9 +1332,14 @@ def audit_system(
     seed: int = 0,
     max_train_rows: int | None = 2000,
     max_test_rows: int | None = 1000,
+    fits_at_predict: bool | None = None,
     log: Callable[[str], None] = print,
 ) -> list[CheckResult]:
-    """Run the audit and return every check result (see the module docstring)."""
+    """Run the audit and return every check result (see the module docstring).
+
+    ``fits_at_predict`` is the system's declared ``MethodMetadata.fits_at_predict``, which the ``time``
+    check's ``fit-split`` result holds the measured fit against; ``None`` reports the timings only.
+    """
     checks = tuple(checks)
     unknown = set(checks) - set(CHECKS)
     if unknown:
@@ -1333,6 +1373,8 @@ def audit_system(
         results.extend(new)
     if "time" in checks and not offline:
         results.append(check_time(sut))
+        log(format_result(results[-1]))
+        results.append(check_fit_split(sut, fits_at_predict))
         log(format_result(results[-1]))
     return results
 
@@ -1385,7 +1427,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(format_result(result))
                 results.append(result)
     if args.system:
-        system_cls, config = resolve_system(args.system)
+        system_cls, config, method_metadata = resolve_system(args.system)
         if args.config:
             config = json.loads(args.config)
         meta.update({"system_cls": f"{system_cls.__module__}.{system_cls.__qualname__}", "config": config})
@@ -1400,6 +1442,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=seed,
             max_train_rows=args.max_train_rows,
             max_test_rows=args.max_test_rows,
+            fits_at_predict=method_metadata.fits_at_predict,
         )
     counts = {v: sum(r.verdict == v for r in results) for v in (FAIL, WARN, PASS, INFO, SKIP)}
     print("audit_system summary: " + ", ".join(f"{n} {v}" for v, n in counts.items() if n))

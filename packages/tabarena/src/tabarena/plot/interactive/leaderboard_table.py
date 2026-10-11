@@ -171,6 +171,10 @@ def leaderboard_table_points(df_website_leaderboard: pd.DataFrame) -> pd.DataFra
     points["verified"] = (
         df["Verified"].astype(str).str.strip().eq("✔️").to_numpy() if "Verified" in df.columns else False
     )
+    # Whether the train time includes the prediction call (`MethodMetadata.fits_at_predict`).
+    points["fits_at_predict"] = (
+        df["FitsAtPredict"].fillna(False).astype(bool).to_numpy() if "FitsAtPredict" in df.columns else False
+    )
     # Semicolon-joined by `website_format.add_metadata`; empty for every model and for a
     # system that is open-source, local and LLM-free. Older tables have no column at all.
     # An empty Tags cell round-trips through CSV as NaN, and `str(nan)` is the string "nan",

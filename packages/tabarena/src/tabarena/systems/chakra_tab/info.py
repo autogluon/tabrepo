@@ -8,7 +8,8 @@ from tabarena.systems.chakra_tab.system import ChakraTabSystemModel
 # Chakra-Tab is served through YHat Labs' API: the benchmark calls the endpoint, so it runs behind
 # a remote API that cannot be inspected (tag closed-source-api). Fits ran on one A100 80 GB on the
 # provider's side; `compute` records that. The run is pinned to API version chakra-tab-2026-10, recorded
-# with every result. The API fits and predicts in one call, so a result's `time_infer_s` holds the fit.
+# with every result. The API fits and predicts in one call, so a result's `time_infer_s` holds the fit
+# (`fits_at_predict`).
 _common_kwargs = dict(
     suite="tabarena-2026-10-09",
     compute="gpu",
@@ -18,6 +19,7 @@ _common_kwargs = dict(
     license="Proprietary (hosted API; YHat Labs terms of service)",
     commercial_use=False,
     tags=("closed-source-api",),
+    fits_at_predict=True,
     verified=True,
 )
 

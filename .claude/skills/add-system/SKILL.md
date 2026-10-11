@@ -65,7 +65,9 @@ only part maintainers can inspect, so it is held to this contract:
 - Prefer separate calls: fit in `_fit_system` (training data only, returns a model handle), predict
   in `_predict` / `_predict_proba`. The fit then never sees the test rows and the timings split the
   way they do for every other entrant. An API that only offers one `fit_predict` call is accepted,
-  but its whole fit is timed as inference (`time_train_s` near zero); say so in the PR.
+  but its whole fit is timed as inference (`time_train_s` near zero): set `fits_at_predict=True` in
+  `MethodMetadata.system(...)`, so loaded results charge the prediction call to the train time too
+  and the leaderboard marks that train time with a †. Say so in the PR.
 - Forward `random_state` when the API takes a seed, and `time_limit` as the fit budget.
 - Bound the retries (transient errors, HTTP 429 and 5xx; never a 4xx) and give the request a
   timeout above `time_limit`, so a dead endpoint fails an item instead of hanging it.
@@ -86,7 +88,7 @@ provider allows, and the hardware behind the API.
 Check the client with `python -P -m tabarena.tools.audit_system --system <SystemName> --offline`: it
 lists what the client sends with the network blocked (no key needed, nothing sent). With a key, the
 same command without `--offline` probes the API for transduction and label lookup (see the module
-docstring).
+docstring), and its `fit-split` result warns when the measured fit and `fits_at_predict` disagree.
 
 ## Step 2: `hpo.py`
 
