@@ -270,7 +270,7 @@ __BASE_JS__
       const x = labelW + j * CELL + CELL / 2 + 4;
       const text = el("text", {
         x: x, y: headerH - 8, "font-size": LABEL_SIZE, "font-weight": LABEL_WEIGHT,
-        "text-anchor": "start", fill: FAM_INK[info.get(label).family] || "var(--ink)",
+        "text-anchor": "start", fill: famInk(info.get(label)) || "var(--ink)",
         transform: "rotate(-60 " + x + " " + (headerH - 8) + ")", cursor: "pointer",
       }, svg);
       text.textContent = labelText(label);
@@ -281,7 +281,7 @@ __BASE_JS__
       const y = headerH + i * CELL;
       const text = el("text", {
         x: labelW - 12, y: y + CELL / 2 + 6, "font-size": LABEL_SIZE, "font-weight": LABEL_WEIGHT,
-        "text-anchor": "end", fill: FAM_INK[info.get(rowLabel).family] || "var(--ink)",
+        "text-anchor": "end", fill: famInk(info.get(rowLabel)) || "var(--ink)",
         cursor: "pointer",
       }, svg);
       text.textContent = labelText(rowLabel);
@@ -419,7 +419,7 @@ __BASE_JS__
       for (const model of members) {
         const b = document.createElement("button");
         b.className = "chip";
-        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.style.setProperty("--fam", famColor(POINTS.find(p => p.model === model)));
         b.innerHTML = '<span class="dot"></span><span></span>';
         b.lastChild.textContent = model;
         b.title = model + " — best mean win rate " + fmtNum(meanOfModel(model) * 100, 1) + "%";

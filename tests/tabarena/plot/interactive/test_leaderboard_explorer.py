@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tabarena.plot.interactive.leaderboard_explorer import build_leaderboard_explorer_html
+from tabarena.plot.interactive.leaderboard_explorer import build_leaderboard_explorer_html, leaderboard_explorer_points
 
 
 def _website_leaderboard() -> pd.DataFrame:
@@ -34,6 +34,15 @@ def test_build_leaderboard_explorer(tmp_path):
     assert "__CONFIG_JSON__" not in html
     assert "__PAGE_TITLE__" not in html
     assert '"method":"A-Very-Long-Method-Name"' in html
+
+
+def test_points_carry_a_system_shade_from_its_tags():
+    df = _website_leaderboard().assign(
+        TypeName=["System", "System", "Foundation Model"],
+        Tags=["closed-source-api", float("nan"), "closed-source-api"],
+    )
+    # Only a system is shaded; an untagged one keeps the System color.
+    assert leaderboard_explorer_points(df)["shade"].tolist() == ["closed-source-api", None, None]
 
 
 def test_edge_labels_are_kept_inside_the_viewport(tmp_path):

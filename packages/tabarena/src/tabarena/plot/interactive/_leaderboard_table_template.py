@@ -207,7 +207,7 @@ __BASE_JS__
 
   // ---------- cells ----------
   function nameCell(p) {
-    const ink = FAM_INK[p.family] || "var(--muted)";
+    const ink = famInk(p) || "var(--muted)";
     let inner = escapeHtml(p.method);
     if (p.variant) inner += ' <span class="variant-tag">(' + escapeHtml(variantText(p.variant)) + ")</span>";
     if (p.verified) inner += ' <span class="verified" title="Verified implementation">&#10004;&#65039;</span>';
@@ -296,10 +296,10 @@ __BASE_JS__
         if (col.key === "position") {
           html += '<td class="pos num" data-sort="' + p.position + '">' + p.position + "</td>";
         } else if (col.key === "family") {
-          const mark = FAM_VAR[p.family] || "var(--fam-baseline)";
+          const mark = famColor(p) || "var(--fam-baseline)";
           html += '<td class="type" data-sort="' + escapeHtml(p.family) + '" data-export="' + escapeHtml(p.family) +
             '"><span class="pill" style="background:color-mix(in srgb, ' + mark +
-            ' 13%, transparent);color:' + (FAM_INK[p.family] || "var(--muted)") +
+            ' 13%, transparent);color:' + (famInk(p) || "var(--muted)") +
             ";border:1px solid color-mix(in srgb, " + mark + ' 40%, transparent);">' +
             escapeHtml(p.family_symbol || "") + "</span></td>";
         } else if (col.key === "model") {
@@ -385,7 +385,7 @@ __BASE_JS__
         const imputed = POINTS.some(p => p.method === name && p.imputed);
         const b = document.createElement("button");
         b.className = "chip";
-        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.style.setProperty("--fam", famColor(POINTS.find(p => p.method === name)));
         b.innerHTML = '<span class="dot"></span><span>' + escapeHtml(name) + "</span>" +
           (imputed ? '<span class="imp-mark">&#8225;</span>' : "");
         b.title = name + (imputed ? " (partially imputed)" : "");

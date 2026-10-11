@@ -6,7 +6,13 @@ from matplotlib.colors import to_rgb
 
 matplotlib.use("Agg", force=True)
 
-from tabarena.plot.plot_pareto_focus import compute_front_methods, marker_edge_color, plot_pareto_focus
+from tabarena.plot.plot_pareto_focus import (
+    FAMILY_COLORS,
+    SYSTEM_SHADE_COLORS,
+    compute_front_methods,
+    marker_edge_color,
+    plot_pareto_focus,
+)
 
 
 def _toy_points() -> pd.DataFrame:
@@ -78,3 +84,17 @@ def test_label_halo_off_keeps_svg_labels_as_text(tmp_path):
             )
     assert ">C<" not in (tmp_path / "halo_True.svg").read_text()
     assert ">C<" in (tmp_path / "halo_False.svg").read_text()
+
+
+def test_a_shaded_system_is_drawn_and_named_in_its_shade(tmp_path):
+    data = _toy_points().assign(
+        Family=["System", "System", "Foundation Model", "Neural Network"],
+        Shade=["closed-source-api", "closed-source-api", None, None],
+    )
+    with matplotlib.rc_context({"svg.fonttype": "none"}):
+        plot_pareto_focus(data=data, x_col="x", y_col="y", label_halo=False, save_path=tmp_path / "shade.svg")
+    svg = (tmp_path / "shade.svg").read_text()
+    assert SYSTEM_SHADE_COLORS["closed-source-api"] in svg
+    assert "Closed-source API system" in svg
+    # No unshaded system is on show, so the plain System color has nothing to mark.
+    assert FAMILY_COLORS["System"] not in svg

@@ -34,6 +34,20 @@ FAMILY_COLORS: dict[str, str] = {
     "Other": "#9e9e9e",  # gray
 }
 
+#: A system's color by the tag that shades it (see ``website_format.system_shade``): the System
+#: orange, one step darker the less of the system can be inspected. An untagged system keeps
+#: ``FAMILY_COLORS["System"]``.
+SYSTEM_SHADE_COLORS: dict[str, str] = {
+    "with-llm": "#dc8540",  # darker orange
+    "closed-source-api": "#b85c22",  # rust
+}
+
+#: Legend label of each system shade.
+SYSTEM_SHADE_LABELS: dict[str, str] = {
+    "with-llm": "System with LLMs",
+    "closed-source-api": "Closed-source API system",
+}
+
 #: Grey used for non-emphasized ("field") methods.
 MUTED_COLOR = "#b9b8b1"
 
@@ -93,6 +107,7 @@ def plot_pareto_focus(
     method_col: str = "Method",
     variant_col: str = "Type",
     family_col: str = "Family",
+    shade_col: str = "Shade",
     max_X: bool = False,
     max_Y: bool = False,
     xlog: bool = True,
@@ -121,6 +136,9 @@ def plot_pareto_focus(
         ``method_col`` (method display name, e.g. "CatBoost"), ``variant_col``
         (e.g. "Default"/"Tuned"/"Tuned + Ens.") and ``family_col`` (a key of
         :data:`FAMILY_COLORS`).
+    shade_col
+        Optional column naming a system's shade (a key of :data:`SYSTEM_SHADE_COLORS`), which
+        replaces its family color; empty for everything else.
     focus_methods
         Methods to emphasize *in addition to* the Pareto-front members. Focused
         methods get a boxed label; front members a plain colored label.
@@ -176,9 +194,14 @@ def plot_pareto_focus(
         ax.set_xscale("log")
 
     method_family = data.groupby(method_col)[family_col].first().to_dict()
+    method_shade = data.groupby(method_col)[shade_col].first().dropna().to_dict() if shade_col in data else {}
+
+    def _color_key(method: str) -> str:
+        return method_shade.get(method) or method_family.get(method)
 
     def _family_color(method: str) -> str:
-        return FAMILY_COLORS.get(method_family.get(method), FAMILY_COLORS["Other"])
+        key = _color_key(method)
+        return SYSTEM_SHADE_COLORS.get(key) or FAMILY_COLORS.get(key, FAMILY_COLORS["Other"])
 
     def _color(method: str) -> str:
         return _family_color(method) if method in emphasized else MUTED_COLOR
@@ -277,9 +300,17 @@ def plot_pareto_focus(
 
     # Single legend strip above the axes: family swatches, variant markers,
     # front line, grey "other methods" swatch.
-    families_present = [f for f in FAMILY_COLORS if f in {method_family[m] for m in emphasized}]
+    # Family swatches, each system shade right after the plain System one, for the colors on show.
+    swatches = []
+    for family, color in FAMILY_COLORS.items():
+        swatches.append((family, color, family))
+        if family == "System":
+            swatches += [(key, shade, SYSTEM_SHADE_LABELS[key]) for key, shade in SYSTEM_SHADE_COLORS.items()]
+    keys_present = {_color_key(m) for m in emphasized}
     variants_present = [v for v in variant_markers if v in set(data[variant_col])]
-    handles = [Patch(facecolor=FAMILY_COLORS[f], edgecolor="none", label=f) for f in families_present]
+    handles = [
+        Patch(facecolor=color, edgecolor="none", label=label) for key, color, label in swatches if key in keys_present
+    ]
     handles += [
         Line2D(
             [0],

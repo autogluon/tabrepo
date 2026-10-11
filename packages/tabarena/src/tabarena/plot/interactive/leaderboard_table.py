@@ -23,7 +23,7 @@ from tabarena.plot.interactive.leaderboard_explorer import (
     _VARIANT_LABELS,
     _parse_model,
 )
-from tabarena.website.website_format import TAG_SPECS, Constants
+from tabarena.website.website_format import TAG_SPECS, Constants, system_shade
 
 #: Family display name -> the symbol the website shows in its ``Type`` column.
 #: Mirrors ``constants.model_type_emoji`` in the leaderboard app.
@@ -177,6 +177,10 @@ def leaderboard_table_points(df_website_leaderboard: pd.DataFrame) -> pd.DataFra
     # so test for null rather than truthiness or an untagged system reads as tagged.
     tags = df["Tags"] if "Tags" in df.columns else pd.Series([""] * len(df))
     points["tags"] = [[] if pd.isna(v) else [t for t in str(v).split(";") if t] for v in tags]
+    points["shade"] = [
+        system_shade(t) if family == Constants.system else None
+        for t, family in zip(points["tags"], points["family"], strict=True)
+    ]
     for spec in _COLUMNS:
         column = spec.get("column")
         if not column:

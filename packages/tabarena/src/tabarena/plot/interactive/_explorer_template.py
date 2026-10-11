@@ -328,7 +328,7 @@ __BASE_JS__
       const dd = pts.map((p, i) => `${i ? "L" : "M"}${X(p[xKey])},${Y(mval(p, metric))}`).join(" ");
       el("path", {
         d: dd, fill: "none",
-        stroke: on ? FAM_VAR[pts[0].family] : "var(--pt-muted)",
+        stroke: on ? famColor(pts[0]) : "var(--pt-muted)",
         "stroke-width": on ? (TRAJECTORY ? 2 : 1.4) : 1,
         opacity: on ? 0.6 : 0.35,
         "data-m": method,
@@ -341,11 +341,11 @@ __BASE_JS__
     for (const [method, pts] of byMethod) {
       const on = isOn(method);
       for (const p of pts) {
-        const color = on ? FAM_VAR[p.family] : "var(--pt-muted)";
+        const color = on ? famColor(p) : "var(--pt-muted)";
         // An active marker's edge is a darker shade of its face on the light surface and
         // the card color on the dark one (the --fam-*-edge tokens). Muted markers stay
         // plain grey, easy to ignore.
-        const edge = on ? FAM_EDGE[p.family] : null;
+        const edge = on ? famEdge(p) : null;
         // With `dimOffFront`, an active point that is not a vertex of the front is drawn
         // smaller and fainter, so the front members carry the eye.
         const dim = CONFIG.dimOffFront && on && !front.points.has(p);
@@ -374,7 +374,7 @@ __BASE_JS__
       const w = textWidth(method);
       const toRight = px + 10 + w <= W - M.r;
       labels.push({
-        method, family: best.family, w,
+        method, family: best.family, shade: best.shade, w,
         anchor: toRight ? "start" : "end",
         // Anchored at its start the label runs right from `x`, at its end it runs
         // left to `x`; either way keep the far side off the plot frame.
@@ -399,7 +399,7 @@ __BASE_JS__
     for (const l of labels) {
       const t = el("text", {
         x: l.x, y: Math.max(l.y, M.t + 12), "font-size": 13, "font-weight": 700,
-        fill: FAM_VAR[l.family], "paint-order": "stroke", stroke: "var(--card)", "stroke-width": 3.5,
+        fill: famColor(l), "paint-order": "stroke", stroke: "var(--card)", "stroke-width": 3.5,
         "text-anchor": l.anchor,
       }, lg);
       t.textContent = l.method;
@@ -434,7 +434,7 @@ __BASE_JS__
     emphasize(p.method, true);
     const sub = TRAJECTORY ? (p.n_configs != null ? `${p.n_configs} configs` : "") : (p.variant || "");
     let html = `<div class="t-name">${p.method}` + (sub ? ` <span class="t-var">(${sub})</span>` : "") + "</div>" +
-      `<div>${p.family}</div>`;
+      `<div>${famLabel(p)}</div>`;
     for (const m of METRICS) {
       html += `<div>${m.label}: <b>${fmtMetric(m, mval(p, m))}</b></div>`;
     }
@@ -483,7 +483,7 @@ __BASE_JS__
       for (const m of methods) {
         const b = document.createElement("button");
         b.className = "chip";
-        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.style.setProperty("--fam", famColor(byMethod.get(m)[0]));
         const imputed = byMethod.get(m).some(p => p.imputed);
         const label = document.createElement("span");
         label.textContent = m;
@@ -615,13 +615,13 @@ __BASE_JS__
     }
     // Model family, named: highlighted points are colored by family, and in paper
     // view the chip list that would otherwise decode them is hidden.
-    const families = FAM_ORDER.filter(f => POINTS.some(p => p.family === f));
-    if (families.length > 1) {
+    const swatches = legendSwatches(POINTS);
+    if (swatches.length > 1) {
       html += '<span class="legendbreak"></span><span class="item">Family:</span>';
-      for (const fam of families) {
+      for (const sw of swatches) {
         html += `<span class="item"><svg width="12" height="12" viewBox="0 0 12 12">` +
-          `<circle cx="6" cy="6" r="5" fill="${FAM_VAR[fam]}"/></svg> ` +
-          `<span style="color:${FAM_INK[fam]}">${fam}</span></span>`;
+          `<circle cx="6" cy="6" r="5" fill="${sw.color}"/></svg> ` +
+          `<span style="color:${sw.ink}">${sw.label}</span></span>`;
       }
     }
     box2.innerHTML = html;

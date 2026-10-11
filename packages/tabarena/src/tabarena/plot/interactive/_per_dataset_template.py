@@ -519,7 +519,7 @@ __BASE_JS__
   }
   function methodHtml(mi) {
     const m = METHODS[mi];
-    return `<span style="color:${FAM_INK[m.family]}">${escapeHtml(m.base)}</span>` + variantBadge(m);
+    return `<span style="color:${famInk(m)}">${escapeHtml(m.base)}</span>` + variantBadge(m);
   }
 
   // ---------- marks ----------
@@ -572,7 +572,7 @@ __BASE_JS__
     for (const p of byDataset[d]) {
       if (p.i == null || p.m === state.contender) continue;
       el("circle", {
-        cx: at(p.i), cy: mid, r: 2.7, fill: FAM_VAR[METHODS[p.m].family], opacity: 0.6,
+        cx: at(p.i), cy: mid, r: 2.7, fill: famColor(METHODS[p.m]), opacity: 0.6,
       }, svg);
     }
     const c = key(d, state.contender);
@@ -601,7 +601,7 @@ __BASE_JS__
     const ds = DATASETS[d];
     const verdict = tiedText(p, STATS[d]);
     return `<div class="t-name">${escapeHtml(METHODS[p.m].name)}</div>` +
-      `<div>${METHODS[p.m].family}</div>` +
+      `<div>${famLabel(METHODS[p.m])}</div>` +
       `<div>${escapeHtml(metricName(ds))} error: <b>${errWithStd(p, ds)}</b>` +
       (p.s != null ? ` <span class="t-var">(mean \u00b1 std over ${ds.splits} splits)</span>` : "") + "</div>" +
       `<div>Rank: <b>${fmtNum(p.r, 1)}</b> of ${STATS[d].n}</div>` +
@@ -954,7 +954,7 @@ __BASE_JS__
       const hasTraj = trajIndexOf(p.m) >= 0;
       li.className = "pd-rankrow" + (p.m === state.contender ? " is-contender" : "") +
         (p.b === 1 && STATS[d].tiedKnown ? " is-tied" : "") + (hasTraj ? "" : " no-traj");
-      li.style.setProperty("--fam", FAM_VAR[m.family]);
+      li.style.setProperty("--fam", famColor(m));
       const verdict = tiedText(p, STATS[d]);
       li.title = `${m.name} — ${errWithStd(p, DATASETS[d])} ${metricName(DATASETS[d])}, ${fmtNum(p.i, 1)}% behind the best` +
         (p.t != null ? `, ${fmtTime(p.t)} to fit` : "") + (verdict ? `. ${verdict}` : "") +
@@ -1021,13 +1021,13 @@ __BASE_JS__
       '<span class="item"><svg width="26" height="9" viewBox="0 0 26 9">' +
       '<line x1="0" y1="4.5" x2="26" y2="4.5" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="6 4"/>' +
       "</svg> Pareto front on this dataset</span>";
-    const families = FAM_ORDER.filter(f => byDataset[d].some(p => METHODS[p.m].family === f));
-    if (families.length > 1) {
+    const swatches = legendSwatches(byDataset[d].map(p => METHODS[p.m]));
+    if (swatches.length > 1) {
       html += '<span class="legendbreak"></span><span class="item">Family:</span>';
-      for (const fam of families) {
+      for (const sw of swatches) {
         html += `<span class="item"><svg width="12" height="12" viewBox="0 0 12 12">` +
-          `<circle cx="6" cy="6" r="5" fill="${FAM_VAR[fam]}"/></svg> ` +
-          `<span style="color:${FAM_INK[fam]}">${fam}</span></span>`;
+          `<circle cx="6" cy="6" r="5" fill="${sw.color}"/></svg> ` +
+          `<span style="color:${sw.ink}">${sw.label}</span></span>`;
       }
     }
     box.innerHTML = html;

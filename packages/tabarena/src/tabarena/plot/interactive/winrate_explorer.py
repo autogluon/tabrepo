@@ -63,6 +63,7 @@ def build_winrate_explorer_html(
     title: str | None = None,
     page_title: str = "TabArena win-rate matrix",
     system_names: frozenset[str] = frozenset(),
+    system_shades: dict[str, str] | None = None,
 ) -> Path | None:
     """Render the interactive win-rate matrix.
 
@@ -76,6 +77,11 @@ def build_winrate_explorer_html(
         Where to write the page.
     title
         Headline shown above the matrix; omitted when ``None``.
+    system_names
+        Display names of the systems, which are never classified from their name.
+    system_shades
+        Display name -> shade of each shaded system (see
+        :func:`tabarena.website.website_format.system_shades`).
 
     Returns:
     -------
@@ -105,6 +111,7 @@ def build_winrate_explorer_html(
             "model": [model for model, _ in split],
             "variant": [variant for _, variant in split],
             "family": [families[m] for m in methods],
+            "shade": [(system_shades or {}).get(model) for model, _ in split],
             "mean": means,
         }
     )

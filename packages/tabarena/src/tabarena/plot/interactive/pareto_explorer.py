@@ -86,7 +86,8 @@ def build_pareto_explorer_html(
         log axis) and at least one metric column (``imp`` and/or ``elo``).
         Optional columns: ``variant`` (scatter mode:
         "Default"/"Tuned"/"Tuned + Ens."), ``n_configs`` (trajectory mode),
-        ``imputed`` (bool) and ``imputed_pct`` (0-100).
+        ``imputed`` (bool), ``imputed_pct`` (0-100) and ``shade`` (a system's
+        shade, see :func:`tabarena.website.website_format.system_shade`).
     mode
         ``"scatter"`` (one point per method-variant, connectors link a
         method's variants) or ``"trajectory"`` (one line per method over
@@ -149,7 +150,7 @@ def build_pareto_explorer_html(
     data = data.sort_values(["method", "_rank"]).drop(columns=["_rank"]).reset_index(drop=True)
 
     keep_cols = ["method", "family", *x_keys, *metric_keys, "imputed", "imputed_pct"]
-    for opt in ("variant", "n_configs"):
+    for opt in ("variant", "n_configs", "shade"):
         if opt in data.columns:
             keep_cols.append(opt)
     data = data[keep_cols]
