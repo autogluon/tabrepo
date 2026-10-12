@@ -78,11 +78,6 @@ class TabLDMPlusSystemModel(ExternalSystemModel):
         self.n_estimators = n_estimators
         self._estimator = None
 
-    @classmethod
-    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
-        """Neither TabLDM nor this wrapper starts Ray: the estimator fits and predicts in-process."""
-        return False
-
     def _fit_system(
         self,
         X: pd.DataFrame,
