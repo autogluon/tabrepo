@@ -52,7 +52,8 @@ class ExternalSystemModel(AbstractExecModel):
     ``release_after_inference`` in ``cleanup`` (see ``systems/autogluon/system.py``), so its
     ``persisted_models`` are recorded like a wrapper's. A system predicts from its served, in-memory
     state; disk loads inside the timer are the system's own choice. ``uses_ray`` keeps the base
-    default (True): override it only when no code path of your system can start Ray. See
+    default (True): override the classmethod (not a class attribute) only when no code path of your
+    system can start Ray. See
     ``AbstractExecModel`` for the contracts and
     ``examples/benchmarking/run_quickstart_tabarena_system.py`` for a runnable example.
     """

@@ -62,7 +62,10 @@ class ChakraTabSystemModel(ExternalSystemModel):
     API documentation: https://yhatlabs.com
     """
 
-    uses_ray = False
+    @classmethod
+    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
+        """The client only makes HTTP calls: no code path of the fit or predict starts Ray."""
+        return False
 
     def __init__(self, *, preset: str = "medium", url: str | None = None, **kwargs):
         super().__init__(**kwargs)

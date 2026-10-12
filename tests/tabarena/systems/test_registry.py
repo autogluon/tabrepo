@@ -150,3 +150,10 @@ def test_every_discovered_system_declares_method_class_system():
         assert info.method_metadata.is_system, method
         # A system's results are recorded as a baseline, never as a tunable config.
         assert info.method_metadata.method_type != "config", method
+
+
+def test_every_discovered_system_answers_uses_ray():
+    # `Experiment.uses_ray` treats any error as True, so a class attribute such as
+    # `uses_ray = False` (which shadows the classmethod) would silently keep Ray on.
+    for method, info in discover_systems().items():
+        assert isinstance(info.system_cls.uses_ray({}, problem_type="binary"), bool), method
