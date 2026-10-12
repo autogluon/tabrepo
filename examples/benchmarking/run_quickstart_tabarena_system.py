@@ -41,6 +41,9 @@ if TYPE_CHECKING:
 class AutoGluonSystemModel(ExternalSystemModel):
     """Demo system: fit an AutoGluon ``TabularPredictor`` on all the data (see ``ExternalSystemModel``)."""
 
+    # AutoGluon may bag and fit folds in parallel through Ray (a system that never does keeps the default False).
+    uses_ray = True
+
     def __init__(self, *, preset: str = "medium_quality", path: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self.preset = preset

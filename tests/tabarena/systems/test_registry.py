@@ -152,8 +152,9 @@ def test_every_discovered_system_declares_method_class_system():
         assert info.method_metadata.method_type != "config", method
 
 
-def test_every_discovered_system_answers_uses_ray():
-    # `Experiment.uses_ray` treats any error as True, so a class attribute such as
-    # `uses_ray = False` (which shadows the classmethod) would silently keep Ray on.
-    for method, info in discover_systems().items():
-        assert isinstance(info.system_cls.uses_ray({}, problem_type="binary"), bool), method
+def test_the_autogluon_system_declares_ray():
+    # Its presets bag in parallel through Ray; under the default (False) the worker would not start
+    # the runtime and AutoGluon would start it inside the timed fit.
+    from tabarena.systems.autogluon.system import AutoGluonSystemModel
+
+    assert AutoGluonSystemModel.uses_ray_for({}) is True
