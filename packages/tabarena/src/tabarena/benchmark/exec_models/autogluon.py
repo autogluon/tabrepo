@@ -142,6 +142,9 @@ class AGWrapper(AbstractExecModel):
     # AutoGluon does its own feature/label preprocessing, so disable ours by default.
     preprocess_data = False
     preprocess_label = False
+    # A full predictor may bag and fit folds in parallel through Ray; `AGSingleWrapper.uses_ray_for`
+    # narrows this per configuration.
+    uses_ray = True
 
     predictor: TabularPredictor
     """The fitted AutoGluon ``TabularPredictor`` (set by ``_fit``)."""
@@ -1008,7 +1011,7 @@ class AGSingleWrapper(AGWrapper):
             )
 
     @classmethod
-    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
+    def uses_ray_for(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
         """Whether this single-model fit can reach Ray (see ``AbstractExecModel.uses_ray``).
 
         Three predictor-level ``fit_kwargs`` start Ray on their own and answer True right away:
@@ -1662,11 +1665,6 @@ class AGModelWrapper(AbstractExecModel):
             **self.fit_kwargs,
         )
         return self
-
-    @classmethod
-    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
-        """False: a direct ``model_cls.fit`` on the full data has no bag, no trainer and no fold-fitting strategy."""
-        return False
 
     def pre_predict(self):
         """Run the fitted model's untimed inference preparation (``prepare_for_inference``).

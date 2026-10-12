@@ -224,7 +224,7 @@ class Experiment:
         """Whether a fit of this experiment may start or use a Ray runtime.
 
         Consulted by the SLURM worker to decide whether to start Ray before the fit (see
-        ``AbstractExecModel.uses_ray``). Delegates to ``method_cls.uses_ray`` with a deep copy of
+        ``AbstractExecModel.uses_ray``). Delegates to ``method_cls.uses_ray_for`` with a deep copy of
         ``method_kwargs`` (the experiment is never mutated) and answers True on any error, the safe
         default: Ray started up front rather than cold inside the timed fit.
 
@@ -233,7 +233,7 @@ class Experiment:
                 may depend on it.
         """
         try:
-            return bool(self.method_cls.uses_ray(copy.deepcopy(self.method_kwargs), problem_type=problem_type))
+            return bool(self.method_cls.uses_ray_for(copy.deepcopy(self.method_kwargs), problem_type=problem_type))
         except Exception:
             return True
 

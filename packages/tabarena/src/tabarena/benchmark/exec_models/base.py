@@ -70,16 +70,19 @@ class AbstractExecModel:
     can_get_per_child_val_idx = False
     """Whether per-bagged-child validation indices are available (see ``bag_artifact``)."""
 
-    @classmethod
-    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
-        """Whether a fit configured with these constructor kwargs may start or use a Ray runtime.
+    uses_ray: ClassVar[bool] = False
+    """Whether a fit of this exec model may start or use a Ray runtime.
 
-        Consulted by ``Experiment.uses_ray`` so a SLURM worker can skip starting a Ray runtime (GCS,
-        raylet, agents, prestarted workers: several seconds of wall-clock per item and 0.5 to 1.5 GB
-        of RSS counted into the fit's memory numbers) for jobs that never touch Ray. The default is
-        True (start Ray). A subclass returns False only when it can show that no code path calls
-        ``ray.init`` or ``ray.remote`` during fit, predict or artifact collection: a wrong False makes
-        AutoGluon start Ray inside the timed fit with its own defaults (no SLURM-safe temp dir).
+    A SLURM worker starts a Ray runtime (GCS, raylet, agents, prestarted workers: several seconds of
+    wall-clock per item and 0.5 to 1.5 GB of RSS counted into the fit's memory numbers) only for
+    fits that answer True (``Experiment.uses_ray``). Set it to True when any code path calls
+    ``ray.init`` or ``ray.remote`` during fit, predict or artifact collection: a wrong False starts
+    Ray inside the timed fit with the library's own defaults (no SLURM-safe temp dir). A class whose
+    answer depends on its configuration overrides :meth:`uses_ray_for` instead."""
+
+    @classmethod
+    def uses_ray_for(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
+        """Whether a fit configured with these constructor kwargs may start or use Ray (``uses_ray``).
 
         Args:
             method_kwargs: The constructor kwargs of this exec model, as serialized on the experiment
@@ -87,7 +90,15 @@ class AbstractExecModel:
             problem_type: The task's problem type when known; a model's default ensemble arguments
                 may depend on it.
         """
-        return True
+        return cls.uses_ray
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not isinstance(cls.uses_ray, bool):
+            raise TypeError(
+                f"{cls.__name__}.uses_ray must be a bool class variable (`uses_ray = True`); override the "
+                "`uses_ray_for` classmethod for an answer that depends on the configuration.",
+            )
 
     # --- Declarative warm-up (untimed; see the ``warmup_fn`` property) ------------------
     warmup_modules: ClassVar[tuple[str, ...]] = ()
