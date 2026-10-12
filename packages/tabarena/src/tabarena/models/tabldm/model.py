@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from autogluon.common.utils.resource_utils import ResourceManager
@@ -12,13 +13,33 @@ if TYPE_CHECKING:
 _HF_REPO = "occams/Xiaomi-TabLDM"
 _CLASSIFIER_CHECKPOINT = "checkpoints/clf_default.ckpt"
 _REGRESSOR_CHECKPOINT = "checkpoints/reg_default.ckpt"
+#: Hub revision the hosted results were produced with. The regression checkpoint was replaced on
+#: the Hub on 2026-09-28; the Xiaomi-TabLDM+ system pins the newer revision.
+_HF_REVISION = "0e10427273bc862fb60fe7df84c89e5298e16cc7"
+#: Classifier defaults of the estimator the hosted results were produced with (``6773a30d``).
+#: Upstream changed them later; the regressor's plain-path defaults are unchanged.
+_CLASSIFIER_DEFAULTS = {
+    "n_estimators": 8,
+    "feat_shuffle_method": "latin",
+    "cat_random_encode": False,
+    "use_amp": "auto",
+}
+
+
+def _checkpoint_path(filename: str) -> Path:
+    """Download ``filename`` at the pinned Hub revision (a no-op once cached) and return its path."""
+    from huggingface_hub import hf_hub_download
+
+    return Path(hf_hub_download(repo_id=_HF_REPO, filename=filename, revision=_HF_REVISION))
 
 
 class TabLDMModel(AbstractTorchModel):
     """TabLDM: a tabular foundation model with a dual-stream column embedder and MoE backbone.
 
-    Uses TabLDM's current sklearn-compatible classifier and regressor, including the upstream
-    candidate-enhancement defaults.
+    Runs the plain inference path of TabLDM's sklearn estimators (``TabLDMClassifier`` /
+    ``TabLDMRegressor``) with ``enhance_candidates=False``: the candidate enhancement fits its
+    weights on a holdout it carves out of the training data, which a model may not do. That path
+    is benchmarked as the Xiaomi-TabLDM+ system.
 
     Codebase: pip name ``Xiaomi-TabLDM``, import name ``tabldm``, installed from GitHub since
     it is not on PyPI.
@@ -96,11 +117,17 @@ class TabLDMModel(AbstractTorchModel):
             )
 
         model_cls = self.get_model_cls()
-        hps = self._get_model_params()
+        is_classification = self.problem_type in ("binary", "multiclass")
+        hps = {
+            **(_CLASSIFIER_DEFAULTS if is_classification else {}),
+            **self._get_model_params(),
+            "enhance_candidates": False,
+        }
+        model_path = _checkpoint_path(_CLASSIFIER_CHECKPOINT if is_classification else _REGRESSOR_CHECKPOINT)
 
         X = self.preprocess(X, y=y, is_train=True)
 
-        self.model = model_cls(device=device, n_jobs=num_cpus, **hps)
+        self.model = model_cls(device=device, n_jobs=num_cpus, model_path=model_path, **hps)
         self.model.fit(X, y)
 
     def get_device(self) -> str:
@@ -116,13 +143,6 @@ class TabLDMModel(AbstractTorchModel):
 
     @classmethod
     def prefetch_weights(cls) -> None:
-        """Pre-download both checkpoints (classifier and regressor) from the public HF repo.
-
-        Constructs each estimator with its default ``checkpoint_version`` and calls its own
-        ``_load_model()`` directly (matching ``tabicl``'s wrapper), rather than reimplementing the
-        cache-first/download-fallback logic that ``_load_model()`` already provides.
-        """
-        from tabldm import TabLDMClassifier, TabLDMRegressor
-
-        TabLDMClassifier(checkpoint_version=_CLASSIFIER_CHECKPOINT)._load_model()
-        TabLDMRegressor(checkpoint_version=_REGRESSOR_CHECKPOINT)._load_model()
+        """Pre-download both checkpoints (classifier and regressor) at the pinned Hub revision."""
+        for filename in (_CLASSIFIER_CHECKPOINT, _REGRESSOR_CHECKPOINT):
+            _checkpoint_path(filename)

@@ -33,9 +33,8 @@ tabldm_plus_info = SystemInfo(
     config_generator=gen_tabldm_plus,
     method_metadata=tabldm_plus_method_metadata,
     # TabLDM is not published on PyPI; pinned to a commit so the benchmarked code is fixed.
-    # Keep in sync with the `tabldm_plus` extra in pyproject.toml. This is a *different* commit
-    # from the `tabldm` extra the Xiaomi-TabLDM model entry pins: the two are API-incompatible
-    # (`TabLDMEnhanced*` vs `TabLDM*`) and their extras are mutually exclusive.
+    # Keep in sync with the `tabldm_plus` extra in pyproject.toml and with the Xiaomi-TabLDM model
+    # entry's pin, which runs the same commit.
     pip_extra=(
         "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d9f4ef7380d0e1bb0e693b5aa8dece69395fd72c",
     ),
