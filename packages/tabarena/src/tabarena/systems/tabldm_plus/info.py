@@ -37,7 +37,7 @@ tabldm_plus_info = SystemInfo(
     # from the `tabldm` extra the Xiaomi-TabLDM model entry pins: the two are API-incompatible
     # (`TabLDMEnhanced*` vs `TabLDM*`) and their extras are mutually exclusive.
     pip_extra=(
-        "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@61e3523d68184f5610bf045def9f93ba79ab3f4b",
+        "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d9f4ef7380d0e1bb0e693b5aa8dece69395fd72c",
     ),
     prefetch_weights=prefetch_weights,
 )

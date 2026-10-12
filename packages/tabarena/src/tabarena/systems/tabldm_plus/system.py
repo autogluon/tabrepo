@@ -54,6 +54,22 @@ def _log(msg: str) -> None:
     print(f"[Xiaomi-TabLDM+ {time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
+def _time_limit_report(estimator) -> str:
+    """Summarise what the estimator's fit budget did, for the fit-done log line.
+
+    Reads the estimator's ``_fit_budget_`` (set by its ``fit`` when ``time_limit`` is given),
+    which counts the candidate slots the budget cut. ``no early-stop`` means the fit finished
+    inside its budget and the candidate pool is the full routed one.
+    """
+    budget = getattr(estimator, "_fit_budget_", None)
+    if budget is None:
+        return "no time_limit"
+    n_truncated = int(getattr(budget, "n_truncated", 0) or 0)
+    if n_truncated <= 0:
+        return f"no early-stop, elapsed={budget.elapsed:.1f}s"
+    return f"early-stop dropped {n_truncated} candidate(s), elapsed={budget.elapsed:.1f}s"
+
+
 def _import_estimators():
     """Import the newer TabLDM estimators, naming the extra to install when they are missing.
 
@@ -192,11 +208,15 @@ class TabLDMPlusSystemModel(ExternalSystemModel):
         enhanced path then carves its own hold-out split from ``X``/``y`` to fit the blend weights
         (``validation=True``), which is the behaviour that makes this a system.
 
-        The estimator has no early stopping, so ``time_limit`` and ``memory_limit`` cannot be
-        pushed into the fit; both are reported here so a run that overruns is visible in the log.
+        ``time_limit`` is pushed into the estimator's ``fit`` and it early-stops the candidate
+        building when the budget runs out, dropping the candidates it never ran from fusion. The
+        estimator starts its own clock inside ``fit``, so what is handed over is the remainder of
+        the runner's budget after the checkpoint resolve below. ``memory_limit`` has no estimator
+        knob to bind to; it is logged so an over-budget run is visible in the log.
         """
         import torch
 
+        t0 = time.monotonic()
         cuda_available = torch.cuda.is_available()
         device = _resolve_device(self.device, num_gpus, cuda_available=cuda_available)
 
@@ -215,10 +235,16 @@ class TabLDMPlusSystemModel(ExternalSystemModel):
             f"(num_gpus={num_gpus}, num_cpus={num_cpus}, time_limit={time_limit}, "
             f"memory_limit={memory_limit}, cuda_available={cuda_available})",
         )
-        start = time.monotonic()
         self._estimator = model_cls(device=device, **hps)
-        self._estimator.fit(X, y)
-        _log(f"fit done in {time.monotonic() - start:.1f}s")
+        fit_time_limit = None if time_limit is None else max(time_limit - (time.monotonic() - t0), 0.0)
+        self._estimator.fit(X, y, time_limit=fit_time_limit)
+        elapsed = time.monotonic() - t0
+        if fit_time_limit is None:
+            _log(f"fit done in {elapsed:.1f}s (time_limit=None)")
+        else:
+            _log(
+                f"fit done in {elapsed:.1f}s (estimator budget={fit_time_limit:.1f}s, {_time_limit_report(self._estimator)})"
+            )
         return self
 
     def _predict(self, X: pd.DataFrame) -> pd.Series:
