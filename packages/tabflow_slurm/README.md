@@ -230,6 +230,15 @@ Presets: **`TabArenaV0pt1ResourcesSetup`** (8 CPU / 32 GB / 1h) and **`BeyondAre
   multiple batches/commands). The per-task `--time` is budgeted from
   `time_limit_per_config × configs_per_job + overhead`.
 - **`GCPSlurmSetup`** — the BeyondArena GCP defaults (partition names, `exclusive_node=True`).
+- **`LocalSequentialSetup`** writes the same job JSON and returns one `python -m tabflow_slurm.run_local`
+  command that runs every item on this machine, one after the other.
+- **`SlurmSingleNodeSetup`** is that local runner submitted as one `sbatch --wrap` job, for hosted APIs:
+  the node only sends requests and waits, so one on-demand node (`partition`, default `cpuhighmem16`)
+  with `num_workers` items in flight replaces an array of exclusive nodes, and `num_workers` is the
+  concurrency the provider sees. Each item still runs in its own subprocess and logs to
+  `slurm_out/<benchmark>/<job id>/items/`; resubmitting the printed command resumes, since finished items
+  are cached. Never use it with `num_workers > 1` for a model that computes on the node. Many nodes
+  querying an API at once is the usual array: `GCPSlurmSetup(cpu_partition=..., array_job_limit=N)`.
 
 Two hooks on the base class let a scheduler without a shared filesystem plug in: `sync_results_to_local`
 (called by the engine before the cache check and by the scripts before an eval; a no-op for SLURM) and
@@ -249,7 +258,8 @@ Runs the bundles as SkyPilot managed jobs draining a **GCS claim queue**. Constr
 
 Knobs: `bucket` / `prefix` (defaults to the org's EU sky-cache bucket and `<user>/tabarena`),
 `api_server_endpoint` (printed as an export; unset means the shell must provide it), `dataset_cache_uri` /
-`seed_dataset_cache` / `seed_model_weights` (the static cache above), `infra` (unset by
+`weights_cache_uri` / `seed_dataset_cache` / `seed_model_weights` (the static cache above; `weights_cache_uri`
+defaults to `dataset_cache_uri` and keeps the weights in the shared cache when the datasets go to a private prefix), `infra` (unset by
 default: the shared server's admin policy expands the regions and rejects an explicit one), `workers`
 (concurrent worker jobs, the `%N` analogue, and the pool size), `use_pool` / `pool_name`,
 `gpu_accelerator` (`RTXPRO6000:1`, a `g4-standard-48` with 96 GB VRAM, 48 vCPU, 180 GB RAM; pair with

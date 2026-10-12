@@ -168,7 +168,7 @@ __BASE_JS__
       if (excluded && excluded.has(p.method)) continue;
       let entry = byMethod.get(p.method);
       if (!entry) {
-        entry = { method: p.method, family: p.family, url: p.url, points: [] };
+        entry = { method: p.method, family: p.family, shade: p.shade, url: p.url, points: [] };
         byMethod.set(p.method, entry);
       }
       entry.points.push(p);
@@ -440,7 +440,7 @@ __BASE_JS__
       }
       const t = el("text", {
         x: cx, y, "font-size": LABEL_SIZE, "text-anchor": "middle", "font-weight": 650,
-        fill: FAM_INK[entry.family] || "var(--ink)",
+        fill: famInk(entry) || "var(--ink)",
         // A halo in the surface color keeps the glyphs legible where a nudged
         // name crosses a hairline, rather than the line running through them.
         "paint-order": "stroke", stroke: "var(--paper)", "stroke-width": 3,
@@ -479,7 +479,7 @@ __BASE_JS__
 
   function showTip(entry, ev) {
     const m = metric();
-    let html = `<div class="t-name">${entry.method}</div><div>${entry.family}</div>`;
+    let html = `<div class="t-name">${entry.method}</div><div>${famLabel(entry)}</div>`;
     for (const p of entry.points) {
       if (!shownVariant(p) || p[m.key] == null) continue;
       const ci = m.ci && p[m.ci.lo] != null
@@ -528,7 +528,7 @@ __BASE_JS__
         const entry = byMethod.get(name);
         const b = document.createElement("button");
         b.className = "chip";
-        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.style.setProperty("--fam", entry ? famColor(entry) : FAM_VAR[fam]);
         b.appendChild(Object.assign(document.createElement("span"), { className: "dot" }));
         b.appendChild(Object.assign(document.createElement("span"), { textContent: name }));
         if (entry && entry.imputed) {
@@ -727,13 +727,13 @@ __BASE_JS__
     // their names under the axis are set in the System family colour like every other method's,
     // and leaving them out left that colour unexplained. It is the bar that is drawn in the
     // separate --var-system, not the name.
-    const families = FAM_ORDER.filter(f => POINTS.some(p => p.family === f));
-    if (families.length > 1) {
+    const swatches = legendSwatches(POINTS);
+    if (swatches.length > 1) {
       parts.push('<span class="legendbreak"></span><span class="item">Family:</span>');
-      for (const fam of families) {
+      for (const sw of swatches) {
         parts.push(`<span class="item"><svg width="16" height="9" viewBox="0 0 16 9">` +
-          `<rect x="0" y="1" width="16" height="7" rx="2" fill="${FAM_VAR[fam]}"/></svg> ` +
-          `<span style="color:${FAM_INK[fam]}">${fam}</span></span>`);
+          `<rect x="0" y="1" width="16" height="7" rx="2" fill="${sw.color}"/></svg> ` +
+          `<span style="color:${sw.ink}">${sw.label}</span></span>`);
       }
     }
     document.getElementById("legendstrip").innerHTML = parts.join("");

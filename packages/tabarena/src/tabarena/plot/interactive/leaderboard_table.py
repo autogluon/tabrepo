@@ -23,7 +23,7 @@ from tabarena.plot.interactive.leaderboard_explorer import (
     _VARIANT_LABELS,
     _parse_model,
 )
-from tabarena.website.website_format import TAG_SPECS, Constants
+from tabarena.website.website_format import TAG_SPECS, Constants, system_shade
 
 #: Family display name -> the symbol the website shows in its ``Type`` column.
 #: Mirrors ``constants.model_type_emoji`` in the leaderboard app.
@@ -171,12 +171,20 @@ def leaderboard_table_points(df_website_leaderboard: pd.DataFrame) -> pd.DataFra
     points["verified"] = (
         df["Verified"].astype(str).str.strip().eq("✔️").to_numpy() if "Verified" in df.columns else False
     )
+    # Whether the train time includes the prediction call (`MethodMetadata.fits_at_predict`).
+    points["fits_at_predict"] = (
+        df["FitsAtPredict"].fillna(False).astype(bool).to_numpy() if "FitsAtPredict" in df.columns else False
+    )
     # Semicolon-joined by `website_format.add_metadata`; empty for every model and for a
     # system that is open-source, local and LLM-free. Older tables have no column at all.
     # An empty Tags cell round-trips through CSV as NaN, and `str(nan)` is the string "nan",
     # so test for null rather than truthiness or an untagged system reads as tagged.
     tags = df["Tags"] if "Tags" in df.columns else pd.Series([""] * len(df))
     points["tags"] = [[] if pd.isna(v) else [t for t in str(v).split(";") if t] for v in tags]
+    points["shade"] = [
+        system_shade(t) if family == Constants.system else None
+        for t, family in zip(points["tags"], points["family"], strict=True)
+    ]
     for spec in _COLUMNS:
         column = spec.get("column")
         if not column:

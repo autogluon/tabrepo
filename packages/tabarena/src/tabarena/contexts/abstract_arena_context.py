@@ -1131,7 +1131,7 @@ class AbstractArenaContext:
         figure_file_type: str = "pdf",
         plot_only: list[str] | None = None,
         method_color_overrides: dict[str, str] | None = None,
-        pareto_focus_new_methods: bool = False,
+        pareto_focus_new_methods: bool = True,
         # extra analyses
         compute_fold_similarity: bool = False,
         fold_similarity_kwargs: dict | None = None,
@@ -1214,9 +1214,10 @@ class AbstractArenaContext:
             pareto_focus_new_methods: emphasize the registered "new" methods (those added via
                 ``extra_methods=`` / :meth:`register`) in every Pareto figure, in addition to the
                 Pareto-front members: family color plus a boxed label instead of the muted grey
-                the dominated methods get. Plotting-only, like ``plot_only``. Forwarded as
-                ``pareto_focus_methods`` to :meth:`LeaderboardReporter.eval`; a no-op when no new
-                method is registered.
+                the dominated methods get. On by default, so a TabArena and a BeyondArena eval of a
+                new method render the same figures; ``False`` emphasizes the front alone.
+                Plotting-only, like ``plot_only``. Forwarded as ``pareto_focus_methods`` to
+                :meth:`LeaderboardReporter.eval`; a no-op when no new method is registered.
             compute_fold_similarity: rank the datasets by how consistently their folds/seeds
                 agree and estimate the folds needed for a stable result, written to
                 ``fold_similarity.csv``. Needs an ``output_dir``.
@@ -1291,6 +1292,7 @@ class AbstractArenaContext:
         # label from the subset expression so per-subset runs are labeled without extra plumbing.
         if subset is not None and "subset_label" not in kwargs:
             kwargs["subset_label"] = "_".join(str(s) for s in subset)
+        n_results_before_scope = len(df_results)
         df_results = self.subset_results(
             df_results=df_results,
             subset=subset,
@@ -1298,6 +1300,14 @@ class AbstractArenaContext:
             datasets=datasets,
             folds=folds,
         )
+        if df_results.empty and n_results_before_scope > 0:
+            raise ValueError(
+                f"[{self.benchmark_name}] No results remain after scoping to subset={subset!r}"
+                f"{f', datasets={datasets!r}' if datasets is not None else ''}"
+                f"{f', folds={folds!r}' if folds is not None else ''}"
+                f"{f', tasks={tasks!r}' if tasks is not None else ''}: the scope matches none of the "
+                f"{n_results_before_scope} results of the registered methods."
+            )
 
         # TODO: only methods that exist in runs
         #  Pair with (method, suite)

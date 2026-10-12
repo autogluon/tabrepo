@@ -16,7 +16,7 @@ import pandas as pd
 
 from tabarena.plot.interactive._explorer_shared import render_explorer_html
 from tabarena.plot.interactive._leaderboard_template import LEADERBOARD_TEMPLATE
-from tabarena.website.website_format import Constants
+from tabarena.website.website_format import Constants, system_shade
 
 #: ``Model`` cell -> variant. The website spells the variants out in the model
 #: name; the explorer wants them as a separate series.
@@ -124,6 +124,10 @@ def leaderboard_explorer_points(df_website_leaderboard: pd.DataFrame) -> pd.Data
             "system": (df["TypeName"] == Constants.system).to_numpy(),
         },
     )
+    tags = df["Tags"] if "Tags" in df.columns else pd.Series(None, index=df.index)
+    points["shade"] = [
+        system_shade(t) if is_system else None for t, is_system in zip(tags, points["system"], strict=True)
+    ]
     for key, (column, _spec) in _METRIC_SPECS.items():
         points[key] = pd.to_numeric(df[column], errors="coerce").to_numpy() if column in df.columns else pd.NA
 

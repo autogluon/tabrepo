@@ -166,6 +166,14 @@ def test_method_records_name_variant_and_family():
     assert records.loc["AutoGluon 1.6 (extreme, 4h)", "variant"] == ""
 
 
+def test_method_records_shade_a_tagged_system():
+    # method_info.csv holds the tags as a tuple repr.
+    info = _METHOD_INFO.assign(tags=["()", "()", "('closed-source-api',)"])
+    records = method_records(info).set_index("method")
+    assert records.loc["AutoGluon 1.6 (extreme, 4h)", "shade"] == "closed-source-api"
+    assert records.loc["CAT (default)", "shade"] is None
+
+
 def test_per_dataset_points_are_the_leaderboard_terms():
     points = per_dataset_points(_results_per_split()).set_index(["dataset", "method"])
     # Improvability is per split against the best on that split, then averaged.

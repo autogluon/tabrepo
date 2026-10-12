@@ -18,6 +18,12 @@ if TYPE_CHECKING:
     from tabarena.models.exaone_tabular.model import EXAONETabularModel
     from tabarena.models.iltm.model import ILTMModel
     from tabarena.models.knn.model import KNNNewModel
+    from tabarena.models.kumo_tabular.model import (
+        KumoTabularMediumModel,
+        KumoTabularModel,
+        KumoTabularSmallModel,
+    )
+    from tabarena.models.lightpfn.model import LightPFNModel
     from tabarena.models.limix.model import LimiXModel
     from tabarena.models.limix_2.model import LimiX2Model
     from tabarena.models.mitra_v2.model import MitraV2Model
@@ -25,6 +31,7 @@ if TYPE_CHECKING:
     from tabarena.models.nori.model import Nori30MModel, NoriModel
     from tabarena.models.orionmsp.model import OrionMSPModel
     from tabarena.models.perpetual_booster.model import PerpetualBoosterModel
+    from tabarena.models.prismboost.model import PrismBoostModel
     from tabarena.models.realmlp.model import RealMLPModel
     from tabarena.models.sap_rpt_oss.model import SAPRPTOSSModel
     from tabarena.models.tabdpt.model import TabDPTModel, TabDPTTurboModel, TabDPTv13Model
@@ -54,6 +61,10 @@ _LAZY_CLASSES: dict[str, str] = {
     "EXAONETabularModel": "tabarena.models.exaone_tabular.model",
     "ILTMModel": "tabarena.models.iltm.model",
     "KNNNewModel": "tabarena.models.knn.model",
+    "KumoTabularMediumModel": "tabarena.models.kumo_tabular.model",
+    "KumoTabularModel": "tabarena.models.kumo_tabular.model",
+    "KumoTabularSmallModel": "tabarena.models.kumo_tabular.model",
+    "LightPFNModel": "tabarena.models.lightpfn.model",
     "LimiXModel": "tabarena.models.limix.model",
     "LimiX2Model": "tabarena.models.limix_2.model",
     "MitraV2Model": "tabarena.models.mitra_v2.model",
@@ -62,6 +73,7 @@ _LAZY_CLASSES: dict[str, str] = {
     "Nori30MModel": "tabarena.models.nori.model",
     "OrionMSPModel": "tabarena.models.orionmsp.model",
     "PerpetualBoosterModel": "tabarena.models.perpetual_booster.model",
+    "PrismBoostModel": "tabarena.models.prismboost.model",
     "RealMLPModel": "tabarena.models.realmlp.model",
     "RealTabPFNv25Model": "tabarena.models.tabpfnv2_5.model",
     "SAPRPTOSSModel": "tabarena.models.sap_rpt_oss.model",
