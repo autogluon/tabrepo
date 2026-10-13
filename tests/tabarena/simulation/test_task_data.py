@@ -15,6 +15,7 @@ from tabarena.simulation.task_data import (
     METADATA_FILENAME,
     TASKS_FILENAME,
     TaskData,
+    consolidate_task_data,
     decode_dataset_tasks,
     encode_dataset_tasks,
     load_dataset_tasks,
@@ -137,6 +138,20 @@ def test_parallel_task_slices_consolidate_at_finalization(tmp_path):
     assert not list(root.glob(f"*/*/{METADATA_FILENAME}"))
     assert len(list(root.glob(f"*/{TASKS_FILENAME}"))) == len(repo.datasets())
     _equal(EvaluationRepository.from_dir(tmp_path, verbose=False), repo)
+
+
+def test_threaded_consolidation_writes_the_same_task_files(tmp_path):
+    repo = load_repo_artificial()
+    for n_threads in (1, 4):
+        repo.to_dir_task_data(tmp_path / str(n_threads))
+        root = tmp_path / str(n_threads) / "model_predictions"
+        assert consolidate_task_data(root, n_threads=n_threads) == len(repo.datasets())
+        assert not list(root.glob(f"*/*/{METADATA_FILENAME}"))
+        assert not list(root.glob(f"*/*/{LABELS_FILENAME}"))
+    for dataset in repo.datasets():
+        sequential = tmp_path / "1" / "model_predictions" / dataset / TASKS_FILENAME
+        threaded = tmp_path / "4" / "model_predictions" / dataset / TASKS_FILENAME
+        assert sequential.read_bytes() == threaded.read_bytes()
 
 
 def test_label_cache_shares_arrays_between_task_files(tmp_path):
