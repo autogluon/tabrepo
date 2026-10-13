@@ -352,7 +352,10 @@ class SkyPilotSetup(SchedulerSetup):
         )
         model_names = list(jobs_dict.get("model_names", []))
         cache_manifest = self._seed_dataset_cache(
-            Path(jobs_dict["defaults"]["job_batch_dir"]), model_names=model_names, python=str(path_setup.python_path)
+            Path(jobs_dict["defaults"]["job_batch_dir"]),
+            model_names=model_names,
+            python=str(path_setup.python_path),
+            systems=bool(jobs_dict.get("system_experiments")),
         )
         if cache_manifest is not None:
             (queue_dir / "cache_manifest.json").write_text(json.dumps(cache_manifest))
@@ -420,7 +423,9 @@ class SkyPilotSetup(SchedulerSetup):
             print("##### Setup Jobs\nRun the following command(s) to start the jobs:\n" + "\n".join(commands) + "\n")
         return commands
 
-    def _seed_dataset_cache(self, job_batch_dir: Path, *, model_names: list[str], python: str) -> dict | None:
+    def _seed_dataset_cache(
+        self, job_batch_dir: Path, *, model_names: list[str], python: str, systems: bool = False
+    ) -> dict | None:
         """Seed and verify the dataset and weight cache for this run; return the worker manifest.
 
         Reads the batch's ``task_metadata.csv`` (the tasks ``setup`` just materialized into this
@@ -428,7 +433,8 @@ class SkyPilotSetup(SchedulerSetup):
         re-materialized) and copies their cache entries into ``dataset_cache_uri`` (see
         :func:`tabflow_slurm.setup.sky_cache.seed_dataset_cache`), then the models' weights into
         ``weights_cache_uri`` (see :func:`tabflow_slurm.setup.sky_cache.seed_model_weights`). Returns ``None`` when the batch
-        directory carries no task metadata.
+        directory carries no task metadata. ``systems`` keeps the workers online (``offline_weights=False``): a
+        system resolves its own checkpoints inside its fit, and none of them is seeded.
         """
         csv_path = job_batch_dir / "task_metadata.csv"
         if not csv_path.exists():
@@ -456,6 +462,8 @@ class SkyPilotSetup(SchedulerSetup):
             cache_uri=weights_cache_uri,
             upload=self.seed_model_weights,
         )
+        if systems:
+            weights["offline_weights"] = False
         manifest.update(weights, weights_cache_uri=weights_cache_uri)
         print(
             f"model weights: {weights_report.datasets} model(s), {weights_report.files} file(s), "
