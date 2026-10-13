@@ -11,20 +11,23 @@ from tabarena.systems.tabldm_plus.system import TabLDMPlusSystemModel, prefetch_
 # may not carve a second one) but `ExternalSystemModel` explicitly does. Hence a system entrant
 # alongside the `Xiaomi-TabLDM` model entry rather than a new model version of it.
 #
-# `suite` and `date` describe the run this entry will carry and must be set to the actual run's
-# date before the results are processed and uploaded (see the `upload-method` skill).
+# TabArena-Full run `tabldmplus_13102026` (816 tasks over 51 datasets), one direct fit per task on
+# one RTX PRO 6000. `compute` is set by hand: the raw results record `num_gpus=0`, so the inferred
+# value would be `cpu`.
 tabldm_plus_method_metadata = MethodMetadata.system(
     method="Xiaomi-TabLDM+",
     name="Xiaomi-TabLDM+",
-    suite="tabarena-2026-10-08",
+    suite="tabarena-2026-10-13",
     compute="gpu",
-    date="2026-10-08",
+    date="2026-10-13",
     date_introduced="2026-10",
     reference_url="https://huggingface.co/occams/Xiaomi-TabLDM",
     commercial_use=True,
     license="Apache-2.0",
     tags=(),
-    verified=False,
+    verified=True,
+    cache_type="r2",
+    cache_kwargs={"bucket": "tabarena", "prefix": "cache"},
 )
 
 

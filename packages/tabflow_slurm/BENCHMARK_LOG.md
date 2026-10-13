@@ -34,6 +34,66 @@ run against `main`. To reproduce an entry, check out its recorded **git SHA**.
 
 ---
 
+## 2026-10-13 — tabldmplus_13102026
+
+- **Model(s):** Xiaomi-TabLDM+ (system, its one manual config `Xiaomi-TabLDM+_c1_default`) on every split of the
+  full TabArena-v0.1 task set, 816 items
+- **Git SHA:** `c07fada3` in the detached worktree `../tabarena-run-tabldmplus_13102026`: PR #658 head `876d439a`
+  plus the SkyPilot fix `b1215ec1` (PR #664, cherry-picked); AutoGluon worktree
+  `../autogluon-run-tabldmplus_13102026` at master `8e375c1e`
+- **Validation protocol:** `system` (the system owns its validation: one hold-out carved from the training data)
+- **Purpose:** Stage-2 maintainer run of the PR #658 submission (TabLDM `d3fc3b7a` on upstream main, tree identical
+  to `d9f4ef73`; HF weights `occams/Xiaomi-TabLDM@b8364615`).
+- **Notes:** SkyPilot pool `tabldmplus-1310` (32 spot RTX PRO 6000 workers, `g4-standard-48`, env `a24b68675221`);
+  venv `~/.venvs/tabarena_tabldmplus_13102026` (torch 2.13.0+cu130). One item per bundle,
+  `fake_memory_for_estimates=96`, default 1 h per item, no Ray (system). The first setup wrote
+  `offline_weights=True` into the queue's cache manifest although it seeded no weights (a system-only bundle has no
+  registry models), which would have run every fit with `HF_HUB_OFFLINE=1` and failed the checkpoint download; that
+  queue was deleted unlaunched and setup re-run with the fix. Launched 11:47 CEST, all 816 items done by 12:04;
+  6 worker jobs recovered once from spot preemptions, no failures. Result: 816 of 816; `audit_warmup --results`
+  reports warm-up ok on all 816; 62 fits imported the Hub's HTTP stack inside the timed fit (the first fit per
+  worker and checkpoint downloads it, about 3.7 s each, 235 s of 8,330 s total train time). Eval: full #17 of 107
+  (Elo 1635, +54/-40), binary #18 (1606), multiclass #16 (1696), regression #16 (1855); median 1.71 s train and
+  1.56 s inference per 1K rows. The hosted Xiaomi-TabLDM entry is #19 (1582). Processed and hosted as suite
+  `tabarena-2026-10-13` (`tabarena.systems.tabldm_plus.info:tabldm_plus_method_metadata`, `compute="gpu"` set by
+  hand since the raw results record `num_gpus=0`). The figures come from an eval with the fix of PR #665, without
+  which the eval colored the fresh system as a Foundation Model.
+
+```python
+from tabarena.benchmark.experiment import TabArenaV0pt1ExperimentBundle
+from tabarena.benchmark.task.metadata import TaskSubset
+from tabarena.systems.tabldm_plus import gen_tabldm_plus
+from tabflow_slurm import (
+    ModelJob,
+    PathSetup,
+    SkyPilotSetup,
+    TabArenaV0pt1BenchmarkPlan,
+    TabArenaV0pt1ResourcesSetup,
+)
+
+TabArenaV0pt1BenchmarkPlan(
+    benchmark_name="tabldmplus_13102026",
+    model_jobs=[
+        ModelJob(
+            models=(gen_tabldm_plus, 0),
+            name="gpu",
+            resources={"num_gpus": 1, "fake_memory_for_estimates": 96},
+        ),
+    ],
+    task_subset=TaskSubset(),
+    path_setup=PathSetup(
+        workspace="/home/lennart_priorlabs_ai/workspace/benchmarking/tabarena_workspace",
+        python_path="/home/lennart_priorlabs_ai/.venvs/tabarena_tabldmplus_13102026/bin/python",
+    ),
+    experiment_bundle=TabArenaV0pt1ExperimentBundle(model_verbosity=2, system_experiments=True),
+    resources_setup=TabArenaV0pt1ResourcesSetup(num_cpus=None, memory_limit=None),
+    scheduler_setup=SkyPilotSetup(bundle_size=1, workers=32, use_pool=True, pool_name="tabldmplus-1310"),
+    prefetch_model_weights=False,
+).setup_jobs()
+```
+
+---
+
 ## 2026-10-09 — chakratab_08102026
 
 - **Model(s):** Chakra-Tab (YHat Labs' hosted tabular API, the first `closed-source-api` system), 2 configs:

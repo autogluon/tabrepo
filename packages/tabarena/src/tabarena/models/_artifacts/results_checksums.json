@@ -232,5 +232,6 @@
  "artifacts/tabarena-2026-10-09/methods/Chakra-Tab_full/results/model_results.parquet": "4c7d2cc062444dd9c3545f515e6d84b0",
  "artifacts/tabarena-2026-10-09/methods/Chakra-Tab_medium/results/model_results.parquet": "25c2fcd108763e7ae90e86b9e1e08fbe",
  "artifacts/tabarena-2026-10-09/methods/LightPFN/results/hpo_results.parquet": "c11a18c2b8a746a7c5481e8fa55142f3",
- "artifacts/tabarena-2026-10-09/methods/LightPFN/results/model_results.parquet": "de00e8b97891209a96e7491acf08706b"
+ "artifacts/tabarena-2026-10-09/methods/LightPFN/results/model_results.parquet": "de00e8b97891209a96e7491acf08706b",
+ "artifacts/tabarena-2026-10-13/methods/Xiaomi-TabLDM+/results/model_results.parquet": "5ed2a6756391fcb6c94283f4c092c36f"
 }

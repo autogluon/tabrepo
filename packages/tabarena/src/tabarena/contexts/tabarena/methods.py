@@ -135,6 +135,7 @@ from tabarena.models.xrfm.info import xrfm_method_metadata as xrfm_metadata
 # Systems (whole pipelines rather than single models) have their own per-system `info.py`.
 from tabarena.systems.chakra_tab.info import chakra_tab_full_metadata, chakra_tab_medium_metadata
 from tabarena.systems.tabfm_plus.info import tabfm_plus_method_metadata
+from tabarena.systems.tabldm_plus.info import tabldm_plus_method_metadata
 
 if TYPE_CHECKING:
     from tabarena.models._method_metadata import MethodMetadata
@@ -196,6 +197,7 @@ tabarena_method_metadata_collection = MethodMetadataCollection(
         chakra_tab_full_metadata,
         chakra_tab_medium_metadata,
         tabfm_plus_method_metadata,
+        tabldm_plus_method_metadata,
         # Default tabular models (CPU)
         aplr_method_metadata,
         catboost_new_method_metadata,
