@@ -330,6 +330,15 @@ class TaskMetadataCollection:
                 new_tasks.append(replace(t, splits_metadata=kept))
         return self._with_tasks(new_tasks)
 
+    def subset_to_tids(self, tids: Iterable[int]) -> TaskMetadataCollection:
+        """A new collection with the tasks whose integer ``tid`` (as in :meth:`dataset_to_tid`) is in ``tids``.
+
+        A ``tid`` the collection does not have is ignored, like the ``tid`` filter repo generation
+        applies to raw results.
+        """
+        tids = set(tids)
+        return self._with_tasks([t for t in self._tasks if tid_from_task_id_str(t.task_id_str) in tids])
+
     def subset_to_jobs(self, jobs: list[Job]) -> TaskMetadataCollection:
         """A new collection restricted to the ``(dataset, fold, repeat)`` splits the ``jobs`` touch.
 
