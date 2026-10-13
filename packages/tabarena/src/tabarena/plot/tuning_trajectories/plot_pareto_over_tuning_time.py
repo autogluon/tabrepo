@@ -1004,6 +1004,8 @@ def plot_tuning_trajectories_all(
 
     if engine == "auto":
         engine = tabarena_context.engine if tabarena_context is not None else "sequential"
+    if tabarena_context is not None:
+        _prefetch_hpo_trajectories(tabarena_context.method_metadata_collection.method_metadata_lst, methods_to_display)
 
     all_combinations = get_all_subset_combinations()
 
@@ -1073,6 +1075,20 @@ def plot_tuning_trajectories_all(
         progress_bar=progress_bar,
         desc="Generating tuning trajectories per subset",
     )
+
+
+def _prefetch_hpo_trajectories(method_metadata_lst: list, methods_to_display: list[str] | None = None) -> None:
+    """Download the hosted HPO trajectories missing from the cache, one method at a time.
+
+    Every per-subset job loads the trajectories of every method in its pool, so without this each
+    parallel worker would download the same missing files at once.
+    """
+    for m in method_metadata_lst:
+        if methods_to_display is not None and m.method not in methods_to_display:
+            continue
+        has_trajectories = m.method_type == "config" or m.has_hpo_trajectories
+        if has_trajectories and m.has_remote_cache and not m.path_results_hpo_trajectories().exists():
+            m.method_downloader().download_results_hpo_trajectories()
 
 
 def _build_dataset_metadata_map(
