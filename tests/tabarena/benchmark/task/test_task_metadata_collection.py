@@ -291,6 +291,23 @@ class TestSubset:
             c.subset([("a", 1, 0)])
 
 
+class TestSubsetToTids:
+    def test_keeps_every_split_of_the_listed_tids(self):
+        a = _task_meta(dataset_name="a", task_id_str="363612", splits=[_split_meta(fold=f) for f in range(3)])
+        b = _task_meta(dataset_name="b", task_id_str="UserTask|9900335484|b/uuid")
+        c = TaskMetadataCollection(_unrolled(a) + _unrolled(b))
+        sub = c.subset_to_tids({363612, 12345})  # a tid the collection lacks is ignored
+        assert sub.dataset_names() == ["a"]
+        assert set(sub.dataset_fold_repeats()) == {("a", f, 0) for f in range(3)}
+        assert c.subset_to_tids([9900335484]).dataset_names() == ["b"]
+
+    def test_legacy_df_of_the_subset_is_the_collections_row(self):
+        a = _task_meta(dataset_name="a", task_id_str="363612", splits=[_split_meta(fold=f) for f in range(3)])
+        b = _task_meta(dataset_name="b", task_id_str="363613")
+        c = TaskMetadataCollection(_unrolled(a) + _unrolled(b))
+        pd.testing.assert_frame_equal(c.subset_to_tids([363612]).to_legacy_df(), c.to_legacy_df().iloc[[0]])
+
+
 class TestSubsetToJobs:
     class _StubExperiment:
         model_constraints = None

@@ -329,15 +329,22 @@ def _process_task_group(
     cache_raw: bool = False,
     cache_processed: bool = False,
 ) -> list[_MethodBuild]:
-    """Worker: fully process one (task, split) group of ``results.pkl`` files."""
+    """Worker: fully process one (task, split) group of ``results.pkl`` files.
+
+    The group's repo is built from the metadata of its own task only. Repo generation converts the
+    metadata to the legacy frame at one DataFrame per split, so converting the whole collection for
+    every task takes longer than processing the task on a large collection. The driver writes the
+    processed context from the full collection (:func:`finalize_method_builds`).
+    """
     results_lst = load_all_artifacts(
         file_paths=file_paths_method,
         engine="sequential",
         progress_bar=False,
     )
+    tids = {r.task_metadata["tid"] for r in results_lst}
     return process_results_in_memory(
         results_lst,
-        task_metadata=task_metadata,
+        task_metadata=task_metadata.subset_to_tids(tids),
         method_metadata=method_metadata,
         name=name,
         name_prefix=name_prefix,
