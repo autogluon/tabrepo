@@ -117,11 +117,9 @@ diff**. Use it to confirm `info.py` matches the raw data before processing. Two 
 
 **BeyondArena runs**: the task directories of a BeyondArena run are named `<dataset>-<hash>`, not OpenML task
 ids, so `EndToEnd.from_path_raw` cannot infer the task metadata from them and filters every result out
-(`No results to process`). Pass the committed collection,
-`task_metadata=load_beyond_task_metadata_collection("BeyondArena")` (from `tabarena.evaluation.beyond_metadata`),
-which `scripts/run_process_method.py` does not expose yet: process through a small driver that calls
-`EndToEnd.from_path_raw` with the `RawMethod`'s resolved name / model key / suite (see the
-`beyondarena_tfms_22092026` driver in `tmp_scripts/`). Register the method in
+(`No results to process`). Add `--task-metadata BeyondArena` to the `run_process_method.py` commands so
+processing uses the committed collection (a driver passes `task_metadata=TaskMetadataCollection.from_source("BeyondArena")`
+to `process_method` / `process_raw`). Register the method in
 `contexts/beyondarena/methods.py` through the model's `ModelDescriptor` (`<x>_descriptor.method_metadata(...)`
 with the file's `_common_fm_kwargs` / `_common_bag_kwargs`), adding a descriptor to the model's `info.py` when
 it only has `MethodMetadata.config(...)` entries; the BeyondArena bundle names configs `<Method>_c1_BAG_L1`
@@ -189,6 +187,7 @@ Using `chimeraboost` as the example:
 <venv>/bin/python scripts/run_process_method.py <run_data_dir> \
     --method-metadata tabarena.models.chimeraboost.info:chimeraboost_method_metadata --process \
     --expect-validation-protocol tabarena  # the run must record TabArena's official protocol
+# (a BeyondArena run: --expect-validation-protocol beyondarena --task-metadata BeyondArena)
 
 # 4. Upload dry-run: verifies every part exists locally and prints what/where (no creds needed)
 <venv>/bin/python scripts/run_upload_results.py \
