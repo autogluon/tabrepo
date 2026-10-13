@@ -346,6 +346,24 @@ class TestGetRunCommands:
         assert manifest["weights_cache_uri"] == "gs://b/tabarena/cache"
         assert local_storage.read_text("gs://b/me/private/cache/openml/org/openml/www/datasets/46904/dataset_46904.pq")
 
+    def test_systems_keep_the_workers_online(self, local_storage, tmp_path, batch_dir, staged_env):
+        """A system run seeds no weights, yet its fits download checkpoints, so the workers must not go offline."""
+        ps = self._ps(tmp_path)
+        ps.ensure_runtime_dirs("bench")
+        jobs = {**_jobs_dict(batch_dir, n_bundles=1), "model_names": [], "system_experiments": True}
+        _setup(local_storage, sky_binary="sky").get_run_commands(
+            jobs_dict=jobs,
+            path_setup=ps,
+            benchmark_name="bench",
+            parallel_safe_benchmark_name="bench_gpu",
+            resources_setup=_resources(),
+            print_summary=False,
+        )
+        launch = json.loads((ps.get_setup_out_path("bench") / "sky" / "bench_gpu" / "launch.json").read_text())
+        manifest = json.loads(local_storage.read_text(f"{launch['queue_uri']}/cache_manifest.json"))
+        assert manifest["weights"] == {}
+        assert manifest["offline_weights"] is False
+
     def test_setup_warns_while_a_previous_launch_is_still_draining(
         self, local_storage, tmp_path, batch_dir, staged_env, capsys
     ):

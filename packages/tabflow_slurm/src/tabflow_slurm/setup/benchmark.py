@@ -267,6 +267,8 @@ class TabArenaBenchmarkSetup:
               size, see `SlurmSetup._write_job_batches_and_build_commands`).
             - `model_names`: the registry names of this run's models (see `_model_names`),
               for schedulers whose nodes prefetch weights themselves. SLURM ignores it.
+            - `system_experiments`: whether the bundle runs systems, which resolve their own
+              checkpoints inside their fit, so those nodes must keep Hub access. SLURM ignores it.
         """
         jobs, max_configs_per_job = self.get_jobs_to_run()
         return {
@@ -274,6 +276,7 @@ class TabArenaBenchmarkSetup:
             "jobs": jobs,
             "max_configs_per_job": max_configs_per_job,
             "model_names": self._model_names(),
+            "system_experiments": self.experiment_bundle.system_experiments,
         }
 
     def _model_names(self) -> list[str]:
