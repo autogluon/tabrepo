@@ -36,7 +36,7 @@ tabldm_plus_info = SystemInfo(
     # Keep in sync with the `tabldm_plus` extra in pyproject.toml and with the Xiaomi-TabLDM model
     # entry's pin, which runs the same commit.
     pip_extra=(
-        "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d9f4ef7380d0e1bb0e693b5aa8dece69395fd72c",
+        "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d3fc3b7a0644631c8e3c18fa50629440e334f3f4",
     ),
     prefetch_weights=prefetch_weights,
 )
