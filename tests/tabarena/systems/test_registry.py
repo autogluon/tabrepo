@@ -150,3 +150,11 @@ def test_every_discovered_system_declares_method_class_system():
         assert info.method_metadata.is_system, method
         # A system's results are recorded as a baseline, never as a tunable config.
         assert info.method_metadata.method_type != "config", method
+
+
+def test_the_autogluon_system_declares_ray():
+    # Its presets bag in parallel through Ray; under the default (False) the worker would not start
+    # the runtime and AutoGluon would start it inside the timed fit.
+    from tabarena.systems.autogluon.system import AutoGluonSystemModel
+
+    assert AutoGluonSystemModel.uses_ray_for({}) is True

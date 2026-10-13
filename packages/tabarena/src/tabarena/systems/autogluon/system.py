@@ -36,6 +36,9 @@ class AutoGluonSystemModel(ExternalSystemModel):
     Codebase: https://github.com/autogluon/autogluon
     """
 
+    # The presets bag and fit folds in parallel through Ray.
+    uses_ray = True
+
     def __init__(self, *, preset: str = "best_quality", path: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self.preset = preset

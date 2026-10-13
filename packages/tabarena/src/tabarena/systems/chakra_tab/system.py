@@ -62,8 +62,6 @@ class ChakraTabSystemModel(ExternalSystemModel):
     API documentation: https://yhatlabs.com
     """
 
-    uses_ray = False
-
     def __init__(self, *, preset: str = "medium", url: str | None = None, **kwargs):
         super().__init__(**kwargs)
         self.preset = preset

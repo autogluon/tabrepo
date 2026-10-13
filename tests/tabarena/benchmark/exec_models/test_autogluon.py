@@ -334,20 +334,21 @@ class TestUsesRay:
         hyperparameters = {"ag_args_ensemble": ag_args_ensemble} if ag_args_ensemble is not None else {}
         return {"model_cls": model_cls, "model_hyperparameters": hyperparameters, "fit_kwargs": fit_kwargs or {}}
 
-    def test_base_default_is_true(self):
-        assert AbstractExecModel.uses_ray({}) is True
+    def test_defaults(self):
+        assert AbstractExecModel.uses_ray is False
+        assert AGWrapper.uses_ray_for({}) is True  # a full predictor may bag in parallel
 
     def test_no_bag_is_false(self):
-        assert AGSingleWrapper.uses_ray(self._kwargs(fit_kwargs={"num_cpus": 4})) is False
-        assert AGSingleWrapper.uses_ray(self._kwargs(fit_kwargs={"num_bag_folds": 1})) is False
-        assert AGSingleWrapper.uses_ray(self._kwargs(fit_kwargs={"num_bag_folds": None})) is False
+        assert AGSingleWrapper.uses_ray_for(self._kwargs(fit_kwargs={"num_cpus": 4})) is False
+        assert AGSingleWrapper.uses_ray_for(self._kwargs(fit_kwargs={"num_bag_folds": 1})) is False
+        assert AGSingleWrapper.uses_ray_for(self._kwargs(fit_kwargs={"num_bag_folds": None})) is False
 
     @pytest.mark.parametrize(
         "fit_kwargs",
         [{"fit_strategy": "parallel"}, {"dynamic_stacking": True}, {"dynamic_stacking": "auto"}, {"auto_stack": True}],
     )
     def test_predictor_level_options_are_true(self, fit_kwargs):
-        assert AGSingleWrapper.uses_ray(self._kwargs(fit_kwargs=fit_kwargs)) is True
+        assert AGSingleWrapper.uses_ray_for(self._kwargs(fit_kwargs=fit_kwargs)) is True
 
     def test_bag_follows_the_fold_fitting_strategy(self):
         sequential = self._kwargs(
@@ -357,16 +358,16 @@ class TestUsesRay:
         parallel = self._kwargs(
             fit_kwargs={"num_bag_folds": 8, "num_gpus": 0}, ag_args_ensemble={"fold_fitting_strategy": "parallel_local"}
         )
-        assert AGSingleWrapper.uses_ray(sequential, problem_type="binary") is False
-        assert AGSingleWrapper.uses_ray(parallel, problem_type="binary") is True
-        assert AGSingleBagWrapper.uses_ray(parallel) is True  # inherited
+        assert AGSingleWrapper.uses_ray_for(sequential, problem_type="binary") is False
+        assert AGSingleWrapper.uses_ray_for(parallel, problem_type="binary") is True
+        assert AGSingleBagWrapper.uses_ray_for(parallel) is True  # inherited
 
     def test_unknown_gpu_count_considers_both_variants(self):
         ensemble = {"fold_fitting_strategy": "sequential_local", "fold_fitting_strategy_gpu": "parallel_local"}
         unknown = self._kwargs(fit_kwargs={"num_bag_folds": 8}, ag_args_ensemble=ensemble)
         cpu = self._kwargs(fit_kwargs={"num_bag_folds": 8, "num_gpus": 0}, ag_args_ensemble=ensemble)
-        assert AGSingleWrapper.uses_ray(unknown) is True
-        assert AGSingleWrapper.uses_ray(cpu) is False
+        assert AGSingleWrapper.uses_ray_for(unknown) is True
+        assert AGSingleWrapper.uses_ray_for(cpu) is False
 
     def test_registry_key_is_resolved(self):
         kwargs = self._kwargs(
@@ -374,10 +375,10 @@ class TestUsesRay:
             ag_args_ensemble={"fold_fitting_strategy": "sequential_local"},
             model_cls="GBM",
         )
-        assert AGSingleWrapper.uses_ray(kwargs) is False
+        assert AGSingleWrapper.uses_ray_for(kwargs) is False
 
     def test_model_wrapper_is_false(self):
-        assert AGModelWrapper.uses_ray({"model_cls": _DummyModel, "fit_kwargs": {"num_gpus": 1}}) is False
+        assert AGModelWrapper.uses_ray_for({"model_cls": _DummyModel, "fit_kwargs": {"num_gpus": 1}}) is False
 
 
 # --- per-child test artifact: reuse of the timed prediction -----------------------------

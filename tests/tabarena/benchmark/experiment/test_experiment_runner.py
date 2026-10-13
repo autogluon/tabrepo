@@ -430,14 +430,14 @@ class _RayAwareModel(AbstractExecModel):
     seen: list[tuple] = []
 
     @classmethod
-    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
+    def uses_ray_for(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
         cls.seen.append((method_kwargs, problem_type))
         return False
 
 
 class _BrokenUsesRayModel(AbstractExecModel):
     @classmethod
-    def uses_ray(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
+    def uses_ray_for(cls, method_kwargs: dict, *, problem_type: str | None = None) -> bool:
         raise KeyError("model_cls")
 
 

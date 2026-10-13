@@ -185,6 +185,15 @@ def test_bag_artifact_signature_accepts_timed_outputs():
         model.bag_artifact(pd.DataFrame(), y_pred=None, y_pred_proba=None)
 
 
-def test_uses_ray_defaults_to_true():
-    assert AbstractExecModel.uses_ray({}) is True
-    assert _RecordingExecModel.uses_ray({"fit_kwargs": {}}, problem_type="binary") is True
+def test_uses_ray_defaults_to_false():
+    assert AbstractExecModel.uses_ray is False
+    assert _RecordingExecModel.uses_ray_for({"fit_kwargs": {}}, problem_type="binary") is False
+
+
+def test_uses_ray_must_be_a_bool_class_variable():
+    with pytest.raises(TypeError, match="uses_ray_for"):
+
+        class _MethodInsteadOfFlag(AbstractExecModel):
+            @classmethod
+            def uses_ray(cls, method_kwargs, *, problem_type=None):
+                return False
