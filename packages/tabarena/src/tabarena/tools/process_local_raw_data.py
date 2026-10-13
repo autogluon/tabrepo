@@ -51,6 +51,7 @@ from tabarena.end_to_end import EndToEnd
 from tabarena.models._method_metadata import MethodTag, infer_validation_protocol
 
 if TYPE_CHECKING:
+    from tabarena.benchmark.task.metadata import TaskMetadataCollection
     from tabarena.end_to_end import EndToEndResults
     from tabarena.models._method_metadata import MethodMetadata
 
@@ -636,6 +637,7 @@ def process_raw(
     cache_hpo_trajectories: bool = False,
     backend: str = "ray",
     file_paths: list[Path] | None = None,
+    task_metadata: TaskMetadataCollection | None = None,
 ) -> EndToEndResults:
     """Process the already-present raw data into cached method artifacts (no upload).
 
@@ -659,6 +661,11 @@ def process_raw(
     file_paths
         Pre-discovered ``results.pkl`` paths under ``method.path_raw``; skips the directory walk
         (e.g. reuse the paths the inspect/verify scan already discovered).
+    task_metadata
+        The tasks the raw results were run on. When ``None``, the metadata is fetched from OpenML
+        for the task directories named by an integer task id, and results in directories named by a
+        task slug (a ``UserTask``, e.g. every BeyondArena task) are dropped, so pass the collection
+        for those runs (e.g. ``TaskMetadataCollection.from_source("BeyondArena")``).
     """
     if method.method_metadata is None:
         raise ValueError(
@@ -671,6 +678,7 @@ def process_raw(
         name=method.resolved_name,
         model_key=method.resolved_model_key,
         suite=method.resolved_suite,
+        task_metadata=task_metadata,
         file_paths=file_paths,
         cache=True,
         cache_raw=cache_raw,
@@ -690,6 +698,7 @@ def process_method(
     cache_hpo_trajectories: bool = True,
     backend: str = "ray",
     expected_validation_protocol: ValidationProtocol | str | None = None,
+    task_metadata: TaskMetadataCollection | None = None,
 ) -> None:
     """Inspect and/or process a single ``RawMethod`` (no upload).
 
@@ -707,7 +716,7 @@ def process_method(
     ignore_metadata_mismatch
         Forwarded to :func:`verify_method_metadata` — downgrade alignment/structural failures to a
         warning instead of erroring (the missing-metadata error always raises).
-    cache_raw, cache_hpo_trajectories, backend
+    cache_raw, cache_hpo_trajectories, backend, task_metadata
         Forwarded to :func:`process_raw` (only used when ``process=True``).
     expected_validation_protocol
         Forwarded to :func:`verify_method_metadata`: the arena protocol the raw results must have been
@@ -746,6 +755,7 @@ def process_method(
             cache_hpo_trajectories=cache_hpo_trajectories,
             backend=backend,
             file_paths=file_paths,
+            task_metadata=task_metadata,
         )
     te = time.time()
     print(f"Finished {label} (duration={te - ts:.1f}s)")
@@ -760,6 +770,7 @@ def process_methods(
     cache_raw: bool = True,
     cache_hpo_trajectories: bool = True,
     backend: str = "ray",
+    task_metadata: TaskMetadataCollection | None = None,
 ) -> None:
     """Run :func:`process_method` over each ``RawMethod`` in ``methods``.
 
@@ -779,4 +790,5 @@ def process_methods(
             cache_raw=cache_raw,
             cache_hpo_trajectories=cache_hpo_trajectories,
             backend=backend,
+            task_metadata=task_metadata,
         )

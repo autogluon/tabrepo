@@ -7,7 +7,9 @@ is a thin CLI wrapper around :func:`tabarena.tools.process_local_raw_data.proces
 
 ``path_raw`` is searched recursively for ``results.pkl`` files, so point it at the run's ``data/``
 directory (or any parent of the raw artifacts). Processing requires an explicit ``MethodMetadata``,
-passed as a dotted ``module:attr`` (or ``module.attr``) reference to a committed one.
+passed as a dotted ``module:attr`` (or ``module.attr``) reference to a committed one. The tasks' metadata
+is fetched from OpenML by task id unless ``--task-metadata`` names it; a run on tasks named by slug
+rather than by OpenML task id (BeyondArena, or any ``UserTask``) needs ``--task-metadata``.
 
 Examples:
 --------
@@ -18,6 +20,11 @@ Examples:
     # default; pass --no-cache-raw / --no-cache-hpo-trajectories to skip):
     python scripts/run_process_method.py /path/to/run/data \
         --method-metadata tabarena.models.nori.info:nori_method_metadata --process
+
+    # A BeyondArena run (task directories are slugs such as ``<dataset>-<hash>``):
+    python scripts/run_process_method.py /path/to/run/data \
+        --method-metadata tabarena.models.<model>.info:<x>_method_metadata --process \
+        --task-metadata BeyondArena --expect-validation-protocol beyondarena
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ import argparse
 import importlib
 from pathlib import Path
 
+from tabarena.benchmark.task.metadata import TaskMetadataCollection
 from tabarena.benchmark.validation_protocol import (
     BEYONDARENA_VALIDATION_PROTOCOL,
     TABARENA_V0PT1_VALIDATION_PROTOCOL,
@@ -113,6 +121,14 @@ def main() -> None:
         "(TabArena: 8 folds x 1 set; BeyondArena: 8x1 with the 5x5 tiny regime and task-specific splits). "
         "Use it before processing a submission; systems own their validation and are exempt.",
     )
+    parser.add_argument(
+        "--task-metadata",
+        metavar="SOURCE",
+        default=None,
+        help="The tasks the raw results were run on: a registered suite ('TabArena-v0.1', 'BeyondArena') or a "
+        "path to a `*_tasks_metadata.csv`. Required when the task directories are slugs rather than OpenML "
+        "task ids (BeyondArena, UserTasks); by default the metadata is fetched from OpenML by task id.",
+    )
     args = parser.parse_args()
 
     if args.process and not args.method_metadata:
@@ -120,6 +136,7 @@ def main() -> None:
 
     method_metadata = _load_method_metadata(args.method_metadata) if args.method_metadata else None
     method = RawMethod(path_raw=args.path_raw, method_metadata=method_metadata)
+    task_metadata = TaskMetadataCollection.from_source(args.task_metadata) if args.task_metadata else None
 
     process_method(
         method,
@@ -130,6 +147,7 @@ def main() -> None:
         cache_hpo_trajectories=args.cache_hpo_trajectories,
         backend=args.backend,
         expected_validation_protocol=_EXPECTED_PROTOCOLS.get(args.expect_validation_protocol),
+        task_metadata=task_metadata,
     )
 
 
