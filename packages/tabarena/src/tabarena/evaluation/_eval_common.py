@@ -223,11 +223,21 @@ def post_process_to_results(
     # `only_load_cache` method, or a cache built before the name was recorded), so every method
     # of the run is labelled the way the leaderboard labels it.
     display_names = {(ma.method_name, ma.suite): ma.display_name for ma in method_artifacts if ma.display_name}
+    # Raw results record a system as a plain baseline without its hardware. The registry entry adds
+    # what the leaderboard and figures read off the metadata: that it is a system (family color and
+    # entrant pools), its tags (shade) and its compute.
+    systems = {(ma.method_name, ma.suite): _system_info(ma.ag_name) for ma in method_artifacts if ma.system}
     for method_results in results.method_results_lst:
         mm = method_results.method_metadata
-        display_name = display_names.get((mm.method, mm.suite))
+        key = (mm.method, mm.suite)
+        display_name = display_names.get(key)
         if display_name is not None:
             mm.display_name = display_name
+        if key in systems:
+            mm.method_class = "system"
+            if (info := systems[key]) is not None:
+                mm.tags = info.method_metadata.tags
+                mm.compute = info.method_metadata.compute
     return results
 
 
