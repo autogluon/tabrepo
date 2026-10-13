@@ -82,3 +82,16 @@ def test_context_drops_resource_columns_by_default():
     # frames without the columns are untouched
     plain = ZeroshotSimulatorContext(df_configs=base.df_configs.drop(columns=["task"]), df_metadata=df_metadata)
     pd.testing.assert_frame_equal(plain.df_configs, context.df_configs.drop(columns=["kept_extra"]))
+
+
+def test_context_keeps_only_the_metadata_of_datasets_with_results():
+    """Metadata rows of datasets without results are dropped, as `subset` drops those of removed datasets."""
+    from tabarena.simulation.simulation_context import ZeroshotSimulatorContext
+
+    base = load_repo_artificial()._zeroshot_context
+    no_results = base.df_metadata.iloc[[0]].assign(dataset="no_results")
+    df_metadata = pd.concat([base.df_metadata, no_results], ignore_index=True)
+
+    context = ZeroshotSimulatorContext(df_configs=base.df_configs.drop(columns=["task"]), df_metadata=df_metadata)
+    assert sorted(context.df_metadata["dataset"]) == sorted(context.unique_datasets) == ["abalone", "ada"]
+    assert len(df_metadata) == 3  # the caller's frame is not modified
