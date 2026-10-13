@@ -200,26 +200,34 @@ def load_task_data(
     return out
 
 
-def consolidate_task_data(model_predictions_dir: str | Path, remove_task_files: bool = True) -> int:
+def consolidate_task_data(
+    model_predictions_dir: str | Path, remove_task_files: bool = True, n_threads: int = 32
+) -> int:
     """Fold every dataset directory's per-task ``metadata.json`` + labels into ``tasks.dat``.
 
     Called when an artifact is finalized. With ``remove_task_files`` the per-task
     ``metadata.json`` and ``labels.dat`` are deleted afterwards (the prediction memmaps stay).
-    Returns the number of datasets consolidated.
+    Datasets are consolidated on ``n_threads`` threads: the work is a few small file operations per
+    task, each a round trip on a network filesystem. Returns the number of datasets consolidated.
     """
     root = Path(model_predictions_dir)
-    n = 0
-    for dataset_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+
+    def one(dataset_dir: Path) -> bool:
         fold_dirs = sorted(
             (p for p in dataset_dir.iterdir() if p.is_dir() and p.name.isdigit()), key=lambda p: int(p.name)
         )
         tasks = {int(p.name): read_task_dir(p) for p in fold_dirs if (p / METADATA_FILENAME).exists()}
         if not tasks:
-            continue
+            return False
         write_tasks_dat(dataset_dir, dataset_dir.name, tasks)
-        n += 1
         if remove_task_files:
             for fold in tasks:
                 (dataset_dir / str(fold) / METADATA_FILENAME).unlink(missing_ok=True)
                 (dataset_dir / str(fold) / LABELS_FILENAME).unlink(missing_ok=True)
-    return n
+        return True
+
+    dataset_dirs = sorted(p for p in root.iterdir() if p.is_dir())
+    if n_threads <= 1 or len(dataset_dirs) <= 1:
+        return sum(one(d) for d in dataset_dirs)
+    with ThreadPoolExecutor(max_workers=min(n_threads, len(dataset_dirs))) as executor:
+        return sum(executor.map(one, dataset_dirs))

@@ -162,6 +162,27 @@ class TestToLegacyTaskMetadata:
         assert by_ds.loc["a", "n_folds"] == 3
         assert by_ds.loc["b", "n_folds"] == 2
 
+    def test_unrolled_entries_convert_like_one_task_per_dataset(self):
+        # An unrolled collection (one entry per split, datasets interleaved) gives the frame of the same
+        # datasets with all of their splits in one task.
+        a = _task_meta(
+            dataset_name="a",
+            task_id_str="1",
+            splits=[_split_meta(fold=f, num_instances_train=80 + f) for f in range(3)],
+        )
+        b = _task_meta(dataset_name="b", task_id_str="2", splits=[_split_meta(fold=f) for f in range(2)])
+        ua, ub = a.unroll_splits(), b.unroll_splits()
+        interleaved = [ua[0], ub[0], ua[1], ub[1], ua[2]]
+        pd.testing.assert_frame_equal(to_legacy_task_metadata(interleaved), to_legacy_task_metadata([a, b]))
+
+    def test_entries_sharing_a_split_all_count(self):
+        # Two entries of one dataset list the same split: both rows count in the mean.
+        a0 = _task_meta(splits=[_split_meta(fold=0, num_instances_train=80)])
+        a1 = _task_meta(splits=[_split_meta(fold=1, num_instances_train=110)])
+        result = to_legacy_task_metadata([a0, a0, a1])
+        assert result.iloc[0]["n_folds"] == 2
+        assert result.iloc[0]["n_samples_train_per_fold"] == 90.0
+
     def test_split_grain_columns_dropped(self):
         # After collapsing to dataset grain, per-split columns are meaningless and removed.
         result = to_legacy_task_metadata([_task_meta(splits=[_split_meta(fold=f) for f in range(3)])])
