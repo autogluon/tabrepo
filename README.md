@@ -288,6 +288,12 @@ TabArena caches predictions, results, and leaderboards as downloadable artifacts
 | **Per-split results** | One row per dataset, split and method: test and validation error, train and inference time, imputed flag. Generated locally from the results tier, not hosted | — | [`run_export_results_per_split.py`](examples/plots/run_export_results_per_split.py) |
 | **Figures & Plots** | Generated from results and leaderboards | — | — |
 
+> **Splits in results.** In the results DataFrames, the `fold` column holds the *split index*, not the OpenML
+> fold: `split = n_folds * repeat + fold`. TabArena v0.1 uses `n_folds = 3`, so `fold == 13` is repeat 4,
+> fold 1. Recover the OpenML pair with `repeat, fold = divmod(split, n_folds)`, or with
+> `get_split_vals_from_split_idx` in `tabarena.benchmark.task.utils`. Datasets evaluated with a single repeat
+> only have splits 0 to `n_folds - 1`.
+
 </details>
 
 
