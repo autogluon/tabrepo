@@ -1485,6 +1485,7 @@ class AbstractArenaContext:
         website_leaderboard_filename: str = "leaderboard_website.csv",
         save_composite_leaderboard: bool | None = None,
         composite_leaderboard_kwargs: dict | None = None,
+        save_composite_pareto_explorer: bool | None = None,
         trajectory_extra_results: pd.DataFrame | None = None,
         max_workers: int | None = None,
     ) -> None:
@@ -1515,6 +1516,11 @@ class AbstractArenaContext:
         ``composite_leaderboard_kwargs`` is forwarded to (e.g. ``sort_by``, ``top_n``,
         ``excluded_method_prefixes``, ``title``). Requires ``plot_compare=True``; the composite is
         built from the compact website format independently of ``save_website_leaderboard``.
+
+        ``save_composite_pareto_explorer`` (``None`` by default: on whenever ``plot_compare`` is)
+        additionally writes ``<output_dir>/pareto_front_explorer.html``, one interactive Pareto
+        explorer over every subset with a selector for the subset to view, from the per-subset
+        ``pareto_front_points.csv`` the compare pass wrote (a subset without them is left out).
 
         ``max_workers`` parallelizes the per-subset passes across processes (capped at the subset
         count; 1 = sequential). ``None`` (the default) uses one process per available CPU less one,
@@ -1552,6 +1558,8 @@ class AbstractArenaContext:
         # than making a trajectories-only run (`plot_compare=False`) fail on a default it never set.
         if save_composite_leaderboard is None:
             save_composite_leaderboard = plot_compare
+        if save_composite_pareto_explorer is None:
+            save_composite_pareto_explorer = plot_compare
         if subsets == "auto":
             subsets = self._default_subsets
         output_dir = Path(output_dir)
@@ -1599,6 +1607,33 @@ class AbstractArenaContext:
                 output_dir=output_dir,
                 **composite_kwargs,
             )
+        if save_composite_pareto_explorer:
+            self._save_composite_pareto_explorer(output_dir, [suffix for suffix, _ in subset_results])
+
+    def _save_composite_pareto_explorer(self, output_dir: Path, suffixes: list[str]) -> Path | None:
+        """``<output_dir>/pareto_front_explorer.html``: the subsets' Pareto points (each subset's
+        ``<suffix>/pareto_front_points.csv``) on one explorer page, with a selector for the subset to
+        view, in ``suffixes``' order. Returns the page, or ``None`` when no subset wrote points.
+        """
+        from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
+
+        frames = []
+        for suffix in suffixes:
+            path = output_dir / suffix / "pareto_front_points.csv"
+            if path.exists():
+                frames.append(pd.read_csv(path).assign(subset=suffix))
+        if not frames:
+            return None
+        points = pd.concat(frames, ignore_index=True)
+        if "shade" in points.columns:
+            points["shade"] = points["shade"].astype(object).where(points["shade"].notna(), None)
+        subsets = [(suffix, suffix) for suffix in suffixes if suffix in set(points["subset"])]
+        return build_pareto_explorer_html(
+            points=points,
+            subsets=subsets,
+            save_path=output_dir / "pareto_front_explorer.html",
+            page_title=f"{self.benchmark_name} Pareto explorer",
+        )
 
     def _generate_subset_figs(
         self,

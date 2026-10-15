@@ -232,8 +232,45 @@ class TestParetoFocusKwargs:
 
         reporter.plot_pareto(leaderboard, framework_types=["GBM"], pareto_explorer_kwargs={"dim_off_front": True})
 
-        assert [kwargs["x_keys"] for kwargs in calls] == [["x_infer"], ["x_train"]]
+        # The main page offers the time axes the leaderboard carries; the train-time page keeps its one axis.
+        assert [kwargs["x_keys"] for kwargs in calls] == [["x_infer", "x_train"], ["x_train"]]
         assert all(kwargs["dim_off_front"] is True for kwargs in calls)
+
+    def test_explorer_offers_every_time_view_the_leaderboard_carries(self, monkeypatch, tmp_path):
+        calls: list[dict] = []
+        monkeypatch.setattr(module, "plot_pareto_focus", lambda **kwargs: None)
+        monkeypatch.setattr(module, "build_pareto_explorer_html", lambda **kwargs: calls.append(kwargs))
+        monkeypatch.setattr(module, "_init_global_rcparams", lambda: None)
+        reporter = LeaderboardReporter(output_dir=tmp_path, task_metadata=[])
+        times = {}
+        for i, kind in enumerate(("train", "infer", "total")):
+            for prefix in ("", "median_"):
+                for suffix in ("", "_per_1K"):
+                    times[f"{prefix}time_{kind}_s{suffix}"] = [1.0 + i, 10.0 + i]
+        leaderboard = pd.DataFrame(
+            {
+                "method": ["GBM (default)", "TabPFN-3"],
+                "config_type": ["GBM", None],
+                "elo": [1000.0, 1300.0],
+                "improvability": [0.2, 0.05],
+                **times,
+            }
+        )
+
+        reporter.plot_pareto(leaderboard, framework_types=["GBM"])
+
+        main = calls[0]
+        assert main["x_keys"] == [
+            *("x_total", "x_infer", "x_train"),
+            *("x_total_mean", "x_infer_mean", "x_train_mean"),
+            *("x_total_task", "x_infer_task", "x_train_task"),
+            *("x_total_task_mean", "x_infer_task_mean", "x_train_task_mean"),
+        ]  # the page opens on the first: total time per 1K samples, median
+        points = main["points"]
+        # each axis reads its leaderboard column: median or mean over datasets, per 1K samples or per task
+        assert points["x_total"].tolist() == leaderboard["median_time_total_s_per_1K"].tolist()
+        assert points["x_train_task_mean"].tolist() == leaderboard["time_train_s"].tolist()
+        assert points["x_infer_mean"].tolist() == leaderboard["time_infer_s_per_1K"].tolist()
 
 
 class TestBaselinesAsBars:

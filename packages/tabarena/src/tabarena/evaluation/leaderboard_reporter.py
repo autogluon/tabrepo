@@ -23,7 +23,7 @@ from tabarena.evaluation.framework_naming import (
     get_method_rename_map,
 )
 from tabarena.plot.dataset_analysis import plot_train_time_deep_dive
-from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
+from tabarena.plot.interactive.pareto_explorer import X_AXIS_KEYS, build_pareto_explorer_html
 from tabarena.plot.interactive.winrate_explorer import build_winrate_explorer_html
 from tabarena.plot.plot_ens_weights import create_heatmap
 from tabarena.plot.plot_pareto_focus import plot_pareto_focus
@@ -1025,6 +1025,14 @@ class LeaderboardReporter:
             * 1000
             / df_results_rank_compare["dataset"].map(dataset_to_n_samples_test)
         )
+        # Train plus inference per split, so a median total is the median of per-task totals rather than the sum of
+        # two medians taken on different tasks.
+        df_results_rank_compare["time_total_s"] = (
+            df_results_rank_compare["time_train_s"] + df_results_rank_compare["time_infer_s"]
+        )
+        df_results_rank_compare["time_total_s_per_1K"] = (
+            df_results_rank_compare["time_train_s_per_1K"] + df_results_rank_compare["time_infer_s_per_1K"]
+        )
 
         if plot and plot_times:
             self.plot_tabarena_times(df=df_results_rank_compare, output_dir=self.output_dir, show=False)
@@ -1100,8 +1108,10 @@ class LeaderboardReporter:
             columns_to_agg_extra=[
                 "time_train_s",
                 "time_infer_s",
+                "time_total_s",
                 "time_train_s_per_1K",
                 "time_infer_s_per_1K",
+                "time_total_s_per_1K",
                 "normalized-error",
                 "normalized-error-task",
                 "imputed",
@@ -2295,21 +2305,32 @@ class LeaderboardReporter:
         )
 
     def build_pareto_explorer(self, leaderboard: pd.DataFrame, **explorer_kwargs):
-        """Write the self-contained interactive Pareto explorers — one per time axis:
-        ``pareto_front_explorer.html`` (inference time) and
-        ``pareto_front_explorer_time_train.html`` (train time) — and their underlying
-        data (``pareto_front_points.csv``) next to the static figures.
+        """Write the self-contained interactive Pareto explorers and their underlying data
+        (``pareto_front_points.csv``) next to the static figures.
+
+        ``pareto_front_explorer.html`` offers every time axis the leaderboard carries on its x-axis
+        selector: inference, train and total (train + inference) time, per 1K samples or per task,
+        median or mean over datasets; it opens on total time per 1K samples (median).
+        ``pareto_front_explorer_time_train.html`` shows train time per 1K samples (median) only.
 
         ``explorer_kwargs`` go to :func:`build_pareto_explorer_html`, e.g. ``dim_off_front=True``.
         """
+        # explorer x column -> leaderboard column, in the selector's order (`X_AXIS_KEYS`); a leaderboard
+        # scored without some of the columns (e.g. no total) offers the axes it has
+        x_columns = {
+            key: ("" if key.endswith("_mean") else "median_")
+            + f"time_{key.split('_')[1]}_s"
+            + ("" if "_task" in key else "_per_1K")
+            for key in X_AXIS_KEYS
+        }
+        x_columns = {key: col for key, col in x_columns.items() if col in leaderboard.columns}
         points = pd.DataFrame(
             {
                 "method": leaderboard["Method"],
                 "variant": leaderboard["Type"],
                 "family": leaderboard["Family"],
                 "shade": leaderboard["Shade"] if "Shade" in leaderboard.columns else None,
-                "x_infer": leaderboard["median_time_infer_s_per_1K"],
-                "x_train": leaderboard["median_time_train_s_per_1K"],
+                **{key: leaderboard[col] for key, col in x_columns.items()},
                 "imp": leaderboard["improvability"] * 100,
                 "elo": leaderboard["elo"],
             }
@@ -2322,16 +2343,16 @@ class LeaderboardReporter:
             imputed_frac = pd.Series(0.0, index=leaderboard.index)
         points["imputed"] = imputed_frac > 0
         points["imputed_pct"] = imputed_frac * 100
-        points = points.dropna(subset=["x_infer", "x_train", "imp", "elo"]).reset_index(drop=True)
+        points = points.dropna(subset=[*x_columns, "imp", "elo"]).reset_index(drop=True)
         if points.empty:
             return
 
         save_pd.save(path=str(Path(self.output_dir) / "pareto_front_points.csv"), df=points)
-        # One explorer per time axis (each page renders a single x-axis): inference is
-        # the panel the website led with historically, train time complements it.
+        # The axes in `X_AXIS_KEYS` order, so the page opens on total time per 1K samples (median). The train-time
+        # page keeps its single axis for the website's "I care about" switch, which swaps pages.
         build_pareto_explorer_html(
             points=points,
-            x_keys=["x_infer"],
+            x_keys=list(x_columns),
             # Mirrored against the trajectories explorer (chips right there).
             chips_side="left",
             save_path=Path(self.output_dir) / "pareto_front_explorer.html",
