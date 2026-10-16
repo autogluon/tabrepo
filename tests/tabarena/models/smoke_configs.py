@@ -85,6 +85,7 @@ SMOKE_OVERRIDES: dict[str, ModelSmokeTest] = {
     # config (the fifth of the regression config), whose lambdas the wrapper's pickle has to survive.
     "LimiX-2": ModelSmokeTest({"n_estimators": 17}, verify_single_prediction_equivalent_to_multi=False),
     "TabSTAR": ModelSmokeTest({"max_epochs": 1}),
+    "TabSTAR-v1.1": ModelSmokeTest({"max_epochs": 1}),
     "TabFM": ModelSmokeTest({"n_estimators": 1}),
     "Nori": ModelSmokeTest(problem_types=("regression",)),
     "Nori-30M": ModelSmokeTest(problem_types=("regression",)),

@@ -122,7 +122,10 @@ sap-rpt-oss = ["sap_rpt_oss @ git+https://github.com/SAP-samples/sap-rpt-1-oss.g
 # Pinned to the same commit as tabfm/info.py's ModelInfo.pip_extra, so `pip install`
 # and the model registry's own metadata agree on which estimator was tuned.
 tabfm = ["tabfm[pytorch] @ git+https://github.com/google-research/tabfm.git@633cd265f498e1d20c9625be0639f6305d8e2541"]
-tabstar = ["tabstar==1.1.15"]
+# Both TabSTAR generations ship in one package; 1.2.0 adds the v1.1 estimator and leaves the
+# v1 code path intact.
+tabstar = ["tabstar==1.2.0"]
+tabstar_v1p1 = ["tabstar==1.2.0"]
 perpetualboosting = ["perpetual"] # We used version 2.1.0
 # The benchmark runs installed TabTune from git main (kept as `pip_extra` in models/orionmsp/info.py);
 # 0.1.18 is the PyPI release that ships the `orionmsp_v15` modules the wrapper imports.
@@ -197,6 +200,7 @@ extended = [
   "tabarena[sap-rpt-oss]",
   "tabarena[tabfm]",
   "tabarena[tabstar]",
+  "tabarena[tabstar_v1p1]",
   "tabarena[perpetualboosting]",
   "tabarena[orionmsp]",
   "tabarena[limix]",
