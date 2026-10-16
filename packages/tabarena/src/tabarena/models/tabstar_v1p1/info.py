@@ -8,7 +8,7 @@ from tabarena.models.tabstar_v1p1.model import TabSTARv1p1Model, prefetch_weight
 tabstar_v1p1_method_metadata = MethodMetadata.config(
     method="TabSTAR-v1.1",
     ag_key="TA-TABSTAR-V1.1",
-    config_default="TabSTAR-v1.1_c1_BAG_L1",
+    can_hpo=False,
     compute="gpu",
     is_bag=True,
     date="2026-10-16",

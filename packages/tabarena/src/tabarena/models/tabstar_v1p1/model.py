@@ -164,13 +164,9 @@ class TabSTARv1p1Model(AbstractTorchModel):
             y_val=y_val,
         )
 
-    def _set_default_params(self):
-        default_params = {
-            # Large max epochs, we want to stop based on time limit or early stopping
-            "max_epochs": 10_000,
-        }
-        for param, val in default_params.items():
-            self._set_default_param_value(param, val)
+    # ``max_epochs`` is deliberately left at the library default: v1.1 builds its OneCycle schedule
+    # over ``steps_per_epoch * max_epochs``, so inflating it to stop on time limit or early stopping
+    # instead would keep every real epoch inside the warm-up ramp and never anneal the LR.
 
     def _more_tags(self) -> dict:
         return {"can_refit_full": True}
