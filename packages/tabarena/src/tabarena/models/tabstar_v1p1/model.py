@@ -48,7 +48,8 @@ class TabSTARv1p1Model(AbstractTorchModel):
         # Parallel folding crashes if the weights aren't pre-downloaded.
         # TODO: switch to parallel fitting on one GPU once VRAM memory estimation is supported.
         "fold_fitting_strategy": "sequential_local",
-        "refit_folds": True,
+        # No `refit_folds`: unlike the in-context wrappers, each fold fine-tunes its own adapters,
+        # so the children differ and the bag's average is worth its inference cost.
     }
     warmup_modules: ClassVar[tuple[str, ...]] = (
         "torch",
