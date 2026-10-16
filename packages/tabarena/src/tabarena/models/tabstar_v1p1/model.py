@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, ClassVar
 
 from autogluon.common.utils.resource_utils import ResourceManager
@@ -13,26 +14,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Commits pinned so the checkpoints fetched here never silently change if a repo's default branch
-#: moves. Bump deliberately (with a note on what changed) when picking up a newer checkpoint.
-_HF_REVISION_CLS = "4480a25fea83029b02b07c10b9f03a376481daaf"
-_HF_REVISION_REG = "076160ddcfe71faa98841df274bc0ebdc5d2c093"
-#: The text encoder whose tokenizer the library loads by name alongside the weights.
-_HF_TOKENIZER_REPO = "intfloat/e5-small-v2"
-_HF_TOKENIZER_REVISION = "ffb93f3bd4047442299a41ebb6fa998a38507c52"
 
-_HF_CHECKPOINTS = {
-    True: ("alana89/TabSTAR-v1.1-cls-20261011", _HF_REVISION_CLS),
-    False: ("alana89/TabSTAR-v1.1-reg-20261009", _HF_REVISION_REG),
-}
+@contextmanager
+def _preserved_cudnn_flags():
+    """Keep the library's seeding, which pins cuDNN to deterministic mode, out of the process."""
+    import torch
 
-
-def _pinned_checkpoint_path(is_cls: bool) -> str:
-    """Local snapshot dir of the pinned checkpoint, downloading it if the cache is cold."""
-    from huggingface_hub import snapshot_download
-
-    repo_id, revision = _HF_CHECKPOINTS[is_cls]
-    return snapshot_download(repo_id=repo_id, revision=revision)
+    deterministic = torch.backends.cudnn.deterministic
+    benchmark = torch.backends.cudnn.benchmark
+    try:
+        yield
+    finally:
+        torch.backends.cudnn.deterministic = deterministic
+        torch.backends.cudnn.benchmark = benchmark
 
 
 class TabSTARv1p1Model(AbstractTorchModel):
@@ -102,10 +96,8 @@ class TabSTARv1p1Model(AbstractTorchModel):
 
         if self.problem_type in ["binary", "multiclass"]:
             model_cls = TabSTARv1p1Classifier
-            is_cls = True
         elif self.problem_type in ["regression"]:
             model_cls = TabSTARv1p1Regressor
-            is_cls = False
         else:
             raise AssertionError(f"Unsupported problem_type: {self.problem_type}")
 
@@ -121,17 +113,15 @@ class TabSTARv1p1Model(AbstractTorchModel):
                 predict_batch_size = 64
 
         hps = self._get_model_params()
-        self.model = model_cls(
-            **hps,
-            lora_batch=train_batch_size,
-            val_batch_size=predict_batch_size,
-            time_limit=time_limit,
-            device=device,
-            output_dir=self.path + "/model_checkpoints",
-            # The library resolves a checkpoint by repo id, which always tracks the default branch.
-            # Hand it the pinned snapshot directory instead so the fit is reproducible.
-            pretrain_dataset_or_path=_pinned_checkpoint_path(is_cls=is_cls),
-        )
+        with _preserved_cudnn_flags():
+            self.model = model_cls(
+                **hps,
+                lora_batch=train_batch_size,
+                val_batch_size=predict_batch_size,
+                time_limit=time_limit,
+                device=device,
+                output_dir=self.path + "/model_checkpoints",
+            )
 
         if X_val is None:
             from autogluon.core.utils import generate_train_test_split
@@ -148,21 +138,25 @@ class TabSTARv1p1Model(AbstractTorchModel):
         X = self.preprocess(X, y=y)
         if X_val is not None:
             X_val = self.preprocess(X_val)
-        # Inverse label transformation to retain original semantics for classification
+        # TabSTAR reads class names as text, so the original labels are restored when AutoGluon
+        # provides a cleaner. ``refit_full`` passes none; the encoded labels are then fit as-is,
+        # which keeps the class order the predictions are expected in and loses only the names.
         if self.problem_type in ["binary", "multiclass"]:
-            if (not hasattr(self, "label_cleaner")) or (self.label_cleaner is None):
-                raise ValueError("Label cleaner missing from AbstractModel!")
+            label_cleaner = getattr(self, "label_cleaner", None)
+            if label_cleaner is None:
+                logger.log(30, "Warning: no label cleaner available, fitting on the encoded class labels.")
+            else:
+                y = label_cleaner.inverse_transform(y)
+                if y_val is not None:
+                    y_val = label_cleaner.inverse_transform(y_val)
 
-            y = self.label_cleaner.inverse_transform(y)
-            if y_val is not None:
-                y_val = self.label_cleaner.inverse_transform(y_val)
-
-        self.model.fit(
-            X=X,
-            y=y,
-            x_val=X_val,
-            y_val=y_val,
-        )
+        with _preserved_cudnn_flags():
+            self.model.fit(
+                X=X,
+                y=y,
+                x_val=X_val,
+                y_val=y_val,
+            )
 
     # ``max_epochs`` is deliberately left at the library default: v1.1 builds its OneCycle schedule
     # over ``steps_per_epoch * max_epochs``, so inflating it to stop on time limit or early stopping
@@ -183,9 +177,7 @@ class TabSTARv1p1Model(AbstractTorchModel):
 
 
 def prefetch_weights() -> None:
-    """Pre-download both pinned checkpoints and the tokenizer (warms the cache for offline fits)."""
-    from transformers import AutoTokenizer
+    """Pre-download the two checkpoints and the tokenizer (warms the cache for offline fits)."""
+    from tabstar.tabstarv1p1.tabstar_checkpoints import download_tabstar
 
-    for is_cls in (True, False):
-        _pinned_checkpoint_path(is_cls=is_cls)
-    AutoTokenizer.from_pretrained(_HF_TOKENIZER_REPO, revision=_HF_TOKENIZER_REVISION)
+    download_tabstar()
