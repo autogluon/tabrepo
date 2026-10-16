@@ -151,6 +151,36 @@ memory-estimate capability is derived rather than declared.
 > ensemble. **Do not ship a TFM wrapper with only `sequential_local`** (a recurring miss).
 > From-scratch NNs (TabM, RealMLP) intentionally omit it and set `can_refit_full=False`.
 
+#### Context caches: only in the refit model
+
+With `refit_folds=True`, AutoGluon fits the eight fold models for their out-of-fold predictions, drops
+each one after its single predict call (`save_bag_folds=False`, the saved fold directory is a stub with
+`model = None`), and keeps only the refit model. A library that caches the fitted context (a KV cache,
+TabPFN's `fit_mode="fit_with_cache"`, Kumo Tabular's `fit`) therefore helps only the refit model; in a
+fold model the cache costs host memory and transfers for one predict call. Expose the library's switch
+as a hyperparameter and set it per role in the default config in `hpo.py`; AutoGluon applies
+`ag.refit_hyperparameters` to the refit child it builds (autogluon/autogluon#5878), so no flag or
+`_is_refit` check is needed in the wrapper:
+
+```python
+def default_config() -> dict:
+    """The context cache only for the refit model, which serves every later prediction."""
+    return {"cache_context": False, "ag.refit_hyperparameters": {"cache_context": True}}
+
+gen_mymodel = ConfigGenerator(model_cls=MyModel, search_space={}, manual_configs=[default_config()])
+```
+
+Keep the cached and the uncached path equivalent (the same predictions up to floating-point rounding)
+and test it, as `tests/tabarena/models/kumo_tabular/test_model.py` does after a save/load round trip.
+Keep whatever the uncached path stores on `self.model`, not on the wrapper, so a dropped fold model
+drops it. Then estimate the refit model's cache for the largest tables of both arenas: it stays in host
+memory and is pickled with the model, so it has to fit the workers' disk (128 GB on the SkyPilot pool)
+and stay below the persist guard (40% of RAM) or the timed inference loads it from disk. Kumo Tabular
+keeps about 12 KB per context row per ensemble member, plus a per-column part, multiplied by the ECOC
+tasks of a many-class head (autogluon/tabarena#641). A cache that writes into the network also turns
+off weight sharing for that fit (`disabled_by`, see "Shared pretrained weights"), so the refit model
+then loads its own copy.
+
 ### Declare config as class attributes (AutoGluon 1.6)
 
 AutoGluon 1.6 replaced a set of override methods with class attributes. Declare the attribute;
@@ -311,6 +341,12 @@ if X_val is not None and y_val is not None:
 ```
 
 Only generate a split yourself when `X_val is None` (see "Handling missing validation split" below).
+
+The same applies to anything else fit on validation data. A hyperparameter search, an internal
+cross-validation, or ensemble or candidate weights solved on rows held out of `X` run on the passed
+`X_val` / `y_val` or not at all; a model submission may not carve its own split for them. A library
+that does one inside its own `fit` goes to the maintainer before the wrapper is written (SKILL.md,
+Step 1).
 
 ### 2. `num_cpus` / `num_gpus` — wire them to the library, never hardcode a default
 
@@ -497,13 +533,15 @@ write an adapter in `<model>/_estimators.py`: a `load_network(...)` function rep
 half of the constructor (declared as the loader; its parameters are the key) and, when the
 constructor cannot take a prebuilt network, a constructor replica around it. The module docstring
 opens with "Developer fix", names what the library should offer instead, links the upstream ask, and
-the replica is guarded against library bumps (a signature check the convention test runs). In-tree:
-`tabdpt/_estimators.py` (loader plus replica; only TabDPT-Turbo declares it, `compile=True` falls back
-to the library's own class; the separable loader is proposed upstream in
-layer6ai-labs/TabDPT-inference#79, after which the module goes) and `exaone_tabular/_estimators.py`
-(loader only; the constructor accepts `model=`). Nori's predictor loads lazily at the first predict,
-so `_fit` builds it eagerly (one private call, noted as a library ask). Wrappers that do not care
-about sharing declare nothing. "Developer fixes" below is the general form of this pattern.
+the replica is guarded against library bumps (a signature check, or a re-diff note against the
+pinned commit). In-tree: `exaone_tabular/_estimators.py` (loader only; the constructor accepts
+`model=`). TabDPT had a loader plus a constructor replica until its maintainers merged the separable
+`_load_model` (layer6ai-labs/TabDPT-inference#79); `tabdpt/model.py` now declares it like TabICL and
+the extra requires the first release that ships it (1.3.1). Its constructor calls the loader before it
+resolves `compile`, so that flag cannot go in `disabled_by`: the wrapper overrides `_shares_weights`
+to keep a compiling fit on its own network. Nori's predictor loads lazily at the first predict, so
+`_fit` builds it eagerly (one private call, noted as a library ask). Wrappers that do not care about
+sharing declare nothing. "Developer fixes" below is the general form of this pattern.
 
 References: `tabicl/model.py` (the example above), `tabpfn_3/model.py` (a predicate in
 `disabled_by`; TabPFN-2.5 keeps its own copy in `tabpfnv2_5/model.py`), `causilo/model.py` and
@@ -553,7 +591,7 @@ Shapes seen so far, each with its in-tree reference:
 |---|---|---|
 | sets a global torch flag when imported (`allow_tf32`), or cuDNN flags and the root logger when it fits | pin the flag in `_fit` right after the import, so every fit computes the same way whichever fit imported the library first; save and restore the rest around the fit in a context manager | `iltm/model.py`: `torch.backends.cuda.matmul.allow_tf32 = False` after `from iltm import ...`, `_isolate_iltm_global_state` |
 | builds its network at the first predict, not in `fit` | call the build at the end of `_fit` (the load is then shared and the timed predict starts warm) | `nori/model.py`: `self.model._get_predictor()` |
-| loads the checkpoint inside `__init__` | `load_network(...)` in `<model>/_estimators.py`, the loading half of the constructor, declared as the `shared_weights` loader; a constructor replica when the constructor cannot take a prebuilt network, guarded by a signature check | `tabdpt/_estimators.py`, `exaone_tabular/_estimators.py` |
+| loads the checkpoint inside `__init__` | `load_network(...)` in `<model>/_estimators.py`, the loading half of the constructor, declared as the `shared_weights` loader; a constructor replica when the constructor cannot take a prebuilt network, guarded by a signature check | `exaone_tabular/_estimators.py` |
 | a bug on the fit or predict path (a module-level `logger` that only `__init__` defines, so an unpickled child crashes) | the narrowest idempotent patch, applied where the code path enters the library | `iltm/model.py`: `_ensure_iltm_logger_patched` |
 
 Before writing one: ask the maintainers for the seam (an import without side effects, a
@@ -786,12 +824,13 @@ __all__ = ["gen_{ModelKey}", "{ModelKey}_info", "{ModelKey}_method_metadata"]
 
 ---
 
-## Test config (no per-model test file)
+## Test config (no per-model test file in `tests/`)
 
 Models are fit-tested by the single registry-driven `tests/tabarena/models/test_all_models.py`,
 which parametrizes over `get_model_registry()` and calls `FitHelper.verify_model(...)` per model.
 A new model is picked up automatically once its `info.py` is discoverable — **do not write a
-`test_{ModelKey}.py`**.
+`test_{ModelKey}.py` under `tests/`**. Tests specific to the wrapper go into the model's own
+`models/{ModelKey}/tests/` instead, outside the default suite and CI (SKILL.md, Step 3f).
 
 Only add a speed-up override to `tests/tabarena/models/smoke_configs.py` if the default
 (empty hyperparameters, all problem types) is too slow or unsupported. Key by the model's

@@ -255,6 +255,14 @@ class MethodMetadata:
     #: Purely informative; the leaderboard shows it on hover so a reader can see *why* a method
     #: carries the non-commercial marker.
     license: str | None = None
+    #: Whether the method fits inside its prediction call: its fit returns at once and the
+    #: measured ``time_infer_s`` holds the whole fit, as with a hosted API that fits and predicts
+    #: in one request. Results loaded from the results tables then charge that call to the train
+    #: time too (``time_train_s + time_infer_s``), so the train time reads as the time from
+    #: training data to predictions, as it does for every other method, instead of near zero.
+    #: The predict time stays as measured: every new prediction pays for the fit again. The
+    #: hosted tables keep the raw times.
+    fits_at_predict: bool = False
     #: Storage backend for this method's artifacts. ``None`` (the default) infers it in
     #: :meth:`__post_init__`: ``"r2"`` when ``cache_kwargs`` carries a remote location
     #: (``bucket`` + ``prefix``), else ``"local"``. ``"s3"``/``"r2"`` require that location;
@@ -338,6 +346,10 @@ class MethodMetadata:
         if not isinstance(self.commercial_use, bool):
             raise AssertionError(
                 f"commercial_use must be a bool, got {self.commercial_use!r} (method={self.method!r})."
+            )
+        if not isinstance(self.fits_at_predict, bool):
+            raise AssertionError(
+                f"fits_at_predict must be a bool, got {self.fits_at_predict!r} (method={self.method!r})."
             )
         if self.license is not None and not (isinstance(self.license, str) and self.license):
             raise AssertionError(
@@ -979,7 +991,9 @@ class MethodMetadata:
         raise ValueError(f"Invalid cache_type for uploads: {cache_type}")
 
     def _load_results_file(self, path: Path, download: str | bool) -> pd.DataFrame:
-        return self._load_artifact(
+        if download == "auto":
+            self._refresh_stale_results(path)
+        df_results = self._load_artifact(
             kind="results",
             load=lambda: pd.read_parquet(path=path),
             own_path=True,
@@ -988,9 +1002,44 @@ class MethodMetadata:
             hosted=self.has_results,
             fetch=lambda downloader: downloader.download_results(),
         )
+        if self.fits_at_predict:
+            # The fit happens inside the prediction call, so that call is charged to the train time too.
+            df_results = df_results.assign(time_train_s=df_results["time_train_s"] + df_results["time_infer_s"])
+        return df_results
+
+    def _refresh_stale_results(self, path: Path):
+        """Re-download the results tables when the local table at ``path`` differs from its committed checksum.
+
+        A re-upload keeps the suite and file names, so a present local table alone doesn't prove it is current. The
+        expected MD5s are committed in ``results_checksums.json`` (see :mod:`tabarena.models._artifacts.results_checksums`),
+        so the check needs no network access. Only the table being loaded is hashed (once per process while it is
+        unchanged); a mismatch re-downloads all of the method's results tables, as they are uploaded together.
+        """
+        from tabarena.models._artifacts.results_checksums import expected_results_md5, file_md5
+
+        path = Path(path)
+        if not (self.has_results and self.has_remote_cache and path.exists()):
+            return
+        expected = expected_results_md5(self, path)
+        if expected is None or expected == file_md5(path):
+            return
+        print(
+            f"Local results for method {self.method!r} (suite={self.suite!r}) differ from the hosted checksums, "
+            f"re-downloading from {self.cache_type}...",
+        )
+        self.method_downloader().download_results()
+        if file_md5(path) != expected:
+            print(
+                f"\tThe downloaded results still differ from results_checksums.json for {self.method!r}; the committed "
+                f"checksums are out of date (python -m tabarena.tools.results_checksums --check).",
+            )
 
     def load_model_results(self, download: str | bool = "auto") -> pd.DataFrame:
-        """The per-config ``model_results`` table; ``download`` as in :meth:`load_processed`."""
+        """The per-config ``model_results`` table; ``download`` as in :meth:`load_processed`.
+
+        ``"auto"`` also re-downloads the results tables when they differ from the hosted copy's committed checksum
+        (see :meth:`_refresh_stale_results`).
+        """
         return self._load_results_file(self.path_results_model(), download=download)
 
     def load_hpo_results(self, download: str | bool = "auto") -> pd.DataFrame:

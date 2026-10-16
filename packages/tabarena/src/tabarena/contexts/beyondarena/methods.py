@@ -20,16 +20,27 @@ from typing import TYPE_CHECKING
 from tabarena.benchmark.validation_protocol import BEYONDARENA_VALIDATION_PROTOCOL
 from tabarena.models._method_metadata_collection import MethodMetadataCollection
 from tabarena.models.catboost.info import catboost_descriptor
+from tabarena.models.causilo.info import causilo_descriptor
+from tabarena.models.exaone_tabular.info import exaone_tabular_descriptor
 from tabarena.models.extra_trees.info import extra_trees_descriptor
+from tabarena.models.kumo_tabular.info import (
+    kumo_tabular_descriptor,
+    kumo_tabular_medium_descriptor,
+    kumo_tabular_small_descriptor,
+)
 from tabarena.models.lightgbm.info import lightgbm_descriptor
+from tabarena.models.limix_2.info import limix_2_descriptor
 from tabarena.models.lr.info import lr_descriptor
 from tabarena.models.random_forest.info import random_forest_descriptor
 from tabarena.models.realmlp.info import realmlp_descriptor
-from tabarena.models.tabdpt.info import tabdpt_descriptor
+from tabarena.models.tabdpt.info import tabdpt_descriptor, tabdpt_v13_descriptor
+from tabarena.models.tabfm.info import tabfm_descriptor
 from tabarena.models.tabicl.info import tabiclv2_descriptor
 from tabarena.models.tabm.info import tabm_descriptor
 from tabarena.models.tabpfn_3.info import tabpfn_3_descriptor
-from tabarena.models.tabpfnv2_5.info import tabpfnv26_descriptor
+from tabarena.models.tabpfn_3_5.info import tabpfn_3_5_descriptor, tabpfn_3_5_fast_descriptor
+from tabarena.models.tabpfnv2_5.info import realtabpfnv25_descriptor, tabpfnv26_descriptor
+from tabarena.models.tabswift.info import tabswift_descriptor
 from tabarena.models.xgboost.info import xgboost_descriptor
 
 if TYPE_CHECKING:
@@ -62,6 +73,15 @@ beyond_linear_metadata = lr_descriptor.method_metadata(
     ag_key="LR",
     config_default="LinearModel_c1_BAG_L1",
     **_common_bag_kwargs,
+)
+# Rerun of the 2026-09-24 run (`beyondarena_linear_24092026` in BENCHMARK_LOG.md): L1 honored for classification
+# (AutoGluon #5933, issue #598), per-worker BLAS threads (#614), the default config plus 200 random configs on the
+# core and core2k splits (the hosted suite above ran 26 configs on every split).
+beyond_linear_2026_09_metadata = lr_descriptor.method_metadata(
+    method="LinearModel",
+    ag_key="LR",
+    config_default="LinearModel_c1_BAG_L1",
+    **{**_common_bag_kwargs, "suite": "beyondarena-2026-09-24", "date": "2026-09-24", "verified": True},
 )
 beyond_random_forest_metadata = random_forest_descriptor.method_metadata(
     method="RandomForest",
@@ -133,8 +153,93 @@ beyond_tabpfn3_metadata = tabpfn_3_descriptor.method_metadata(
     config_default="TA-TabPFN-3_c1_BAG_L1",
     **_common_fm_kwargs,
 )
+# -- Foundation models of the 2026-09-22 run (`beyondarena_tfms_22092026` in BENCHMARK_LOG.md) -------------
+# The same official protocol, with fit time limits of 16 h on the tables above 10k training rows (a recorded
+# deviation from the 4 h default). TabPFN-3.5, TabPFN-3.5-Fast and Causilo ran every core dataset; the other
+# six ran the tables up to 100k training rows and are imputed on the larger ones.
+_tfm_run_kwargs = {**_common_fm_kwargs, "suite": "beyondarena-2026-09-22", "date": "2026-09-22", "verified": False}
+
+beyond_tabpfn35_metadata = tabpfn_3_5_descriptor.method_metadata(
+    method="TA-TabPFN-3.5",
+    ag_key="TA-TABPFN-3.5",
+    config_default="TA-TabPFN-3.5_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_tabpfn35_fast_metadata = tabpfn_3_5_fast_descriptor.method_metadata(
+    method="TA-TabPFN-3.5-Fast",
+    ag_key="TA-TABPFN-3.5-FAST",
+    config_default="TA-TabPFN-3.5-Fast_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_causilo_metadata = causilo_descriptor.method_metadata(
+    method="Causilo",
+    ag_key="TA-CAUSILO",
+    config_default="Causilo_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_limix2_metadata = limix_2_descriptor.method_metadata(
+    method="TA-LimiX-2",
+    ag_key="TA-LIMIX-2",
+    config_default="TA-LimiX-2_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_tabfm_metadata = tabfm_descriptor.method_metadata(
+    method="TA-TabFM",
+    ag_key="TA-TABFM",
+    config_default="TA-TabFM_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_exaone_tabular_metadata = exaone_tabular_descriptor.method_metadata(
+    method="TA-EXAONE-Tabular",
+    ag_key="TA-EXAONE-TABULAR",
+    config_default="TA-EXAONE-Tabular_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_realtabpfnv25_metadata = realtabpfnv25_descriptor.method_metadata(
+    method="TA-RealTabPFN-v2.5",
+    ag_key="TA-REALTABPFN-V2.5",
+    config_default="TA-RealTabPFN-v2.5_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_tabdpt13_metadata = tabdpt_v13_descriptor.method_metadata(
+    method="TA-TabDPT-1.3",
+    ag_key="TA-TABDPT-1.3",
+    config_default="TA-TabDPT-1.3_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+beyond_tabswift_metadata = tabswift_descriptor.method_metadata(
+    method="TA-TabSwift",
+    ag_key="TA-TABSWIFT",
+    config_default="TA-TabSwift_c1_BAG_L1",
+    **_tfm_run_kwargs,
+)
+
+# -- Kumo Tabular, run 2026-10-06 (`beyondarena_kumotabular_core2k_06102026` in BENCHMARK_LOG.md) ---------------
+# The same official protocol on every core2k split, up to the 1M-row tables, with fit time limits of 16 h on the
+# tables above 10k training rows (a recorded deviation from the 4 h default).
+_kumo_run_kwargs = {**_common_fm_kwargs, "suite": "beyondarena-2026-10-06", "date": "2026-10-06", "verified": True}
+
+beyond_kumo_tabular_metadata = kumo_tabular_descriptor.method_metadata(
+    method="TA-Kumo-Tabular",
+    ag_key="TA-KUMO-TABULAR",
+    config_default="TA-Kumo-Tabular_c1_BAG_L1",
+    **_kumo_run_kwargs,
+)
+beyond_kumo_tabular_medium_metadata = kumo_tabular_medium_descriptor.method_metadata(
+    method="TA-Kumo-Tabular-Medium",
+    ag_key="TA-KUMO-TABULAR-MEDIUM",
+    config_default="TA-Kumo-Tabular-Medium_c1_BAG_L1",
+    **_kumo_run_kwargs,
+)
+beyond_kumo_tabular_small_metadata = kumo_tabular_small_descriptor.method_metadata(
+    method="TA-Kumo-Tabular-Small",
+    ag_key="TA-KUMO-TABULAR-SMALL",
+    config_default="TA-Kumo-Tabular-Small_c1_BAG_L1",
+    **_kumo_run_kwargs,
+)
+
 beyond_method_metadata_lst: list[MethodMetadata] = [
-    beyond_linear_metadata,
+    beyond_linear_2026_09_metadata,
     beyond_random_forest_metadata,
     beyond_extra_trees_metadata,
     beyond_catboost_metadata,
@@ -146,8 +251,31 @@ beyond_method_metadata_lst: list[MethodMetadata] = [
     beyond_tabpfnv26_metadata,
     beyond_tabiclv2_metadata,
     beyond_tabpfn3_metadata,
+    beyond_tabpfn35_metadata,
+    beyond_tabpfn35_fast_metadata,
+    beyond_causilo_metadata,
+    beyond_limix2_metadata,
+    beyond_tabfm_metadata,
+    beyond_exaone_tabular_metadata,
+    beyond_realtabpfnv25_metadata,
+    beyond_tabdpt13_metadata,
+    beyond_tabswift_metadata,
+    beyond_kumo_tabular_metadata,
+    beyond_kumo_tabular_medium_metadata,
+    beyond_kumo_tabular_small_metadata,
 ]
 
 beyond_method_metadata_collection = MethodMetadataCollection(
     method_metadata_lst=beyond_method_metadata_lst,
+)
+
+# Metadata that a rerun has replaced in the roster above. Kept so that their hosted artifacts stay reachable
+# by (method, suite) through the complete collection. Append a method here whenever a rerun takes over its slot.
+beyond_methods_superseded: list[MethodMetadata] = [
+    beyond_linear_metadata,  # rerun beyondarena-2026-09-24 replaced it
+]
+
+# The roster plus every superseded variant: all hosted BeyondArena results.
+beyond_method_metadata_complete_collection = beyond_method_metadata_collection.with_additional_methods(
+    beyond_methods_superseded,
 )

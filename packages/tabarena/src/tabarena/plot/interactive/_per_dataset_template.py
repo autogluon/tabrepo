@@ -261,6 +261,7 @@ __BASE_CSS__
     <input class="pd-search" id="search" type="search"
            placeholder="Filter datasets by name, domain or source" aria-label="Filter datasets">
     <div class="pd-filtergroup" id="taskfilter"></div>
+    <div class="pd-filtergroup" id="splitfilter"></div>
     <div class="pd-filtergroup" id="sizefilter"></div>
     <div class="pd-filtergroup" id="balancefilter"></div>
     <span class="hint" id="count"></span>
@@ -313,6 +314,9 @@ __BASE_JS__
   const TRAJ = (CONFIG.trajectory && CONFIG.trajectory.rows) || [];
   const METRIC_DISPLAY = CONFIG.metricDisplay || {};
   const SIZE_BUCKETS = CONFIG.sizeBuckets || [];
+  const SPLIT_LABELS = { random: "IID", temporal: "Temporal", grouped: "Grouped" };
+  // The leaderboard's "classification" tab covers both, and the host preselects it by that key.
+  const CLASSIFICATION_TASKS = new Set(["binary", "multiclass"]);
 
   const titleEl = document.getElementById("title");
   if (CONFIG.title) titleEl.textContent = CONFIG.title; else titleEl.hidden = true;
@@ -471,6 +475,7 @@ __BASE_JS__
     contender: Math.min(CONFIG.defaultContender || 0, METHODS.length - 1),
     query: "",
     task: "all",
+    split: "all",
     size: "all",
     balance: "all",
     sort: "rank",
@@ -514,7 +519,7 @@ __BASE_JS__
   }
   function methodHtml(mi) {
     const m = METHODS[mi];
-    return `<span style="color:${FAM_INK[m.family]}">${escapeHtml(m.base)}</span>` + variantBadge(m);
+    return `<span style="color:${famInk(m)}">${escapeHtml(m.base)}</span>` + variantBadge(m);
   }
 
   // ---------- marks ----------
@@ -567,7 +572,7 @@ __BASE_JS__
     for (const p of byDataset[d]) {
       if (p.i == null || p.m === state.contender) continue;
       el("circle", {
-        cx: at(p.i), cy: mid, r: 2.7, fill: FAM_VAR[METHODS[p.m].family], opacity: 0.6,
+        cx: at(p.i), cy: mid, r: 2.7, fill: famColor(METHODS[p.m]), opacity: 0.6,
       }, svg);
     }
     const c = key(d, state.contender);
@@ -596,7 +601,7 @@ __BASE_JS__
     const ds = DATASETS[d];
     const verdict = tiedText(p, STATS[d]);
     return `<div class="t-name">${escapeHtml(METHODS[p.m].name)}</div>` +
-      `<div>${METHODS[p.m].family}</div>` +
+      `<div>${famLabel(METHODS[p.m])}</div>` +
       `<div>${escapeHtml(metricName(ds))} error: <b>${errWithStd(p, ds)}</b>` +
       (p.s != null ? ` <span class="t-var">(mean \u00b1 std over ${ds.splits} splits)</span>` : "") + "</div>" +
       `<div>Rank: <b>${fmtNum(p.r, 1)}</b> of ${STATS[d].n}</div>` +
@@ -652,7 +657,9 @@ __BASE_JS__
     for (let d = 0; d < nD; d++) {
       const ds = DATASETS[d];
       if (!matchesQuery(ds)) continue;
-      if (state.task !== "all" && ds.task !== state.task) continue;
+      if (state.task === "classification" ? !CLASSIFICATION_TASKS.has(ds.task)
+          : (state.task !== "all" && ds.task !== state.task)) continue;
+      if (state.split !== "all" && ds.split !== state.split) continue;
       if (state.size !== "all" && SIZE_OF[d] !== state.size) continue;
       // "extreme" is the far end of "imbalanced", so it filters on its own flag.
       if (state.balance === "extreme" ? !ds.extreme : (state.balance !== "all" && ds.balance !== state.balance)) continue;
@@ -866,6 +873,7 @@ __BASE_JS__
     const ds = DATASETS[d];
     const items = [
       ["Task", TASK_SHORT[ds.task] || ds.task],
+      ds.split ? ["Split", SPLIT_LABELS[ds.split] || ds.split] : null,
       ["Metric", metricName(ds)],
       ["Train rows", fmtInt(trainRows(ds))],
       ["Dataset rows", fmtInt(ds.rows)],
@@ -946,7 +954,7 @@ __BASE_JS__
       const hasTraj = trajIndexOf(p.m) >= 0;
       li.className = "pd-rankrow" + (p.m === state.contender ? " is-contender" : "") +
         (p.b === 1 && STATS[d].tiedKnown ? " is-tied" : "") + (hasTraj ? "" : " no-traj");
-      li.style.setProperty("--fam", FAM_VAR[m.family]);
+      li.style.setProperty("--fam", famColor(m));
       const verdict = tiedText(p, STATS[d]);
       li.title = `${m.name} — ${errWithStd(p, DATASETS[d])} ${metricName(DATASETS[d])}, ${fmtNum(p.i, 1)}% behind the best` +
         (p.t != null ? `, ${fmtTime(p.t)} to fit` : "") + (verdict ? `. ${verdict}` : "") +
@@ -1013,13 +1021,13 @@ __BASE_JS__
       '<span class="item"><svg width="26" height="9" viewBox="0 0 26 9">' +
       '<line x1="0" y1="4.5" x2="26" y2="4.5" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="6 4"/>' +
       "</svg> Pareto front on this dataset</span>";
-    const families = FAM_ORDER.filter(f => byDataset[d].some(p => METHODS[p.m].family === f));
-    if (families.length > 1) {
+    const swatches = legendSwatches(byDataset[d].map(p => METHODS[p.m]));
+    if (swatches.length > 1) {
       html += '<span class="legendbreak"></span><span class="item">Family:</span>';
-      for (const fam of families) {
+      for (const sw of swatches) {
         html += `<span class="item"><svg width="12" height="12" viewBox="0 0 12 12">` +
-          `<circle cx="6" cy="6" r="5" fill="${FAM_VAR[fam]}"/></svg> ` +
-          `<span style="color:${FAM_INK[fam]}">${fam}</span></span>`;
+          `<circle cx="6" cy="6" r="5" fill="${sw.color}"/></svg> ` +
+          `<span style="color:${sw.ink}">${sw.label}</span></span>`;
       }
     }
     box.innerHTML = html;
@@ -1142,8 +1150,7 @@ __BASE_JS__
       const pts = arr.filter(p => p[metric.key] != null);
       if (!pts.length) continue;
       const on = active.has(t);
-      const fam = famOfTrajectory(t);
-      const color = on ? FAM_VAR[fam] : "var(--pt-muted)";
+      const color = on ? famColor(trajectoryKind(t)) : "var(--pt-muted)";
       if (pts.length > 1) {
         el("path", {
           d: pts.map((p, i) => `${i ? "L" : "M"}${X(p.x)},${Y(p[metric.key])}`).join(" "),
@@ -1186,7 +1193,7 @@ __BASE_JS__
       const px = X(bestPt.x);
       const toRight = px + 10 + w <= W - M.r;
       labels.push({
-        name: name, family: famOfTrajectory(t), w: w,
+        name: name, ...trajectoryKind(t), w: w,
         anchor: toRight ? "start" : "end",
         x: toRight ? px + 10 : Math.max(M.l + w + 2, px - 10),
         y: Y(bestPt[metric.key]) - 11,
@@ -1205,7 +1212,7 @@ __BASE_JS__
     const labelG = el("g", {}, svg);
     for (const l of labels) {
       el("text", {
-        x: l.x, y: Math.max(l.y, M.t + 11), "font-size": 12.5, "font-weight": 700, fill: FAM_VAR[l.family],
+        x: l.x, y: Math.max(l.y, M.t + 11), "font-size": 12.5, "font-weight": 700, fill: famColor(l),
         "paint-order": "stroke", stroke: "var(--card)", "stroke-width": 3.5, "text-anchor": l.anchor,
       }, labelG).textContent = l.name;
     }
@@ -1242,16 +1249,16 @@ __BASE_JS__
       " Off the top of the scale (hover for the value)</span>");
   }
 
-  // A trajectory line's family: taken from a leaderboard method that shares its base name, so
-  // the line, the ranking list and the strip agree on the colour.
-  const famCache = new Map();
-  function famOfTrajectory(t) {
+  // A trajectory line's family and system shade: taken from a leaderboard method that shares its
+  // base name, so the line, the ranking list and the strip agree on the colour.
+  const kindCache = new Map();
+  function trajectoryKind(t) {
     const name = TRAJ_METHODS[t];
-    if (famCache.has(name)) return famCache.get(name);
+    if (kindCache.has(name)) return kindCache.get(name);
     const match = METHODS.find(m => m.base === name);
-    const fam = match ? match.family : FAM_MERGED;
-    famCache.set(name, fam);
-    return fam;
+    const kind = { family: match ? match.family : FAM_MERGED, shade: match ? match.shade : undefined };
+    kindCache.set(name, kind);
+    return kind;
   }
 
   function chartTip(d, t, p) {
@@ -1329,10 +1336,24 @@ __BASE_JS__
   const TASK_LABELS = { binary: "Binary", multiclass: "Multiclass", regression: "Regression" };
   const tasksPresent = [...new Set(DATASETS.map(ds => ds.task).filter(Boolean))]
     .sort((a, b) => (TASK_LABELS[a] || a).localeCompare(TASK_LABELS[b] || b));
+  // Offered once both kinds are present, where it narrows something the others do not.
+  const bothClassifications = [...CLASSIFICATION_TASKS].every(t => tasksPresent.includes(t));
   buildFilter("taskfilter", "Task", [
     { key: "all", label: "All" },
+    ...(bothClassifications ? [{ key: "classification", label: "Classification" }] : []),
     ...tasksPresent.map(t => ({ key: t, label: TASK_LABELS[t] || t })),
   ], "task");
+  // How train and test were split. Only a benchmark that mixes regimes (BeyondArena) gets the
+  // row: on an all-IID one it would be a single chip that filters nothing.
+  const splitsPresent = Object.keys(SPLIT_LABELS).filter(k => DATASETS.some(ds => ds.split === k));
+  if (splitsPresent.length > 1) {
+    buildFilter("splitfilter", "Split", [
+      { key: "all", label: "All" },
+      ...splitsPresent.map(k => ({ key: k, label: SPLIT_LABELS[k] })),
+    ], "split");
+  } else {
+    document.getElementById("splitfilter").hidden = true;
+  }
   const sizesPresent = SIZE_BUCKETS.filter(b => SIZE_OF.includes(b.key));
   buildFilter("sizefilter", "Size", [
     { key: "all", label: "All" },
@@ -1371,13 +1392,15 @@ __BASE_JS__
     // picked in here changes the height. So a repeat of the host's last message is ignored
     // outright, rather than compared with the state on screen: otherwise the reader's own
     // chip would be undone by the echo of a selection they had already widened.
-    const key = [data.task, data.size, data.balance].map(v => String(v || "all")).join("|");
+    const key = [data.task, data.split, data.size, data.balance].map(v => String(v || "all")).join("|");
     if (key === lastHostFilter) return;
     lastHostFilter = key;
     if (typeof data.task === "string") state.task = data.task;
+    if (typeof data.split === "string") state.split = data.split;
     if (typeof data.size === "string") state.size = data.size;
     if (typeof data.balance === "string") state.balance = data.balance;
     syncFilter(document.getElementById("taskfilter"), "task");
+    syncFilter(document.getElementById("splitfilter"), "split");
     syncFilter(document.getElementById("sizefilter"), "size");
     syncFilter(document.getElementById("balancefilter"), "balance");
     renderList();

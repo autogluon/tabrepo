@@ -50,6 +50,10 @@ class MethodArtifact:
     :func:`resolve_display_name`. Recorded in the method's cached metadata at post-processing and
     applied to the metadata loaded from the cache (so ``only_load_cache`` and caches built without a
     display name get it too). ``None`` keeps the default label, the config type."""
+    system: bool = False
+    """True for a registered system. Its raw results are one baseline named after its config
+    (``<System>_c1_default``); post-processing renames them to ``display_name``, so the leaderboard and
+    the figures label each config the way the hosted systems are labelled."""
 
     @property
     def method_name(self) -> str:
@@ -107,17 +111,40 @@ def init_aux_metric_env(aux_metric_map: dict[str, str] | None) -> None:
     print(f"Set {AUX_METRIC_ENV_VAR} to: {os.environ[AUX_METRIC_ENV_VAR]}")
 
 
-def resolve_ag_name(name: str, ag_name_override: str | None = None) -> str:
-    """Resolve a model-registry name (e.g. ``"TabPFN-3"``) to its AutoGluon name.
+def _system_info(name: str):
+    """The registered system whose method, display or generator name is ``name``, else ``None``."""
+    from tabarena.systems import get_system_registry
 
-    ``ag_name_override`` short-circuits the registry lookup (for custom methods not registered in
-    ``tabarena.models.utils.get_configs_generator_from_name``).
+    for info in get_system_registry().values():
+        md = info.method_metadata
+        if name in (md.method, md.display_name, info.config_generator.name):
+            return info
+    return None
+
+
+def is_system(name: str) -> bool:
+    """Whether ``name`` resolves to a registered system (by method, display or generator name)."""
+    return _system_info(name) is not None
+
+
+def resolve_ag_name(name: str, ag_name_override: str | None = None) -> str:
+    """Resolve a registry name (e.g. ``"TabPFN-3"``, or a system's ``"AutoGluon"``) to its AutoGluon name.
+
+    A model resolves to its wrapper's ``ag_name``; a system, which has none, to its config generator's
+    ``name``, the prefix of its experiments. ``ag_name_override`` short-circuits the lookup (for custom
+    methods registered in neither registry).
     """
     if ag_name_override is not None:
         return ag_name_override
     from tabarena.models.utils import get_configs_generator_from_name
 
-    return get_configs_generator_from_name(name).model_cls.ag_name
+    try:
+        return get_configs_generator_from_name(name).model_cls.ag_name
+    except ValueError:
+        system = _system_info(name)
+        if system is None:
+            raise
+        return system.config_generator.name
 
 
 def resolve_display_name(
@@ -129,8 +156,8 @@ def resolve_display_name(
 ) -> str | None:
     """Resolve the display name a run's method is labelled with in the leaderboard and figures.
 
-    ``display_name_override`` wins verbatim. Otherwise the model registry's ``display_name`` for
-    ``name`` is used with ``result_suffix`` appended (a re-run labelled ``"TabPFN-3 [Rerun]"`` stays
+    ``display_name_override`` wins verbatim. Otherwise the model (or system) registry's ``display_name``
+    for ``name`` is used with ``result_suffix`` appended (a re-run labelled ``"TabPFN-3 [Rerun]"`` stays
     distinguishable from the hosted ``"TabPFN-3"``). A method the registry does not know (a custom
     method identified through ``ag_name_override``) resolves to ``None``, which keeps the default
     label, the config type.
@@ -142,9 +169,13 @@ def resolve_display_name(
     try:
         display_name = get_model_info_from_name(name).method_metadata.display_name
     except ValueError:
-        if ag_name_override is None:
+        system = _system_info(name)
+        if system is not None:
+            display_name = system.method_metadata.display_name
+        elif ag_name_override is None:
             raise
-        return None
+        else:
+            return None
     return display_name + (result_suffix or "")
 
 
@@ -177,6 +208,7 @@ def post_process_to_results(
         EndToEnd.from_path_raw(
             path_raw=ma.path_raw,
             name_prefix_raw=ma.ag_name,
+            name=ma.display_name if ma.system else None,
             name_suffix=ma.result_suffix,
             method=ma.method_name,
             suite=ma.suite,
@@ -191,11 +223,21 @@ def post_process_to_results(
     # `only_load_cache` method, or a cache built before the name was recorded), so every method
     # of the run is labelled the way the leaderboard labels it.
     display_names = {(ma.method_name, ma.suite): ma.display_name for ma in method_artifacts if ma.display_name}
+    # Raw results record a system as a plain baseline without its hardware. The registry entry adds
+    # what the leaderboard and figures read off the metadata: that it is a system (family color and
+    # entrant pools), its tags (shade) and its compute.
+    systems = {(ma.method_name, ma.suite): _system_info(ma.ag_name) for ma in method_artifacts if ma.system}
     for method_results in results.method_results_lst:
         mm = method_results.method_metadata
-        display_name = display_names.get((mm.method, mm.suite))
+        key = (mm.method, mm.suite)
+        display_name = display_names.get(key)
         if display_name is not None:
             mm.display_name = display_name
+        if key in systems:
+            mm.method_class = "system"
+            if (info := systems[key]) is not None:
+                mm.tags = info.method_metadata.tags
+                mm.compute = info.method_metadata.compute
     return results
 
 

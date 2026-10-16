@@ -60,7 +60,7 @@ tabldm_info = ModelInfo(
     # TabLDM is not published on PyPI; pinned to a commit so the benchmarked code is fixed.
     # Keep in sync with the `tabldm` extra in pyproject.toml.
     pip_extra=(
-        "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@6773a30d43e43fad3e8b474e20ca8c7ec40dcd76",
+        "Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d3fc3b7a0644631c8e3c18fa50629440e334f3f4",
     ),
     prefetch_weights=TabLDMModel.prefetch_weights,
 )

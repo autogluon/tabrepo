@@ -61,7 +61,8 @@ class TabArenaTaskMetadata:
     target_name: str
     """The name of the target variable in the dataset."""
     eval_metric: str
-    """The evaluation metric used for the task."""
+    """The evaluation metric used for the task, as its canonical TabArena name (an AutoGluon alias such as
+    ``root_mean_squared_error`` is stored as ``rmse``; see ``tabarena.benchmark.task.metrics``)."""
 
     """The number of splits in the task."""
     splits_metadata: dict[SplitIndex, SplitMetadata]
@@ -171,6 +172,12 @@ class TabArenaTaskMetadata:
     """Samples in the largest class divided by samples in the smallest one. Classification only."""
     target_skewness: float | None = None
     """Fisher skewness of the target values. Regression only, ``None`` for classification."""
+
+    def __post_init__(self) -> None:
+        from tabarena.benchmark.task.metrics import normalize_eval_metric
+
+        if self.eval_metric is not None:
+            self.eval_metric = normalize_eval_metric(self.eval_metric)
 
     def to_validation_metadata(self) -> ValidationMetadata:
         """Project this task metadata onto a ``ValidationMetadata`` (the split-config subset).
@@ -469,6 +476,27 @@ class SplitMetadata:
         return res
 
 
+def _rolled_up_by_dataset(task_metadata: list[TabArenaTaskMetadata]) -> list[TabArenaTaskMetadata]:
+    """The entries of each dataset merged into one task that carries all of their splits, in first-seen order.
+
+    An unrolled collection holds one entry per split and ``to_dataframe`` builds a DataFrame per entry,
+    so converting one task per dataset is what keeps :func:`to_legacy_task_metadata` fast. The merged
+    task keeps the first entry's task-level fields, which is the row the legacy frame keeps. A dataset
+    whose entries share a split index keeps its entries as they are.
+    """
+    entries: dict[str, list[TabArenaTaskMetadata]] = {}
+    for ttm in task_metadata:
+        entries.setdefault(ttm.tabarena_task_name, []).append(ttm)
+    rolled: list[TabArenaTaskMetadata] = []
+    for group in entries.values():
+        splits = {idx: split for ttm in group for idx, split in ttm.splits_metadata.items()}
+        if len(group) > 1 and len(splits) == sum(len(ttm.splits_metadata) for ttm in group):
+            rolled.append(replace(group[0], splits_metadata=splits))
+        else:
+            rolled.extend(group)
+    return rolled
+
+
 def to_legacy_task_metadata(task_metadata: list[TabArenaTaskMetadata]) -> pd.DataFrame:
     """Convert a list of :class:`TabArenaTaskMetadata` into the legacy ``task_metadata``
     DataFrame consumed by ``TabArenaContext`` and ``ExperimentBatchRunner``.
@@ -505,7 +533,7 @@ def to_legacy_task_metadata(task_metadata: list[TabArenaTaskMetadata]) -> pd.Dat
         return pd.DataFrame()
 
     per_split = pd.concat(
-        [ttm.to_dataframe(add_old_minimal_metadata=True) for ttm in task_metadata],
+        [ttm.to_dataframe(add_old_minimal_metadata=True) for ttm in _rolled_up_by_dataset(task_metadata)],
         ignore_index=True,
     )
 

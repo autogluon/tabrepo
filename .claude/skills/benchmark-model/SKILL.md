@@ -1,6 +1,6 @@
 ---
 name: benchmark-model
-description: Run one already-integrated model on the TabArena benchmark, from a local smoke fit to the cluster run and the evaluated leaderboard. Use this skill whenever a maintainer wants to benchmark a model that is already in the registry, e.g. "benchmark TabM", "run Nori on the cluster", "create a setup/eval script for DenseLight", "launch <model> on TabArena and evaluate it". It first asks whether Claude should drive the run end-to-end here (launch, monitor, evaluate, report) or hand the launch and monitoring to the maintainer, then scaffolds a single `tmp_scripts/run_<model>.py` at the repo root with `smoke`, `setup` and `eval` subcommands sharing one benchmark_name + paths. Defaults to the full TabArena-v0.1 task set with all configs (0 for foundation models without a search space), resolves the run venv to the one importing this checkout, installs the model's pip extra into it, smoke-fits the model locally (on the CPU when no GPU exists, GPU models included), and requires `fake_memory_for_estimates` set to the partition's VRAM for every GPU model (asks when not inferable). In end-to-end mode it launches the sbatch command(s), reports the percentage of tasks left at regular intervals while checking for failed tasks, then runs the eval with all figures for the default subsets and reports the leaderboard with the new model highlighted (also box-labeled in every Pareto figure). Complements `add-model` (integrate a model) and `upload-method` (publish its results).
+description: Run one already-integrated model on the TabArena benchmark, from a local smoke fit to the cluster run and the evaluated leaderboard. Use this skill whenever a maintainer wants to benchmark a model that is already in the registry, e.g. "benchmark TabM", "run Nori on the cluster", "create a setup/eval script for DenseLight", "launch <model> on TabArena and evaluate it". It first asks whether Claude should drive the run end-to-end here (launch, monitor, evaluate, report) or hand the launch and monitoring to the maintainer, then scaffolds a single `tmp_scripts/run_<model>.py` at the repo root with `smoke`, `setup` and `eval` subcommands sharing one benchmark_name + paths. Defaults to the full TabArena-v0.1 task set with all configs (0 for foundation models without a search space), resolves the run venv to the one importing this checkout, installs the model's pip extra into it, smoke-fits the model locally (on the CPU when no GPU exists, GPU models included), and requires `fake_memory_for_estimates` set to the partition's VRAM for every GPU model (asks when not inferable). In end-to-end mode it launches the sbatch command(s), reports the percentage of tasks left at regular intervals while checking for failed tasks, then runs the eval with all figures for the default subsets and reports the leaderboard with the new model highlighted (also box-labeled in every Pareto figure). Also runs registered systems, and for hosted APIs (`closed-source-api`) audits the client and probes the API for cheating (`tabarena.tools.audit_system`) before a single-node run from an on-demand CPU node. Complements `add-model` (integrate a model) and `upload-method` (publish its results).
 argument-hint: <ModelRegistryName> [<benchmark_name>] [<n_configs>]
 user-invocable: true
 ---
@@ -28,7 +28,9 @@ drift. The file is self-contained (no hidden helpers) so its `setup()` body can 
 `packages/tabflow_slurm/BENCHMARK_LOG.md`, and it lives in `tmp_scripts/`, which `.gitignore` excludes.
 
 The golden template is [`references/run_benchmark_template.py`](references/run_benchmark_template.py).
-Copy it and fill the `<...>` and `# EDIT` markers; do not hand-write the structure. The progress
+Copy it and fill the `<...>` and `# EDIT` markers; do not hand-write the structure. A registered
+system, and in particular a hosted API, follows [Systems and hosted APIs](#systems-and-hosted-apis)
+and its template [`references/run_api_system_template.py`](references/run_api_system_template.py). The progress
 watcher for the cluster run is [`references/slurm_progress.sh`](references/slurm_progress.sh).
 
 ## Step 0: Gather inputs and choose the mode
@@ -41,7 +43,7 @@ call, and state the defaults you took in the plan.
 | `MODEL` | `"TabM"` | required, the registry name (Step 1 verifies it) |
 | `BENCHMARK_NAME` | `"tabm_26062026"` | `<model key lowercased, no separators>_<DDMMYYYY>` with today's date |
 | `NUM_CONFIGS` | `"all"`, `0` | `"all"` (default config plus the full HPO search space) when the model has a search space; `0` when it has none (foundation models with a frozen recipe). Only a capped int when the maintainer asks for one. |
-| task scope | full / lite / regression | `TaskSubset()`, the full task set, all splits. `TaskSubset(subset="lite")` only when the maintainer asks for a first-split trial. A regression-only model gets `TaskSubset(subset="regression")`. |
+| task scope | full / lite / regression | `TaskSubset()`, the full task set, all splits. `TaskSubset(subset="lite")` only when the maintainer asks for a first-split trial. A regression-only model gets `TaskSubset(subset="regression")`, a classification-only one `TaskSubset(subset="classification")`. |
 | GPU partition | `"gpurtxpro6000flex"` | the `GCPSlurmSetup` default (RTX PRO 6000, 96 GB). `gpurtxpro6000spotinteractive` is the same card on spot capacity. Ask only when a bigger card is needed. |
 | CPU partition | `"cpun416mtspotinteractive"` | 16 vCPUs / 64 GB, the partition the CPU tree boosters were timed on; `bundle_size=2` |
 | `fake_memory_for_estimates` | `96` | required for every GPU model: the partition's VRAM in GB (Step 1a). Ask when it cannot be determined from context. |
@@ -64,12 +66,15 @@ protocol. Mention them in the plan so the maintainer can object.
 
 ## Step 1: Introspect the model registry
 
+When `MODEL` is not in the model registry but in `tabarena.systems` (`systems/<key>/`), it is a system:
+switch to [Systems and hosted APIs](#systems-and-hosted-apis) now.
+
 Given `MODEL`, read the model's folder `packages/tabarena/src/tabarena/models/<key>/` and derive:
 
 | Derived value | Where to read it | Drives |
 |---|---|---|
 | compute (`"cpu"` / `"gpu"`) | `info.py`, `MethodMetadata(compute=...)` | GPU: `resources={"num_gpus": 1, "fake_memory_for_estimates": <VRAM>}`, `name="gpu"`. CPU: no resources dict, `name="cpu"`, `GCPSlurmSetup(cpu_partition=..., bundle_size=2)`. |
-| problem types | `model.py`, the `_supported_problem_types` class attribute (absent means all three) | the eval `subsets`: all types gives `[[], ["binary"], ["multiclass"], ["regression"]]` (`[]` is the full set); regression-only gives `[["regression"]]` plus `task_subset=TaskSubset(subset="regression")` |
+| problem types | `model.py`, the `_supported_problem_types` class attribute (absent means all three) | the eval `subsets`: all types gives `[[], ["binary"], ["multiclass"], ["regression"]]` (`[]` is the full set); regression-only gives `[["regression"]]` plus `task_subset=TaskSubset(subset="regression")`; classification-only gives `[[], ["classification"], ["binary"], ["multiclass"]]` plus `task_subset=TaskSubset(subset="classification")`, since a model missing from the bundle's `DEFAULT_MODEL_CONSTRAINTS` is otherwise scheduled on the regression tasks and fails there (`[]` then imputes it on regression; `["classification"]` is the view it ran on) |
 | HPO search space | `info.py`, `search_space` (a `gen_<key>` generator); empty or absent means no HPO | `NUM_CONFIGS`: `"all"` with a search space, `0` without |
 | pip extra | `info.py`, `ModelInfo(pip_extra=...)`, and the matching extra in `packages/tabarena/pyproject.toml` | Step 2 installs it |
 | weights prefetch | `info.py`, `ModelInfo(prefetch_weights=...)`; not `None` means foundation model (so does a `shared_weights` declaration on the class) | a docstring note; `setup` prefetches the checkpoint on the head node before emitting jobs |
@@ -103,6 +108,21 @@ the model's estimate: a wrapper without `_estimate_memory_usage_static` (TabFM, 
 to a small data-size estimate and keeps eight parallel folds regardless. Still set the value, and
 tell the maintainer to sanity-check per-fold VRAM times eight, or pin `num_folds_parallel` via
 `ag_args_ensemble`, before launching.
+
+## Step 1b: Check `_fit` for tuning on its own splits
+
+Read the wrapper's `_fit` and the library calls it makes for any step that tunes or selects on a
+split of the training data instead of the `X_val` / `y_val` TabArena passes: a hyperparameter
+search, an internal cross-validation or hold-out split, or ensemble or candidate weights solved on
+rows held out of `X`. Model submissions may not do this. When you find one, stop before Step 2 and
+raise it with the maintainer, quoting the lines and saying what they fit on. List the options from
+autogluon/tabarena#637: submit it as a system (`add-system`), use a version or checkpoint without
+the step, or change the wrapper so the step runs on the passed `X_val` / `y_val`, the way a
+fine-tuning API takes an eval set. Launch nothing until the maintainer decides. A PR description
+that mentions a hold-out is the quickest tell (#637: "fits its candidate/ensemble weights on a
+single 20% hold-out split"), but read the code, because a library can do it without the PR saying
+so. Early stopping on `X_val` is fine, and so is an in-context model that ignores `X_val`.
+EXAONE-Tabular's regression hold-out was accepted by oversight and is no precedent.
 
 ## Step 2: Resolve the run venv and install the model's extra
 
@@ -177,6 +197,10 @@ so and ask whether to skip the smoke fit); anything else is a wrapper bug to fix
 Report the outcome and the wall time. The toy fits write an `AutogluonModels/` folder in the
 working directory (gitignored); remove the run's subfolders when done.
 
+When the model has its own tests (`packages/tabarena/src/tabarena/models/<key>/tests/`), run them
+too: `$PY -m pytest packages/tabarena/src/tabarena/models/<key>/tests -q`. CI never runs them, so
+this is where they catch a wrapper regression before the cluster does.
+
 ## Step 5: Set up and launch
 
 `setup` prefetches foundation weights, materializes the tasks, runs the Ray cache check and writes
@@ -209,7 +233,19 @@ a command block instead of `sbatch`: an endpoint guard, `sky check gcp` (once pe
 for READY) and `sky jobs launch -y -d --pool <pool> ...` (pool mode). Run them as printed and record
 the job ids from `sky jobs queue`. The block ends with the eval reminder and, in pool mode, with
 `sky jobs pool down -y <pool>`, which must run when the benchmark is finished (a pool bills while idle).
+Do not re-apply the pool YAML with a smaller `workers:` while items still run on the pool: on this
+cluster's fork the apply bumps the pool version and replaces every worker, and a managed job recovered
+onto a new worker resumes its claim but restarts the item from scratch with a fresh budget
+(`#RECOVERIES` in `sky jobs queue --all` increments, `sky jobs logs <id>` shows `resuming own claim`;
+the `beyondarena_tfms_22092026` run lost 11.5 h and 6 h of two TabPFN-3.5 fits that way). Leave the
+idle workers until the last item ends, or scale only a pool with nothing running; a changed
+environment always needs a fresh pool for the same reason.
 The block's first line names the launch id, the bucket queue and the bundle count.
+Keep a pool name at 22 characters or fewer (`SkyPilotSetup` rejects longer ones): SkyPilot cuts a longer
+worker cluster name on GCP to a 23-character prefix plus a 2-character hash, so the workers of one pool, and
+of two pools that share the prefix, collide on the `skypilot-cluster-name` label. The first Kumo-Tabular run
+(`tabarena-kumotabular-28092026`, 32 workers) sat at 19 READY for half an hour that way while every VM billed,
+and a second pool next to it collided with the first.
 
 ## Step 6: Monitor the run (end-to-end mode)
 
@@ -223,7 +259,7 @@ Watch each array with the progress script through the `Monitor` tool, one monito
 ```
 
 For a SkyPilot launch use `references/sky_progress.sh <queue_uri> <n_bundles> [--launch <launch_id>]
-[--interval 900]` instead (both values are on the first line of the printed command block). It counts
+[--pool <pool>] [--interval 900]` instead (both values are on the first line of the printed command block). It counts
 the `done/` and `failed/` markers in the bucket queue, lists `sky jobs queue` for the launch, and exits
 when every bundle is done or no worker job is left. Failed items are listed with their coordinates;
 their logs are at `<run_uri>/logs/<launch_id>/<bundle>_<item>.log` (`gcloud storage cat`). A `setup`
@@ -258,6 +294,9 @@ and classify:
 | `PENDING` with reason `launch failed requeued held` | the spot node failed to boot; SLURM requeued the task but holds it until someone releases it | `scontrol release <job>_<task>`; a loop over `squeue -r -o "%i %r"` every few minutes when the partition keeps losing nodes |
 | `LocalEntryNotFoundError`, `PretrainedWeightsUnavailableError`, `WeightsUnavailableError` | the job ran with `offline_weights` and a checkpoint was not in the shared cache | re-run `setup` (its head-node prefetch fills the cache) or set `offline_weights=False` on the plan for that run |
 | `##### item FAILED` lines with `##### bundle summary: ok=N failed=M` | one item of the bundle failed; the array task continues with its siblings and exits non-zero at the end | count the `results.pkl` files, not the task state: a `FAILED` task may have completed most of its items, and only the failed ones are missing |
+| a pool stuck below its size with workers in `STARTING` after their setup log ends `SUCCEEDED`, the controller log (`sky jobs pool logs --controller --no-follow --tail 300 <pool>`) repeating `Found 2 node(s) with the same cluster name tag`, `sky_progress.sh --pool <pool>` printing `DUPLICATE VM` | two workers share one GCP cluster name because the pool name is too long (Step 5); the prober fails on every pass and promotes no worker | do not delete one of the VMs, it may belong to the other worker; cancel the launch's worker jobs, take the pool down, re-run `setup` with a pool name of at most 22 characters and launch again (finished items stay cached) |
+| an item running far past a finished sibling's time, `#RECOVERIES > 0` for its job in `sky jobs queue --all`, `resuming own claim` in `sky jobs logs <id>` | the worker was replaced (a spot preemption, or a pool re-apply, see Step 5) and the item restarted from scratch; not a stall | nothing, apart from noting the restart in the log entry; compare the fit times of finished siblings before calling an item stuck |
+| `TimeLimitExceeded` from `_get_fold_time_limit` after thousands of `CUDACachingAllocator ... memory allocation failed` or `auto batch skip` lines, one to three children fitted in hours | a library that survives GPU out-of-memory by shrinking its batches and crawls until AutoGluon projects the remaining folds past the limit: a memory failure that never raises | treat it as out-of-memory and cap the in-context table in the wrapper. Measure rows and columns separately before choosing the cap: LimiX-2 passed 38k x 318 in 4 h but not 53.6k x 243 or 7.9k x 1652 (the same 13M cells), so a rows x columns budget is the wrong proxy; prefer the library's own knobs (`test_batch_size`, `max_num_rows`), engage the cap only above a shape that fails, and rerun every affected table with the final code |
 
 A `FAILED` array task is a bundle with at least one failed item. The log carries one `##### item
 FAILED (exit N)` line per failed item and a final `##### bundle summary` line; three consecutive
@@ -320,6 +359,37 @@ Report to the maintainer, in this order:
 3. The figure paths, PNG first, with the Pareto figures called out.
 4. Anything the numbers hide: imputed tasks, failed splits that were left out, time-limit hits,
    the `flash-attn` kind of "installed without X" caveat.
+5. The link to the results artifact (below).
+
+The report goes to the chat. Never comment on the PR or edit its description on your own initiative,
+not even for the stage-2 results comment the PR template describes: draft the text, show it to the
+maintainer, and post it only after they say so.
+
+### Results artifact
+
+After the report, publish a Claude artifact (the Artifact tool) without being asked. Its minimum is the
+figures the maintainer copies into the PR by hand, usually the Pareto front of Elo against inference
+time for each arena the model ran on, on the subset that represents it (the classification subset for a
+classification-only model). Beyond that, shape the page to what this run shows; the pattern below has
+worked well, take from it what fits:
+
+- A header naming the model and the run, with a row of facts: benchmark name, PR head, items or
+  splits times configs, imputed share, hardware.
+- A "where it lands" table: position and Elo with its interval per subset, one column per variant
+  (default, tuned, tuned + ensemble) when the model has a search space, with a "Copy as Markdown"
+  button, plus a line on the fit and inference times against the closest baselines.
+- A subset switcher (all tasks, binary, multiclass, regression, or the subsets the model ran on) above
+  a grid of that subset's figures: the four Pareto fronts (Elo and improvability against train and
+  inference time), and for a tuned model the tuning-impact plot and the win-rate matrix as full-width
+  figures (a wide one scrolls sideways inside its frame).
+- For each figure a title, a one-line caption on how to read it, a "Copy image" button and an
+  "Open full size" link.
+
+Publish the PNGs as the artifact's own files (for example `figs/<subset>/<figure>.png`) and keep them on
+a white plate in both themes, since they are drawn on white. The copy button uses
+`navigator.clipboard.write` with a `ClipboardItem` inside the click handler and falls back to a
+"right-click, Copy image" hint, because some views block image copying. Keep PR comment and
+description text out of the page.
 
 ### CPU models: check the fit times before they replace hosted results
 
@@ -345,6 +415,82 @@ verbatim `setup()` plan as run. The log is committed even though the script is n
 offer the entry; in end-to-end mode write it.
 
 Next in the lifecycle is the `upload-method` skill, pointed at `<WORKSPACE>/output/<benchmark_name>/data`.
+
+## Systems and hosted APIs
+
+A system (`packages/tabarena/src/tabarena/systems/<key>/`) runs through the same plan with four
+differences. The job entry is its generator, `ModelJob(models=(gen_<key>, 0))`, which runs every
+manual config (`<Name>_c1_default`, `_c2_default`, ...) and has no search space. The bundle carries
+`system_experiments=True`. The plan sets `prefetch_model_weights=False`. There is no registry smoke
+fit: `smoke` runs the system through the official pipeline on the first split of three small tasks.
+`EvalMethod("<System>")` resolves through the system registry; with several configs give each its
+own `EvalMethod(ag_name_override=f"{name}_c{i}", display_name_override=...)` so each is labelled, and
+remember for `upload-method` that every config is hosted as its own `MethodMetadata` (see
+`systems/autogluon/info.py`). Local systems (AutoGluon, TabFM+) otherwise follow Steps 2 to 8 with
+the model template.
+
+A hosted API (`tags=("closed-source-api",)`) uses
+[`references/run_api_system_template.py`](references/run_api_system_template.py) (`audit`, `smoke`,
+`setup`, `eval`) and these steps instead of Steps 4 to 6. The API gets the training table and the
+test features, and every TabArena dataset is public, so nothing is launched before the client has
+been read and the API probed.
+
+1. Read the client. Read `system.py` for what leaves the process and how: endpoint, key handling,
+   payload, retries, timeouts, which fit inputs it forwards. Then run `audit --offline`: the
+   static scan plus the first request the client tries, with the network blocked, so no key is
+   needed and nothing is sent (the template sets a placeholder key for wrappers that read it before
+   building the request). Report the request outline to the maintainer: hosts, JSON keys, table
+   shapes and columns. A task identifier (dataset name, task id, fold), a target column outside the
+   training table, or a host other than the provider's endpoint stops the run.
+2. Ask for what only the maintainer knows, in one `AskUserQuestion` when it is not in the context:
+   whether the evaluation key is available, and the concurrency the provider allows (`NUM_WORKERS`).
+   The key lives in an environment variable in the maintainer's shell. Never write it into a script,
+   a file in the repo, the job JSON, a log entry or a PR. Without the key, stop after the offline
+   audit and `setup` and say what is pending.
+3. With the key, run `audit` (the live probes: transduction, relabeled and shuffled labels, feature
+   jitter against a local reference on the test rows without a training copy, the time limit;
+   about eight calls on each of four datasets).
+   Set `SUBMITTED_RESULTS` to the submitter's self-reported TabArena-Lite per-split CSV for each config
+   (`{"<Name>_c1_default": "<path>"}`); `audit` compares each with the hosted methods. Read only CSVs
+   from a submitter's release; never unpickle their `.pkl` files. A `FAIL` stops the
+   run: quote the line and raise it with the maintainer. A `probe` FAIL means the system raised; the
+   line names the call that failed and the calls served before it. An outage fails the first call of
+   a dataset. When only the decoy, relabeled or shuffled calls fail, rebuild that request locally
+   (column types, value ranges) and look for an input the server cannot handle before reading it
+   as a refusal of the probes, then rerun the dataset; the Chakra-Tab audit's 503s on decoys came
+   from `uint8` columns turned into negative floats, which the decoys now avoid. Read the details of
+   every `WARN` and report them. The JSON lands in `tmp_scripts/eval_output/<benchmark_name>/`; name it in the log entry.
+4. `smoke` (key needed): every config on three small tasks through the official pipeline, one call
+   each. Report the errors and the train and inference times. With `SUBMITTED_RESULTS` set, `smoke`
+   then compares each config's errors with the self-reported ones on the same splits (TabArena-Lite
+   is split 0, which the smoke runs): `compare_reproduced_results` in `tabarena.tools.audit_system`,
+   one `SMOKE [verdict] reproduced` line per config and `reproduction_smoke.json`. A system that
+   seeds its fit from the split matches the submitted errors up to float noise (relative 1e-4); an
+   unseeded one passes within noise. A `FAIL` (our errors more than 10% above the submitted ones at
+   the median) stops the launch: the submitted numbers came from something other than what the API
+   serves us, so raise it with the maintainer. Report every `WARN` (median off by more than 2%, or a
+   split outside 0.8x to 1.25x).
+5. `setup` writes the job JSON and prints one `sbatch` command (`SlurmSingleNodeSetup`: an on-demand
+   `cpuhighmem16` node, `NUM_WORKERS` items in flight; the client needs no GPU, and a spot node would
+   restart a multi-day run). `--scheduler array` instead spreads the items over CPU nodes with
+   `array_job_limit=NUM_WORKERS`. Default to hand-off for the launch: the maintainer exports the key
+   in the shell that runs `sbatch` (the job inherits it). Resubmitting the same command resumes.
+6. Monitor the single job with `squeue -j <id>`, the `results.pkl` count under
+   `<WORKSPACE>/output/<benchmark_name>/data` against the expected total, and the runner log
+   `<WORKSPACE>/slurm_out/<benchmark_name>/<id>/run.out` (one START and one OK / FAILED line per item;
+   each item's own log is in `items/`). HTTP 429 or 5xx failures mean too many requests in flight:
+   lower `NUM_WORKERS`, then resubmit after the job ends.
+7. `eval` as in Step 7. It ends with the same comparison on every split the submission covers (all
+   51 TabArena-Lite tasks, `EVAL [verdict] reproduced` lines and `reproduction_eval.json`); report
+   the verdict next to the leaderboard. Say in the report that API timings are wall-clock at the client, including
+   the network and the provider's queue, and that an API which fits and predicts in one call records
+   its whole fit as `time_infer_s` with `time_train_s` near zero, so its Pareto position against
+   locally timed methods is not comparable.
+8. The log entry (Step 8) adds the audit and reproduction verdicts and JSON paths, `NUM_WORKERS`, the partition, and
+   the API version or model id when the results record one (`method_metadata` in `results.pkl`).
+
+`upload-method` accepts the client node's `compute="cpu"` against the provider hardware that a
+`closed-source-api` system declares in `info.py` (a warning, not an error).
 
 ## Notes
 

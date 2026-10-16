@@ -169,6 +169,7 @@ class AbstractArenaContext:
         fillna_method: str | None = None,
         calibration_method: str | None = None,
         only_valid_tasks: bool = False,
+        subset: str | list[str] | None = None,
         cache_config: CacheConfig | None = None,
         validation_protocol: ValidationProtocol | dict | None = None,
         official_validation_protocol: bool = True,
@@ -200,6 +201,13 @@ class AbstractArenaContext:
         # A TaskMetadataCollection is the single source of truth; the legacy `task_metadata`
         # DataFrame view is derived from it on demand (see the `task_metadata` cached_property).
         self.task_metadata_collection = self._resolve_task_metadata_collection(task_metadata)
+        # `subset=` scopes the whole context to one slice of the tasks (e.g. BeyondArena's "core2k"): the
+        # collection is cut down here, so "all" (`subset=None` / `[]` in `compare`, the "all" label of
+        # `generate_all_figs`) means that slice, and every subset expression is evaluated within it
+        # (`"classification"` is the scope's classification tasks).
+        self.subset = self._normalize_scope_subset(subset)
+        if self.subset:
+            self._scope_to_subset(self.subset)
         self.fillna_method = fillna_method
         self.calibration_method = calibration_method
         assert backend in ["ray", "native"]
@@ -585,7 +593,12 @@ class AbstractArenaContext:
         segments = [f"Validation protocol: {label} {mode} {counts.get('bagged', 0)} bagged experiment(s)"]
         if counts.get("system"):
             segments.append(f"{counts['system']} system experiment(s) own their validation")
-        for flavour, label_flavour in (("holdout", "holdout"), ("predictor", "full-predictor"), ("outer", "outer")):
+        for flavour, label_flavour in (
+            ("holdout", "holdout"),
+            ("predictor", "full-predictor"),
+            ("outer", "outer"),
+            ("none", "no-validation"),
+        ):
             if counts.get(flavour):
                 segments.append(
                     f"{counts[flavour]} {label_flavour} experiment(s) run outside the official protocol "
@@ -1006,6 +1019,37 @@ class AbstractArenaContext:
             stacklevel=3,
         )
 
+    def _normalize_scope_subset(self, subset: str | list[str] | None) -> list[str]:
+        """``subset=`` as an AND-list of expressions: a lone expression becomes a one-item list and a
+        :attr:`subset_shortcuts` name its expression list.
+        """
+        if subset is None:
+            return []
+        if isinstance(subset, str):
+            return list(self.subset_shortcuts.get(subset, [subset]))
+        return list(subset)
+
+    def _scope_to_subset(self, subset: list[str]) -> None:
+        """Pre-filter :attr:`task_metadata_collection` to the tasks matching ``subset``.
+
+        The expressions are evaluated on the collection's task grid with the context's subset
+        predicates, as ``compare(subset=...)`` evaluates them (items AND-ed, ``|`` a union, a leading
+        ``!`` a negation); the collection keeps the surviving ``(dataset, fold, repeat)`` tasks and the
+        derived :attr:`task_metadata` cache is invalidated. Raises if no task matches.
+        """
+        from tabarena.nips2025_utils.compare import _evaluate_subset_expression, _task_grid
+
+        grid = _task_grid(self.task_metadata_collection)
+        for expression in subset:
+            grid = grid[_evaluate_subset_expression(expression, grid, predicates=self.subset_predicates).values]
+        if grid.empty:
+            raise ValueError(f"subset={subset!r} matches no task of this context's task metadata.")
+        triplets = sorted(
+            {(d, int(f), int(r)) for d, f, r in zip(grid["dataset"], grid["fold"], grid["repeat"], strict=False)}
+        )
+        self.task_metadata_collection = self.task_metadata_collection.subset(triplets)
+        self.__dict__.pop("task_metadata", None)
+
     def _scope_to_valid_tasks(self) -> None:
         """Pre-filter :attr:`task_metadata_collection` to the registered new methods' tasks.
 
@@ -1087,7 +1131,7 @@ class AbstractArenaContext:
         figure_file_type: str = "pdf",
         plot_only: list[str] | None = None,
         method_color_overrides: dict[str, str] | None = None,
-        pareto_focus_new_methods: bool = False,
+        pareto_focus_new_methods: bool = True,
         # extra analyses
         compute_fold_similarity: bool = False,
         fold_similarity_kwargs: dict | None = None,
@@ -1170,9 +1214,10 @@ class AbstractArenaContext:
             pareto_focus_new_methods: emphasize the registered "new" methods (those added via
                 ``extra_methods=`` / :meth:`register`) in every Pareto figure, in addition to the
                 Pareto-front members: family color plus a boxed label instead of the muted grey
-                the dominated methods get. Plotting-only, like ``plot_only``. Forwarded as
-                ``pareto_focus_methods`` to :meth:`LeaderboardReporter.eval`; a no-op when no new
-                method is registered.
+                the dominated methods get. On by default, so a TabArena and a BeyondArena eval of a
+                new method render the same figures; ``False`` emphasizes the front alone.
+                Plotting-only, like ``plot_only``. Forwarded as ``pareto_focus_methods`` to
+                :meth:`LeaderboardReporter.eval`; a no-op when no new method is registered.
             compute_fold_similarity: rank the datasets by how consistently their folds/seeds
                 agree and estimate the folds needed for a stable result, written to
                 ``fold_similarity.csv``. Needs an ``output_dir``.
@@ -1247,6 +1292,7 @@ class AbstractArenaContext:
         # label from the subset expression so per-subset runs are labeled without extra plumbing.
         if subset is not None and "subset_label" not in kwargs:
             kwargs["subset_label"] = "_".join(str(s) for s in subset)
+        n_results_before_scope = len(df_results)
         df_results = self.subset_results(
             df_results=df_results,
             subset=subset,
@@ -1254,6 +1300,14 @@ class AbstractArenaContext:
             datasets=datasets,
             folds=folds,
         )
+        if df_results.empty and n_results_before_scope > 0:
+            raise ValueError(
+                f"[{self.benchmark_name}] No results remain after scoping to subset={subset!r}"
+                f"{f', datasets={datasets!r}' if datasets is not None else ''}"
+                f"{f', folds={folds!r}' if folds is not None else ''}"
+                f"{f', tasks={tasks!r}' if tasks is not None else ''}: the scope matches none of the "
+                f"{n_results_before_scope} results of the registered methods."
+            )
 
         # TODO: only methods that exist in runs
         #  Pair with (method, suite)
@@ -1431,6 +1485,7 @@ class AbstractArenaContext:
         website_leaderboard_filename: str = "leaderboard_website.csv",
         save_composite_leaderboard: bool | None = None,
         composite_leaderboard_kwargs: dict | None = None,
+        save_composite_pareto_explorer: bool | None = None,
         trajectory_extra_results: pd.DataFrame | None = None,
         max_workers: int | None = None,
     ) -> None:
@@ -1461,6 +1516,11 @@ class AbstractArenaContext:
         ``composite_leaderboard_kwargs`` is forwarded to (e.g. ``sort_by``, ``top_n``,
         ``excluded_method_prefixes``, ``title``). Requires ``plot_compare=True``; the composite is
         built from the compact website format independently of ``save_website_leaderboard``.
+
+        ``save_composite_pareto_explorer`` (``None`` by default: on whenever ``plot_compare`` is)
+        additionally writes ``<output_dir>/pareto_front_explorer.html``, one interactive Pareto
+        explorer over every subset with a selector for the subset to view, from the per-subset
+        ``pareto_front_points.csv`` the compare pass wrote (a subset without them is left out).
 
         ``max_workers`` parallelizes the per-subset passes across processes (capped at the subset
         count; 1 = sequential). ``None`` (the default) uses one process per available CPU less one,
@@ -1498,6 +1558,8 @@ class AbstractArenaContext:
         # than making a trajectories-only run (`plot_compare=False`) fail on a default it never set.
         if save_composite_leaderboard is None:
             save_composite_leaderboard = plot_compare
+        if save_composite_pareto_explorer is None:
+            save_composite_pareto_explorer = plot_compare
         if subsets == "auto":
             subsets = self._default_subsets
         output_dir = Path(output_dir)
@@ -1545,6 +1607,33 @@ class AbstractArenaContext:
                 output_dir=output_dir,
                 **composite_kwargs,
             )
+        if save_composite_pareto_explorer:
+            self._save_composite_pareto_explorer(output_dir, [suffix for suffix, _ in subset_results])
+
+    def _save_composite_pareto_explorer(self, output_dir: Path, suffixes: list[str]) -> Path | None:
+        """``<output_dir>/pareto_front_explorer.html``: the subsets' Pareto points (each subset's
+        ``<suffix>/pareto_front_points.csv``) on one explorer page, with a selector for the subset to
+        view, in ``suffixes``' order. Returns the page, or ``None`` when no subset wrote points.
+        """
+        from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
+
+        frames = []
+        for suffix in suffixes:
+            path = output_dir / suffix / "pareto_front_points.csv"
+            if path.exists():
+                frames.append(pd.read_csv(path).assign(subset=suffix))
+        if not frames:
+            return None
+        points = pd.concat(frames, ignore_index=True)
+        if "shade" in points.columns:
+            points["shade"] = points["shade"].astype(object).where(points["shade"].notna(), None)
+        subsets = [(suffix, suffix) for suffix in suffixes if suffix in set(points["subset"])]
+        return build_pareto_explorer_html(
+            points=points,
+            subsets=subsets,
+            save_path=output_dir / "pareto_front_explorer.html",
+            page_title=f"{self.benchmark_name} Pareto explorer",
+        )
 
     def _generate_subset_figs(
         self,

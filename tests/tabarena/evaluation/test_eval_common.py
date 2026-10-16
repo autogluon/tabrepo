@@ -78,3 +78,67 @@ def test_init_aux_metric_env_sets_and_clears():
             os.environ.pop(AUX_METRIC_ENV_VAR, None)
         else:
             os.environ[AUX_METRIC_ENV_VAR] = original
+
+
+def test_eval_names_resolve_a_registered_system():
+    """``EvalMethod("<system>")`` needs no ``ag_name_override``: systems resolve through their registry."""
+    from tabarena.evaluation._eval_common import resolve_ag_name, resolve_display_name
+    from tabarena.systems import get_system_registry
+
+    info = get_system_registry()["TabFM+"]
+    assert resolve_ag_name("TabFM+") == info.config_generator.name
+    assert resolve_display_name("TabFM+", result_suffix=" [Rerun]") == f"{info.method_metadata.display_name} [Rerun]"
+
+
+def test_eval_names_still_fail_for_unknown_methods():
+    from tabarena.evaluation._eval_common import resolve_ag_name, resolve_display_name
+
+    with pytest.raises(ValueError):
+        resolve_ag_name("NoSuchMethod")
+    with pytest.raises(ValueError):
+        resolve_display_name("NoSuchMethod")
+    assert resolve_display_name("NoSuchMethod", ag_name_override="X") is None
+
+
+def test_a_system_is_renamed_to_its_display_name(monkeypatch, tmp_path):
+    """A system's raw rows carry its config name; post-processing renames them to the display name."""
+    from tabarena.end_to_end import EndToEnd, EndToEndResults
+    from tabarena.evaluation import EvalMethod
+    from tabarena.evaluation._eval_common import MethodArtifact, is_system, post_process_to_results
+
+    assert is_system("TabFM+")
+    assert not is_system("NoSuchMethod")
+    assert EvalMethod("TabFM+").is_system
+
+    calls = []
+    monkeypatch.setattr(EndToEnd, "from_path_raw", classmethod(lambda cls, **kwargs: calls.append(kwargs)))
+    monkeypatch.setattr(EndToEndResults, "from_cache", classmethod(lambda cls, methods: EndToEndResults([])))
+    artifacts = [
+        MethodArtifact(ag_name="Sys_c1", path_raw=tmp_path, suite="run", display_name="Sys (fast)", system=True),
+        MethodArtifact(ag_name="Model", path_raw=tmp_path, suite="run", display_name="Model"),
+    ]
+    post_process_to_results(artifacts)
+    assert [c["name"] for c in calls] == ["Sys (fast)", None]  # a model's configs keep their own names
+
+
+def test_a_system_run_is_marked_as_a_system(monkeypatch, tmp_path):
+    """Raw results record a system as a plain CPU baseline; the eval takes class, tags and compute from the registry."""
+    from types import SimpleNamespace
+
+    from tabarena.end_to_end import EndToEnd, EndToEndResults
+    from tabarena.evaluation._eval_common import MethodArtifact, post_process_to_results
+    from tabarena.models._method_metadata import MethodMetadata
+
+    def from_cache(cls, methods):
+        metadata = [MethodMetadata.baseline(method=method, suite=suite, compute="cpu") for method, suite in methods]
+        return SimpleNamespace(method_results_lst=[SimpleNamespace(method_metadata=mm) for mm in metadata])
+
+    monkeypatch.setattr(EndToEnd, "from_path_raw", classmethod(lambda cls, **kwargs: None))
+    monkeypatch.setattr(EndToEndResults, "from_cache", classmethod(from_cache))
+    artifacts = [
+        MethodArtifact(ag_name="Chakra-Tab", path_raw=tmp_path, suite="run", display_name="Chakra-Tab", system=True),
+        MethodArtifact(ag_name="Model", path_raw=tmp_path, suite="run", display_name="Model"),
+    ]
+    system, model = (r.method_metadata for r in post_process_to_results(artifacts).method_results_lst)
+    assert (system.method_class, system.tags, system.compute) == ("system", ("closed-source-api",), "gpu")
+    assert (model.method_class, model.tags, model.compute) == ("model", (), "cpu")

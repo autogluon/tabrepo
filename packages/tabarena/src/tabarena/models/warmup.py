@@ -31,8 +31,9 @@ Measured as shipped. Entrants whose wrapper declares no ``shared_weights`` read 
 per fit as their libraries ship: Mitra v1 (the TabArena ``mitra`` entry uses AutoGluon's
 ``MitraModel`` directly), the AutoGluon system's own foundation-model children (resolved through
 ``ag_model_registry``), TabPFN-3-API (no local weights), iLTM (the library caches the network
-itself), TabDPT v1.1, TabPFN-Wide and SAP-RPT-OSS. Time comparisons between them and the declaring
-wrappers must be read with that in mind.
+itself), TabDPT v1.1 and TabDPT-Turbo (their ``tabdpt`` releases load inside the constructor),
+TabPFN-Wide and SAP-RPT-OSS. Time comparisons between them and the declaring wrappers must be read
+with that in mind.
 
 Scope. Warm-up runs once, in the job's main process, before the timed fit. It warms that process,
 anything disk-backed (numba's on-disk kernel cache, the Hugging Face cache), the Ray runtime, and,
@@ -64,6 +65,7 @@ import gc
 import importlib
 import logging
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -94,9 +96,100 @@ RAY_WORKER_WARMUP_MODULES: tuple[str, ...] = (
 PARALLEL_FOLD_FITTING_STRATEGIES = frozenset({"parallel_local", "parallel_distributed"})
 #: Default ``time_limit`` of the dummy fit in seconds.
 DUMMY_FIT_TIME_LIMIT_S: float = 120.0
+#: Set to ``1`` to run the dummy fit on every call even when this process already warmed the same
+#: model class, problem type and configuration (see :func:`already_warm`).
+WARMUP_ALWAYS_ENV = "TABARENA_WARMUP_ALWAYS"
+#: Reason recorded on a dummy-fit record skipped because the process is already warm.
+ALREADY_WARM_REASON = "already warmed in this process"
+#: Set to ``0`` to keep the warmed heap in the collector's normal generations (see :func:`freeze_warm_heap`).
+FREEZE_ENV = "TABARENA_WARMUP_FREEZE"
+#: Whether :func:`freeze_warm_heap` already moved the warmed heap to the permanent generation in this process.
+_HEAP_FROZEN = False
+#: ``(model class, problem type, GPU or not, configuration)`` keys whose dummy fit completed in this process.
+_WARMED: set[tuple] = set()
 #: Keys a model class may override through ``warmup_dummy_fit_kwargs``.
 DUMMY_FIT_KWARGS_KEYS = frozenset({"n_rows", "n_features", "n_categorical", "time_limit"})
 _TORCH_GLOBALS = ("num_threads", "default_dtype", "cudnn_benchmark", "cudnn_deterministic", "matmul_allow_tf32")
+
+
+def warmup_always() -> bool:
+    """Whether ``TABARENA_WARMUP_ALWAYS`` disables the already-warm skip of the dummy fit."""
+    return os.environ.get(WARMUP_ALWAYS_ENV, "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+#: A memory address in a default ``repr`` (``<pkg.Cls object at 0x7f...>``), dropped from :func:`warm_key`.
+_ADDRESS = re.compile(r" at 0x[0-9a-fA-F]+")
+
+
+def warm_key(
+    model_cls: type, *, problem_type: str | None, num_gpus: float | None, hyperparameters: dict | None
+) -> tuple:
+    """What one dummy fit warms: the class, the problem type, GPU or CPU, and the configuration.
+
+    The configuration is the model's own hyperparameters (AutoGluon's ``ag_args*`` stripped), since
+    they select the checkpoint a shared-weights class loads; two configs of one class warm separately.
+    Values are compared by ``repr`` without memory addresses: a value holding objects with the default
+    ``repr`` (the feature generators of ``ag.model_specific_feature_generator_kwargs``, built anew
+    for every experiment) keys the same configuration whichever instances it holds.
+    """
+    hps = strip_ag_args(hyperparameters) if hyperparameters else {}
+    config = tuple(sorted((str(k), _ADDRESS.sub("", repr(v))) for k, v in hps.items()))
+    return (f"{model_cls.__module__}.{model_cls.__qualname__}", problem_type, bool(num_gpus), config)
+
+
+def already_warm(
+    model_cls: type, *, problem_type: str | None, num_gpus: float | None, hyperparameters: dict | None
+) -> bool:
+    """Whether a dummy fit for this key completed in this process (and the skip is not disabled).
+
+    The warm-up runs before every experiment. In a process that runs several items (an in-process
+    bundle, a local sweep) everything the dummy fit exists to trigger, imports, the CUDA context, the
+    shared network in the weights registry, kernel and library caches, is still in place after the
+    first item, so repeating the dummy fit only costs time. A key is recorded only after a dummy fit
+    ran without error, so a failed warm-up is retried on the next item.
+    """
+    if warmup_always():
+        return False
+    return warm_key(model_cls, problem_type=problem_type, num_gpus=num_gpus, hyperparameters=hyperparameters) in _WARMED
+
+
+def reset_warm_memo() -> None:
+    """Forget which dummy fits completed in this process (tests, or after releasing shared weights)."""
+    _WARMED.clear()
+
+
+def freeze_enabled() -> bool:
+    """Whether the warmed heap is frozen after the first warm-up (``TABARENA_WARMUP_FREEZE``, on by default)."""
+    return os.environ.get(FREEZE_ENV, "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def freeze_warm_heap() -> int | None:
+    """Once per process, collect garbage and move every surviving object to the collector's permanent generation.
+
+    After a warm-up the heap holds the imported libraries, the CUDA state and the shared networks: a few hundred
+    thousand objects that live until the process exits. Every later full collection (the exec model's cleanup runs
+    one after each experiment, the dummy fit another) still traverses them, at about 0.1 s per call on a warmed
+    process. ``gc.freeze`` takes them out of the collector's generations, so those collections only look at what
+    the experiment itself created. The collection right before the freeze makes sure the warm-up's own garbage is
+    not frozen alive.
+
+    Returns the number of frozen objects when the freeze happened in this call, ``None`` when it was already done
+    in this process or is disabled through ``TABARENA_WARMUP_FREEZE=0``.
+    """
+    global _HEAP_FROZEN
+    if _HEAP_FROZEN or not freeze_enabled():
+        return None
+    gc.collect()
+    gc.freeze()
+    _HEAP_FROZEN = True
+    return gc.get_freeze_count()
+
+
+def unfreeze_warm_heap() -> None:
+    """Return the frozen objects to the collector and allow :func:`freeze_warm_heap` to run again (tests)."""
+    global _HEAP_FROZEN
+    gc.unfreeze()
+    _HEAP_FROZEN = False
 
 
 def kernel_probe_enabled() -> bool:
@@ -138,6 +231,18 @@ WARMUP_STEPS_BY_AG_KEY: dict[str, tuple[str | Callable[[], None], ...]] = {
 }
 
 
+#: Cheapness knobs the dummy fit merges over the configuration of AutoGluon built-in model classes,
+#: keyed by their registry ``ag_key`` like :data:`WARMUP_STEPS_BY_AG_KEY` (a class that declares
+#: ``cheap_hyperparameters`` uses its own). The gradient-boosted trees see no validation data in the
+#: dummy fit, so nothing stops them early: without a cap they boost the configuration's whole round
+#: budget (10,000 by default, more when a configuration raises it) until the time limit.
+CHEAP_HYPERPARAMETERS_BY_AG_KEY: dict[str, dict[str, Any]] = {
+    "GBM": {"num_boost_round": 10},
+    "CAT": {"iterations": 10},
+    "XGB": {"n_estimators": 10},
+}
+
+
 @dataclass
 class WarmupReport:
     """What one warm-up did, stored under ``experiment_metadata["warmup_report"]``.
@@ -166,6 +271,9 @@ class WarmupReport:
             is ``None`` only when torch is not installed or neither of those layers ran.
         torch_globals_after: The same globals when the warm-up returned, so the artifact shows the
             state the fit ran under even when nothing changed.
+        heap_frozen: Number of objects :func:`freeze_warm_heap` moved to the permanent generation right
+            after this warm-up; ``None`` when the heap was frozen by an earlier warm-up of the process,
+            when the freeze is disabled, or when the warm-up did not complete.
         gpu_memory_allocated_after_probe_bytes: ``torch.cuda.memory_allocated()`` after the torch
             probe; cuBLAS workspaces owned by the handle stay allocated and raise the GPU memory
             baselines by this amount.
@@ -175,6 +283,7 @@ class WarmupReport:
         error: ``"<ExceptionType>: <message>"`` when the ``warmup_fn`` raised.
     """
 
+    heap_frozen: int | None = None
     status: WarmupStatus = "ok"
     label: str | None = None
     model_classes: list[str] = field(default_factory=list)
@@ -305,6 +414,44 @@ def warmup_imports_best_effort(*module_names: str, report: WarmupReport | None =
         if _run_step(report, f"import:{name}", functools.partial(importlib.import_module, name)):
             imported.append(name)
     return imported
+
+
+#: Allocator settings :func:`configure_cuda_allocator` applies when the environment sets none.
+CUDA_ALLOC_CONF = "expandable_segments:True"
+
+
+def configure_cuda_allocator() -> None:
+    """Enable expandable segments in torch's CUDA caching allocator for this process.
+
+    For wrappers whose large, shape-changing activations fragment the caching allocator. With
+    fixed-size segments it ends up holding a large share of the card in fragments it cannot hand
+    out as one block: Mitra-v2 prediction on hiva_agnostic (2563 rows, 1414 columns) failed on a
+    13.9 GiB request while 59.5 GiB were live and 32.8 GiB were reserved but unallocated on a 95 GiB
+    card, and EXAONE-Tabular's regressor on california_house_prices_2020 (10,382 rows, 657 columns)
+    failed on 17 to 20 GiB requests with 33 to 43 GiB reserved but unallocated. Expandable segments
+    let the allocator grow a segment in place, so that reserve stays usable. Allocation layout only;
+    the numerics are unchanged.
+
+    The allocator reads ``PYTORCH_CUDA_ALLOC_CONF`` when it first runs, so a wrapper calls this in
+    its ``warmup`` classmethod before the CUDA context exists, and again at the start of ``_fit`` as
+    a fallback: when CUDA is already initialized the setting is applied through torch's runtime
+    setter instead. An explicit ``PYTORCH_CUDA_ALLOC_CONF`` in the environment is respected and
+    left untouched. Idempotent.
+    """
+    if os.environ.get("PYTORCH_CUDA_ALLOC_CONF") is not None:
+        return
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = CUDA_ALLOC_CONF
+    import torch
+
+    if not torch.cuda.is_initialized():
+        return  # read from the environment when the allocator starts
+    set_settings = getattr(torch._C, "_accelerator_setAllocatorSettings", None)
+    if set_settings is None:  # torch < 2.9
+        set_settings = torch.cuda.memory._set_allocator_settings
+    try:
+        set_settings(CUDA_ALLOC_CONF)
+    except RuntimeError as exc:
+        logger.log(20, f"\tCould not apply {CUDA_ALLOC_CONF!r} to the running CUDA allocator: {exc}")
 
 
 def warmup_torch(*, cuda: bool | None = None, kernels: bool | None = None) -> list[str]:
@@ -484,6 +631,17 @@ def resolve_warmup_num_gpus(hyperparameters: dict | None, num_gpus: float | None
     return num_gpus
 
 
+def cheap_hyperparameters(model_cls: type) -> dict[str, Any]:
+    """The cheapness knobs the dummy fit merges over ``model_cls``'s configuration.
+
+    The class's own ``cheap_hyperparameters``, else :data:`CHEAP_HYPERPARAMETERS_BY_AG_KEY` for its ``ag_key``.
+    """
+    own = getattr(model_cls, "cheap_hyperparameters", None)
+    if own is not None:
+        return dict(own)
+    return dict(CHEAP_HYPERPARAMETERS_BY_AG_KEY.get(getattr(model_cls, "ag_key", None), {}))
+
+
 def strip_ag_args(hyperparameters: dict | None) -> dict:
     """A copy of ``hyperparameters`` without ``ag_args``, ``ag_args_fit`` and ``ag_args_ensemble``.
 
@@ -606,7 +764,8 @@ def warmup_dummy_fit(
     ``n_categorical=1``, ``seed=0``; a class may override ``n_rows``, ``n_features``,
     ``n_categorical`` and ``time_limit`` through ``warmup_dummy_fit_kwargs`` and merge cheapness knobs
     (``n_estimators=1``, ``fine_tune_steps=1``) over the config through
-    ``cheap_hyperparameters``; checkpoint-relevant keys must not be overridden there. The
+    ``cheap_hyperparameters`` (AutoGluon's gradient-boosted trees get a 10-round cap from
+    :data:`CHEAP_HYPERPARAMETERS_BY_AG_KEY`); checkpoint-relevant keys must not be overridden there. The
     model is built in a temporary directory, fitted with ``num_cpus`` (default 1), the resolved GPU
     count and the time limit, asked for ``predict_proba`` (classification) or ``predict``
     (regression) on the prediction frame, then deleted; the directory is removed, ``gc.collect()``
@@ -621,6 +780,10 @@ def warmup_dummy_fit(
         The record appended to ``report.dummy_fits``: ``model_cls``, ``ran``, ``duration_s``,
         ``n_rows``, ``problem_type``, ``num_gpus``, ``skipped_reason``, ``error``,
         ``torch_globals_changed``.
+
+    A dummy fit that completed in this process for the same class, problem type, device kind and
+    configuration is not repeated: the record carries ``skipped_reason`` :data:`ALREADY_WARM_REASON`
+    (``TABARENA_WARMUP_ALWAYS=1`` restores the unconditional fit; see :func:`already_warm`).
     """
     record: dict[str, Any] = {
         "model_cls": model_cls.__name__,
@@ -653,6 +816,8 @@ def warmup_dummy_fit(
     needs_gpu = (getattr(model_cls, "minimum_num_gpus", 0) or 0) > 0
     if resolved_gpus == 0 and needs_gpu and (getattr(model_cls, "gpu_required", False) or _cuda_available()):
         return skip("model needs a GPU and none is allocated")
+    if already_warm(model_cls, problem_type=problem_type, num_gpus=num_gpus, hyperparameters=hyperparameters):
+        return skip(ALREADY_WARM_REASON)
 
     fit_kwargs = dict((getattr(model_cls, "warmup_dummy_fit_kwargs", None) or {}).items())
     unknown = set(fit_kwargs) - DUMMY_FIT_KWARGS_KEYS
@@ -692,7 +857,7 @@ def warmup_dummy_fit(
                 seed=0,
             )
             hps = strip_ag_args(hyperparameters)
-            hps.update(getattr(model_cls, "cheap_hyperparameters", None) or {})
+            hps.update(cheap_hyperparameters(model_cls))
             model = model_cls(
                 path=tmp_dir,
                 name=f"warmup_{model_cls.__name__}",
@@ -707,6 +872,7 @@ def warmup_dummy_fit(
                 model.predict_proba(X_predict)
         record["ran"] = True
         report.step(name)
+        _WARMED.add(warm_key(model_cls, problem_type=problem_type, num_gpus=num_gpus, hyperparameters=hyperparameters))
     except Exception as exc:
         record["error"] = f"{type(exc).__name__}: {exc}"
         logger.warning("Warm-up dummy fit of %s failed: %r", model_cls.__name__, exc)
@@ -889,7 +1055,9 @@ def run_warmup_fn(fn: Callable[[], WarmupReport | None], *, label: str) -> Warmu
     (non-stdlib top-level packages that appeared in ``sys.modules``), ``cuda_initialized``,
     ``torch_globals_after`` and ``label``. ``status`` is ``"failed"`` when ``fn`` raised (the
     header line naming ``label`` and the traceback are printed, ``duration_s`` stays ``None``),
-    ``"partial"`` when it returned with at least one failed step, ``"ok"`` otherwise.
+    ``"partial"`` when it returned with at least one failed step, ``"ok"`` otherwise. After a warm-up
+    that returned, the first call in the process freezes the warmed heap (:func:`freeze_warm_heap`,
+    recorded as ``heap_frozen``); the freeze runs after ``duration_s`` is taken.
     """
     before: EnvironmentSnapshot | None = take_snapshot()
     start = time.perf_counter()
@@ -903,6 +1071,7 @@ def run_warmup_fn(fn: Callable[[], WarmupReport | None], *, label: str) -> Warmu
         report = result if isinstance(result, WarmupReport) else WarmupReport()
         report.duration_s = time.perf_counter() - start
         report.status = "partial" if report.failed_steps else "ok"
+        report.heap_frozen = freeze_warm_heap()
     report.label = label
     if before is not None:
         with contextlib.suppress(Exception):

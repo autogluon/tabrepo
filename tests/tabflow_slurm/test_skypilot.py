@@ -120,6 +120,11 @@ class TestConfiguration:
         with pytest.raises(ValueError, match="workers"):
             _setup(local_storage, workers=0)
 
+    def test_pool_name_must_fit_the_gcp_cluster_name(self, local_storage):
+        _setup(local_storage, use_pool=True, pool_name="x" * sky_mod.MAX_POOL_NAME_LENGTH)
+        with pytest.raises(ValueError, match="pool_name"):
+            _setup(local_storage, use_pool=True, pool_name="x" * (sky_mod.MAX_POOL_NAME_LENGTH + 1))
+
     def test_layout_and_prefix_default_to_the_login_user(self, local_storage, monkeypatch):
         monkeypatch.setattr(sky_mod.getpass, "getuser", lambda: "me")
         setup = SkyPilotSetup(storage=local_storage, bucket="gs://b/")
@@ -295,11 +300,69 @@ class TestGetRunCommands:
             "datasets": {"anneal": ["openml/org/openml/www/tasks/363612", "openml/org/openml/www/datasets/46904"]},
             "weights": {"TabPFN-3": ["huggingface/hub/models--x/snapshots"]},
             "offline_weights": True,
+            "weights_cache_uri": "gs://b/tabarena/cache",
         }
         assert (
             local_storage.read_text("gs://b/tabarena/cache/openml/org/openml/www/datasets/46904/dataset_46904.pq")
             == "pq"
         )
+
+    def test_weights_seed_into_their_own_prefix(self, local_storage, tmp_path, batch_dir, monkeypatch):
+        """`weights_cache_uri` keeps the weights apart from a private dataset prefix."""
+        from tabflow_slurm.setup.sky_cache import CacheSeedReport
+
+        monkeypatch.setattr(sky_mod, "stage_environment", lambda **_: _env())
+        seeded_into: list = []
+
+        def _seed_weights(model_names, *, cache_uri, **_):
+            seeded_into.append(cache_uri)
+            return {"weights": {m: [] for m in model_names}, "offline_weights": False}, CacheSeedReport(
+                cache_uri=cache_uri
+            )
+
+        monkeypatch.setattr(sky_mod, "seed_model_weights", _seed_weights)
+        ps = self._ps(tmp_path)
+        ps.ensure_runtime_dirs("bench")
+        setup = _setup(
+            local_storage,
+            sky_binary="sky",
+            dataset_cache_uri="gs://b/me/private/cache",
+            weights_cache_uri="gs://b/tabarena/cache/",
+        )
+        setup.get_run_commands(
+            jobs_dict=_jobs_dict(batch_dir, n_bundles=1),
+            path_setup=ps,
+            benchmark_name="bench",
+            parallel_safe_benchmark_name="bench_cpu",
+            resources_setup=_resources(),
+            print_summary=False,
+        )
+        launch = json.loads((ps.get_setup_out_path("bench") / "sky" / "bench_cpu" / "launch.json").read_text())
+        assert seeded_into == ["gs://b/tabarena/cache"]
+        assert launch["dataset_cache_uri"] == "gs://b/me/private/cache"
+        assert launch["weights_cache_uri"] == "gs://b/tabarena/cache"
+        manifest = json.loads(local_storage.read_text(f"{launch['queue_uri']}/cache_manifest.json"))
+        assert manifest["cache_uri"] == "gs://b/me/private/cache"
+        assert manifest["weights_cache_uri"] == "gs://b/tabarena/cache"
+        assert local_storage.read_text("gs://b/me/private/cache/openml/org/openml/www/datasets/46904/dataset_46904.pq")
+
+    def test_systems_keep_the_workers_online(self, local_storage, tmp_path, batch_dir, staged_env):
+        """A system run seeds no weights, yet its fits download checkpoints, so the workers must not go offline."""
+        ps = self._ps(tmp_path)
+        ps.ensure_runtime_dirs("bench")
+        jobs = {**_jobs_dict(batch_dir, n_bundles=1), "model_names": [], "system_experiments": True}
+        _setup(local_storage, sky_binary="sky").get_run_commands(
+            jobs_dict=jobs,
+            path_setup=ps,
+            benchmark_name="bench",
+            parallel_safe_benchmark_name="bench_gpu",
+            resources_setup=_resources(),
+            print_summary=False,
+        )
+        launch = json.loads((ps.get_setup_out_path("bench") / "sky" / "bench_gpu" / "launch.json").read_text())
+        manifest = json.loads(local_storage.read_text(f"{launch['queue_uri']}/cache_manifest.json"))
+        assert manifest["weights"] == {}
+        assert manifest["offline_weights"] is False
 
     def test_setup_warns_while_a_previous_launch_is_still_draining(
         self, local_storage, tmp_path, batch_dir, staged_env, capsys

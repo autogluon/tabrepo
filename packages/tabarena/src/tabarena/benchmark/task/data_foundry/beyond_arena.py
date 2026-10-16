@@ -80,7 +80,10 @@ def load_reference_metadata(
     Resolution order (unless ``force_regenerate``):
 
     1. The git-committed CSV (package data) — no dataset downloads.
-    2. A previously regenerated CSV in the OpenML metadata cache.
+    2. A previously regenerated CSV in the OpenML metadata cache. When the collection object is
+       at hand (passed in, or built because no name was given), a CSV whose ``data_foundry_uri``
+       set differs from the collection's entries is stale (e.g. a local collection whose
+       containers were rebuilt under new UUIDs) and is regenerated.
     3. Regenerate by downloading + converting the whole collection, caching the
        result for next time.
 
@@ -124,9 +127,14 @@ def load_reference_metadata(
 
         cached = _generated_metadata_cache_path(collection_name)
         if cached.exists():
-            if verbose:
-                print(f"Loading regenerated {collection_name} reference metadata from {cached}.")
-            return pd.read_csv(cached)
+            cached_df = pd.read_csv(cached)
+            # The cache is keyed by name only. With the collection at hand (a local warehouse whose containers were
+            # rebuilt pins new UUIDs under the same name), a CSV that describes other containers is regenerated.
+            if collection is None or _describes_collection(cached_df, collection):
+                if verbose:
+                    print(f"Loading regenerated {collection_name} reference metadata from {cached}.")
+                return cached_df
+            print(f"The cached {collection_name} reference metadata at {cached} lists other containers; regenerating.")
 
     out_path = generate_reference_metadata(
         collection=_resolve_collection(),
@@ -135,6 +143,14 @@ def load_reference_metadata(
         force_download=force_regenerate,
     )
     return pd.read_csv(out_path)
+
+
+def _describes_collection(metadata_df: pd.DataFrame, collection: DatasetCollection) -> bool:
+    """Whether a reference-metadata frame lists exactly ``collection``'s containers (by ``data_foundry_uri``)."""
+    if "data_foundry_uri" not in metadata_df.columns:
+        return False
+    listed = set(metadata_df["data_foundry_uri"].dropna().astype(str))
+    return listed == {entry.relative_path.as_posix() for entry in collection.entries}
 
 
 def generate_reference_metadata(
@@ -187,6 +203,7 @@ def materialize_task(
     cache_dir: str | None = None,
     force_download: bool = False,
     verbose: bool = False,
+    has_text: bool | None = None,
 ) -> str:
     """Ensure one task's local OpenML pickle exists; return its local ``task_id_str``.
 
@@ -208,6 +225,10 @@ def materialize_task(
         cache_dir: Optional data_foundry cache override.
         force_download: Re-fetch + reconvert even if the pickle already exists.
         verbose: Forwarded to the text-cache import for per-task ``debug`` logging.
+        has_text: Whether the dataset has text columns. ``False`` skips the text-cache import of an
+            already-local pickle, which would otherwise fetch the container just to find no cache in
+            it (a node without the container and without network cannot). ``None`` (unknown) and
+            ``True`` import as before.
 
     Returns:
         The ``task_id_str`` whose resolved pickle path now exists on disk.
@@ -223,16 +244,18 @@ def materialize_task(
     task = UserTask.from_task_id_str(task_id_str)
     if (not force_download) and task.openml_task_path.exists():
         # Dataset already local (no re-download). Still ensure its text cache was imported from the
-        # (already-downloaded) container — handles tasks materialized before text-cache import.
-        from tabarena.benchmark.task.data_foundry.text_cache import ensure_text_cache_for_task
+        # (already-downloaded) container — handles tasks materialized before text-cache import. A
+        # dataset without text columns has no cache to import, so its container is not touched.
+        if has_text is not False:
+            from tabarena.benchmark.task.data_foundry.text_cache import ensure_text_cache_for_task
 
-        ensure_text_cache_for_task(
-            collection=collection,
-            data_foundry_uri=data_foundry_uri,
-            task_key=task.slug,
-            cache_dir=cache_dir,
-            verbose=verbose,
-        )
+            ensure_text_cache_for_task(
+                collection=collection,
+                data_foundry_uri=data_foundry_uri,
+                task_key=task.slug,
+                cache_dir=cache_dir,
+                verbose=verbose,
+            )
         return task.task_id_str
 
     if evaluation_metrics is None:

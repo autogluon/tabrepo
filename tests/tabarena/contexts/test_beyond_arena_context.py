@@ -45,8 +45,16 @@ class TestPresets:
     def test_beyond_presets_resolve_offline(self):
         ctx = BeyondArenaContext()
         method_names = {m.method for m in ctx.method_metadata_collection.method_metadata_lst}
-        assert {"LinearModel", "RandomForest", "CatBoost", "TA-TabM", "TA-TabPFN-2.6"} <= method_names
-        assert all(m.suite == "beyond_iid_benchmark_2026" for m in ctx.method_metadata_collection.method_metadata_lst)
+        assert {"LinearModel", "RandomForest", "CatBoost", "TA-TabM", "TA-TabPFN-2.6", "TA-TabPFN-3.5"} <= method_names
+        # The hosted baselines share one suite; the 2026-09-22 foundation-model run, the 2026-09-24 Linear rerun and
+        # the 2026-10-06 Kumo Tabular run are their own.
+        suites = {m.suite for m in ctx.method_metadata_collection.method_metadata_lst}
+        assert suites == {
+            "beyond_iid_benchmark_2026",
+            "beyondarena-2026-09-22",
+            "beyondarena-2026-09-24",
+            "beyondarena-2026-10-06",
+        }
         assert len(ctx.task_metadata_collection) > 0
 
     def test_only_beyondarena_preset_supported(self):
@@ -137,3 +145,25 @@ class TestSubsetPredicates:
         core_and_tiny = core & preds["tiny"].evaluate(grid, name="tiny")
         assert core_and_tiny.sum() <= core.sum()
         assert (core_and_tiny & ~core).sum() == 0
+
+    def test_core2k_keeps_the_committed_first_splits_of_every_dataset(self, ctx):
+        # "core2k" == the committed (dataset, split) tasks: each dataset's first splits of the 2,000-split
+        # cost-weighted allocation.
+        import pandas as pd
+
+        from tabarena.contexts.beyondarena.context import CORE2K_TASKS_CSV
+
+        grid = ctx.task_metadata_collection.task_grid()
+        mask = ctx.subset_predicates["core2k"].evaluate(grid, name="core2k")
+        committed = pd.read_csv(CORE2K_TASKS_CSV)
+        valid = set(zip(committed["dataset"].astype(str), committed["split"].astype(int), strict=False))
+        in_grid = set(zip(grid["dataset"].astype(str), grid["split"].astype(int), strict=False))
+        kept = grid.loc[mask]
+
+        assert len(valid) == 2000
+        assert set(zip(kept["dataset"].astype(str), kept["split"].astype(int), strict=False)) == (valid & in_grid)
+        assert kept["dataset"].nunique() == grid["dataset"].nunique()
+        for dataset, dataset_grid in grid.groupby("dataset"):
+            all_splits = sorted(int(s) for s in dataset_grid["split"].unique())
+            kept_splits = sorted(int(s) for s in kept.loc[kept["dataset"] == dataset, "split"])
+            assert kept_splits == all_splits[: len(kept_splits)], dataset

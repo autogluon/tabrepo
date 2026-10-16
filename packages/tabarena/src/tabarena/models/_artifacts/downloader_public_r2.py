@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import tempfile
+import time
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote, urljoin
@@ -76,6 +78,21 @@ class MethodDownloaderPublicR2(MethodDownloader):
             except requests.RequestException:
                 return False
 
+    def remote_etag(self, key: str, attempts: int = 3) -> str | None:
+        """ETag from a HEAD request, retried with a short connect timeout on connection errors."""
+        for attempt in range(attempts):
+            try:
+                response = self.session.head(self.key_to_url(key), allow_redirects=True, timeout=(5, self.timeout))
+                break
+            except requests.RequestException:
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(2**attempt)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        return response.headers["ETag"].removeprefix("W/").strip('"')
+
     def _download_to_local_if_exists(self, key: str, path_local: Path):
         """Attempts to download a single file to `path_local`. Skips quietly if not found."""
         url = self.key_to_url(key)
@@ -87,12 +104,20 @@ class MethodDownloaderPublicR2(MethodDownloader):
         path_local.parent.mkdir(parents=True, exist_ok=True)
         self._log(f"[INFO] Downloading {url} -> {path_local}")
 
-        with self.session.get(url, stream=True, timeout=self.timeout) as response:
-            response.raise_for_status()
-            with path_local.open("wb") as f:
-                for chunk in response.iter_content(chunk_size=self.chunk_size):
-                    if chunk:
-                        f.write(chunk)
+        # Stream into a sibling temp file and move it into place once complete. Loaders treat an
+        # existing file as cached, so a parallel reader (e.g. a Ray worker loading the same
+        # trajectories) must never find a partial one.
+        tmp_path = path_local.with_name(f".{path_local.name}.{uuid.uuid4().hex}.part")
+        try:
+            with self.session.get(url, stream=True, timeout=self.timeout) as response:
+                response.raise_for_status()
+                with tmp_path.open("wb") as f:
+                    for chunk in response.iter_content(chunk_size=self.chunk_size):
+                        if chunk:
+                            f.write(chunk)
+            tmp_path.replace(path_local)
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
     def _download_and_unzip_if_exists(self, key: str, dest_dir: Path, clear_dir: bool = True):
         """Downloads a zip from public R2 to a temporary file and extracts it into `dest_dir`.

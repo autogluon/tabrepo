@@ -79,3 +79,46 @@ def test_a_trajectories_only_run_does_not_trip_over_the_default(monkeypatch):
     )
 
     assert captured["collect_composite"] is False
+
+
+def test_the_composite_pareto_explorer_holds_every_subset_with_points(tmp_path):
+    """One page over the subsets' `pareto_front_points.csv`, in the subsets' order; a subset without points is left out."""
+    import json
+    import re
+    from types import SimpleNamespace
+
+    import pandas as pd
+
+    for suffix, elo in (("all", 1500.0), ("tiny", 1400.0)):
+        (tmp_path / suffix).mkdir()
+        pd.DataFrame(
+            {
+                "method": ["A", "B"],
+                "variant": ["Default", "Default"],
+                "family": ["Tree-based", "Foundation Model"],
+                "shade": [None, None],
+                "x_infer": [0.1, 1.0],
+                "x_train": [1.0, 5.0],
+                "imp": [10.0, 5.0],
+                "elo": [elo, elo + 100],
+                "imputed": [False, False],
+                "imputed_pct": [0.0, 0.0],
+            }
+        ).to_csv(tmp_path / suffix / "pareto_front_points.csv", index=False)
+    (tmp_path / "large").mkdir()  # its compare pass wrote no points
+
+    page = AbstractArenaContext._save_composite_pareto_explorer(
+        SimpleNamespace(benchmark_name="Arena"), tmp_path, ["all", "large", "tiny"]
+    )
+
+    assert page == tmp_path / "pareto_front_explorer.html"
+    html = page.read_text(encoding="utf-8")
+    config = json.loads(re.search(r"const CONFIG = (\{.*?\});\n", html).group(1))
+    assert [s["key"] for s in config["subsets"]] == ["all", "tiny"]
+    assert '"subset":"tiny"' in html and 'id="subset-select"' in html
+    assert "<title>Arena Pareto explorer</title>" in html
+
+
+def test_the_composite_pareto_explorer_is_written_by_default():
+    default = inspect.signature(AbstractArenaContext.generate_all_figs).parameters["save_composite_pareto_explorer"]
+    assert default.default is None

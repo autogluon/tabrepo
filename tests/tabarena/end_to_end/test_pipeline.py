@@ -288,6 +288,25 @@ class TestFromRawMatchesFromPathRaw:
             _sorted(from_path.method_results_lst[0].model_results),
         )
 
+    def test_each_task_group_gets_only_its_own_task_metadata(self, tmp_path, monkeypatch):
+        """A per-task worker builds its repo from its own task's metadata, not from the whole collection."""
+        from tabarena.end_to_end import _pipeline
+
+        seen: list[list[str]] = []
+        process = _pipeline.process_results_in_memory
+
+        def _spy(results_lst, *, task_metadata, **kwargs):
+            seen.append(task_metadata.dataset_names())
+            return process(results_lst, task_metadata=task_metadata, **kwargs)
+
+        monkeypatch.setattr(_pipeline, "process_results_in_memory", _spy)
+        path_raw = tmp_path / "raw_in"
+        _write_raw(_config_results(), path_raw)
+        EndToEnd.from_path_raw(
+            path_raw=path_raw, task_metadata=_task_metadata(), cache=False, backend="native", verbose=False
+        )
+        assert sorted(seen) == [[task["dataset"]] for task in _TASKS]
+
     def test_from_raw_keeps_repo_in_memory(self):
         results = EndToEnd.from_raw(
             results_lst=_config_results(),

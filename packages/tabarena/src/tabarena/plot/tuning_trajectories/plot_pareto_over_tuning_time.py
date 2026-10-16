@@ -22,10 +22,10 @@ from tabarena.evaluation.subset_grid import (
 )
 from tabarena.nips2025_utils.compare import subset_tasks
 from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
-from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, MUTED_COLOR
+from tabarena.plot.plot_pareto_focus import MUTED_COLOR, color_of, legend_swatches
 from tabarena.plot.plot_pareto_frontier import get_pareto_frontier, plot_optimal_arrow
 from tabarena.utils.parallel_for import parallel_for
-from tabarena.website.website_format import get_model_family, system_display_names
+from tabarena.website.website_format import get_model_family, system_display_names, system_shades
 
 
 def _clip_title(title: str, max_chars: int) -> str:
@@ -116,7 +116,8 @@ def plot_hpo(
         axes (the ``dataset_metadata`` legend is not rendered in this mode).
     family_map : dict[str, str] | None, default=None
         Method display name -> model family (a key of
-        :data:`tabarena.plot.plot_pareto_focus.FAMILY_COLORS`); used by
+        :data:`tabarena.plot.plot_pareto_focus.FAMILY_COLORS`) or, for a shaded
+        system, its shade (a key of ``SYSTEM_SHADE_COLORS``); used by
         ``focus_mode`` to pick colors. Unmapped methods fall back to "Other".
     focus_methods : list[str] | None, default=None
         Methods to emphasize in ``focus_mode`` in addition to the
@@ -210,14 +211,7 @@ def plot_hpo(
         front_method_set = {n for n in front_names if n is not None}
         emphasized_methods = front_method_set | {m for m in focus_methods if m in method_names}
         family_map = family_map or {}
-        color_map = {
-            m: (
-                FAMILY_COLORS.get(family_map.get(m, "Other"), FAMILY_COLORS["Other"])
-                if m in emphasized_methods
-                else MUTED_COLOR
-            )
-            for m in method_names
-        }
+        color_map = {m: color_of(family_map.get(m)) if m in emphasized_methods else MUTED_COLOR for m in method_names}
         if method_color_overrides:
             color_map.update(method_color_overrides)
         # Focused-but-not-front methods still get a printed name (front members
@@ -555,8 +549,10 @@ def plot_hpo(
             for m in sorted_methods
             if emphasized_methods is None or m in emphasized_methods
         }
-        families_present = [f for f in FAMILY_COLORS if f in emphasized_families]
-        focus_handles = [Patch(facecolor=FAMILY_COLORS[f], edgecolor="none", label=f) for f in families_present]
+        focus_handles = [
+            Patch(facecolor=color, edgecolor="none", label=label)
+            for color, label in legend_swatches(emphasized_families)
+        ]
         if emphasized_methods is not None and len(emphasized_methods) < len(method_names):
             focus_handles.append(Patch(facecolor=MUTED_COLOR, edgecolor="none", label="Other methods"))
         legend1 = ax.legend(
@@ -1008,6 +1004,8 @@ def plot_tuning_trajectories_all(
 
     if engine == "auto":
         engine = tabarena_context.engine if tabarena_context is not None else "sequential"
+    if tabarena_context is not None:
+        _prefetch_hpo_trajectories(tabarena_context.method_metadata_collection.method_metadata_lst, methods_to_display)
 
     all_combinations = get_all_subset_combinations()
 
@@ -1077,6 +1075,20 @@ def plot_tuning_trajectories_all(
         progress_bar=progress_bar,
         desc="Generating tuning trajectories per subset",
     )
+
+
+def _prefetch_hpo_trajectories(method_metadata_lst: list, methods_to_display: list[str] | None = None) -> None:
+    """Download the hosted HPO trajectories missing from the cache, one method at a time.
+
+    Every per-subset job loads the trajectories of every method in its pool, so without this each
+    parallel worker would download the same missing files at once.
+    """
+    for m in method_metadata_lst:
+        if methods_to_display is not None and m.method not in methods_to_display:
+            continue
+        has_trajectories = m.method_type == "config" or m.has_hpo_trajectories
+        if has_trajectories and m.has_remote_cache and not m.path_results_hpo_trajectories().exists():
+            m.method_downloader().download_results_hpo_trajectories()
 
 
 def _build_dataset_metadata_map(
@@ -1619,6 +1631,7 @@ def _plot_tuning_trajectories_from_prepared(
             use_elo_method_order=use_elo_method_order,
             benchmark_name=getattr(tabarena_context, "benchmark_name", "Arena"),
             system_names=system_display_names(tabarena_context.method_metadata_collection.info()),
+            system_shades=system_shades(tabarena_context.method_metadata_collection.info()),
             focus_mode=focus_mode,
             website_only=website_only,
         )
@@ -1743,8 +1756,10 @@ def plot_tuning_trajectories_from_leaderboard(
     focus_mode: bool = False,
     website_only: bool = False,
     system_names: frozenset[str] = frozenset(),
+    system_shades: dict[str, str] | None = None,
 ):
     fig_save_dir = Path(fig_save_dir)
+    system_shades = system_shades or {}
     if plot_kwargs is None:
         plot_kwargs = {}
     plot_kwargs = plot_kwargs.copy()
@@ -1761,7 +1776,10 @@ def plot_tuning_trajectories_from_leaderboard(
         plot_kwargs["focus_mode"] = True
         plot_kwargs.setdefault(
             "family_map",
-            {m: get_model_family(m, system_names=system_names) for m in leaderboard[method_col].unique()},
+            {
+                m: system_shades.get(m) or get_model_family(m, system_names=system_names)
+                for m in leaderboard[method_col].unique()
+            },
         )
 
     # Interactive explorer + underlying data export, mirroring the
@@ -1772,6 +1790,7 @@ def plot_tuning_trajectories_from_leaderboard(
         {
             "method": leaderboard[method_col],
             "family": [get_model_family(m, system_names=system_names) for m in leaderboard[method_col]],
+            "shade": leaderboard[method_col].map(system_shades),
             "x_train": leaderboard["Train time per 1K samples (s) (median)"],
             "x_infer": leaderboard["Inference time per 1K samples (s) (median)"],
             "imp": leaderboard["Improvability (%)"],
@@ -1798,7 +1817,7 @@ def plot_tuning_trajectories_from_leaderboard(
             # Mirrored against the Pareto scatter explorer (chips left there).
             chips_side="right",
             save_path=fig_save_dir / "tuning_trajectories_explorer.html",
-            page_title="TabArena tuning trajectories",
+            page_title=f"{benchmark_name} tuning trajectories",
         )
         explorer_points.to_csv(fig_save_dir / "tuning_trajectories.csv", index=False)
 

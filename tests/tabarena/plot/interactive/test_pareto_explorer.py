@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
-from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, marker_edge_color
+from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, SYSTEM_SHADE_COLORS, marker_edge_color
 
 
 def _scatter_points() -> pd.DataFrame:
@@ -42,7 +42,45 @@ def test_build_scatter_explorer(tmp_path):
     # Marker edges: the family color darkened for the light surface, as in the static figures.
     edge = marker_edge_color(FAMILY_COLORS["Foundation Model"])
     assert f"--fam-foundation-edge: {edge};" in html
-    assert "const edge = on ? FAM_EDGE[p.family] : null;" in html
+    assert "const edge = on ? famEdge(p) : null;" in html
+    # The system shades get the same color and edge pair.
+    assert f"--fam-system-api: {SYSTEM_SHADE_COLORS['closed-source-api']};" in html
+
+
+def test_time_axes_are_offered_on_a_grouped_selector(tmp_path):
+    from tabarena.plot.interactive.pareto_explorer import X_AXIS_KEYS
+
+    points = _scatter_points()
+    for key in X_AXIS_KEYS:
+        points[key] = [1.0, 2.0, 3.0]
+    html = build_pareto_explorer_html(points=points, save_path=tmp_path / "explorer.html").read_text(encoding="utf-8")
+    # every axis rides along, in the selector's order, the first shown at load
+    positions = [html.index(f'"key": "{key}"') for key in X_AXIS_KEYS]
+    assert positions == sorted(positions) and len(X_AXIS_KEYS) == 12
+    assert '"group": "Median, per 1K samples"' in html and '"group": "Mean, per task"' in html
+    assert '"axisLabel": "Total (train + inference) time per task (s), mean over datasets' in html
+    assert 'id="xaxis-select"' in html and "function setXAxis(key)" in html
+    assert "tabarena-explorer-xaxis" in html
+
+
+def test_subsets_put_a_subset_selector_on_the_page(tmp_path):
+    points = pd.concat([_scatter_points().assign(subset="all"), _scatter_points().assign(subset="tiny")])
+    html = build_pareto_explorer_html(
+        points=points, subsets=[("all", "All tasks"), ("tiny", "Tiny")], save_path=tmp_path / "explorer.html"
+    ).read_text(encoding="utf-8")
+    assert '"subsets": [{"key": "all", "label": "All tasks"}, {"key": "tiny", "label": "Tiny"}]' in html
+    assert html.count('"subset":"tiny"') == 3 and "function setSubset(key)" in html
+    with pytest.raises(ValueError, match="subsets the `subsets` list lacks"):
+        build_pareto_explorer_html(points=points, subsets=[("all", "All")], save_path=tmp_path / "bad.html")
+    with pytest.raises(ValueError, match="missing required column 'subset'"):
+        build_pareto_explorer_html(points=_scatter_points(), subsets=[("all", "All")], save_path=tmp_path / "bad.html")
+
+
+def test_a_page_without_subsets_has_no_subset_selector_config(tmp_path):
+    html = build_pareto_explorer_html(points=_scatter_points(), save_path=tmp_path / "explorer.html").read_text(
+        encoding="utf-8"
+    )
+    assert '"subsets": null' in html
 
 
 def test_x_keys_selects_and_orders_axes(tmp_path):
@@ -140,7 +178,7 @@ def test_end_to_end_marker_joins_the_legend_when_a_system_is_plotted(tmp_path):
     out = tmp_path / "explorer.html"
     build_pareto_explorer_html(points, save_path=out)
     html = out.read_text()
-    assert 'if (POINTS.some(p => p.variant === "End-to-end"))' in html
+    assert 'if (SHOWN.some(p => p.variant === "End-to-end"))' in html  # the shown subset's points
     assert "End-to-end</span>" in html
 
 

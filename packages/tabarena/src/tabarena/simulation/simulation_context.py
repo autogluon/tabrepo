@@ -414,7 +414,7 @@ class ZeroshotSimulatorContext:
             dataset_uniques=dataset_uniques,
         )
 
-        cls._minimize_df_metadata(df_metadata=df_metadata, unique_datasets=unique_datasets)
+        df_metadata = cls._minimize_df_metadata(df_metadata=df_metadata, unique_datasets=unique_datasets)
 
         cls._verify_configs_hyperparameters(configs_hyperparameters=configs_hyperparameters)
         configs_hyperparameters = copy.deepcopy(configs_hyperparameters)

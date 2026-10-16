@@ -229,7 +229,7 @@ class XRFMModel(AbstractModel):
             "root_mean_squared_error": "mse",
             "r2": "mse",
             "mae": "mae",
-            "mean_average_error": "mae",
+            "mean_absolute_error": "mae",
         }
 
         tuning_metric = metric_map.get(self.stopping_metric.name)

@@ -11,9 +11,12 @@ explorers (see :mod:`tabarena.plot.interactive._explorer_shared`).
 The rendered page has zero external dependencies (no plotting library, fonts,
 or CDN assets), renders in light and dark mode via ``prefers-color-scheme``,
 and offers: per-method highlight chips grouped by model family, family-level
-toggle buttons, a metric selector (e.g. Improvability vs Elo) that re-anchors
-the Pareto front, hover tooltips with exact values, dashed-ring marking of
-partially imputed methods, and a collapsible data table.
+toggle buttons, a metric selector (e.g. Improvability vs Elo) and a time-axis
+selector (e.g. train, inference or total time; per 1K samples or per task;
+median or mean) that re-anchor the Pareto front, a subset selector when the
+page holds several task subsets (each point names its ``subset``), hover
+tooltips with exact values, dashed-ring marking of partially imputed methods,
+and a collapsible data table.
 """
 
 from __future__ import annotations
@@ -26,6 +29,9 @@ EXPLORER_TEMPLATE = r"""<!doctype html>
 <title>__PAGE_TITLE__</title>
 <style>
 __BASE_CSS__
+  /* the selectors' labels stay on one line beside long option texts */
+  .metricpick { white-space: nowrap; }
+  .metricpick select { max-width: 100%; }
 
   /* Two-column layout: controls + chips in a side panel, chart beside it.
      ``chips-right`` mirrors the columns. Wraps to stacked when narrow. */
@@ -60,8 +66,14 @@ __BASE_CSS__
   <div class="explorer-grid" id="grid">
     <div class="sidebox">
       <div class="controls">
+        <label class="metricpick" id="subsetpick" hidden>Subset
+          <select id="subset-select"></select>
+        </label>
         <label class="metricpick" id="metricpick" hidden>Y-axis
           <select id="metric-select"></select>
+        </label>
+        <label class="metricpick" id="xaxispick" hidden>X-axis
+          <select id="xaxis-select"></select>
         </label>
         <div class="btnrow">
           <button class="btn" id="btn-front">Pareto front</button>
@@ -102,8 +114,18 @@ __BASE_JS__
 
   const TRAJECTORY = CONFIG.mode === "trajectory";
 
+  // Task subsets the page holds (each point names its `subset`); one is shown at a time, the first at load.
+  const SUBSETS = CONFIG.subsets || null;
+  let subsetKey = SUBSETS ? SUBSETS[0].key : null;
+
   const titleEl = document.getElementById("title");
-  if (CONFIG.title) titleEl.textContent = CONFIG.title; else titleEl.hidden = true;
+  function showTitle() {
+    const subset = SUBSETS ? SUBSETS.find(s => s.key === subsetKey).label : null;
+    const text = [CONFIG.title, subset].filter(Boolean).join(" · ");
+    titleEl.textContent = text;
+    titleEl.hidden = !text;
+  }
+  showTitle();
 
   // Column order: chips/controls left of the chart, or mirrored.
   document.getElementById("grid").classList.add(CONFIG.chipsSide === "right" ? "chips-right" : "chips-left");
@@ -191,8 +213,10 @@ __BASE_JS__
   // `POINTS` is everything the cell published; `SHOWN` is what the host lets the page keep
   // (see `onExcludeMessage`). Every computation below reads `SHOWN`, so an excluded method is
   // absent from the front, the axes and the chips alike.
+  // With subsets, `SHOWN` also keeps only the current subset's points.
   const ALL_POINTS = POINTS.slice();
   let SHOWN = ALL_POINTS;
+  let excludedMethods = new Set();
   const byMethod = new Map();
   function indexPoints() {
     byMethod.clear();
@@ -201,17 +225,24 @@ __BASE_JS__
       byMethod.get(p.method).push(p); // insertion order = builder's point order
     }
   }
-  indexPoints();
+  function refilter() {
+    SHOWN = ALL_POINTS.filter(p => (subsetKey === null || p.subset === subsetKey) && !excludedMethods.has(p.method));
+    indexPoints();
+  }
+  refilter();
 
   const METRICS = CONFIG.metrics;
   let metricKey = METRICS[0].key;
   const metricByKey = {};
   for (const m of METRICS) metricByKey[m.key] = m;
 
-  // Single time axis per explorer (the scatter ships inference time, the
-  // trajectories train time).
-  const X_AXIS = CONFIG.xAxes[0];
-  const xKey = X_AXIS.key;
+  // Time axes offered by the x-axis selector (a single one hides it); the first is shown at
+  // load. `xKey` is the current axis, `xAxis()` its spec.
+  const X_AXES = CONFIG.xAxes;
+  let xKey = X_AXES[0].key;
+  const xAxisByKey = {};
+  for (const a of X_AXES) xAxisByKey[a.key] = a;
+  function xAxis() { return xAxisByKey[xKey]; }
 
   function mval(p, metric) { return p[metric.key]; }
 
@@ -299,7 +330,7 @@ __BASE_JS__
     el("text", {
       x: (M.l + W - M.r) / 2, y: H - 10, "text-anchor": "middle", "font-size": 14,
       "font-weight": 650, fill: "var(--ink)",
-    }, grid).textContent = X_AXIS.axisLabel;
+    }, grid).textContent = xAxis().axisLabel;
     el("text", {
       x: 0, y: 0, "text-anchor": "middle", "font-size": 14, "font-weight": 650, fill: "var(--ink)",
       transform: `translate(16 ${(M.t + H - M.b) / 2}) rotate(-90)`,
@@ -328,7 +359,7 @@ __BASE_JS__
       const dd = pts.map((p, i) => `${i ? "L" : "M"}${X(p[xKey])},${Y(mval(p, metric))}`).join(" ");
       el("path", {
         d: dd, fill: "none",
-        stroke: on ? FAM_VAR[pts[0].family] : "var(--pt-muted)",
+        stroke: on ? famColor(pts[0]) : "var(--pt-muted)",
         "stroke-width": on ? (TRAJECTORY ? 2 : 1.4) : 1,
         opacity: on ? 0.6 : 0.35,
         "data-m": method,
@@ -341,11 +372,11 @@ __BASE_JS__
     for (const [method, pts] of byMethod) {
       const on = isOn(method);
       for (const p of pts) {
-        const color = on ? FAM_VAR[p.family] : "var(--pt-muted)";
+        const color = on ? famColor(p) : "var(--pt-muted)";
         // An active marker's edge is a darker shade of its face on the light surface and
         // the card color on the dark one (the --fam-*-edge tokens). Muted markers stay
         // plain grey, easy to ignore.
-        const edge = on ? FAM_EDGE[p.family] : null;
+        const edge = on ? famEdge(p) : null;
         // With `dimOffFront`, an active point that is not a vertex of the front is drawn
         // smaller and fainter, so the front members carry the eye.
         const dim = CONFIG.dimOffFront && on && !front.points.has(p);
@@ -374,7 +405,7 @@ __BASE_JS__
       const w = textWidth(method);
       const toRight = px + 10 + w <= W - M.r;
       labels.push({
-        method, family: best.family, w,
+        method, family: best.family, shade: best.shade, w,
         anchor: toRight ? "start" : "end",
         // Anchored at its start the label runs right from `x`, at its end it runs
         // left to `x`; either way keep the far side off the plot frame.
@@ -399,7 +430,7 @@ __BASE_JS__
     for (const l of labels) {
       const t = el("text", {
         x: l.x, y: Math.max(l.y, M.t + 12), "font-size": 13, "font-weight": 700,
-        fill: FAM_VAR[l.family], "paint-order": "stroke", stroke: "var(--card)", "stroke-width": 3.5,
+        fill: famColor(l), "paint-order": "stroke", stroke: "var(--card)", "stroke-width": 3.5,
         "text-anchor": l.anchor,
       }, lg);
       t.textContent = l.method;
@@ -407,7 +438,7 @@ __BASE_JS__
 
     // invisible hit targets on top (bigger than marks)
     const hits = el("g", {}, svg);
-    for (const p of POINTS) {
+    for (const p of SHOWN) {
       const h = el("circle", { cx: X(p[xKey]), cy: Y(mval(p, metric)), r: 12, fill: "transparent", cursor: "pointer" }, hits);
       h.addEventListener("mouseenter", ev => showTip(p, ev));
       h.addEventListener("mousemove", ev => tip.move(ev));
@@ -434,11 +465,11 @@ __BASE_JS__
     emphasize(p.method, true);
     const sub = TRAJECTORY ? (p.n_configs != null ? `${p.n_configs} configs` : "") : (p.variant || "");
     let html = `<div class="t-name">${p.method}` + (sub ? ` <span class="t-var">(${sub})</span>` : "") + "</div>" +
-      `<div>${p.family}</div>`;
+      `<div>${famLabel(p)}</div>`;
     for (const m of METRICS) {
       html += `<div>${m.label}: <b>${fmtMetric(m, mval(p, m))}</b></div>`;
     }
-    html += `<div>${X_AXIS.short}: <b>${fmtTime(p[xKey])}</b></div>`;
+    html += `<div>${xAxis().short}: <b>${fmtTime(p[xKey])}</b></div>`;
     if (p.imputed) html += `<div class="t-imp">Imputed on ${fmtNum(p.imputed_pct, 0)}% of datasets</div>`;
     tip.show(html, ev);
   }
@@ -483,7 +514,7 @@ __BASE_JS__
       for (const m of methods) {
         const b = document.createElement("button");
         b.className = "chip";
-        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.style.setProperty("--fam", famColor(byMethod.get(m)[0]));
         const imputed = byMethod.get(m).some(p => p.imputed);
         const label = document.createElement("span");
         label.textContent = m;
@@ -520,8 +551,8 @@ __BASE_JS__
   // points and drops the excluded methods from the active set; a chart that was following
   // the front recomputes it over what is left.
   onExcludeMessage(excluded => {
-    SHOWN = ALL_POINTS.filter(p => !excluded.has(p.method));
-    indexPoints();
+    excludedMethods = excluded;
+    refilter();
     for (const m of [...state.active]) if (!byMethod.has(m)) state.active.delete(m);
     if (state.followFront) state.active = new Set(computeFront(metricByKey[metricKey]).methods);
     syncChips();
@@ -552,10 +583,32 @@ __BASE_JS__
   function showFront() {
     setActive(computeFront(metricByKey[metricKey]).methods, true);
   }
-  // Switching the y-axis moves the front, so the highlighted set moves with it.
+  // Switching an axis moves the front, so the highlighted set moves with it.
   function setMetric(key) {
     metricKey = key;
     if (state.followFront) showFront(); else render();
+  }
+  function setXAxis(key) {
+    xKey = key;
+    buildTable();
+    if (state.followFront) showFront(); else render();
+  }
+  // Another subset brings its own points, so the chips, legend and table are rebuilt; the highlighted
+  // methods stay where the subset has them.
+  function setSubset(key) {
+    subsetKey = key;
+    refilter();
+    chipsBox.innerHTML = "";
+    chipByMethod.clear();
+    famChips.clear();
+    buildChips();
+    for (const m of [...state.active]) if (!byMethod.has(m)) state.active.delete(m);
+    if (state.followFront) state.active = new Set(computeFront(metricByKey[metricKey]).methods);
+    showTitle();
+    buildLegend();
+    buildTable();
+    syncChips();
+    render();
   }
   document.getElementById("btn-front").addEventListener("click", showFront);
   document.getElementById("btn-all").addEventListener("click", () => setActive([...byMethod.keys()]));
@@ -575,6 +628,46 @@ __BASE_JS__
     metricSelect.addEventListener("change", ev => setMetric(ev.target.value));
   }
 
+  // subset selector (hidden when the page holds no subsets)
+  const subsetPick = document.getElementById("subsetpick");
+  const subsetSelect = document.getElementById("subset-select");
+  if (SUBSETS) {
+    subsetPick.hidden = false;
+    for (const s of SUBSETS) {
+      const opt = document.createElement("option");
+      opt.value = s.key;
+      opt.textContent = s.label;
+      subsetSelect.appendChild(opt);
+    }
+    subsetSelect.addEventListener("change", ev => setSubset(ev.target.value));
+  }
+
+  // x-axis selector (hidden when only one time axis is configured); axes that name a `group`
+  // (e.g. "Median, per 1K samples") are listed under it
+  const xAxisPick = document.getElementById("xaxispick");
+  const xAxisSelect = document.getElementById("xaxis-select");
+  if (X_AXES.length > 1) {
+    xAxisPick.hidden = false;
+    const groups = new Map();
+    for (const a of X_AXES) {
+      const opt = document.createElement("option");
+      opt.value = a.key;
+      opt.textContent = a.label;
+      if (a.group) {
+        if (!groups.has(a.group)) {
+          const og = document.createElement("optgroup");
+          og.label = a.group;
+          groups.set(a.group, og);
+          xAxisSelect.appendChild(og);
+        }
+        groups.get(a.group).appendChild(opt);
+      } else {
+        xAxisSelect.appendChild(opt);
+      }
+    }
+    xAxisSelect.addEventListener("change", ev => setXAxis(ev.target.value));
+  }
+
   // Embedded, the host can pick the metric for us: the leaderboard's "I care about" control
   // decides whether the page leads with Elo or Improvability, and every panel follows without
   // regenerating an artifact per metric. Ignored when the metric is not one this chart offers.
@@ -582,9 +675,19 @@ __BASE_JS__
   // here (or a paper-view toggle) changes the height. So a repeat of the host's last message is
   // ignored outright, rather than compared with the metric on screen: otherwise the reader's
   // own pick would be undone by the echo of a choice the host had already made.
+  // The host can pick the time axis the same way (``tabarena-explorer-xaxis``).
   let lastHostMetric = null;
+  let lastHostXAxis = null;
   window.addEventListener("message", ev => {
     const d = ev.data;
+    if (d && d.type === "tabarena-explorer-xaxis") {
+      if (d.xaxis === lastHostXAxis) return;
+      lastHostXAxis = d.xaxis;
+      if (!X_AXES.some(a => a.key === d.xaxis) || d.xaxis === xKey) return;
+      if (xAxisSelect) xAxisSelect.value = d.xaxis;
+      setXAxis(d.xaxis);
+      return;
+    }
     if (!d || d.type !== "tabarena-explorer-metric") return;
     if (d.metric === lastHostMetric) return;
     lastHostMetric = d.metric;
@@ -603,25 +706,25 @@ __BASE_JS__
         '<span class="item"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5" fill="var(--muted)"/></svg> Tuned</span>' +
         '<span class="item"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3,3 L11,11 M3,11 L11,3" stroke="var(--muted)" stroke-width="2.6" stroke-linecap="round"/></svg> Tuned + Ensembled</span>';
       // Systems draw as diamonds; the legend names them as the leaderboard table does.
-      if (POINTS.some(p => p.variant === "End-to-end")) {
+      if (SHOWN.some(p => p.variant === "End-to-end")) {
         html += '<span class="item" title="A system picked, tuned and combined its own models inside one budget; the tuning regimes do not apply to it"><svg width="14" height="14" viewBox="0 0 14 14"><rect x="3" y="3" width="8" height="8" rx="1" fill="var(--muted)" transform="rotate(45 7 7)"/></svg> End-to-end</span>';
       }
     } else {
       html += '<span class="item"><svg width="26" height="8" viewBox="0 0 26 8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--muted)" stroke-width="2"/><circle cx="6" cy="4" r="2.6" fill="var(--muted)"/><circle cx="16" cy="4" r="2.6" fill="var(--muted)"/></svg> Tuning trajectory (more configs &rarr; more time)</span>';
     }
     html += '<span class="item"><svg width="26" height="8" viewBox="0 0 26 8"><line x1="0" y1="4" x2="26" y2="4" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="6 4"/></svg> Pareto front (always shown)</span>';
-    if (POINTS.some(p => p.imputed)) {
+    if (SHOWN.some(p => p.imputed)) {
       html += '<span class="item"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="4" fill="var(--muted)"/><circle cx="9" cy="9" r="7.5" fill="none" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="3 2.5"/></svg> &Dagger; partially imputed</span>';
     }
     // Model family, named: highlighted points are colored by family, and in paper
     // view the chip list that would otherwise decode them is hidden.
-    const families = FAM_ORDER.filter(f => POINTS.some(p => p.family === f));
-    if (families.length > 1) {
+    const swatches = legendSwatches(SHOWN);
+    if (swatches.length > 1) {
       html += '<span class="legendbreak"></span><span class="item">Family:</span>';
-      for (const fam of families) {
+      for (const sw of swatches) {
         html += `<span class="item"><svg width="12" height="12" viewBox="0 0 12 12">` +
-          `<circle cx="6" cy="6" r="5" fill="${FAM_VAR[fam]}"/></svg> ` +
-          `<span style="color:${FAM_INK[fam]}">${fam}</span></span>`;
+          `<circle cx="6" cy="6" r="5" fill="${sw.color}"/></svg> ` +
+          `<span style="color:${sw.ink}">${sw.label}</span></span>`;
       }
     }
     box2.innerHTML = html;
@@ -634,13 +737,13 @@ __BASE_JS__
   // ---------- data table ----------
   function buildTable() {
     const m0 = metricByKey[METRICS[0].key];
-    const rows = [...POINTS].sort((a, b) =>
+    const rows = [...SHOWN].sort((a, b) =>
       m0.lowerBetter ? mval(a, m0) - mval(b, m0) : mval(b, m0) - mval(a, m0));
     let html = "<table><thead><tr><th>Method</th>";
     html += TRAJECTORY ? "<th>Configs</th>" : "<th>Variant</th>";
     html += "<th>Family</th>";
     for (const m of METRICS) html += `<th>${m.label}</th>`;
-    html += `<th>${X_AXIS.short}</th><th>Imputed</th></tr></thead><tbody>`;
+    html += `<th>${xAxis().short}</th><th>Imputed</th></tr></thead><tbody>`;
     for (const p of rows) {
       html += `<tr><td>${p.method}</td><td>${TRAJECTORY ? (p.n_configs != null ? p.n_configs : "—") : p.variant}</td><td>${p.family}</td>`;
       for (const m of METRICS) html += `<td>${fmtMetric(m, mval(p, m))}</td>`;

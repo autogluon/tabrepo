@@ -84,6 +84,13 @@ SMOKE_OVERRIDES: dict[str, ModelSmokeTest] = {
     # (over the class's cheap single member) reach the first `power` member of the classification
     # config (the fifth of the regression config), whose lambdas the wrapper's pickle has to survive.
     "LimiX-2": ModelSmokeTest({"n_estimators": 17}, verify_single_prediction_equivalent_to_multi=False),
+    # Kumo Tabular predicts under float16 autocast on CUDA, so a row predicted alone vs. inside a batch
+    # drifts up to ~4e-4 on toy classification data (the tolerance is 1e-5). The drift is numerical: with
+    # the autocast off it is ~1e-6, and `FitHelper.verify_model` passes with the check on under
+    # CUDA_VISIBLE_DEVICES="" for all three sizes.
+    "Kumo-Tabular": ModelSmokeTest({"num_estimators": 1}, verify_single_prediction_equivalent_to_multi=False),
+    "Kumo-Tabular-Medium": ModelSmokeTest({"num_estimators": 1}, verify_single_prediction_equivalent_to_multi=False),
+    "Kumo-Tabular-Small": ModelSmokeTest({"num_estimators": 1}, verify_single_prediction_equivalent_to_multi=False),
     "TabSTAR": ModelSmokeTest({"max_epochs": 1}),
     "TabSTAR-v1.1": ModelSmokeTest({"max_epochs": 1}),
     "TabFM": ModelSmokeTest({"n_estimators": 1}),
@@ -92,9 +99,8 @@ SMOKE_OVERRIDES: dict[str, ModelSmokeTest] = {
     "iLTM": ModelSmokeTest({"finetuning_max_steps": 1, "n_ensemble": 1, "tree_n_estimators": 1}),
     "OrionMSP": ModelSmokeTest({"n_estimators": 1}),
     "EXAONE-Tabular": ModelSmokeTest({"ensemble_count": 1}),
-    # Default n_estimators=8 forward passes through the foundation model per fold
-    # (enhance_candidates defaults to False, so the enhanced estimator's other
-    # ensembling/calibration knobs are inactive); drop to 1 for a fast smoke fit.
+    # Default n_estimators=8 forward passes through the foundation model per fold (the wrapper
+    # turns candidate enhancement off); drop to 1 for a fast smoke fit.
     "Xiaomi-TabLDM": ModelSmokeTest({"n_estimators": 1}),
     "Mitra-v2": ModelSmokeTest({"fine_tune_steps": 2}),
     "aplr": ModelSmokeTest({"cv_folds": 2}, use_larger_toy_datasets=True),

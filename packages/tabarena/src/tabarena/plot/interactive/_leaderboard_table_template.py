@@ -78,6 +78,7 @@ __BASE_CSS__
      disagree with the cross-subset table on the app page. */
   .variant-tag { color: var(--muted); font-weight: 400; font-size: 0.9em; }
   td.name .imp-mark { color: var(--muted); font-weight: 700; margin-left: 3px; }
+  td.num .fit-mark { font-weight: 700; margin-left: 2px; cursor: help; }
   td.name a { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
   td.name a:hover { text-decoration-style: solid; }
 
@@ -154,6 +155,9 @@ __BASE_JS__
   const VARIANT_BTN = { "Tuned + Ens.": "Tuned + Ensembled" };
   const variantText = v => VARIANT_TEXT[v] || v;
   const HAS_IMPUTED = POINTS.some(p => p.imputed);
+  const HAS_FIT_AT_PREDICT = POINTS.some(p => p.fits_at_predict);
+  const FIT_AT_PREDICT_HINT = "This method fits inside its prediction call, so its train time is the time of " +
+    "that call, from training data to predictions. Its predict time holds the fit too.";
 
   const state = {
     methods: new Set(POINTS.map(p => p.method)),
@@ -207,7 +211,7 @@ __BASE_JS__
 
   // ---------- cells ----------
   function nameCell(p) {
-    const ink = FAM_INK[p.family] || "var(--muted)";
+    const ink = famInk(p) || "var(--muted)";
     let inner = escapeHtml(p.method);
     if (p.variant) inner += ' <span class="variant-tag">(' + escapeHtml(variantText(p.variant)) + ")</span>";
     if (p.verified) inner += ' <span class="verified" title="Verified implementation">&#10004;&#65039;</span>';
@@ -296,10 +300,10 @@ __BASE_JS__
         if (col.key === "position") {
           html += '<td class="pos num" data-sort="' + p.position + '">' + p.position + "</td>";
         } else if (col.key === "family") {
-          const mark = FAM_VAR[p.family] || "var(--fam-baseline)";
+          const mark = famColor(p) || "var(--fam-baseline)";
           html += '<td class="type" data-sort="' + escapeHtml(p.family) + '" data-export="' + escapeHtml(p.family) +
             '"><span class="pill" style="background:color-mix(in srgb, ' + mark +
-            ' 13%, transparent);color:' + (FAM_INK[p.family] || "var(--muted)") +
+            ' 13%, transparent);color:' + (famInk(p) || "var(--muted)") +
             ";border:1px solid color-mix(in srgb, " + mark + ' 40%, transparent);">' +
             escapeHtml(p.family_symbol || "") + "</span></td>";
         } else if (col.key === "model") {
@@ -318,7 +322,8 @@ __BASE_JS__
       rows.length + (rows.length === 1 ? " row" : " rows") +
       " · click a column header to sort, hover one for what it means" +
       (heat.size ? " · green is better, red is worse, per column" : "") +
-      (HAS_IMPUTED ? " · ‡ marks a partly imputed score" : "");
+      (HAS_IMPUTED ? " · ‡ marks a partly imputed score" : "") +
+      (HAS_FIT_AT_PREDICT ? " · † train time includes the prediction call" : "");
     postHeight();
   }
 
@@ -335,6 +340,9 @@ __BASE_JS__
       style = ' style="background:' + heatColor(frac) + ';color:#f7f7f7;"';
     }
     let text = fmtNum(v, col.decimals) + (col.suffix || "");
+    if (col.key === "train_time" && p.fits_at_predict) {
+      text += '<span class="fit-mark" title="' + FIT_AT_PREDICT_HINT + '">&dagger;</span>';
+    }
     let ci = "";
     if (col.key === "elo" && p.elo_ci) {
       ci = ' <span class="ci">(' + escapeHtml(p.elo_ci) + ")</span>";
@@ -385,7 +393,7 @@ __BASE_JS__
         const imputed = POINTS.some(p => p.method === name && p.imputed);
         const b = document.createElement("button");
         b.className = "chip";
-        b.style.setProperty("--fam", FAM_VAR[fam]);
+        b.style.setProperty("--fam", famColor(POINTS.find(p => p.method === name)));
         b.innerHTML = '<span class="dot"></span><span>' + escapeHtml(name) + "</span>" +
           (imputed ? '<span class="imp-mark">&#8225;</span>' : "");
         b.title = name + (imputed ? " (partially imputed)" : "");

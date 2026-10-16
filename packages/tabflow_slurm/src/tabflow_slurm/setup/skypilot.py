@@ -61,6 +61,13 @@ if TYPE_CHECKING:
 WORKER_CACHE_ROOT = "$HOME/tabarena_sky/cache"
 #: The venv the job's setup builds on the VM (see ``sky_env.render_env_setup_script``).
 WORKER_PYTHON = "$HOME/tabarena_sky/venv/bin/python"
+#: Longest pool name whose worker clusters (``<pool>-<worker id>``, ids up to three digits) keep their full
+#: name on GCP. SkyPilot caps a GCP cluster name at 35 characters including the 9-character user hash and
+#: replaces a longer name by a 23-character prefix plus a 2-character hash, so the workers of one pool share
+#: 1296 names: two workers with the same name share a ``skypilot-cluster-name`` label, the pool controller's
+#: prober then fails on every pass and stops promoting finished workers to READY, and taking one of them down
+#: can delete the other's VM.
+MAX_POOL_NAME_LENGTH = 22
 
 
 class _LiteralDumper(yaml.SafeDumper):
@@ -132,13 +139,18 @@ class SkyPilotSetup(SchedulerSetup):
     :mod:`tabflow_slurm.setup.sky_cache`); ``None`` means ``<bucket>/tabarena/cache``, shared across
     users and runs. Workers only read it. Point it at a curated bucket this account cannot write to
     together with ``seed_dataset_cache=False``."""
+    weights_cache_uri: str | None = None
+    """Static prefix holding the model weights (the ``huggingface/``, ``xdg/`` and ``torch/`` trees plus
+    ``weights/<model>.json``); ``None`` means ``dataset_cache_uri``. Set it apart when the datasets go to a
+    private prefix (a gated or unpublished dataset collection) while the weights stay in the shared
+    cache, so they are not seeded a second time."""
     seed_dataset_cache: bool = True
     """Upload the run's datasets from this node's caches into ``dataset_cache_uri`` at setup (only
     what is missing) and verify. ``False`` only verifies; datasets missing remotely are downloaded by
     the workers from OpenML or the Hub as a fallback. A legacy data-foundry task pickle is upgraded
     to the portable format first."""
     seed_model_weights: bool = True
-    """Prefetch the run's model weights on this node into ``dataset_cache_uri`` (once per model; a
+    """Prefetch the run's model weights on this node into ``weights_cache_uri`` (once per model; a
     remote ``weights/<model>.json`` makes later setups skip it) so the workers load them from the
     bucket with ``HF_HUB_OFFLINE=1`` and need no Hugging Face token. ``False`` leaves the download to
     each worker (gated weights then need the token in ``secrets``)."""
@@ -148,7 +160,8 @@ class SkyPilotSetup(SchedulerSetup):
     use_pool: bool = False
     """Run on a job pool instead of one VM per managed job (see the class docstring)."""
     pool_name: str | None = None
-    """Pool name in pool mode; ``None`` means ``tabarena-gpu`` or ``tabarena-cpu`` by the run's resources."""
+    """Pool name in pool mode; ``None`` means ``tabarena-gpu`` or ``tabarena-cpu`` by the run's resources.
+    At most :data:`MAX_POOL_NAME_LENGTH` characters."""
     gpu_accelerator: str = "RTXPRO6000:1"
     """SkyPilot accelerator spec for GPU runs. The default is the card of the SLURM GPU partition (a
     ``g4-standard-48``: 96 GB VRAM, 48 vCPU, 180 GB RAM, spot); ``sky gpus list`` names the others.
@@ -191,6 +204,11 @@ class SkyPilotSetup(SchedulerSetup):
     def __post_init__(self) -> None:
         if self.workers < 1:
             raise ValueError(f"workers must be at least 1, got {self.workers}.")
+        if self.pool_name is not None and len(self.pool_name) > MAX_POOL_NAME_LENGTH:
+            raise ValueError(
+                f"pool_name {self.pool_name!r} has {len(self.pool_name)} characters; use at most "
+                f"{MAX_POOL_NAME_LENGTH}, or SkyPilot truncates its workers' GCP cluster names and they collide."
+            )
         self._synced: set[tuple[str, str]] = set()
 
     # ------------------------------------------------------------------ naming
@@ -210,6 +228,12 @@ class SkyPilotSetup(SchedulerSetup):
         if self.dataset_cache_uri is not None:
             return self.dataset_cache_uri.rstrip("/")
         return f"{self.bucket.rstrip('/')}/tabarena/cache"
+
+    @property
+    def resolved_weights_cache_uri(self) -> str:
+        if self.weights_cache_uri is not None:
+            return self.weights_cache_uri.rstrip("/")
+        return self.resolved_dataset_cache_uri
 
     def pool_for(self, resources: ResourcesSetup) -> str:
         if self.pool_name is not None:
@@ -328,7 +352,10 @@ class SkyPilotSetup(SchedulerSetup):
         )
         model_names = list(jobs_dict.get("model_names", []))
         cache_manifest = self._seed_dataset_cache(
-            Path(jobs_dict["defaults"]["job_batch_dir"]), model_names=model_names, python=str(path_setup.python_path)
+            Path(jobs_dict["defaults"]["job_batch_dir"]),
+            model_names=model_names,
+            python=str(path_setup.python_path),
+            systems=bool(jobs_dict.get("system_experiments")),
         )
         if cache_manifest is not None:
             (queue_dir / "cache_manifest.json").write_text(json.dumps(cache_manifest))
@@ -384,6 +411,7 @@ class SkyPilotSetup(SchedulerSetup):
                     "run_uri": layout.run_uri,
                     "env_manifest": env.manifest_uri,
                     "dataset_cache_uri": self.resolved_dataset_cache_uri,
+                    "weights_cache_uri": self.resolved_weights_cache_uri,
                     "n_tasks": n_tasks,
                     "n_items": sum(len(job["items"]) for job in all_jobs),
                     "commands": commands,
@@ -395,15 +423,18 @@ class SkyPilotSetup(SchedulerSetup):
             print("##### Setup Jobs\nRun the following command(s) to start the jobs:\n" + "\n".join(commands) + "\n")
         return commands
 
-    def _seed_dataset_cache(self, job_batch_dir: Path, *, model_names: list[str], python: str) -> dict | None:
+    def _seed_dataset_cache(
+        self, job_batch_dir: Path, *, model_names: list[str], python: str, systems: bool = False
+    ) -> dict | None:
         """Seed and verify the dataset and weight cache for this run; return the worker manifest.
 
         Reads the batch's ``task_metadata.csv`` (the tasks ``setup`` just materialized into this
         node's caches; rebound to the suite in ``task_source.json`` so a legacy pickle can be
         re-materialized) and copies their cache entries into ``dataset_cache_uri`` (see
-        :func:`tabflow_slurm.setup.sky_cache.seed_dataset_cache`), then the models' weights (see
-        :func:`tabflow_slurm.setup.sky_cache.seed_model_weights`). Returns ``None`` when the batch
-        directory carries no task metadata.
+        :func:`tabflow_slurm.setup.sky_cache.seed_dataset_cache`), then the models' weights into
+        ``weights_cache_uri`` (see :func:`tabflow_slurm.setup.sky_cache.seed_model_weights`). Returns ``None`` when the batch
+        directory carries no task metadata. ``systems`` keeps the workers online (``offline_weights=False``): a
+        system resolves its own checkpoints inside its fit, and none of them is seeded.
         """
         csv_path = job_batch_dir / "task_metadata.csv"
         if not csv_path.exists():
@@ -423,10 +454,17 @@ class SkyPilotSetup(SchedulerSetup):
             entries, storage=self.storage, cache_uri=cache_uri, upload=self.seed_dataset_cache
         )
         print(report.summary())
+        weights_cache_uri = self.resolved_weights_cache_uri
         weights, weights_report = seed_model_weights(
-            model_names, python=python, storage=self.storage, cache_uri=cache_uri, upload=self.seed_model_weights
+            model_names,
+            python=python,
+            storage=self.storage,
+            cache_uri=weights_cache_uri,
+            upload=self.seed_model_weights,
         )
-        manifest.update(weights)
+        if systems:
+            weights["offline_weights"] = False
+        manifest.update(weights, weights_cache_uri=weights_cache_uri)
         print(
             f"model weights: {weights_report.datasets} model(s), {weights_report.files} file(s), "
             f"{weights_report.total_bytes / 1e6:.0f} MB, {weights_report.uploaded_files} uploaded now; "

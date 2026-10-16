@@ -86,6 +86,13 @@ class TestSingleModel:
     def test_to_entry(self):
         assert SingleModel("X", "all").to_entry() == ("X", "all")
 
+    def test_from_input_with_pinned_hyperparameters(self):
+        """The bundle's `(name, n_configs, hyperparameters)` form round-trips through `SingleModel`."""
+        sm = SingleModel.from_input(("X", 0, {"max_cells": 10}))
+        assert sm == SingleModel(name="X", n_configs=0, hyperparameters={"max_cells": 10})
+        assert sm.to_entry() == ("X", 0, {"max_cells": 10})
+        assert SingleModel("X", 0, {}).to_entry() == ("X", 0)
+
 
 # ---------------------------------------------------------------------------
 # ModelJob normalization
@@ -382,3 +389,11 @@ class TestSchedulerAwarePlan:
         monkeypatch.setattr(plan, "build_setups", lambda num_ray_cpus="auto": [])
         assert plan.setup_jobs() == []
         assert len(calls) == (0 if nodes_fetch_themselves else 1)
+
+
+def test_format_models_names_system_generators():
+    from tabarena.systems import get_system_registry
+    from tabflow_slurm.setup.plan import _format_models
+
+    generator = get_system_registry()["TabFM+"].config_generator
+    assert _format_models([("RandomForest", 0), (generator, 0)]) == "RandomForest, TabFM+"

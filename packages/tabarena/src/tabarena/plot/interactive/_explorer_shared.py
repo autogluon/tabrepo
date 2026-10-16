@@ -18,7 +18,7 @@ import html
 import json
 from typing import TYPE_CHECKING
 
-from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, marker_edge_color
+from tabarena.plot.plot_pareto_focus import FAMILY_COLORS, SYSTEM_SHADE_COLORS, marker_edge_color
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -33,17 +33,24 @@ _FAMILY_CSS_TOKENS: dict[str, str] = {
     "Other": "--fam-other",
 }
 
+#: System shade (a key of :data:`SYSTEM_SHADE_COLORS`) -> the CSS custom property carrying it.
+_SHADE_CSS_TOKENS: dict[str, str] = {
+    "with-llm": "--fam-system-llm",
+    "closed-source-api": "--fam-system-api",
+}
+
 
 def _family_css_vars() -> str:
     """CSS custom-property lines carrying the shared family colors.
 
     ``--fam-<key>`` is the family color. ``--fam-<key>-edge`` is the edge an emphasized marker
     draws on the light surface: the family color darkened as in the static figures. Dark mode
-    overrides the edge tokens.
+    overrides the edge tokens. The system shades get the same pair.
     """
+    colors = [(token, FAMILY_COLORS[family]) for family, token in _FAMILY_CSS_TOKENS.items()]
+    colors += [(token, SYSTEM_SHADE_COLORS[shade]) for shade, token in _SHADE_CSS_TOKENS.items()]
     lines = []
-    for family, token in _FAMILY_CSS_TOKENS.items():
-        color = FAMILY_COLORS[family]
+    for token, color in colors:
         lines.append(f"    {token}: {color};")
         lines.append(f"    {token}-edge: {marker_edge_color(color)};")
     return "\n".join(lines)
@@ -120,6 +127,8 @@ _DARK_TOKENS = """
     --fam-nn-edge: var(--card);
     --fam-tree-edge: var(--card);
     --fam-system-edge: var(--card);
+    --fam-system-llm-edge: var(--card);
+    --fam-system-api-edge: var(--card);
     --fam-baseline-edge: var(--card);
     --fam-other-edge: var(--card);
     --var-default: #4386d5;
@@ -365,6 +374,45 @@ EXPLORER_BASE_JS = r"""
     "System": "var(--fam-system-edge)",
     [FAM_MERGED]: "var(--fam-baseline-edge)",
   };
+
+  // A system's shade (its `shade`, a tag from website_format.SYSTEM_SHADE_TAGS): the System colour
+  // one step darker the less of the system can be inspected. A record without one takes its
+  // family's colours. Like the System colour, a shade is its own text colour on both surfaces.
+  const SHADE_ORDER = ["with-llm", "closed-source-api"];
+  const SHADE_VAR = {
+    "with-llm": "var(--fam-system-llm)",
+    "closed-source-api": "var(--fam-system-api)",
+  };
+  const SHADE_EDGE = {
+    "with-llm": "var(--fam-system-llm-edge)",
+    "closed-source-api": "var(--fam-system-api-edge)",
+  };
+  const SHADE_LABEL = {
+    "with-llm": "System with LLMs",
+    "closed-source-api": "Closed-source API system",
+  };
+  // Mark, text and marker-edge colour of one record (a point, a method, a label).
+  const famColor = (r) => SHADE_VAR[r.shade] || FAM_VAR[r.family];
+  const famInk = (r) => SHADE_VAR[r.shade] || FAM_INK[r.family];
+  const famEdge = (r) => SHADE_EDGE[r.shade] || FAM_EDGE[r.family];
+  // What a tooltip names as the record's kind: its shade's label, or its family.
+  const famLabel = (r) => SHADE_LABEL[r.shade] || r.family;
+
+  // The colours a family legend names for `records`: each family present, with the shade of each
+  // kind of system present right after System, which itself appears only for an unshaded one.
+  function legendSwatches(records) {
+    const out = [];
+    for (const fam of FAM_ORDER) {
+      const members = records.filter(r => r.family === fam);
+      if (members.some(r => !SHADE_VAR[r.shade])) out.push({ label: fam, color: FAM_VAR[fam], ink: FAM_INK[fam] });
+      for (const shade of SHADE_ORDER) {
+        if (members.some(r => r.shade === shade)) {
+          out.push({ label: SHADE_LABEL[shade], color: SHADE_VAR[shade], ink: SHADE_VAR[shade] });
+        }
+      }
+    }
+    return out;
+  }
 
   // Create an SVG element with attributes, optionally appended to `parent`.
   function el(name, attrs, parent) {

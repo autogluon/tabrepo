@@ -141,6 +141,10 @@ class _CheapMeanModel(_MeanModel):
     cheap_hyperparameters = {"n_estimators": 1}
 
 
+class _GbmKeyMeanModel(_MeanModel):
+    ag_key = "GBM"
+
+
 class _GpuOnlyMeanModel(_MeanModel):
     ag_key = "_WARMUP_MEAN_GPU"
     minimum_num_gpus = 1
@@ -207,6 +211,16 @@ def throwaway_package(tmp_path, monkeypatch):
     sys.modules.pop(name, None)
     yield name
     sys.modules.pop(name, None)
+
+
+@pytest.fixture(autouse=True)
+def fresh_warm_memo():
+    """Every test starts in a process that has warmed nothing and frozen nothing (both are process-wide)."""
+    wu.reset_warm_memo()
+    wu.unfreeze_warm_heap()
+    yield
+    wu.reset_warm_memo()
+    wu.unfreeze_warm_heap()
 
 
 # --- imports and steps ---------------------------------------------------------------------------
@@ -564,6 +578,110 @@ def test_dummy_fit_runs_with_synthetic_shapes_and_cleans_up(tmp_path):
     assert torch.get_num_threads() == threads
 
 
+def test_dummy_fit_is_skipped_once_the_process_is_warm():
+    """The second warm-up of the same class, problem type, device kind and config skips the dummy fit."""
+    _MeanModel.fits.clear()
+    first = wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0, hyperparameters={"lr": 1})
+    second = wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0, hyperparameters={"lr": 1})
+    assert len(_MeanModel.fits) == 1
+    assert first.dummy_fit["ran"] is True and first.dummy_fit["skipped_reason"] is None
+    assert second.dummy_fit["ran"] is False and second.dummy_fit["skipped_reason"] == wu.ALREADY_WARM_REASON
+    assert "dummy_fit:_MeanModel:skipped" in second.steps and second.failed_steps == []
+    assert wu.already_warm(_MeanModel, problem_type="binary", num_gpus=0, hyperparameters={"lr": 1})
+
+
+def test_warm_memo_is_keyed_on_problem_type_device_and_config():
+    """A different problem type, GPU flag or model configuration warms again; AutoGluon's ag_args do not count."""
+    _MeanModel.fits.clear()
+    wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0, hyperparameters={"lr": 1})
+    wu.warmup_model_cls(_MeanModel, problem_type="regression", num_cpus=1, num_gpus=0, hyperparameters={"lr": 1})
+    wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0, hyperparameters={"lr": 2})
+    assert len(_MeanModel.fits) == 3
+    wu.warmup_model_cls(
+        _MeanModel,
+        problem_type="binary",
+        num_cpus=1,
+        num_gpus=0,
+        hyperparameters={"lr": 1, "ag_args": {"name_suffix": "_x"}},
+    )
+    assert len(_MeanModel.fits) == 3
+    assert wu.warm_key(_MeanModel, problem_type="binary", num_gpus=0, hyperparameters={"lr": 1}) != wu.warm_key(
+        _MeanModel, problem_type="binary", num_gpus=1, hyperparameters={"lr": 1}
+    )
+
+
+def test_warm_key_ignores_the_instances_a_config_holds():
+    """Feature generators rebuilt for every experiment key the same configuration; other values still count."""
+
+    class _Generator:
+        pass
+
+    def config(lr):
+        return {"lr": lr, "ag.model_specific_feature_generator_kwargs": {"feature_generators": [[_Generator()]]}}
+
+    first = wu.warm_key(_MeanModel, problem_type="binary", num_gpus=0, hyperparameters=config(1))
+    assert first == wu.warm_key(_MeanModel, problem_type="binary", num_gpus=0, hyperparameters=config(1))
+    assert first != wu.warm_key(_MeanModel, problem_type="binary", num_gpus=0, hyperparameters=config(2))
+    _MeanModel.fits.clear()
+    for _ in range(2):
+        hps = {"lr": 3, "init": _Generator()}
+        wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0, hyperparameters=hps)
+    assert len(_MeanModel.fits) == 1
+
+
+def test_failed_dummy_fit_is_not_remembered_as_warm(caplog):
+    with caplog.at_level(logging.WARNING):
+        wu.warmup_model_cls(_BoomModel, problem_type="binary", num_cpus=1, num_gpus=0)
+        second = wu.warmup_model_cls(_BoomModel, problem_type="binary", num_cpus=1, num_gpus=0)
+    assert second.dummy_fit["skipped_reason"] is None and second.dummy_fit["error"] is not None
+    assert not wu.already_warm(_BoomModel, problem_type="binary", num_gpus=0, hyperparameters=None)
+
+
+def test_warmup_always_env_disables_the_skip(monkeypatch):
+    _MeanModel.fits.clear()
+    monkeypatch.setenv(wu.WARMUP_ALWAYS_ENV, "1")
+    wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0)
+    wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0)
+    assert len(_MeanModel.fits) == 2
+
+
+def test_heap_is_frozen_once_per_process_after_a_completed_warmup():
+    import gc
+
+    first = wu.run_warmup_fn(
+        lambda: wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0), label="m"
+    )
+    assert first.status == "ok"
+    assert isinstance(first.heap_frozen, int) and first.heap_frozen > 0
+    assert gc.get_freeze_count() > 0  # objects freed by reference counting leave the frozen count, so no equality
+    second = wu.run_warmup_fn(
+        lambda: wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0), label="m"
+    )
+    assert second.heap_frozen is None and gc.get_freeze_count() > 0
+    assert wu.freeze_warm_heap() is None
+
+
+def test_failed_warmup_does_not_freeze_the_heap():
+    import gc
+
+    def boom():
+        raise RuntimeError("no")
+
+    report = wu.run_warmup_fn(boom, label="m")
+    assert report.status == "failed" and report.heap_frozen is None
+    assert gc.get_freeze_count() == 0
+
+
+def test_freeze_env_disables_the_heap_freeze(monkeypatch):
+    import gc
+
+    monkeypatch.setenv(wu.FREEZE_ENV, "0")
+    report = wu.run_warmup_fn(
+        lambda: wu.warmup_model_cls(_MeanModel, problem_type="binary", num_cpus=1, num_gpus=0), label="m"
+    )
+    assert report.status == "ok" and report.heap_frozen is None and gc.get_freeze_count() == 0
+
+
 def test_cpu_dummy_fit_never_forks_cuda_generators_on_a_cuda_host(monkeypatch):
     """``num_gpus=0`` forks only the CPU generator even when CUDA is available, so no context is created."""
     torch = pytest.importorskip("torch")
@@ -626,6 +744,41 @@ def test_dummy_fit_applies_class_overrides():
     assert fit["time_limit"] <= 7
     assert fit["params"]["n_estimators"] == 1 and fit["params"]["lr"] == 2
     assert report.dummy_fit["n_rows"] == 40
+
+
+def test_cheap_hyperparameters_cap_the_autogluon_gbdts():
+    from autogluon.tabular.models import CatBoostModel, LGBModel, XGBoostModel
+
+    assert wu.cheap_hyperparameters(LGBModel) == {"num_boost_round": 10}
+    assert wu.cheap_hyperparameters(CatBoostModel) == {"iterations": 10}
+    assert wu.cheap_hyperparameters(XGBoostModel) == {"n_estimators": 10}
+    assert wu.cheap_hyperparameters(_CheapMeanModel) == {"n_estimators": 1}
+    assert wu.cheap_hyperparameters(_MeanModel) == {}
+
+
+def test_tabm_dummy_fit_caps_its_epochs():
+    from tabarena.models.tabm.model import TabMModel
+
+    assert wu.cheap_hyperparameters(TabMModel) == {"n_epochs": 2}
+
+
+def test_realmlp_dummy_fit_trains_no_epochs():
+    from tabarena.models.realmlp.model import RealMLPModel
+
+    assert wu.cheap_hyperparameters(RealMLPModel) == {"n_epochs": 0}
+
+
+def test_dummy_fit_caps_the_rounds_of_an_autogluon_gbdt(recorded_imports):
+    _GbmKeyMeanModel.fits.clear()
+    wu.warmup_model_cls(
+        _GbmKeyMeanModel,
+        problem_type="binary",
+        num_cpus=1,
+        num_gpus=0,
+        hyperparameters={"num_boost_round": 50_000, "learning_rate": 0.02},
+    )
+    params = _GbmKeyMeanModel.fits[0]["params"]
+    assert params["num_boost_round"] == 10 and params["learning_rate"] == 0.02
 
 
 def test_dummy_fit_failure_is_recorded_not_raised(caplog):
@@ -727,3 +880,23 @@ def test_run_warmup_fn_failure_prints_header_and_traceback(capsys):
     header = "Warm-up of method 'MyMethod' failed (fitting cold instead):"
     assert header in out.out
     assert "RuntimeError: warm-up bug" in out.err
+
+
+# --- CUDA allocator ---------------------------------------------------------------------------
+
+
+def test_configure_cuda_allocator_sets_expandable_segments(monkeypatch):
+    pytest.importorskip("torch")
+    monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
+    wu.configure_cuda_allocator()
+    import os
+
+    assert os.environ["PYTORCH_CUDA_ALLOC_CONF"] == wu.CUDA_ALLOC_CONF
+
+
+def test_configure_cuda_allocator_respects_explicit_setting(monkeypatch):
+    monkeypatch.setenv("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:512")
+    wu.configure_cuda_allocator()
+    import os
+
+    assert os.environ["PYTORCH_CUDA_ALLOC_CONF"] == "max_split_size_mb:512"

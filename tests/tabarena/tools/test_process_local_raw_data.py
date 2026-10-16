@@ -1,7 +1,8 @@
-"""Tests for the metadata verification in `tabarena.tools.process_local_raw_data`.
+"""Tests for `tabarena.tools.process_local_raw_data`: the metadata verification and what processing forwards.
 
 The raw scan is replaced by a hand-built ``inferred`` dict (the output of ``_infer_from_raw``), so
-these exercise only the comparison rows and how ``verify_method_metadata`` gates on them.
+these exercise the comparison rows, how ``verify_method_metadata`` gates on them, and the arguments
+``process_methods`` passes on to ``EndToEnd.from_path_raw``.
 """
 
 from __future__ import annotations
@@ -206,3 +207,45 @@ def test_fold_histogram_labels_the_leave_one_out_child():
     )
     assert _fold_histogram(info_df) == [("8x1", 2), ("8x1 requested; 1 child via use_child_oof", 1)]
     assert _fold_histogram(pd.DataFrame({"is_bag": [True]})) == []
+
+
+def test_api_system_compute_is_the_providers_and_only_warns(capsys):
+    """An API run on a CPU client node infers cpu; the declared provider GPU must not block processing."""
+    inferred = _inferred(
+        inferred_method_type="baseline",
+        inferred_method="Api",
+        inferred_compute="cpu",
+        validation_protocol_keys=["system"],
+        inferred_validation_protocol="system",
+        validation_flavours=["system"],
+        fold_histogram=[],
+    )
+    api = RawMethod(
+        path_raw="/raw",
+        method_metadata=MethodMetadata.system(method="Api", suite="s", compute="gpu", tags=("closed-source-api",)),
+    )
+    verify_method_metadata(api, inferred=inferred)
+    out = capsys.readouterr().out
+    assert "[verify] OK" in out
+    assert "compute" in out
+
+    local = RawMethod(path_raw="/raw", method_metadata=MethodMetadata.system(method="Api", suite="s", compute="gpu"))
+    with pytest.raises(ValueError, match="compute"):
+        verify_method_metadata(local, inferred=inferred)
+
+
+@pytest.mark.parametrize("task_metadata", [None, object()])
+def test_processing_forwards_task_metadata(monkeypatch, tmp_path, task_metadata):
+    """The task metadata given to `process_methods` reaches `EndToEnd.from_path_raw` unchanged (None: fetch from OpenML)."""
+    import tabarena.tools.process_local_raw_data as process_module
+
+    calls: list[dict] = []
+    monkeypatch.setattr(process_module, "fetch_raw_result_paths", lambda **kwargs: [])
+    monkeypatch.setattr(process_module, "_infer_from_raw", lambda *args, **kwargs: _inferred())
+    monkeypatch.setattr(process_module.EndToEnd, "from_path_raw", staticmethod(lambda **kwargs: calls.append(kwargs)))
+
+    method = _raw_method()
+    method.path_raw = tmp_path
+    process_module.process_methods([method], inspect=False, process=True, backend="native", task_metadata=task_metadata)
+    assert len(calls) == 1
+    assert calls[0]["task_metadata"] is task_metadata

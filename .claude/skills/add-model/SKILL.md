@@ -1,6 +1,6 @@
 ---
 name: add-model
-description: Add a new ML model to the TabArena benchmark system. Use this skill whenever the user wants to integrate a new tabular ML model into TabArena — even if they just say "add X model", "integrate X", "support X", or "wrap X for the benchmark". Creates all required files: the AutoGluon model wrapper, the search-space generator, the per-model `info.py`, and the `pyproject.toml` extra (the model is fit-tested automatically by the registry-driven `test_all_models.py` — no per-model test file). Reads existing similar models for inspiration and optionally fetches documentation URLs to understand the new model's API.
+description: Add a new ML model to the TabArena benchmark system. Use this skill whenever the user wants to integrate a new tabular ML model into TabArena — even if they just say "add X model", "integrate X", "support X", or "wrap X for the benchmark". Creates all required files: the AutoGluon model wrapper, the search-space generator, the per-model `info.py`, and the `pyproject.toml` extra (the model is fit-tested automatically by the registry-driven `test_all_models.py`; tests specific to the model go into its own `models/<key>/tests/`, outside CI). Reads existing similar models for inspiration and optionally fetches documentation URLs to understand the new model's API.
 argument-hint: <ModelName> [<pip-package>] [<doc-url>]
 user-invocable: true
 ---
@@ -11,7 +11,7 @@ This skill integrates a new tabular ML model into the TabArena benchmark.
 
 Every model lives in **one folder** at `packages/tabarena/src/tabarena/models/<ModelKey>/`. That folder contains the wrapper, the HPO generator, and the metadata — and is auto-discovered by `tabarena.models._registry.discover_models()`. There is no separate `benchmark/models/ag/` layout anymore.
 
-Per model, you create up to 5 source files, then edit three existing files. There is no per-model test file — the model is fit-tested automatically by the registry-driven `tests/tabarena/models/test_all_models.py`.
+Per model, you create up to 5 source files, then edit three existing files. There is no per-model test file in `tests/` — the model is fit-tested automatically by the registry-driven `tests/tabarena/models/test_all_models.py`. Tests specific to the model go into its own folder (`models/<ModelKey>/tests/`, Step 3f), outside the default suite and CI.
 
 ## First: single model or external system?
 
@@ -65,13 +65,34 @@ If `doc_url` was provided, fetch it with WebFetch to understand:
 - `.predict()` / `.predict_proba()` signature
 - Key hyperparameters to expose
 
+Also check whether the library's `fit` tunes or selects anything on its own split of the training
+data: a hyperparameter search, an internal cross-validation or hold-out split, or ensemble or
+candidate weights solved on rows held out of `X`. A model submission must do any such step on the
+`X_val` / `y_val` TabArena passes to `_fit`, or not at all. When the library does one, raise it with
+the maintainer before writing the wrapper, quoting where it happens, and let them choose: integrate
+it as a system (`add-system`), wrap a version or checkpoint without the step, or have the wrapper
+run the step on the passed `X_val` / `y_val`, the way a fine-tuning API takes an eval set
+(autogluon/tabarena#637). Early stopping on `X_val` is fine, and so is an in-context model that
+ignores `X_val`. EXAONE-Tabular's regression hold-out (a fifth of the support rows, used for the
+member weights) was accepted by oversight and is no precedent.
+
+For an in-context model, check whether the library can cache the fitted context for later predict
+calls: a KV cache (TabICL's `kv_cache`, OrionMSP's `enable_kv_cache`), TabPFN's
+`fit_mode="fit_with_cache"`, or a `fit` that records the encoded context, as Kumo Tabular's library
+does. With `refit_folds` each bagged fold model predicts its out-of-fold rows once and is then
+dropped, so the cache pays off only in the refit model that serves the test predictions. Settle this
+in the model's first PR: expose the switch as a hyperparameter, off for the fold models and on for
+the refit model through `ag.refit_hyperparameters` in the default config, and estimate the cache's
+size for the largest tables against the workers' disk and RAM. See "Context caches: only in the refit
+model" in `references/model_patterns.md`.
+
 ## Step 2: Pick the right base class and reference model
 
 Choose the most similar existing model to read for detailed inspiration:
 
 | Model type | Base class | Read this reference model |
 |---|---|---|
-| Torch-based foundation / pre-trained GPU (e.g. TabPFN, TabICL) | `AbstractTorchModel` with a `shared_weights` declaration | `packages/tabarena/src/tabarena/models/tabicl/model.py` (the declaration of Step 3g); `tabdpt/` for a library that loads inside its constructor |
+| Torch-based foundation / pre-trained GPU (e.g. TabPFN, TabICL) | `AbstractTorchModel` with a `shared_weights` declaration | `packages/tabarena/src/tabarena/models/tabicl/model.py` (the declaration of Step 3g); `exaone_tabular/` for a library that loads inside its constructor, `tabdpt/` for a loader the constructor calls |
 | Torch NN trained from scratch (e.g. TabM, RealMLP) | `AbstractTorchModel` | `packages/tabarena/src/tabarena/models/tabm/model.py` |
 | Non-torch GPU model (e.g. JAX/Flax like TabFM, or any lib that manages its own device) | `AbstractModel` | `packages/tabarena/src/tabarena/models/tabstar/model.py` |
 | CPU / sklearn-like (e.g. KNN) | `AbstractModel` | `packages/tabarena/src/tabarena/models/knn/model.py` |
@@ -145,9 +166,9 @@ If the wrapper needs helper modules (preprocessors, vendored upstream code, larg
 
 Both subfolders need their own empty `__init__.py`. Import them from `model.py` via absolute paths, e.g. `from tabarena.models.{ModelKey}._internal.preprocessing import Preprocessor`.
 
-### 3f. Test config (no per-model test file)
+### 3f. Test config and the model's own tests
 
-There is **no per-model test file**. `tests/tabarena/models/test_all_models.py`
+There is **no per-model test file in `tests/`**. `tests/tabarena/models/test_all_models.py`
 is parametrized over the model registry, so it fits the new model automatically once
 its `info.py` is discoverable. It skips on `ImportError` (optional dep missing) and for
 GPU-only models without CUDA.
@@ -159,6 +180,16 @@ a speed-up: add one entry to `SMOKE_OVERRIDES`, keyed by the model's `MethodMeta
 fits fine with default hyperparameters on all problem types, add nothing. A wrapper that declares its
 cheapness knobs as the `cheap_hyperparameters` ClassVar (Step 3g) needs no entry either: `smoke_for`
 merges them into the smoke config and the warm-up dummy fit uses the same dict.
+
+Tests specific to the wrapper (a helper's edge cases, an equivalence check between two code paths, a
+save and load round trip) go into the model's own folder, never into `tests/`:
+`packages/tabarena/src/tabarena/models/{ModelKey}/tests/test_*.py` plus an empty `__init__.py`. Neither
+the default `pytest` (`testpaths = ["tests"]`) nor CI collects them, and the wheel leaves them out.
+Run them while working on the model: `pytest packages/tabarena/src/tabarena/models/{ModelKey}/tests`.
+Don't mark them `models` (the default `-m 'not models'` would deselect them on an explicit run too),
+skip on a missing optional dependency with `pytest.importorskip`, and write fit artifacts to `tmp_path`.
+`models/kumo_tabular/tests/` is an example. Add such tests only for logic the registry fit test does not
+reach; most models need none.
 
 ### 3g. Warm-up (untimed environment warm-up): decide, don't skip
 
@@ -209,16 +240,18 @@ found and removed later. The four shapes seen so far, with the in-tree reference
 |---|---|---|
 | flips a global torch flag or the root logger when imported or fitted (TF32, cuDNN, `logging.basicConfig`) | pin the flag explicitly in `_fit` right after the import (one policy for every fit, whatever imported first) and save/restore the rest in a context manager around the fit | `iltm/model.py` (`_isolate_iltm_global_state`, `allow_tf32 = False`) |
 | builds its network only at the first predict | build it at the end of `_fit`, so the load is shared and the timed predict starts warm | `nori/model.py` (the eager `_get_predictor()` call) |
-| loads the checkpoint inside `__init__`, with no `_load_model` and no `network=` argument | a `load_network(...)` function in `<model>/_estimators.py` replicating the loading half of the constructor (declared as the `shared_weights` loader), plus a constructor replica when the constructor cannot take a prebuilt network, guarded against library bumps | `tabdpt/_estimators.py`, `exaone_tabular/_estimators.py` |
+| loads the checkpoint inside `__init__`, with no `_load_model` and no `network=` argument | a `load_network(...)` function in `<model>/_estimators.py` replicating the loading half of the constructor (declared as the `shared_weights` loader), plus a constructor replica when the constructor cannot take a prebuilt network, guarded against library bumps | `exaone_tabular/_estimators.py` (TabDPT had one until layer6ai-labs/TabDPT-inference#79 merged) |
 | declares no `logger` until `__init__` ran, breaks after an unpickle, or has another bug the fit path hits | the narrowest patch at the call site, idempotent, applied where the code path enters the library | `iltm/model.py` (`_ensure_iltm_logger_patched`) |
 
 The header is the contract: the module docstring, function docstring or comment opens with
 `Developer fix` (or `Developer fix:` inline), then says what the library does, what it should offer
-instead, the version the fix was written against, and the upstream issue or PR once filed
-(`tabdpt/_estimators.py` links layer6ai-labs/TabDPT-inference#79). Before writing one, ask the
-library's maintainers for the seam (a separable loader, a `network=` argument, an import without
-side effects); file the issue or PR, link it from the header, and remove the fix when a release ships
-it. `grep -rn "Developer fix" packages/tabarena/src/tabarena/models` lists what is outstanding.
+instead, the version the fix was written against, and the upstream issue or PR once filed. Before
+writing one, ask the library's maintainers for the seam (a separable loader, a `network=` argument,
+an import without side effects); file the issue or PR, link it from the header, and remove the fix
+when the library ships it. TabDPT is the precedent: its constructor replica linked
+layer6ai-labs/TabDPT-inference#79, and once that merged `tabdpt/model.py` declared the upstream
+`_load_model` like TabICL, with the extra moved to the first release that carries it (`tabdpt>=1.3.1`).
+`grep -rn "Developer fix" packages/tabarena/src/tabarena/models` lists what is outstanding.
 Report every developer fix you add in Step 8.
 
 **Foundation models share one network.** A bagged fit of an in-context model would otherwise build
@@ -259,20 +292,24 @@ the network and takes it back on load, `set_device` swaps registry entries, and
 **The library contract.** What a library has to offer is one loader call whose inputs are estimator
 parameters (checkpoint name or path, device, and any flag that shapes the network) and whose effect
 is to produce the network, as a return value or as attributes it sets. Check this before integrating:
-if the library loads inside `__init__` (TabDPT, EXAONE Tabular), ask the maintainers for a separable
-loader or a `network=` constructor argument first, and only then fall back to an adapter in
-`<model>/_estimators.py`: a `load_network(...)` function that replicates the loading half of the
-constructor (the declared loader) and, when the constructor cannot take a prebuilt network, a
-constructor replica. Mark the module as a developer fix in its docstring, say what the library should
-offer instead, and guard the replica against library bumps (`tabdpt/_estimators.py`,
-`exaone_tabular/_estimators.py`). A library whose `__setstate__` re-runs its loader (tabicl) reloads
-shared for free; one that pickles its network (tabpfn) is covered by the generic weightless pickle.
-Wrappers that do not care about sharing simply declare nothing (TabDPT v1.1, TabPFN-Wide, SAP-RPT-OSS,
-iLTM whose library caches for itself).
+if the library loads inside `__init__` (EXAONE Tabular; TabDPT until its maintainers merged a
+separable `_load_model`), ask the maintainers for a separable loader or a `network=` constructor
+argument first, and only then fall back to an adapter in `<model>/_estimators.py`: a
+`load_network(...)` function that replicates the loading half of the constructor (the declared
+loader) and, when the constructor cannot take a prebuilt network, a constructor replica. Mark the
+module as a developer fix in its docstring, say what the library should offer instead, and guard the
+replica against library bumps (`exaone_tabular/_estimators.py`). A library whose `__setstate__`
+re-runs its loader (tabicl) reloads shared for free; one that pickles its network (tabpfn) is covered
+by the generic weightless pickle. A loader the constructor calls (tabdpt `_load_model`) works too, as
+long as the keyed attributes are set before the call; an input the constructor resolves after it
+(tabdpt `compile`) cannot go in `disabled_by`, so the wrapper overrides `_shares_weights` for it.
+Wrappers that do not care about sharing simply declare nothing (TabDPT v1.1 and TabDPT-Turbo, whose
+releases have no separable loader, TabPFN-Wide, SAP-RPT-OSS, iLTM whose library caches for itself).
 
 `references/model_patterns.md` under "Shared pretrained weights" has the field-by-field reference;
 `tabicl/model.py` is the plain in-tree case, `causilo/model.py` a function loader without a device
-input, `mitra_v2/model.py` a fine-tuning model, `tabdpt/` and `exaone_tabular/` the adapters.
+input, `mitra_v2/model.py` a fine-tuning model, `tabdpt/model.py` a loader the constructor calls and
+`exaone_tabular/` the adapter.
 
 Tests: `tests/tabarena/models/test_shared_weights_models.py` discovers every registered class that
 declares `shared_weights` and checks the declaration (well-formed, the loader resolves when the library
@@ -422,7 +459,7 @@ When asked to open the PR, use `.github/pull_request_template.md`: a two-to-four
 everything longer inside the collapsed `<details><summary>Details</summary>` block, the commands run
 under Tests. Fill in the "Model or system submission" section for a model (delete the system lines)
 and keep the closing contribution line. Do not paste this Report into the PR body; the Report is for
-the chat, the PR body is for the reviewers. State the TabArena-Lite (or BeyondArena `core`) results
+the chat, the PR body is for the reviewers. State the TabArena-Lite (or BeyondArena `core2k`) results
 with the hardware and the entry-point script if they exist; if they do not, say so, since a
 maintainer will ask (TabArena verifies submitted results by re-running them, it does not benchmark
 on request). Questions go through the issue forms in `.github/ISSUE_TEMPLATE/`.

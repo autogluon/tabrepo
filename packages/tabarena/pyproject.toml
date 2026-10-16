@@ -108,11 +108,12 @@ tabicl = ["tabicl>=2.0.0"]
 ebm = ["autogluon.tabular[interpret]>=1.6,<1.7"]
 search_spaces = ["configspace>=1.2,<2.0"]
 realmlp = ["pytabkit>=1.5.0,<2.0"]
-tabdpt = ["tabdpt>=1.2.0"]
+# 1.3.1 is the first release with TabDPT-1.3's shared-weights loader (`TabDPTEstimator._load_model`).
+tabdpt = ["tabdpt>=1.3.1"]
 tabm = ["torch", "tabm>=0.0.3", "rtdl_num_embeddings>=0.0.12"]
 
 # Extended model extras — opt-in individually or together via the `extended` union below.
-causilo = ["causilo==1.0.0"]
+causilo = ["causilo==1.0.2"]  # 1.0.2 fits more than ten classes with its own output codes; 1.0.0 rejected them
 modernnca = ["category_encoders"]
 xrfm = ["xrfm[cu12]"]
 # sap-rpt-oss and tabfm stay pinned to the git commits used for the benchmark runs, so these two
@@ -121,11 +122,16 @@ sap-rpt-oss = ["sap_rpt_oss @ git+https://github.com/SAP-samples/sap-rpt-1-oss.g
 # TabFM uses its PyTorch backend; the `[pytorch]` extra pulls `torch` for GPU/CPU execution.
 # Pinned to the same commit as tabfm/info.py's ModelInfo.pip_extra, so `pip install`
 # and the model registry's own metadata agree on which estimator was tuned.
-tabfm = ["tabfm[pytorch] @ git+https://github.com/google-research/tabfm.git@633cd265f498e1d20c9625be0639f6305d8e2541"]
+tabfm = [
+  "tabfm[pytorch] @ git+https://github.com/google-research/tabfm.git@fbb665569425fd2f490c6576b3af967876fe11ff",
+  "tabpfn-extensions[many_class]>=0.6.1",  # the output coding of datasets with more than ten classes
+]
 # Both TabSTAR generations ship in one package; 1.2.0 adds the v1.1 estimator and leaves the
 # v1 code path intact.
 tabstar = ["tabstar==1.2.0"]
 tabstar_v1p1 = ["tabstar==1.2.0"]
+# Chakra-Tab is a hosted API (systems/chakra_tab): the extra is only the HTTP client and the table encoding.
+chakra-tab = ["requests>=2.31", "pyarrow>=14"]
 perpetualboosting = ["perpetual"] # We used version 2.1.0
 # The benchmark runs installed TabTune from git main (kept as `pip_extra` in models/orionmsp/info.py);
 # 0.1.18 is the PyPI release that ships the `orionmsp_v15` modules the wrapper imports.
@@ -151,12 +157,13 @@ tabpfnwide = ["tabpfnwide>=0.3.0"]
 iltm = ["iltm>=0.1.1"]
 chimeraboost = ["chimeraboost>=0.30.0"]
 ctboost = ["ctboost==0.1.61"]
+prismboost = ["prismboost>=0.5.0"]
 nori = ["synthefy-nori>=0.10.0"]
 aplr = ["aplr>=10.26.0"]
 # EXAONE Tabular is not published on PyPI; pinned to a commit so the benchmarked code is fixed
 # (empty extra on PyPI). Keep in sync with `pip_extra` in models/exaone_tabular/info.py.
 exaone_tabular = [
-  "exaonetabular @ git+https://github.com/LGAI-Research/EXAONE-Tabular.git@cf55bd2d74aeb9c0b5d5d4f509d05831251a827e",
+  "exaonetabular @ git+https://github.com/LGAI-Research/EXAONE-Tabular.git@8638e07d09fad154249bd75ba4786181491f7025",
 ]
 # TabSwift is vendored under models/tabswift/_vendor/ (not pip-installable). All of its
 # runtime deps (torch, numpy, scikit-learn, scipy, psutil, tqdm, huggingface_hub, packaging)
@@ -164,7 +171,10 @@ exaone_tabular = [
 tabswift = []
 # TabLDM is not published on PyPI; pinned to a commit so the benchmarked code is fixed.
 # Keep in sync with `pip_extra` in models/tabldm/info.py.
-tabldm = ["Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@6773a30d43e43fad3e8b474e20ca8c7ec40dcd76"]
+tabldm = ["Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d3fc3b7a0644631c8e3c18fa50629440e334f3f4"]
+# Xiaomi-TabLDM+ (systems/tabldm_plus) runs the same commit as `tabldm`. Keep in sync with
+# `pip_extra` in systems/tabldm_plus/info.py.
+tabldm_plus = ["Xiaomi-TabLDM @ git+https://github.com/xiaomi-research/xiaomi-tabldm.git@d3fc3b7a0644631c8e3c18fa50629440e334f3f4"]
 # Mitra-v2 runs on AutoGluon's Mitra implementation; this is AutoGluon's own `mitra` extra
 # (loguru, einops, transformers, huggingface_hub, ...). Keep in sync with models/mitra_v2/info.py.
 # flash-attn is optional (faster attention, same results) and needs a prebuilt wheel:
@@ -173,6 +183,13 @@ mitra_v2 = ["autogluon.tabular[mitra]>=1.6,<1.7"]
 # TabPFN-3.5 / TabPFN-3.5-Fast need the release that ships the v3.5 checkpoints; the shared
 # `tabpfn` extra above stays at the floor the earlier TabPFN versions were benchmarked with.
 tabpfn_3_5 = ["tabpfn>=9.0.0"]
+# Kumo Tabular's library is not on PyPI yet (only a placeholder release); pinned to a commit so the
+# benchmarked code is fixed (empty extra on PyPI). Keep in sync with `pip_extra` in models/kumo_tabular/info.py.
+kumo_tabular = [
+  "structured-data-models @ git+https://github.com/NVIDIA/structured-data-models.git@98f61289c7a4e1bce3b33771223ac2e123b63f19",
+]
+# LightPFN: a 4.6M-parameter in-context classifier; keep in sync with `pip_extra` in models/lightpfn/info.py.
+lightpfn = ["lightpfn==1.0.0"]
 
 # Core benchmark set: the always-on models for benchmarking, plus the plotting and
 # preprocessing capabilities split out of the core install. Self-references avoid
@@ -208,6 +225,7 @@ extended = [
   "tabarena[iltm]",
   "tabarena[chimeraboost]",
   "tabarena[ctboost]",
+  "tabarena[prismboost]",
   "tabarena[nori]",
   "tabarena[aplr]",
   "tabarena[tabswift]",
@@ -215,6 +233,8 @@ extended = [
   "tabarena[tabldm]",
   "tabarena[mitra_v2]",
   "tabarena[tabpfn_3_5]",
+  "tabarena[kumo_tabular]",
+  "tabarena[lightpfn]",
 ]
 
 # Convenience: everything (core + extended + probmetrics).
@@ -247,6 +267,8 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["tabarena*"]
+# A model's or system's own tests (`models/<key>/tests/`, `systems/<key>/tests/`) live next to its code but do not ship.
+exclude = ["tabarena.*.tests", "tabarena.*.tests.*"]
 
 # Non-Python files shipped in the wheel, matched recursively so vendored models (configs, licenses)
 # are picked up wherever they live. `scripts/release/build_pypi_dists.py` fails the build when a

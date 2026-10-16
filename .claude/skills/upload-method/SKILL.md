@@ -1,6 +1,6 @@
 ---
 name: upload-method
-description: Process, upload, and register one benchmarked method's results in TabArena. Use this skill whenever a maintainer points at a benchmark run's output directory and wants to turn its raw `results.pkl` files into cached + hosted + registered TabArena artifacts — e.g. "upload this method", "process and upload these results", "host/publish <model>'s results", "register <model> in the leaderboard". By default Claude runs the whole flow itself (inspect → fix `info.py` → process → upload dry-run → real r2 upload → register in `methods.py`) after first telling the maintainer what it will do; it hands a step off via a command sheet only when the environment can't run it (no `tabarena[benchmark]` venv, no R2 credentials).
+description: Process, upload, and register one benchmarked method's results in TabArena. Use this skill whenever a maintainer points at a benchmark run's output directory and wants to turn its raw `results.pkl` files into cached + hosted + registered TabArena artifacts — e.g. "upload this method", "process and upload these results", "host/publish <model>'s results", "register <model> in the leaderboard". By default Claude runs the whole flow itself (inspect → fix `info.py` → process → upload dry-run → real r2 upload → register in `methods.py`) after first telling the maintainer what it will do, then removes the run's local copies that r2 now holds; it hands a step off via a command sheet only when the environment can't run it (no `tabarena[benchmark]` venv, no R2 credentials).
 argument-hint: <run-data-dir> [<model>]
 user-invocable: true
 ---
@@ -31,7 +31,9 @@ by default**, and makes the small deterministic code edits along the way.
      raw-data mismatches the inspect diff surfaces.
    - The arena collection registration in `methods.py` so the method appears in the benchmark.
    - The run's entry in `packages/tabflow_slurm/BENCHMARK_LOG.md`, if the launch stage never wrote one.
-4. **A fallback command sheet** only for steps the environment can't run.
+4. **Disk cleanup** once r2 is verified: the run's raw results, the cache copies made for the upload,
+   its setup and log directories, the pinned worktrees and venv, and the SkyPilot bucket data (Step 8).
+5. **A fallback command sheet** only for steps the environment can't run.
 
 Execution requirements (check before starting; hand off the affected step if missing):
 - a venv with **`tabarena[benchmark]`** installed (look under `~/.venvs/tabarena_*`; run scripts with
@@ -113,6 +115,16 @@ diff**. Use it to confirm `info.py` matches the raw data before processing. Two 
   arena's official protocol; a `holdout:`/`outer`/custom key there means the run cannot be uploaded as
   an official result. KNN's `8x1 requested; 1 child via use_child_oof` histogram line is expected.
 
+**BeyondArena runs**: the task directories of a BeyondArena run are named `<dataset>-<hash>`, not OpenML task
+ids, so `EndToEnd.from_path_raw` cannot infer the task metadata from them and filters every result out
+(`No results to process`). Add `--task-metadata BeyondArena` to the `run_process_method.py` commands so
+processing uses the committed collection (a driver passes `task_metadata=TaskMetadataCollection.from_source("BeyondArena")`
+to `process_method` / `process_raw`). Register the method in
+`contexts/beyondarena/methods.py` through the model's `ModelDescriptor` (`<x>_descriptor.method_metadata(...)`
+with the file's `_common_fm_kwargs` / `_common_bag_kwargs`), adding a descriptor to the model's `info.py` when
+it only has `MethodMetadata.config(...)` entries; the BeyondArena bundle names configs `<Method>_c1_BAG_L1`
+(no `_default` infix) and `method` follows the raw `ag_name` (`TA-...` for most wrappers, `Causilo` for Causilo).
+
 **Multi-method run dirs**: if the run's `data/` holds several methods' config dirs side by side,
 `run_process_method.py` can't split them — write a small gitignored driver in `tmp_scripts/` that
 discovers the `results.pkl` paths once, splits them by top-level config-dir prefix, and calls
@@ -132,7 +144,7 @@ maintainer normally hand-edits them — Claude does it now. Read the file first,
 | `cache_kwargs` | `{"bucket": "tabarena", "prefix": "cache"}` | The r2 location (`bucket` + `prefix`). Required when `cache_type="r2"`. |
 | `date` | `"YYYY-MM-DD"` | The run date. Validated as a real calendar date. |
 | `verified` | `False` (until signed off), then `True` | Manual trust flag. Keep `False` until the results are verified; flip to `True` once they are (typically the final step). |
-| `method_class` / `tags` | systems only | `MethodMetadata.system(...)` sets `method_class`; `tags` (`with-llm`, `closed-source-api`) decide which entrant pools the system competes in. Neither is inferable from raw data. |
+| `method_class` / `tags` | systems only | `MethodMetadata.system(...)` sets `method_class`; `tags` (`with-llm`, `closed-source-api`) decide which entrant pools the system competes in. Neither is inferable from raw data. A system with several configs (`<Name>_c1_default`, `_c2_default`, ...) is hosted as one `MethodMetadata` per config, like the AutoGluon presets in `systems/autogluon/info.py`. For a `closed-source-api` system `compute` is the provider's hardware: the raw results record the CPU client node, and the inspect step shows that mismatch as a warning, not an error. |
 | `validation_protocol` | the key the inspect step infers, e.g. `"8x1"` | The inner validation protocol the results record. `--process` requires it for a new run; `run_upload_results.py` refuses an upload whose processed artifact records a key `info.py` does not declare. `MethodMetadata.system(...)` defaults it to `"system"`. |
 
 Leave the other raw-inferable fields (`ag_key`, `config_default`, `can_hpo`, `is_bag`, `compute`,
@@ -175,6 +187,7 @@ Using `chimeraboost` as the example:
 <venv>/bin/python scripts/run_process_method.py <run_data_dir> \
     --method-metadata tabarena.models.chimeraboost.info:chimeraboost_method_metadata --process \
     --expect-validation-protocol tabarena  # the run must record TabArena's official protocol
+# (a BeyondArena run: --expect-validation-protocol beyondarena --task-metadata BeyondArena)
 
 # 4. Upload dry-run: verifies every part exists locally and prints what/where (no creds needed)
 <venv>/bin/python scripts/run_upload_results.py \
@@ -189,6 +202,14 @@ After the real upload, verify on the bucket (ListObjects via boto3 against the R
 method should have the full object set under
 `cache/artifacts/<suite>/methods/<Method>/` (`metadata.yaml`, `processed.zip`,
 `processed/configs_hyperparameters.json`, `raw.zip`, `results/*.parquet`).
+
+The real upload also records the MD5 of each uploaded results table in
+`packages/tabarena/src/tabarena/models/_artifacts/results_checksums.json`. Commit that diff together with the
+`info.py` / `methods.py` edits: `download="auto"` loaders re-download a cached table that differs from its committed
+checksum, and `tests/tabarena/tools/test_results_checksums.py` fails in CI when a registered method has no entry or
+an entry differs from the hosted object. For a re-upload under an existing suite the diff changes the old entries, which
+is what makes other machines replace their cached copies. `python -m tabarena.tools.results_checksums --check` compares
+the file with the hosted ETags (`--refresh` rewrites it from them).
 
 Notes:
 - `process` requires the explicit `--method-metadata` and verifies it against the raw data first; a
@@ -264,24 +285,70 @@ Touched files are the model's `info.py` and `contexts/<arena>/methods.py`. Fix a
 (the `from __future__ import annotations` import is already present in both — don't drop it).
 `BENCHMARK_LOG.md` is markdown, so ruff does not apply to it.
 
-## Step 8: Report
+## Step 8: Free the local disk (Claude does now)
+
+A finished run leaves several copies of its results behind: the raw `results.pkl` files in the
+workspace (about 100 GB per method for a full run), the copies `--process` made in the TabArena cache
+for the upload (raw plus about 10 GB processed), the setup files and logs, the pinned run environment,
+and for SkyPilot runs the bucket queue and results. Once the upload is verified, r2 holds everything
+needed to rebuild them, so remove them before reporting.
+
+Clean up only when all of these hold, and otherwise skip the step and say why in the report:
+
+1. Every method in the run's data dir was uploaded with `--no-dry-run`, and the bucket listing of Step 4
+   showed its full object set with non-zero sizes (`raw.zip` included; a run uploaded with
+   `--no-upload-raw` keeps its raw files). For a multi-method run that means all of its methods.
+2. The `info.py`, `methods.py` and `results_checksums.json` edits are in the working tree, and the
+   `BENCHMARK_LOG.md` entry exists (Step 6 reads the run's log timestamps and launch script).
+3. Nothing about the run is pending: no items to relaunch, no eval the maintainer still wants to redo.
+
+Remove, for the run's `<benchmark_name>`, `<suite>` and `<Method>` (the workspace is the `PathSetup`
+`workspace` of the launch script or the log entry; the cache root is `$TABARENA_CACHE`, default
+`~/.cache/tabarena`):
+
+| Path | What it holds | Why it can go |
+|---|---|---|
+| `<workspace>/output/<benchmark_name>/` | the raw `results.pkl` files (`run_data_dir`), including the SkyPilot mirror | uploaded as `raw.zip`; `method_metadata.method_downloader().download_raw()` restores them |
+| `<cache root>/artifacts/<suite>/methods/<Method>/raw/` and `processed/` | the copies `--process` made for the upload | uploaded as `raw.zip` and `processed.zip`; loaders download them on demand |
+| `<cache root>/artifacts/<benchmark_name>/` | the eval step's cache of the run before it was registered | the registered method loads from `<suite>` |
+| `<workspace>/setup_out/<benchmark_name>/` | job files, `experiments.yaml`, SkyPilot launch records | needed only to relaunch items; the log entry keeps the setup |
+| `<workspace>/slurm_out/<benchmark_name>/` | the SLURM logs | Step 6 is done with them |
+| `../tabarena-run-<benchmark_name>`, `../autogluon-run-<benchmark_name>` | the pinned worktrees, with the launch script, its logs and `tmp_scripts/eval_output/` | the log entry keeps the setup, the figures are in the published artifact, and the eval can be rerun from the hosted results; remove with `git worktree remove` (no `--force`) from each main checkout; gitignored files do not block it, so a refusal means uncommitted changes: ask |
+| `~/.venvs/tabarena_<benchmark_name>` | the run venv | only when it is not the active `$VIRTUAL_ENV` and `ps` shows no process running its python |
+| the `run_uri` in `<workspace>/setup_out/<benchmark_name>/sky/*/launch.json` | the SkyPilot queue and results (`gs://.../tabarena/runs/<benchmark_name>`) | read `run_uri` before deleting `setup_out`, check that the run's pool is down, then `gcloud storage rm -r <run_uri>` |
+
+Keep `metadata.yaml` and `results/` under `<cache root>/artifacts/<suite>/methods/<Method>/` (well under
+1 MB, and what `update-leaderboard` loads next), and leave every shared path alone: the workspace root,
+other runs' directories, `<cache root>/evaluations/` (task data), the bucket's dataset cache and
+`env/` manifests (shared by all runs), and any venv another run or session uses.
+
+Measure each path with `du -sh` first; on the NFS home that is slow, so run it in the background. State
+the list with sizes, then delete without waiting for approval unless the maintainer asked to review it.
+Name each path explicitly (never a glob that can reach another run), and run the large `rm -rf` in the
+background too. Report what was removed and how much space it freed.
+
+## Step 9: Report
 
 Tell the maintainer:
 
 - **What was executed and verified**: inspect diff results, processing outcome per method, and the
   r2 destinations confirmed after the real upload — plus any data-quality warnings from processing
   (e.g. `Not close TEST` prediction-fidelity lines, with affected datasets and severity).
+- **Disk cleanup**: the paths removed in Step 8 with the space freed, or why the step was skipped.
 - **Edits Claude made**: the `info.py` upload fields (suite / cache_type / cache_kwargs / date /
   verified, plus any inspect-diff fixes), the `methods.py` import + collection entry (and the
-  `methods_superseded` append, for a rerun), and the `BENCHMARK_LOG.md` entry (with the SHA it
+  `methods_superseded` append, for a rerun), the `results_checksums.json` entries the upload recorded, and the
+  `BENCHMARK_LOG.md` entry (with the SHA it
   recorded and how it was determined, since that one is inferred).
 - **Steps handed off** (only if the env couldn't run one): the exact command(s) from Step 4.
 - **Open decisions / TODOs**: whether to flip `verified` to `True` (only after sign-off), committing
   the working-tree edits, and — if the method should appear on the website — that `update-leaderboard`
   is the next lifecycle step.
 
-When asked to open the PR, use `.github/pull_request_template.md` and delete its "Model or system
-submission" section (that one is for external submissions). The summary names the method and what
-was uploaded; the collapsed Details block carries the method key, suite and date, the r2
+Open a PR, comment on one or edit its description only when the maintainer asks: the Report above
+goes to the chat, and any text meant for a PR is shown to the maintainer first and posted only after
+they say so. When asked to open the PR, use `.github/pull_request_template.md` and delete its "Model
+or system submission" section (that one is for external submissions). The summary names the method
+and what was uploaded; the collapsed Details block carries the method key, suite and date, the r2
 destinations, the `verified` state, and whether `update-leaderboard` is the next step. Do not paste
 this Report into the PR body.
