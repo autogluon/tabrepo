@@ -178,7 +178,14 @@ class TabSTARv1p1Model(AbstractTorchModel):
 
 
 def prefetch_weights() -> None:
-    """Pre-download the two checkpoints and the tokenizer (warms the cache for offline fits)."""
+    """Pre-download the two checkpoints and the text encoder (warms the cache for offline fits).
+
+    ``download_tabstar`` fetches the checkpoints and the encoder's tokenizer only. ``TabSTARModel.__init__``
+    also loads the encoder's own weights with ``AutoModel.from_pretrained``, so they are fetched here as well.
+    """
+    from tabstar.tabstarv1p1.constants import TEXT_MODEL
     from tabstar.tabstarv1p1.tabstar_checkpoints import download_tabstar
+    from transformers import AutoModel
 
     download_tabstar()
+    AutoModel.from_pretrained(TEXT_MODEL)
