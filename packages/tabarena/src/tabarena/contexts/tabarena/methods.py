@@ -124,6 +124,7 @@ from tabarena.models.tabpfnv2_5.info import (
     realtabpfnv25_method_metadata as realtabpfn25_metadata,
     tabpfnv26_method_metadata as tabpfn26_metadata,
 )
+from tabarena.models.tabstar_v1p1.info import tabstar_v1p1_method_metadata
 from tabarena.models.tabswift.info import (
     tabswift_2026_09_method_metadata,
     tabswift_method_metadata,
@@ -228,6 +229,7 @@ tabarena_method_metadata_collection = MethodMetadataCollection(
         realtabpfn25_metadata,
         contexttab_metadata,
         tabiclv2_2026_09_method_metadata,
+        tabstar_v1p1_method_metadata,
         perpetualbooster_metadata,
         tabpfn26_metadata,
         limix_metadata,
