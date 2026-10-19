@@ -108,7 +108,7 @@ class TabArenaExperimentBundle:
     Models one can use: "CatBoost", "EBM", "ExtraTrees", "FastaiMLP", "KNN", "LightGBM",
     "Linear", "ModernNCA", "TorchMLP", "RandomForest", "RealMLP", "TabDPT", "TabICL",
     "TabM", "TabPFNv2", "XGBoost", "Mitra", "xRFM", "RealTabPFN-v2.5", "SAP-RPT-OSS",
-    "TabICLv2", "PerpetualBooster", "TabSTAR"
+    "TabICLv2", "PerpetualBooster", "TabSTAR-v1.1"
 
     For the newest set of available models, see:
     `tabarena.models.utils.get_configs_generator_from_name`

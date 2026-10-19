@@ -34,7 +34,6 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "SAP-RPT-OSS": ("tabarena.models.sap_rpt_oss.hpo", "gen_sap_rpt_oss"),
     "TabICLv2": ("tabarena.models.tabicl.hpo", "gen_tabiclv2"),
     "PerpetualBooster": ("tabarena.models.perpetual_booster.hpo", "gen_perpetual_booster"),
-    "TabSTAR": ("tabarena.models.tabstar.hpo", "gen_tabstar"),
     "TabPFN-2.6": ("tabarena.models.tabpfnv2_5.hpo", "gen_tabpfnv26"),
     "OrionMSP": ("tabarena.models.orionmsp.hpo", "gen_orionmsp"),
     "LimiX": ("tabarena.models.limix.hpo", "gen_limix"),

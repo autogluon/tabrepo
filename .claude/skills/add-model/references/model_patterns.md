@@ -231,8 +231,8 @@ a later call needs, store it on the instance and override the getter. The
 - **Torch model (GPU or CPU NN):** `AbstractTorchModel`. Implement `get_device()` + `_set_device()`.
 - **Non-torch model that still runs on GPU** (JAX/Flax like TabFM, or any library that places itself
   on the device via `CUDA_VISIBLE_DEVICES` / `jax.devices()`): use **`AbstractModel`**, add the GPU
-  *resource* methods (below), and do **not** implement `get_device`/`_set_device`. `tabstar/model.py`
-  is a GPU foundation model on `AbstractModel`; `tabfm/model.py` is the JAX example.
+  *resource* methods (below), and do **not** implement `get_device`/`_set_device`. `xrfm/model.py`
+  is a GPU model on `AbstractModel`; `tabfm/model.py` is the JAX example.
 - **Pure CPU / sklearn-like:** `AbstractModel`.
 
 ### GPU model on `AbstractModel` (non-torch) variant
@@ -415,7 +415,7 @@ are warm (parallel-fold Ray workers are fresh processes).
 
 ```python
 # Torch-backed model on AbstractModel: "torch" also creates the CUDA context.
-# References: modernnca, xrfm, tabstar.
+# References: modernnca, xrfm.
 warmup_modules: ClassVar[tuple[str, ...]] = ("torch", "somelib", "somelib.model")
 ```
 
@@ -454,7 +454,7 @@ once more for the refit child, inside the timed fit. Every foundation-model libr
 network inside one call its `fit` makes: a method on the estimator (tabpfn
 `_initialize_model_variables`, tabicl and tabldm `_load_model`), a module function (causilo
 `load_pretrained_model`, the vendored LimiX `load_model`) or a classmethod (`Tab2D.from_pretrained`,
-`TabStarModel.from_pretrained`). The wrapper declares that call and the inputs that decide which
+`TabSTARModel.from_pretrained`). The wrapper declares that call and the inputs that decide which
 network it builds; AutoGluon's `AbstractTorchModel` memoizes it per process (the mechanism lives in
 `autogluon.core.models.abstract.shared_weights`, whose module docstring is the reference):
 
@@ -508,7 +508,7 @@ The declaration, field by field:
 - `disabled_by`: input names (disable when truthy) or predicates over the inputs, for
   configurations under which the library writes into or casts the network (a compiled module, a
   cached training context, a forced dtype); that fit builds its own.
-- `copy_per_fit`: `True` for a fine-tuning model (Mitra-v2, TabSTAR): the registry keeps the pristine
+- `copy_per_fit`: `True` for a fine-tuning model (Mitra-v2, TabSTAR-v1.1): the registry keeps the pristine
   network and every fit, the one that built the entry included, trains a deep copy and pickles it.
 
 Everything else is `AbstractTorchModel`'s: the first call in the process runs the library's code and
@@ -546,7 +546,7 @@ sharing declare nothing. "Developer fixes" below is the general form of this pat
 References: `tabicl/model.py` (the example above), `tabpfn_3/model.py` (a predicate in
 `disabled_by`; TabPFN-2.5 keeps its own copy in `tabpfnv2_5/model.py`), `causilo/model.py` and
 `limix/model.py` (function loaders without a device input), `tabfm/model.py` (a module function with
-`dtype` in the key), `mitra_v2/model.py` and `tabstar/model.py` (`copy_per_fit`).
+`dtype` in the key), `mitra_v2/model.py` and `tabstar_v1p1/model.py` (`copy_per_fit`).
 
 Tests: `tests/tabarena/models/test_shared_weights_models.py` discovers every registered class that
 declares `shared_weights` and checks the declaration: well-formed, the loader resolves when the

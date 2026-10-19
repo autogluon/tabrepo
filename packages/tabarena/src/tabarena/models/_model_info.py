@@ -31,7 +31,7 @@ class ModelInfo:
         The `MethodMetadata` artifact entry describing the benchmarked
         results (compute, ag_key, default config, etc.).
     pip_extra
-        Pip-install specs required to use this model (e.g. `("tabstar==1.1.15",)`).
+        Pip-install specs required to use this model (e.g. `("tabstar==1.2.0",)`).
         Empty tuple means no extra dependencies beyond the base install.
     prefetch_weights
         Optional zero-arg ``prefetch_weights`` callable that ensures this model's (foundation)

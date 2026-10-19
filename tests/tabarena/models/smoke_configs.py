@@ -91,7 +91,6 @@ SMOKE_OVERRIDES: dict[str, ModelSmokeTest] = {
     "Kumo-Tabular": ModelSmokeTest({"num_estimators": 1}, verify_single_prediction_equivalent_to_multi=False),
     "Kumo-Tabular-Medium": ModelSmokeTest({"num_estimators": 1}, verify_single_prediction_equivalent_to_multi=False),
     "Kumo-Tabular-Small": ModelSmokeTest({"num_estimators": 1}, verify_single_prediction_equivalent_to_multi=False),
-    "TabSTAR": ModelSmokeTest({"max_epochs": 1}),
     "TabSTAR-v1.1": ModelSmokeTest({"max_epochs": 1}),
     "TabFM": ModelSmokeTest({"n_estimators": 1}),
     "Nori": ModelSmokeTest(problem_types=("regression",)),
