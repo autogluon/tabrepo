@@ -34,6 +34,60 @@ run against `main`. To reproduce an entry, check out its recorded **git SHA**.
 
 ---
 
+## 2026-10-19 — tabstarv1p1_19102026
+
+- **Model(s):** TabSTAR-v1.1 (default config only, `NUM_CONFIGS=0`, all 816 splits)
+- **Git SHA:** `cfb14018` (PR #674, `alanarazi7:tabstar-v1p1`, with the maintainer fix that prefetches the e5-small-v2
+  encoder weights) in the detached worktree `../tabarena-run-tabstarv1p1_19102026`; editable AutoGluon worktree
+  `../autogluon-run-tabstarv1p1_19102026` at `82550be9`
+- **Validation protocol:** `8x1` (TabArena default, asserted by the context)
+- **Purpose:** Stage-2 maintainer run of the PR #674 submission (`tabstar==1.2.0`, `TabSTARv1p1Classifier` /
+  `TabSTARv1p1Regressor`, checkpoints `alana89/TabSTAR-v1.1-cls-20261011` and `alana89/TabSTAR-v1.1-reg-20261009`),
+  which replaces TabSTAR (v1) on the leaderboard.
+- **Notes:** SkyPilot job pool `tabstarv11-1910` (`--scheduler skypilot-pool`), 32 spot `g4-standard-48` workers
+  (RTX PRO 6000, 96 GB; `fake_memory_for_estimates=96`), bundle size 1, env manifest `26b731bec5e0`, run venv
+  `~/.venvs/tabarena_tabstarv1p1_19102026` (Python 3.12, torch 2.13.0+cu130, transformers 4.57.6). A first launch on
+  SLURM (`gpurtxpro6000flex`, array 1288882) was cancelled before any node booted. 17 weight files (506 MB, both
+  checkpoints and the e5-small-v2 encoder) seeded into the bucket cache and loaded offline. Launch
+  `tabstarv1p1_19102026_gpu-20261019-095305-e375` (managed jobs 17795-17826) ran from 12:00 to 14:30 CEST, 0 failed
+  items, 0 recoveries; pool taken down 14:30 CEST. Default 1 h time limit per config: no fit reached it (longest bagged
+  fit 2,586 s, median 58 s). `audit_warmup --results`: warm-up ok on all 816 items (mean 4.3 s), no packages imported
+  and no CUDA initialisation inside the timed fit or predict.
+  Result (full task set, 108 entrants): TabSTAR-v1.1 #77, Elo 1181 (+68/-84), between LightGBM default (1182) and
+  PrismBoost tuned (1180); binary #73/106 (1226), multiclass #85/106 (1140), regression #78/104 (1136); median per 1K
+  rows: train 40.4 s, inference 2.98 s. TabSTAR (v1) tuned #88 (1093), tuned + ensemble #89 (1092), default #101
+  (994); v1.1 has the lower error on 43/51 datasets against v1 default and 36/51 against v1 tuned. The submitters'
+  TabArena-Lite run (own A6000 / Quadro RTX 6000 boxes) reported #73/97 at Elo 1148. Processed and hosted on r2 as suite
+  `tabarena-2026-10-19` (`tabstar_v1p1_method_metadata` in `models/tabstar_v1p1/info.py`, `validation_protocol="8x1"`),
+  `verified=True` (maintainer sign-off 2026-10-19); it takes the slot of TabSTAR (v1), whose suite `tabarena-2026-03-18` stays
+  reachable through `methods_superseded`.
+
+```python
+from tabarena.benchmark.experiment import TabArenaV0pt1ExperimentBundle
+from tabarena.benchmark.task.metadata import TaskSubset
+from tabflow_slurm import ModelJob, PathSetup, SkyPilotSetup, TabArenaV0pt1BenchmarkPlan, TabArenaV0pt1ResourcesSetup
+
+plan = TabArenaV0pt1BenchmarkPlan(
+    benchmark_name="tabstarv1p1_19102026",
+    model_jobs=[
+        ModelJob(
+            models=("TabSTAR-v1.1", 0),
+            name="gpu",
+            resources={"num_gpus": 1, "fake_memory_for_estimates": 96},
+        ),
+    ],
+    task_subset=TaskSubset(),
+    path_setup=PathSetup(
+        workspace="/home/lennart_priorlabs_ai/workspace/benchmarking/tabarena_workspace",
+        python_path="/home/lennart_priorlabs_ai/.venvs/tabarena_tabstarv1p1_19102026/bin/python",
+    ),
+    experiment_bundle=TabArenaV0pt1ExperimentBundle(model_verbosity=2),
+    resources_setup=TabArenaV0pt1ResourcesSetup(num_cpus=None, memory_limit=None),
+    scheduler_setup=SkyPilotSetup(bundle_size=1, workers=32, use_pool=True, pool_name="tabstarv11-1910"),
+)
+plan.setup_jobs()
+```
+
 ## 2026-10-13 — tabldmplus_13102026
 
 - **Model(s):** Xiaomi-TabLDM+ (system, its one manual config `Xiaomi-TabLDM+_c1_default`) on every split of the

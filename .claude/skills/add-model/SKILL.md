@@ -94,7 +94,7 @@ Choose the most similar existing model to read for detailed inspiration:
 |---|---|---|
 | Torch-based foundation / pre-trained GPU (e.g. TabPFN, TabICL) | `AbstractTorchModel` with a `shared_weights` declaration | `packages/tabarena/src/tabarena/models/tabicl/model.py` (the declaration of Step 3g); `exaone_tabular/` for a library that loads inside its constructor, `tabdpt/` for a loader the constructor calls |
 | Torch NN trained from scratch (e.g. TabM, RealMLP) | `AbstractTorchModel` | `packages/tabarena/src/tabarena/models/tabm/model.py` |
-| Non-torch GPU model (e.g. JAX/Flax like TabFM, or any lib that manages its own device) | `AbstractModel` | `packages/tabarena/src/tabarena/models/tabstar/model.py` |
+| Non-torch GPU model (e.g. JAX/Flax like TabFM, or any lib that manages its own device) | `AbstractModel` | `packages/tabarena/src/tabarena/models/xrfm/model.py` |
 | CPU / sklearn-like (e.g. KNN) | `AbstractModel` | `packages/tabarena/src/tabarena/models/knn/model.py` |
 
 **`AbstractTorchModel` is only for torch-based models.** Its whole purpose is the torch device
@@ -104,7 +104,7 @@ or any library that manages device placement itself at the process level, e.g. v
 `CUDA_VISIBLE_DEVICES` / `jax.devices()`), inherit **`AbstractModel`** even though it runs on GPU, and
 just add the GPU resource attributes (`default_num_gpus`, `minimum_num_gpus`,
 `_default_ag_args_ensemble_extra` with `sequential_local`, plus `_more_tags`) — do **not**
-implement `get_device`/`_set_device`. `tabstar/model.py` (a GPU foundation model on `AbstractModel`)
+implement `get_device`/`_set_device`. `xrfm/model.py` (a GPU model on `AbstractModel`)
 is the reference; `tabfm/model.py` is the JAX example.
 
 Read the reference model file now (use the Read tool). Use it as a structural guide — you will adapt rather than copy.
@@ -140,7 +140,7 @@ The AutoGluon wrapper class. Use the template in `references/model_patterns.md` 
   model's smoke test fails. The others (`_get_default_resources`, `get_minimum_resources`,
   `_get_default_ag_args_ensemble`, `_get_default_auxiliary_params`) still work but are the old
   style. Never mutate `self.params` / `self.params_aux` after construction — it raises in 1.7.
-- **Honor the `_fit` contract** (read `references/model_patterns.md` → "The `_fit` contract"). The most common review findings on new wrappers are: ignoring the provided `X_val`/`y_val` (and instead auto-splitting a second holdout), ignoring `time_limit`, hardcoding the thread count instead of wiring `num_cpus`, and label-encoding + `fillna(0)` categoricals when the library handles them natively. `models/realmlp/model.py` is the reference for all of these. (In-context-learning foundation models have no train loop / no eval set, so they legitimately ignore `time_limit` + `X_val` — see `sap_rpt_oss`/`tabstar`/`tabfm`.)
+- **Honor the `_fit` contract** (read `references/model_patterns.md` → "The `_fit` contract"). The most common review findings on new wrappers are: ignoring the provided `X_val`/`y_val` (and instead auto-splitting a second holdout), ignoring `time_limit`, hardcoding the thread count instead of wiring `num_cpus`, and label-encoding + `fillna(0)` categoricals when the library handles them natively. `models/realmlp/model.py` is the reference for all of these. (In-context-learning foundation models have no train loop / no eval set, so they legitimately ignore `time_limit` + `X_val` — see `sap_rpt_oss`/`tabfm`.)
 - For GPU models: also set `default_resources_physical_cores_only = True`, `default_num_gpus = 1`, `minimum_num_gpus = 1`, and `_default_ag_args_ensemble_extra` (with `fold_fitting_strategy: sequential_local` — **and `refit_folds: True` for foundation/pre-trained TFMs**; see the "Foundation models: set `refit_folds=True`" note in `references/model_patterns.md`. From-scratch NNs omit it), plus `_more_tags()` (with `can_refit_full: True`). Do **not** declare a `can_estimate_memory_usage_static` tag: AutoGluon derives it from whether you implement `_estimate_memory_usage_static`. **Only torch models** (`AbstractTorchModel`) additionally implement `get_device()` / `_set_device()`; non-torch GPU models on `AbstractModel` must NOT (they have no `.to(device)`).
 - Docstring must include: description, paper title, authors, codebase URL, license
 - Keep optional third-party imports (the wrapped library itself) inside `_fit` / per-method scope so importing this module never requires the optional dep at top-level
@@ -220,7 +220,7 @@ order for every model; a new model declares only what the generic layers cannot 
 |---|---|
 | sklearn-like or lightweight | Nothing; the dummy fit covers it. |
 | Torch model on `AbstractTorchModel` | `warmup_modules` with the heavy extra imports (`transformers`, ...). |
-| Torch-backed model on `AbstractModel` | `warmup_modules = ("torch", "yourlib")`. References: `modernnca`, `xrfm`, `tabstar`. |
+| Torch-backed model on `AbstractModel` | `warmup_modules = ("torch", "yourlib")`. References: `modernnca`, `xrfm`. |
 | Library JIT-compiles kernels (numba, JAX, custom CUDA) | A `warmup` classmethod calling the library's pre-compile entry point when one exists (`chimeraboost`, whose `warmup()` needs `chimeraboost>=0.14.1`). Ask the user for the entry point and minimum version when the docs do not say. |
 | Foundation model with pretrained weights | A `shared_weights` declaration (below) plus `warmup_modules` for the library. |
 | The library itself blocks the warm-up or the sharing (import-time global side effect, lazy load at the first predict, load inside `__init__`, leaked global state) | A developer fix (below): the smallest workaround, headed `Developer fix`, with the upstream ask written down. |

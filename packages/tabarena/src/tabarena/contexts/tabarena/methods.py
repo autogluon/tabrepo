@@ -27,6 +27,7 @@ from tabarena.contexts.tabarena._tabarena_method_metadata_2026_01_23_tabprep imp
     tabprep_realtabpfnv250_metadata,
     tabprep_tabm_metadata,
 )
+from tabarena.contexts.tabarena._tabarena_method_metadata_2026_03_18 import tabstar_metadata
 from tabarena.contexts.tabarena._tabarena_method_metadata_2026_08_05 import (
     ag_160_eq_4h_metadata,
     ag_160_noncomm_4h_metadata,
@@ -123,7 +124,7 @@ from tabarena.models.tabpfnv2_5.info import (
     realtabpfnv25_method_metadata as realtabpfn25_metadata,
     tabpfnv26_method_metadata as tabpfn26_metadata,
 )
-from tabarena.models.tabstar.info import tabstar_method_metadata as tabstar_metadata
+from tabarena.models.tabstar_v1p1.info import tabstar_v1p1_method_metadata
 from tabarena.models.tabswift.info import (
     tabswift_2026_09_method_metadata,
     tabswift_method_metadata,
@@ -228,7 +229,7 @@ tabarena_method_metadata_collection = MethodMetadataCollection(
         realtabpfn25_metadata,
         contexttab_metadata,
         tabiclv2_2026_09_method_metadata,
-        tabstar_metadata,
+        tabstar_v1p1_method_metadata,
         perpetualbooster_metadata,
         tabpfn26_metadata,
         limix_metadata,
@@ -254,9 +255,9 @@ tabarena_method_metadata_collection = MethodMetadataCollection(
     ],
 )
 
-# Per-model `info.py` metadata that a rerun has replaced. These belong to no dated suite list above,
-# so they are named here to keep their hosted artifacts reachable through the complete collection.
-# Append a method here whenever a rerun takes over its slot in the collection.
+# Metadata that a rerun, or a newer version of the same model, has replaced. These belong to no dated
+# suite list above, so they are named here to keep their hosted artifacts reachable through the complete
+# collection. Append a method here whenever another method takes over its slot in the collection.
 methods_superseded: list[MethodMetadata] = [
     chimeraboost_method_metadata,  # 0.14.1 before the untimed warm-up (suite tabarena-2026-06-30)
     chimeraboost_new_method_metadata,  # 0.14.1 with the warm-up (suite tabarena-2026-07-13)
@@ -274,6 +275,7 @@ methods_superseded: list[MethodMetadata] = [
     causilo_method_metadata,  # rerun tabarena-2026-09-16 replaced it
     mitra_v2_method_metadata,  # rerun tabarena-2026-09-16 replaced it
     tabldm_method_metadata,  # rerun tabarena-2026-09-16 replaced it
+    tabstar_metadata,  # TabSTAR-v1.1 (models/tabstar_v1p1) replaced it
 ]
 
 # All historical results for each method = the latest collection + every superseded variant: the

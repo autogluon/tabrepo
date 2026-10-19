@@ -1,11 +1,16 @@
+"""TabSTAR (v1), suite tabarena-2026-03-18: hosted results of a model with no wrapper in this package.
+
+The installable TabSTAR is TabSTAR-v1.1 (`tabarena.models.tabstar_v1p1`), which holds the TabSTAR slot on the
+leaderboard. These results stay reachable through the complete method collection (`methods_superseded`).
+"""
+
 from __future__ import annotations
 
 from tabarena.models._method_metadata import MethodMetadata
-from tabarena.models._model_info import ModelInfo
-from tabarena.models.tabstar.hpo import gen_tabstar
-from tabarena.models.tabstar.model import TabSTARModel, prefetch_weights
 
-tabstar_method_metadata = MethodMetadata.config(
+__all__ = ["tabstar_metadata"]
+
+tabstar_metadata = MethodMetadata.config(
     method="TabSTAR",
     suite="tabarena-2026-03-18",
     ag_key="TABSTAR",
@@ -19,13 +24,4 @@ tabstar_method_metadata = MethodMetadata.config(
     reference_url="https://arxiv.org/abs/2505.18125",
     license="MIT (code); CC-BY-4.0 (weights)",
     display_name="TabSTAR",
-)
-
-
-tabstar_info = ModelInfo(
-    model_cls=TabSTARModel,
-    search_space=gen_tabstar,
-    method_metadata=tabstar_method_metadata,
-    pip_extra=("tabstar==1.1.15",),
-    prefetch_weights=prefetch_weights,
 )
