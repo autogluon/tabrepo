@@ -20,7 +20,7 @@ from tabarena.evaluation.subset_grid import (
     get_all_subset_combinations,
     get_website_folder_name,
 )
-from tabarena.nips2025_utils.compare import subset_tasks
+from tabarena.nips2025_utils.compare import filter_to_valid_tasks, subset_tasks
 from tabarena.plot.interactive.pareto_explorer import build_pareto_explorer_html
 from tabarena.plot.interactive.per_dataset_explorer import PER_DATASET_TRAJECTORIES_FILE
 from tabarena.plot.plot_pareto_focus import MUTED_COLOR, color_of, legend_swatches
@@ -1435,6 +1435,14 @@ def _prepare_tuning_trajectories_data(
     results_hpo["config_type"] = results_hpo["display_name"]
 
     combined_data = pd.concat([result_baselines, results_hpo], ignore_index=True)
+    # Scope to the context's task_metadata, as `compare` does: the baselines' results and the
+    # configs' trajectories cover the whole suite, so a pre-filtered context (a subset such as
+    # core2k, or `only_valid_tasks`) would otherwise rank every method on tasks outside it and
+    # drop the methods that ran only the context's tasks as imputed.
+    combined_data = filter_to_valid_tasks(
+        df_to_filter=combined_data,
+        df_filter=tabarena_context._task_metadata_results_filter(),
+    )
 
     # ----- add times per 1K samples -----
     # Per-dataset mean per-fold train/test sizes, derived natively from the collection's splits
