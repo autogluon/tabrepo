@@ -61,6 +61,7 @@ from tabarena.models.exaone_tabular.info import (
 )
 from tabarena.models.extra_trees.info import extra_trees_new_method_metadata
 from tabarena.models.fastai.info import fastai_method_metadata
+from tabarena.models.ftfm.info import ftfm_method_metadata
 from tabarena.models.iltm.info import iltm_method_metadata
 from tabarena.models.knn.info import knn_method_metadata as knn_metadata
 from tabarena.models.kumo_tabular.info import (
@@ -252,6 +253,7 @@ tabarena_method_metadata_collection = MethodMetadataCollection(
         kumo_tabular_medium_method_metadata,
         kumo_tabular_small_method_metadata,
         lightpfn_method_metadata,
+        ftfm_method_metadata,
     ],
 )
 
