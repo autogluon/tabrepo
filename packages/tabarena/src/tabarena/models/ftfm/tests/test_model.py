@@ -1,0 +1,41 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import pytest
+
+pytest.importorskip("ftfm")
+
+from tabarena.models.ftfm.model import FTFMModel
+
+
+def _frames(n_rows: int = 160, seed: int = 0) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame(rng.normal(size=(n_rows, 4)), columns=list("abcd"))
+    X["cat"] = pd.Series(rng.choice(["u", "v", "w"], size=n_rows), dtype="category")
+    y = pd.Series((X["a"] + (X["cat"] == "u") > 0).astype(int))
+    return X.iloc[:120], y.iloc[:120], X.iloc[120:]
+
+
+def _fit(tmp_path, name: str, X, y, cache_context: bool) -> FTFMModel:
+    model = FTFMModel(
+        path=str(tmp_path / name),
+        name=name,
+        problem_type="binary",
+        hyperparameters={"n_estimators": 2, "cache_context": cache_context},
+    )
+    model.fit(X=X, y=y, num_cpus=2, num_gpus=0)
+    return model
+
+
+def test_uncached_predicts_like_cached_and_keeps_no_context(tmp_path):
+    X, y, X_test = _frames()
+    cached = _fit(tmp_path, "cached", X, y, cache_context=True)
+    uncached = _fit(tmp_path, "uncached", X, y, cache_context=False)
+
+    assert cached.model.contexts_ is not None
+    assert getattr(uncached.model, "contexts_", None) is None
+    np.testing.assert_allclose(uncached.predict_proba(X_test), cached.predict_proba(X_test), rtol=1e-5, atol=1e-6)
+    # The contexts built for that predict are released again; a second call rebuilds them.
+    assert uncached.model.contexts_ is None
+    np.testing.assert_allclose(uncached.predict_proba(X_test), cached.predict_proba(X_test), rtol=1e-5, atol=1e-6)

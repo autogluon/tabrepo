@@ -32,6 +32,11 @@ class FTFMModel(AbstractTorchModel):
     views; a table with more than ten classes is fit through the library's error-correcting output
     codes, one context set per codeword.
 
+    ``cache_context`` decides when the contexts are built. True (the default) builds them in ``fit``,
+    so a predict only decodes. False keeps the support rows and builds the contexts inside every
+    predict call, releasing them after it; the default config uses that for the bagged fold models,
+    which predict once and are dropped, and True for the refit model.
+
     Authors: Josif Grabocka
     Codebase: https://github.com/machinelearningnuremberg/ftfm-official
     Weights: https://huggingface.co/josifgrabocka/ftfm
@@ -69,8 +74,13 @@ class FTFMModel(AbstractTorchModel):
         previous_threads = torch.get_num_threads()
         try:
             torch.set_num_threads(num_cpus)
-            self.model = FTFMClassifier(device=device, model_path=self.prefetch_weights(), **self._get_model_params())
-            self.model.fit(self.preprocess(X), y)
+            params = self._get_model_params()
+            cache_context = params.pop("cache_context")
+            self.model = FTFMClassifier(device=device, model_path=self.prefetch_weights(), **params)
+            if cache_context:
+                self.model.fit(self.preprocess(X), y)
+            else:
+                self.model.defer_fit(self.preprocess(X), y)
         finally:
             torch.set_num_threads(previous_threads)
 
@@ -86,6 +96,7 @@ class FTFMModel(AbstractTorchModel):
 
     def _set_default_params(self):
         self._set_default_param_value("n_estimators", 8)
+        self._set_default_param_value("cache_context", True)
 
     @classmethod
     def prefetch_weights(cls) -> Path:
