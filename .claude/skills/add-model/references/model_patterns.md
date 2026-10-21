@@ -181,6 +181,46 @@ tasks of a many-class head (autogluon/tabarena#641). A cache that writes into th
 off weight sharing for that fit (`disabled_by`, see "Shared pretrained weights"), so the refit model
 then loads its own copy.
 
+Check the pickle, not only the tensors. A pickle writes each tensor's whole underlying storage, so a
+cache whose per-member entries are slices of one batched tensor (FTFM prefills its eight views in one
+batch on CUDA and slices the result per member) pickles every member with all members' data: eight
+times its size. AutoGluon pickles a model to save it and also in memory to size it
+(`_get_pickled_size`), so the inflation fills the disk and the RAM at once, and on a 22k-row table
+FTFM's refit model was past 34 GB before the worker ran out of disk. CPU fits often take an unbatched
+path and hide it, so force the batched one (FTFM: `view_batch_size=8`) or measure on a GPU:
+
+```python
+import pickle
+
+import torch
+
+
+def storage_bytes(obj) -> tuple[int, int]:
+    """(bytes the tensors view, bytes of the storages behind them) for the tensors inside ``obj``."""
+    seen, viewed = {}, 0
+    def walk(value):
+        nonlocal viewed
+        if torch.is_tensor(value):
+            seen[value.untyped_storage().data_ptr()] = value.untyped_storage().nbytes()
+            viewed += value.numel() * value.element_size()
+        elif isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                walk(item)
+    walk(obj)
+    return viewed, sum(seen.values())
+
+# After a fit with the network detached (shared weights pickle without it):
+# len(pickle.dumps(estimator)) should be close to the viewed bytes of its cache, not a multiple of them.
+```
+
+When the pickle is a multiple of the viewed bytes, copy each slice into its own storage after `fit`
+(`tensor.clone()` for a tensor whose `untyped_storage().nbytes()` exceeds `numel() * element_size()`),
+which is bit-exact, mark it as a developer fix and ask the library to do it upstream;
+`models/ftfm/_estimators.py` (`_own_storage`) is the reference, with its test in `models/ftfm/tests/`.
+
 ### Declare config as class attributes (AutoGluon 1.6)
 
 AutoGluon 1.6 replaced a set of override methods with class attributes. Declare the attribute;

@@ -34,6 +34,49 @@ run against `main`. To reproduce an entry, check out its recorded **git SHA**.
 
 ---
 
+## 2026-10-21 — ftfmrerun_21102026
+
+- **Model(s):** FTFM (default config only, `NUM_CONFIGS=0`, the 594 classification splits; classification-only model)
+- **Git SHA:** `c3af7576` (PR #679, branch `add-ftfm`; HEAD from `git reflog` at the 09:49 UTC setup)
+- **Validation protocol:** `8x1`
+- **Purpose:** first TabArena-v0.1 run of FTFM-1 (machinelearningnuremberg/ftfm-official @ 7e5e237, Hugging Face
+  `josifgrabocka/ftfm` @ a8362b12). Hosted as suite `tabarena-2026-10-21`,
+  `tabarena.models.ftfm.info:ftfm_method_metadata`, `verified=False` until the author signs off.
+- **Notes:** SkyPilot pool `ftfmrerun-2110`, 32 spot RTX PRO 6000 (96 GB) workers on g4-standard-48 (176 GB RAM,
+  128 GB disk), bundle size 1, `fake_memory_for_estimates=96`, env manifest `env/dc45e35fd55b`, venv
+  `tabarena_10082026` with the `ftfm` extra. 594/594 items, 0 failures, about 1.5 h (10:00 to 11:33 UTC).
+  Supersedes `ftfm_21102026` (head 92680c8b), stopped at 424/594 with 11 failures: on CUDA the library keeps each
+  ensemble member's context as a slice of a view-batched tensor, so every pickle wrote all members' contexts (8x the
+  size). That filled the worker disk while saving the refit model and, through AutoGluon's pickle-based model
+  sizing, the RAM (160 GB on Amazon_employee_access). Fixed in 477b736c (`cache_context`: contexts only in the
+  refit model) and c3af7576 (each member's context in its own storage); a one-VM diagnosis (`ftfmdiag_21102026`,
+  the six failed tables, first split) passed before this relaunch. GiveMeSomeCredit peaked there at 151 GB RSS of
+  176 GB and 51 GB scratch, so the largest tables have little RAM headroom. Positions: classification #16/104
+  (Elo 1706 +72/-88), full #26/106 with regression imputed (25.5%). Per-dataset errors reproduce the paper's
+  Table 5 (arXiv 2610.25558) to its four decimals on all 38 datasets.
+
+```python
+plan = TabArenaV0pt1BenchmarkPlan(
+    benchmark_name="ftfmrerun_21102026",
+    model_jobs=[
+        ModelJob(
+            models=("FTFM", 0),
+            name="gpu",
+            resources={"num_gpus": 1, "fake_memory_for_estimates": 96},
+        ),
+    ],
+    task_subset=TaskSubset(subset="classification"),
+    path_setup=PathSetup(
+        workspace="/home/lennart_priorlabs_ai/workspace/benchmarking/tabarena_workspace",
+        python_path="/home/lennart_priorlabs_ai/.venvs/tabarena_10082026/bin/python",
+    ),
+    experiment_bundle=TabArenaV0pt1ExperimentBundle(model_verbosity=2),
+    resources_setup=TabArenaV0pt1ResourcesSetup(num_cpus=None, memory_limit=None),
+    scheduler_setup=SkyPilotSetup(bundle_size=1, workers=32, use_pool=True, pool_name="ftfmrerun-2110"),
+)
+plan.setup_jobs()
+```
+
 ## 2026-10-19 — tabstarv1p1_19102026
 
 - **Model(s):** TabSTAR-v1.1 (default config only, `NUM_CONFIGS=0`, all 816 splits)

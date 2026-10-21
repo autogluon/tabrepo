@@ -83,8 +83,11 @@ does. With `refit_folds` each bagged fold model predicts its out-of-fold rows on
 dropped, so the cache pays off only in the refit model that serves the test predictions. Settle this
 in the model's first PR: expose the switch as a hyperparameter, off for the fold models and on for
 the refit model through `ag.refit_hyperparameters` in the default config, and estimate the cache's
-size for the largest tables against the workers' disk and RAM. See "Context caches: only in the refit
-model" in `references/model_patterns.md`.
+size for the largest tables against the workers' disk and RAM. Then measure the fitted model's pickle
+against that estimate on the library's GPU code path: a cache kept as slices of one batched tensor
+pickles every slice's whole storage, which made FTFM's refit model eight times its real size and filled
+the workers' disk and RAM (autogluon/tabarena#679). See "Context caches: only in the refit model" in
+`references/model_patterns.md`.
 
 ## Step 2: Pick the right base class and reference model
 

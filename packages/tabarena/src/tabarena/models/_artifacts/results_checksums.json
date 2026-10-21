@@ -235,5 +235,7 @@
  "artifacts/tabarena-2026-10-09/methods/LightPFN/results/model_results.parquet": "de00e8b97891209a96e7491acf08706b",
  "artifacts/tabarena-2026-10-13/methods/Xiaomi-TabLDM+/results/model_results.parquet": "5ed2a6756391fcb6c94283f4c092c36f",
  "artifacts/tabarena-2026-10-19/methods/TabSTAR-v1.1/results/hpo_results.parquet": "b5a2cb120afafe0a691aaebc5c073792",
- "artifacts/tabarena-2026-10-19/methods/TabSTAR-v1.1/results/model_results.parquet": "afeeb9820126926611bdbe4aac56fff8"
+ "artifacts/tabarena-2026-10-19/methods/TabSTAR-v1.1/results/model_results.parquet": "afeeb9820126926611bdbe4aac56fff8",
+ "artifacts/tabarena-2026-10-21/methods/FTFM/results/hpo_results.parquet": "ff053d1f39f4daa10006a12f97bede79",
+ "artifacts/tabarena-2026-10-21/methods/FTFM/results/model_results.parquet": "c419fddd7180a0248391ec773a0d0d43"
 }
