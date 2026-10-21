@@ -19,14 +19,15 @@ ftfm_descriptor = ModelDescriptor(
 # the paper removes the tables overlapping TabArena or BeyondArena (123 -> 108) without saying how overlap
 # was matched, and the library's ensemble defaults were chosen on TabArena tables (comments in
 # ftfm/ensemble.py). Recheck both before comparing against a future version or a new arena.
-# Run ftfmrerun_21102026 (SkyPilot pool, 32 RTX PRO 6000, BENCHMARK_LOG.md): the 594 classification splits, default config.
+# Run ftfmrerun_21102026 (SkyPilot pool, 32 RTX PRO 6000, BENCHMARK_LOG.md): the 594 classification splits, default config;
+# verified (maintainer sign-off 2026-10-21).
 ftfm_method_metadata = ftfm_descriptor.method_metadata(
     method="FTFM",
     ag_key="TA-FTFM",
     model_key="FTFM",
     can_hpo=False,
     date="2026-10-21",
-    verified=False,
+    verified=True,
     validation_protocol="8x1",
     suite="tabarena-2026-10-21",
     cache_type="r2",
