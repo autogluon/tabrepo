@@ -15,6 +15,10 @@ ftfm_descriptor = ModelDescriptor(
     date_introduced="2026-10-03",  # first public release of the code and weights
 )
 
+# Pretraining mixes synthetic tables with TabDPT's OpenML corpus (stages B and C, arXiv 2610.25558 App. F);
+# the paper removes the tables overlapping TabArena or BeyondArena (123 -> 108) without saying how overlap
+# was matched, and the library's ensemble defaults were chosen on TabArena tables (comments in
+# ftfm/ensemble.py). Recheck both before comparing against a future version or a new arena.
 # Not benchmarked yet: suite, date and the hosted cache are set when the run's results are uploaded.
 ftfm_method_metadata = ftfm_descriptor.method_metadata(
     method="FTFM",
