@@ -1,0 +1,202 @@
+"""Fit and predict one agentic MLP with the modules of ``bin.mlp``.
+
+``_dataset`` and ``_train`` follow ``_build_dataset`` and ``train_and_eval`` in ``bin/mlp/pipeline.py``
+(agentic-tabular 3d7349b) on arrays in memory instead of a dataset directory. The package predicts only the
+rows present when its preprocessing is fit, so a prediction rebuilds the dataset with the new rows as the
+``test`` part; the preprocessing is seeded, so the training part comes out identical.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from contextlib import contextmanager
+
+import numpy as np
+import pandas as pd
+import torch
+from bin.mlp._util import is_oom_exception
+from bin.mlp.core import Dataset, logits_to_probs, seed_everything, to_torch
+from bin.mlp.hparams import resolve
+from bin.mlp.pipeline import _build_model, infer_loss_output_dim, predict
+from torch.nn.utils import parametrize
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def torch_threads(n_threads: int):
+    """Use ``n_threads`` torch threads inside the block. TF32 stays at torch's defaults, as in the package."""
+    old_threads = torch.get_num_threads()
+    try:
+        torch.set_num_threads(n_threads)
+        yield
+    finally:
+        torch.set_num_threads(old_threads)
+
+
+class EpochDeadline:
+    """TabArena's fit time limit. The package's train modules run to their epoch budget, as in its standalone
+    experiments; this wraps the inference call they make after each epoch and sets ``patience`` to 0 once the next
+    epoch would end past the deadline.
+    """
+
+    def __init__(self, inference_fn, deadline: float | None):
+        self.inference_fn = inference_fn
+        self.deadline = deadline
+        self.start = time.monotonic()
+        self.n_epochs = 0
+
+    def __call__(self, model, tensors, dataset, trial_params, device, parts):
+        predictions = self.inference_fn(model, tensors, dataset, trial_params, device, parts)
+        if self.deadline is not None and "val" in parts:
+            self.n_epochs += 1
+            now = time.monotonic()
+            if now + (now - self.start) / self.n_epochs >= self.deadline:
+                trial_params["patience"] = 0
+        return predictions
+
+
+class MLPImplementation:
+    """One fitted agentic MLP (a single bag child)."""
+
+    def __init__(
+        self, *, problem_type: str, n_classes: int, device: str, n_threads: int, eval_metric, indices, **params
+    ):
+        self.problem_type = problem_type
+        self.task_type = "binclass" if problem_type == "binary" else problem_type
+        self.n_classes = {"regression": 1, "binary": 2}.get(problem_type, n_classes)
+        self.device_ = torch.device(device)
+        self.n_threads = n_threads
+        if problem_type == "regression":
+            self.score_name = "rmse"
+        elif eval_metric.name == "accuracy":
+            self.score_name = "accuracy"
+        elif problem_type == "binary" and eval_metric.name == "roc_auc":
+            self.score_name = "roc-auc"
+        else:
+            self.score_name = "cross-entropy"
+        self.indices = indices
+        self.seed = int(params.pop("random_state") or 0)
+        self.params = params
+        self.model_ = None
+
+    def _split(self, X: pd.DataFrame) -> tuple[np.ndarray | None, np.ndarray | None]:
+        """Float32 numerical columns with NaN kept, and the categorical columns as codes over the training
+        categories, with unknown and missing values on the extra code ``len(categories)``.
+        """
+        x_num = X[self.num_cols_].to_numpy(dtype=np.float32) if self.num_cols_ else None
+        x_cat = None
+        if self.categories_:
+            columns = []
+            for col, cats in self.categories_.items():
+                codes = cats.get_indexer(X[col])
+                columns.append(np.where(codes < 0, len(cats), codes).astype(np.int64))
+            x_cat = np.column_stack(columns)
+        return x_num, x_cat
+
+    def _parts(self, x_num_test, x_cat_test, y_test) -> tuple[dict | None, dict | None, dict]:
+        x_num = None if self.x_num_fit_ is None else {**self.x_num_fit_, "test": x_num_test}
+        x_cat = None if self.x_cat_fit_ is None else {**self.x_cat_fit_, "test": x_cat_test}
+        return x_num, x_cat, {**self.y_fit_, "test": y_test}
+
+    def _dummy_targets(self, size: int) -> np.ndarray:
+        if self.task_type == "regression":
+            return np.zeros(size, dtype=np.float32)
+        if self.task_type == "binclass":
+            # The train modules score the test part every epoch, and roc-auc needs both classes there.
+            return np.resize(np.array([0, 1], dtype=np.int64), size)
+        return np.arange(size, dtype=np.int64) % self.n_classes
+
+    def _dataset(self, x_num, x_cat, y) -> Dataset:
+        config = {"seed": self.seed, "y_train": y["train"], "n_classes": self.n_classes, "task_type": self.task_type}
+        x_num, num_artifacts = self._stage("numerical_preprocess_idx")(x_num, config)
+        x_cat, cat_artifacts = self._stage("categorical_preprocess_idx")(x_cat, config)
+        y_prepared, target_artifacts = self._stage("target_preprocess_idx")(y, config)
+        return Dataset(
+            x_num=x_num,
+            x_cat=x_cat,
+            y=y_prepared,
+            y_raw=y,
+            task_type=self.task_type,
+            score_name=self.score_name,
+            n_classes=self.n_classes,
+            preprocess_artifacts={"numerical": num_artifacts, "categorical": cat_artifacts, "target": target_artifacts},
+        )
+
+    def _stage(self, key: str):
+        return resolve(key, self.indices[key], self.task_type)
+
+    def fit(self, X: pd.DataFrame, y: pd.Series, X_val: pd.DataFrame, y_val: pd.Series, time_limit: float | None):
+        cat_cols = [col for col in X.columns if isinstance(X[col].dtype, pd.CategoricalDtype)]
+        self.num_cols_ = [col for col in X.columns if col not in cat_cols]
+        # A sliced Categorical can keep levels seen only outside this fold; drop them so they map to unknown.
+        self.categories_ = {col: X[col].cat.remove_unused_categories().cat.categories for col in cat_cols}
+        x_num, x_cat = self._split(X)
+        x_num_val, x_cat_val = self._split(X_val)
+        self.x_num_fit_ = None if x_num is None else {"train": x_num, "val": x_num_val}
+        self.x_cat_fit_ = None if x_cat is None else {"train": x_cat, "val": x_cat_val}
+        self.y_fit_ = {"train": np.asarray(y), "val": np.asarray(y_val)}
+
+        # The pipeline needs a test part; two training rows stand in for it during the fit.
+        rows = [0, min(1, len(y) - 1)]
+        parts = self._parts(
+            None if x_num is None else x_num[rows], None if x_cat is None else x_cat[rows], self._dummy_targets(2)
+        )
+        deadline = None if time_limit is None else time.monotonic() + max(0.0, 0.9 * time_limit)
+        with torch_threads(self.n_threads):
+            while True:
+                try:
+                    seed_everything(self.seed)
+                    self.model_, self.trial_params_ = self._train(*parts, deadline)
+                    break
+                except Exception as err:
+                    eval_batch_size = int(self.params["eval_batch_size"])
+                    if not is_oom_exception(err) or eval_batch_size <= 1:
+                        raise
+                    logger.warning(f"Agentic MLP OOM with eval_batch_size={eval_batch_size}; retrying with half")
+                    self.params["eval_batch_size"] = eval_batch_size // 2
+                    if self.device_.type == "cuda":
+                        torch.cuda.empty_cache()
+
+        # torch cannot pickle a module with parametrizations (the spectral-norm MLP); keep the effective weights.
+        for module in self.model_.modules():
+            for name in list(getattr(module, "parametrizations", {})):
+                parametrize.remove_parametrizations(module, name, leave_parametrized=True)
+
+    def _train(self, x_num, x_cat, y, deadline: float | None) -> tuple[torch.nn.Module, dict]:
+        trial_params = {**self.params, "seed": self.seed}
+        dataset = self._dataset(x_num, x_cat, y)
+        tensors = to_torch(dataset, self.device_)
+        loss_fn = self._stage("loss_idx")
+        output_dim = infer_loss_output_dim(loss_fn, dataset)
+        model = _build_model(dataset, tensors, trial_params, self.indices, output_dim, self.device_)
+        optimizer_builder = self._stage("optimizer_idx")
+        train_fn = self._stage("train_idx")
+        inference_fn = EpochDeadline(self._stage("inference_idx"), deadline)
+        patience = trial_params["patience"]
+        train_fn(
+            model, tensors, dataset, trial_params, inference_fn, loss_fn, optimizer_builder, self.device_, self.seed
+        )
+        trial_params["patience"] = patience
+        return model, trial_params
+
+    def _predict(self, X: pd.DataFrame) -> np.ndarray:
+        parts = self._parts(*self._split(X), self._dummy_targets(len(X)))
+        with torch_threads(self.n_threads):
+            seed_everything(self.seed)
+            dataset = self._dataset(*parts)
+            tensors = to_torch(dataset, self.device_)
+            raw = predict(
+                self.model_, dataset, tensors, self.trial_params_, self.indices, self.device_, parts=("test",)
+            )
+        return np.asarray(raw["test"])
+
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
+        return self._predict(X).reshape(-1)
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        probs = np.asarray(logits_to_probs(self._predict(X), self.task_type))
+        if self.problem_type == "binary":
+            return np.column_stack([1.0 - probs, probs])
+        return probs
